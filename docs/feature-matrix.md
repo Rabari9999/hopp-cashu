@@ -52,6 +52,8 @@ community web page; they need a stable Listener API v1 first.
 
 - `feed_builder.py` hardcodes `fg.language('en')` — wrong for German shows,
   affects every podcast app.
+- Value recipients are keysend-only; adding `lnaddress` recipients lets boosts
+  arrive from wallets that cannot send keysend (ADR 0005).
 - Self-hosted feed lacks `podcast:season`/`episode`, VTT/JSON transcripts,
   `valueTimeSplit`, `image`, `trailer`, `updateFrequency`, `medium`, `podroll`,
   `alternateEnclosure`, `podping` — all of which the PodHome path delivers.

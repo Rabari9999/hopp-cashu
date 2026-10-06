@@ -5,13 +5,7 @@ carries the current **proposal**; once decided it becomes an ADR.
 
 ## 4. Wallet strategy
 
-Proposal: **NWC first, no built-in wallet.** The listener connects their own
-wallet (Alby Hub etc.); a `lightning:` deep link to an external wallet is the
-fallback for paying server-issued invoices (Release Boosting, Boost2Unlock,
-suggestions). Required: boosts with boostagram (bLIP-10 TLV), streaming sats
-with a budget, both `keysend` and `lnaddress` value methods. NWC wallets differ
-in `pay_keysend` support → fallbacks needed. Later: built-in self-custodial
-wallet (Breez Spark SDK), Cashu wallet / nutzaps (CDK).
+Decided → [ADR 0005](adr/0005-wallet-strategy.md).
 
 ## 5. Identity
 
