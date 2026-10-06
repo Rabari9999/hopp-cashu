@@ -25,7 +25,7 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:updateFrequency` | ❌ | ✅ | P1 | Drives refresh scheduling. |
 | `podcast:trailer` | ❌ | ✅ | P2 | |
 | `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
-| `podcast:podroll` / `remoteItem` | ❌ | ✅ | P2 | |
+| `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |
 | `podcast:medium` | ❌ | ✅ | P2 | Music medium → V4V music use case. |
 | `podcast:socialInteract` | ✅ (Nostr) | ❌ | P2 | Comments via Nostr. |
 | `podcast:txt` | ✅ | ✅ (`purpose="nostr"`) | P2 | `purpose="sovereigncast"` = discovery marker (ADR 0002). |
@@ -52,6 +52,9 @@ community web page; they need a stable Listener API v1 first.
 
 - `feed_builder.py` hardcodes `fg.language('en')` — wrong for German shows,
   affects every podcast app.
+- No Podcast Index registration for self-hosted shows, so search cannot find
+  them; `<podcast:podping usesPodping="true"/>` is not emitted although podping
+  sending exists (ADR 0008).
 - Value recipients are keysend-only; adding `lnaddress` recipients lets boosts
   arrive from wallets that cannot send keysend (ADR 0005).
 - Self-hosted feed lacks `podcast:season`/`episode`, VTT/JSON transcripts,

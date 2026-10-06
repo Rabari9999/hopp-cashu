@@ -15,6 +15,10 @@ Decided → [ADR 0006](adr/0006-identity.md).
 
 Decided → [ADR 0007](adr/0007-push-notifications.md).
 
+## Directories and discovery
+
+Decided → [ADR 0008](adr/0008-directories-and-discovery.md).
+
 ## 7. iOS App Store risk
 
 Paying to *unlock* content is what Apple polices (IAP rules); boosts/tips are
@@ -38,9 +42,13 @@ for the discovery endpoints already decided.
 ## 10. Phase plan
 
 Draft:
-- **P0** — spikes (ADR 0003), Listener API v1 spec, close Sovereigncast feed gaps.
-- **P1** — core player: subscribe (URL / Podcast Index / OPML), playback with
-  chapters, transcripts, persons, soundbites, downloads, boosts + streaming via NWC.
-- **P2** — Sovereigncast layer + richer P2.0 tags (see feature matrix).
-- **P3** — built-in wallet, ecash, sync, push, live items, Android Auto / CarPlay
-  (unless pulled earlier).
+- **P0** — spikes (ADR 0003, 0005), Listener API v1 spec, close Sovereigncast
+  feed gaps (feature matrix).
+- **P1** — core player: subscribe (search with V4V filter, feed URL, OPML,
+  podroll), playback with chapters, transcripts, persons, soundbites, downloads,
+  boosts + streaming via NWC, local background refresh.
+- **P2** — Sovereigncast layer, optional Nostr identity + sync, WebPush /
+  UnifiedPush, person search, trending, categories, richer P2.0 tags.
+- **P2–3** — push gateway for iOS / FCM.
+- **P3** — built-in Spark + Cashu wallets, Nostr-based Sovereigncast directory,
+  gPodder sync, live items, Android Auto / CarPlay (unless pulled earlier).
