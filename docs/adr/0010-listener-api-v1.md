@@ -64,7 +64,7 @@ Findings in the server code (2026-10-06) that the API depends on:
 
 | Endpoint | Purpose | Replaces / based on |
 |---|---|---|
-| `GET /api/listener/meta` | versions | new |
+| `GET /api/listener/meta` | versions, instance version, **instance id** | new |
 | `GET /v1/shows/by-guid/{guid}` | verification (ADR 0002), feed URL, **show capabilities**, minimum amounts | new, from community toggles |
 | `GET /v1/shows/{guid}/release-boosting` | next episode, goal, progress, halving clip | `release-boosting` |
 | `POST /v1/shows/{guid}/release-boosting/invoices` | pay a release boost | `create-boost` |
@@ -107,6 +107,10 @@ admin functions.
 5. Shared core extracted from `community.py`; `listener_api.py` with the
    endpoints above; prefixes in `auth.py` / `security.py`; contract tests.
 6. Clean up `GET /api/community/questions` (admin-only or remove).
+6b. The show page's "Listener apps" card calls `<public listener URL>/api/listener/meta`
+   and compares the instance id with its own, so a wrong address (another
+   instance, a typo, a home-network URL that happens to be https) is reported
+   instead of silently published.
 7. Later: "Open in Hopp" link + QR on the community page; community page onto v1.
 
 ## Consequences
