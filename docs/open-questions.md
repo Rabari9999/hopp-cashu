@@ -9,10 +9,7 @@ Decided → [ADR 0005](adr/0005-wallet-strategy.md).
 
 ## 5. Identity
 
-Proposal: **no account; optional Nostr identity** via Amber (NIP-55, Android)
-or a remote signer (NIP-46, both platforms). Unlocks `socialInteract`
-comments, a sender name on boosts, and encrypted subscription sync
-(e.g. NIP-78 app data). Mirrors Sovereigncast's existing Nostr login.
+Decided → [ADR 0006](adr/0006-identity.md).
 
 ## 6. Push notifications
 
