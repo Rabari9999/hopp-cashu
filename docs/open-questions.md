@@ -21,17 +21,15 @@ Decided → [ADR 0008](adr/0008-directories-and-discovery.md).
 
 ## 7. iOS App Store risk
 
-Paying to *unlock* content is what Apple polices (IAP rules); boosts/tips are
-established (Fountain, Podverse). Boost2Unlock is a collective unlock, not an
-individual purchase, but it is grey area. Proposal: every Sovereigncast feature
-is **switchable per platform** so iOS review cannot block the Android release.
+Decided → [ADR 0009](adr/0009-ios-app-store-strategy.md).
 
 ## 8. Distribution
 
 Proposal: Google Play, Zapstore (Nostr app store), possibly F-Droid
 (check dependencies for non-free components); iOS via TestFlight → App Store.
-Already fixed by ADR 0007: Android ships as two flavors, `play` (with FCM
-fallback) and `foss` (UnifiedPush only).
+Already fixed: Android ships as `play` (FCM fallback) and `foss` (UnifiedPush
+only) — ADR 0007; iOS as `appstore` (conservative) and `altstore` (AltStore
+PAL, full) — ADR 0009. Open: F-Droid vs. own repo, Zapstore, release cadence.
 
 ## 9. Listener API v1 (server side, in `nodesignal/podcasting_tools`)
 
