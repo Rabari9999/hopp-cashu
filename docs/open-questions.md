@@ -13,11 +13,7 @@ Decided → [ADR 0006](adr/0006-identity.md).
 
 ## 6. Push notifications
 
-Proposal: **none in the MVP.** Self-hosted instances cannot each hold APNs/FCM
-credentials for our app; push would need a central relay, which cuts against
-the sovereignty promise. MVP uses background refresh; later a small relay or
-UnifiedPush on Android. Release Boosting ("episode out now") is the strongest
-use case.
+Decided → [ADR 0007](adr/0007-push-notifications.md).
 
 ## 7. iOS App Store risk
 
@@ -30,6 +26,8 @@ is **switchable per platform** so iOS review cannot block the Android release.
 
 Proposal: Google Play, Zapstore (Nostr app store), possibly F-Droid
 (check dependencies for non-free components); iOS via TestFlight → App Store.
+Already fixed by ADR 0007: Android ships as two flavors, `play` (with FCM
+fallback) and `foss` (UnifiedPush only).
 
 ## 9. Listener API v1 (server side, in `nodesignal/podcasting_tools`)
 
