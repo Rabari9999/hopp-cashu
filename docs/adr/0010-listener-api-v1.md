@@ -70,7 +70,7 @@ Findings in the server code (2026-10-06) that the API depends on:
 | `POST /v1/shows/{guid}/release-boosting/invoices` | pay a release boost | `create-boost` |
 | `GET /v1/shows/{guid}/boost2unlock` | candidates, progress, clip | `boost2unlock` |
 | `POST /v1/shows/{guid}/boost2unlock/{episode_guid}/invoices` | pay Boost2Unlock | `create-boost2unlock` |
-| `GET /v1/shows/{guid}/clips/{id}` | unlocked clip audio | `release-clip.mp3`, `boost2unlock-clip` |
+| `GET /v1/shows/{guid}/release-boosting/clip`, `GET /v1/shows/{guid}/boost2unlock/{episode_guid}/clip` | unlocked clip audio | `release-clip.mp3`, `boost2unlock-clip` |
 | `GET /v1/shows/{guid}/suggestions` | open public suggestions | `open-suggestions` |
 | `POST /v1/shows/{guid}/suggestions` | submit (with invoice) | `create-question` |
 | `POST /v1/shows/{guid}/suggestions/{id}/votes` | free vote | `…/vote` |
@@ -91,7 +91,10 @@ admin functions.
 - **Shared core:** the logic is moved out of `community.py` into a shared module;
   the new `listener_api.py` blueprint uses it. `community.html` stays on
   `/api/community/*` for now and migrates to v1 in a later step.
-- **Contract:** OpenAPI 3.1 file in `podcasting_tools`; contract tests validate
+- **Contract:** OpenAPI 3.1 file in `podcasting_tools` at
+  `podcast_manager/api_specs/listener-v1.yaml` (written 2026-10-06; clips got
+  two explicit paths instead of the generic `clips/{id}`, since the two kinds
+  unlock differently); contract tests validate
   responses on both database backends. Hopp may generate its Kotlin client from it.
 
 ### Order of work in Sovereigncast
