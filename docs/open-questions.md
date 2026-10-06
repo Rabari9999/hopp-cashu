@@ -33,9 +33,7 @@ PAL, full) — ADR 0009. Open: F-Droid vs. own repo, Zapstore, release cadence.
 
 ## 9. Listener API v1 (server side, in `nodesignal/podcasting_tools`)
 
-Scope, auth model (public read, invoices for writes), rate limiting, versioning,
-OpenAPI contract as source of truth. See [ADR 0002](adr/0002-discovery-via-podcast-txt.md)
-for the discovery endpoints already decided.
+Decided → [ADR 0010](adr/0010-listener-api-v1.md).
 
 ## 10. Phase plan
 
