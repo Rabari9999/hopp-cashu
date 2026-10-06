@@ -26,9 +26,10 @@ Findings in the server code (2026-10-06) that the API depends on:
    feed (the Nodesignal feed carries `e8df0b13-…`), or the `by-guid`
    verification of ADR 0002 cannot work.
 3. **Episode mapping:** Hopp identifies episodes by the feed item `<guid>`.
-   Self-hosted: item guid = `episode_id`. PodHome: item guids are UUIDs,
-   presumably PodHome's episode ids, which Sovereigncast stores as
-   `episode_id` — **to verify** against the production database.
+   Self-hosted: item guid = `episode_id`. PodHome: **verified 2026-10-06** on
+   the production instance — the item guid *is* Sovereigncast's `episode_id`
+   (checked on E296 `9cd0c018-…` and E1 `39cd9550-…`, the newest and the
+   oldest episode). No mapping layer is needed.
 4. Side finding: `GET /api/community/questions` is commented "admin use" but is
    public and returns all paid suggestions with usernames.
 
@@ -98,8 +99,8 @@ admin functions.
 1. **Show-scoping first, as its own step:** Release Boosting / Boost2Unlock
    wallets, next episode and candidates per show (also fixes the community page
    on multi-show instances).
-2. Fill `podcast_guid` for PodHome shows from their feed; verify the PodHome
-   item-guid ↔ `episode_id` mapping.
+2. Fill `podcast_guid` for PodHome shows from their feed. (The PodHome
+   item-guid ↔ `episode_id` mapping is verified, see finding 3.)
 3. Public listener URL setting + `podcast:txt purpose="sovereigncast"` marker +
    feed check for PodHome shows (ADR 0002).
 4. OpenAPI contract for v1.
