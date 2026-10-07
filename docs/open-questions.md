@@ -45,8 +45,7 @@ Decided → [ADR 0015](adr/0015-privacy.md).
 
 ## 14. Languages and accessibility
 
-German and English from the start? Screen reader support, dynamic font sizes,
-contrast — what is a release requirement.
+Decided → [ADR 0016](adr/0016-languages-and-accessibility.md).
 
 ## 15. Quality and builds
 
