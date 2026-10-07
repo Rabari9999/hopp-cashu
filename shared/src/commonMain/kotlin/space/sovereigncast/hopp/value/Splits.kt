@@ -21,6 +21,11 @@ object Splits {
     fun divide(recipients: List<ValueRecipient>, totalMsat: Long): List<Share> {
         if (totalMsat <= 0) return emptyList()
         val payable = recipients.filter { it.address.isNotBlank() && it.split > 0 }
+        // A block of nothing but fee recipients has no rest to share out:
+        // divide it by weight, as Sovereigncast does.
+        if (payable.none { !it.fee }) {
+            return largestRemainder(payable, totalMsat).filter { it.second > 0 }.map { Share(it.first, it.second) }
+        }
         val fees = payable.filter { it.fee }
         val shares = payable.filterNot { it.fee }
 

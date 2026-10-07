@@ -33,6 +33,13 @@ class SplitsTest {
     }
 
     @Test
+    fun aBlockOfOnlyFeeRecipientsIsDividedByWeight() {
+        // Same case as Sovereigncast's test_a_block_of_only_fee_recipients_is_divided_by_weight.
+        val shares = Splits.divide(listOf(r("a", 1, fee = true), r("b", 3, fee = true)), 100_000)
+        assertEquals(mapOf("a" to 25_000L, "b" to 75_000L), amounts(shares))
+    }
+
+    @Test
     fun recipientsWithoutAddressOrSplitAreLeftOut() {
         val shares = Splits.divide(listOf(r("a", 50), r("b", 50, address = ""), r("c", 0)), 1000)
         assertEquals(mapOf("a" to 1000L), amounts(shares))

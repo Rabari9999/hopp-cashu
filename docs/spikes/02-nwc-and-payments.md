@@ -76,5 +76,13 @@ and mocked LNURL endpoints.
 
 - Relay behaviour in the wild over longer sessions: auth (NIP-42) prompts,
   rate limits, slow `OK`.
-- That the boost shows up in Sovereigncast as a boostagram on the episode
-  (invoice → episode linking by GUID).
+- ~~That the boost shows up in Sovereigncast as a boostagram on the episode~~
+  — confirmed by the maintainer: Nodesignal's Sovereigncast assigned it to the
+  right episode (invoice → episode linking by GUID works end to end).
+
+## Server side, done after the spike (podcasting_tools)
+
+- `_split_recipients` takes fee recipients off the top, like Hopp.
+- Listener API: `POST /v1/shows/{guid}/payment-metadata` and
+  `GET /v1/payment-metadata/{id}` (capability `payment_metadata`) — the URL for
+  `rss::payment` comments, with the `x-rss-payment` header.
