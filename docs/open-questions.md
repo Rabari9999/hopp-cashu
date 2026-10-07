@@ -25,15 +25,39 @@ Decided → [ADR 0009](adr/0009-ios-app-store-strategy.md).
 
 ## 8. Distribution
 
-Proposal: Google Play, Zapstore (Nostr app store), possibly F-Droid
-(check dependencies for non-free components); iOS via TestFlight → App Store.
-Already fixed: Android ships as `play` (FCM fallback) and `foss` (UnifiedPush
-only) — ADR 0007; iOS as `appstore` (conservative) and `altstore` (AltStore
-PAL, full) — ADR 0009. Open: F-Droid vs. own repo, Zapstore, release cadence.
+Decided → [ADR 0011](adr/0011-distribution.md).
 
 ## 9. Listener API v1 (server side, in `nodesignal/podcasting_tools`)
 
 Decided → [ADR 0010](adr/0010-listener-api-v1.md).
+
+## 11. Player features in phase 1
+
+Playback (speed, skip intervals, gapless resume), queue, downloads (automatic or
+manual, storage limits), sleep timer, chapter and transcript views, lock screen
+and headset controls, car integration (Android Auto / CarPlay — phase 1 or 3?).
+
+## 12. App architecture
+
+Module layout of the KMP project, local data model (SQLDelight), feed refresh
+strategy and conditional requests, offline behaviour, how the Sovereigncast
+layer caches and polls the Listener API.
+
+## 13. Privacy
+
+What the app reveals: its User-Agent (so Sovereigncast's download statistics can
+count it), no analytics, crash reports yes/no and how, which third parties see
+what (Podcast Index, feeds, wallets, relays).
+
+## 14. Languages and accessibility
+
+German and English from the start? Screen reader support, dynamic font sizes,
+contrast — what is a release requirement.
+
+## 15. Quality and builds
+
+Test strategy for the shared core and the platform layers, CI on GitLab (Android
+on Linux runners; iOS built locally, ADR 0011), release checklist.
 
 ## 10. Phase plan
 
