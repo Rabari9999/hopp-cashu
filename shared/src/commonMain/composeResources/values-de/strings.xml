@@ -1,3 +1,24 @@
 <resources>
     <string name="app_tagline">Honest open podcast player</string>
+    <string name="spike_loading">Feed wird geladen …</string>
+    <string name="spike_error">Feed konnte nicht geladen werden: %1$s</string>
+    <string name="spike_retry">Erneut versuchen</string>
+    <string name="spike_has_chapters">Kapitel</string>
+    <string name="np_close">Player schließen</string>
+    <string name="np_chapter_of">Kapitel %1$d von %2$d · noch %3$s</string>
+    <string name="np_previous_chapter">Vorheriges Kapitel</string>
+    <string name="np_next_chapter">Nächstes Kapitel</string>
+    <string name="np_progress">Wiedergabeposition</string>
+    <string name="np_play">Abspielen</string>
+    <string name="np_pause">Pause</string>
+    <string name="np_back15">15 Sekunden zurück, halten für vorheriges Kapitel</string>
+    <string name="np_forward30">30 Sekunden vor, halten für nächstes Kapitel</string>
+    <string name="np_speed">Wiedergabegeschwindigkeit</string>
+    <string name="np_boost">Boost</string>
+    <string name="np_streaming">Streaming · %1$d sats/min</string>
+    <string name="np_value_later">Bezahlen kommt in Phase 1</string>
+    <string name="sheet_chapters">Kapitel</string>
+    <string name="sheet_transcript">Transkript</string>
+    <string name="sheet_people">Personen</string>
+    <string name="sheet_community">Community</string>
 </resources>

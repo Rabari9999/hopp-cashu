@@ -10,6 +10,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.uiToolingPreview)
     implementation(libs.compose.foundation)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.session)
+    implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.ktor.client.core)
 }
 
 android {
@@ -22,6 +26,9 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.0.1"
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     // Two distributions (ADR 0007, ADR 0011): `play` may later carry the FCM

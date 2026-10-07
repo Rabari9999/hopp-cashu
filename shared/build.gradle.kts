@@ -52,6 +52,8 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.xmlutil.core)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
             implementation(libs.secp256k1.kmp)
             implementation(libs.ktor.client.websockets)
         }
