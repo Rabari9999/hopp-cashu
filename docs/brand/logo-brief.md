@@ -2,7 +2,7 @@
 
 Round 1 explored four directions (receiver waves, the hop, wordmark-led,
 "h" monogram). **"The hop" is the favourite.** Round 2 refined it with the
-prompt below; its result is in `round 2/` and was chosen (see "Round 2 result").
+prompt below; its result is in `logo/` and was chosen (see "Round 2 result").
 Round 3 only fixes production details (used with Claude Design; attach the Sovereigncast logo from
 `nodesignal/sovereigncast-space`, `public_src/assets/sovereigncast-logo.png`,
 as reference).

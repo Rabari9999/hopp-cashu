@@ -7,7 +7,7 @@
 
 ### Logo
 
-The round-2 mark, corrected in round 3 (`docs/brand/round 2/`, see
+The round-2 mark, corrected in round 3 (`docs/brand/logo/`, see
 `docs/brand/logo-brief.md`): one hop — hollow ring, arc, orange dot. Lowercase
 **hopp** in every logo; "Hopp" in running text and the stores. The headphone
 reading is intended. All files are outlined paths, so they convert to Android
