@@ -15,7 +15,7 @@ Hopp initiates four kinds of payments:
 | Ecash | instance / nutzap (NIP-61) | Cashu token handed over directly | yes |
 
 **Keysend is the constraint, not the wallet.** The self-hosted Sovereigncast
-feed emits only `method="keysend"` recipients (a node pubkey). Many current
+feed mostly carries `method="keysend"` recipients (a node pubkey). Many current
 wallets cannot *send* keysend: Phoenix, Breez Spark, Cashu mints, and any
 external wallet opened via a `lightning:` link. PodHome feeds additionally carry
 `type="lnaddress"` recipients (with `customKey="lnurl_callback"`), which any
@@ -85,5 +85,11 @@ are paid once they reach a whole sat; payments are batched.
 - **Server work (podcasting_tools):** Sovereigncast feeds should also emit
   `lnaddress` recipients — the Spark integration already gives an instance a
   Lightning address — so boosts reach the podcaster from wallets without keysend.
+  *Checked 2026-10-07:* `lnaddress` recipients were already possible on the
+  self-hosted path (both V4V editors offer the type and resolve the LNURL
+  callback); a recipient stored without a type is now published as
+  `lnaddress` when its address is `name@domain`. Defaulting the show's own
+  recipient to a Spark Lightning address waits for the Spark wallet, which is
+  not on `main` yet.
 - **Phase 3:** Apple requires developers offering wallet functionality to be
   enrolled as an organisation (to be verified before Phase 3).

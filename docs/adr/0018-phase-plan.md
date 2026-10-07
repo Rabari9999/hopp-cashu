@@ -25,6 +25,7 @@
   `updateFrequency`, the podping tag), Lightning-address value recipients
   (ADR 0005), a Podcast Index registration helper (ADR 0008), `hopp/` in the
   download statistics (ADR 0015). The Listener API v1 itself is done.
+  *All done 2026-10-07* — see the feature matrix's server-side section.
 
 ### Phase 1 — first Android release
 

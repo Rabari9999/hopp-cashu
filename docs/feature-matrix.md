@@ -3,7 +3,8 @@
 What the two feed sources Hopp must fully support emit today, and when Hopp
 supports each tag. Hopp targets the **union** ([ADR 0001](adr/0001-universal-player-with-sovereigncast-layer.md)).
 
-Sources, measured 2026-10-05:
+Sources, measured 2026-10-05; the self-hosted column re-measured 2026-10-07
+after the phase-0 server work (ADR 0018):
 - **Self-hosted** — `podcast_manager/feed_builder.py` in `nodesignal/podcasting_tools`.
 - **PodHome** — the live Nodesignal feed (`serve.podhome.fm/rss/e8df0b13-…`, 2.3 MB, ~320 items).
 
@@ -13,31 +14,32 @@ Phase column is a **proposal**, still open for discussion
 | Tag | Self-hosted | PodHome | Hopp | Notes |
 |---|---|---|---|---|
 | `podcast:guid` | ✅ | ✅ | P1 | Identity key for subscriptions and for Sovereigncast verification (ADR 0002). |
-| `podcast:value` / `valueRecipient` | ✅ keysend only | ✅ `keysend` **and** `lnaddress` | P1 | Both methods required. PodHome's `lnaddress` recipients carry `customKey="lnurl_callback"`. |
-| `podcast:valueTimeSplit` | ❌ (data exists in `v4v_time_splits`, not rendered) | ✅ | P2 | Needs `remoteItem` resolution for remote splits. |
+| `podcast:value` / `valueRecipient` | ✅ `keysend` and `lnaddress` | ✅ `keysend` **and** `lnaddress` | P1 | Both methods required; a block can mix them. `lnaddress` recipients carry `customKey="lnurl_callback"` on both paths (Sovereigncast's editors resolve it the same way). |
+| `podcast:valueTimeSplit` | ✅ inline and `remoteItem` | ✅ (`remoteItem`, music) | P2 | Needs `remoteItem` resolution for remote splits. |
 | `podcast:chapters` | ✅ JSON | ✅ JSON | P1 | Chapter images in now-playing. |
-| `podcast:transcript` | SRT only | SRT + VTT + HTML | P1 | Support SRT, VTT, HTML, JSON; prefer VTT/JSON. |
+| `podcast:transcript` | VTT + SRT (`rel="captions"`), `text/plain` when untimed | SRT + VTT + HTML | P1 | Support SRT, VTT, HTML, JSON, plain text; prefer VTT/JSON. |
 | `podcast:person` | ✅ | ✅ | P1 | |
 | `podcast:soundbite` | ✅ | ✅ | P1 | Preview / share clips. |
-| `podcast:season`, `podcast:episode` | ❌ (only `itunes:*`) | ✅ | P1 | Fall back to `itunes:season`/`itunes:episode`. |
-| `podcast:image` | ❌ | ✅ | P1 | Responsive artwork. |
+| `podcast:season`, `podcast:episode` | ✅ | ✅ | P1 | Fall back to `itunes:season`/`itunes:episode`. |
+| `podcast:image` | ✅ | ✅ | P1 | Responsive artwork. |
 | `podcast:funding` | ✅ | ✅ | P1 | |
-| `podcast:updateFrequency` | ❌ | ✅ | P1 | Drives refresh scheduling. |
-| `podcast:trailer` | ❌ | ✅ | P2 | |
+| `podcast:updateFrequency` | ✅ derived from the publishing gaps | ✅ | P1 | Drives refresh scheduling. |
+| `podcast:trailer` | ✅ | ✅ | P2 | |
 | `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
 | `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |
-| `podcast:medium` | ❌ | ✅ | P2 | Music medium → V4V music use case. |
+| `podcast:medium` | ✅ (always `podcast`) | ✅ | P2 | Music medium → V4V music use case. |
 | `podcast:socialInteract` | ✅ (Nostr) | ❌ | P2 | Comments via Nostr. |
 | `podcast:txt` | ✅ | ✅ (`purpose="nostr"`) | P2 | `purpose="sovereigncast"` = discovery marker (ADR 0002). |
 | `podcast:locked` | ✅ | ✅ | — | Relevant for hosts, not players. |
-| `podcast:podping` | ❌ | ✅ | P3 | A mobile client cannot listen to Podping in the background; needs a relay. |
+| `<language>` | ✅ per show | ✅ | P1 | Was hardcoded `en` on the self-hosted path until 2026-10-07. |
+| `podcast:podping` | ✅ when pings are configured | ✅ | P3 | A mobile client cannot listen to Podping in the background; needs a relay. |
 | `podcast:liveItem`, `podcast:chat` | ❌ | ❌ | P3 | |
 | `podcast:location`, `podcast:license` | ❌ | ❌ | P3 | |
 
 ## Sovereigncast-only features (Listener API, not in the feed)
 
-All currently behind unversioned `/api/community/*` endpoints shaped for the
-community web page; they need a stable Listener API v1 first.
+Served by the Listener API v1 ([ADR 0010](adr/0010-listener-api-v1.md)),
+implemented in Sovereigncast; ecash and push are not part of it yet.
 
 | Feature | Phase |
 |---|---|
@@ -53,13 +55,21 @@ community web page; they need a stable Listener API v1 first.
 
 ## Server-side gaps found along the way (Sovereigncast)
 
-- `feed_builder.py` hardcodes `fg.language('en')` — wrong for German shows,
-  affects every podcast app.
-- No Podcast Index registration for self-hosted shows, so search cannot find
-  them; `<podcast:podping usesPodping="true"/>` is not emitted although podping
-  sending exists (ADR 0008).
-- Value recipients are keysend-only; adding `lnaddress` recipients lets boosts
-  arrive from wallets that cannot send keysend (ADR 0005).
-- Self-hosted feed lacks `podcast:season`/`episode`, VTT/JSON transcripts,
-  `valueTimeSplit`, `image`, `trailer`, `updateFrequency`, `medium`, `podroll`,
-  `alternateEnclosure`, `podping` — all of which the PodHome path delivers.
+Closed on 2026-10-07 (phase 0, ADR 0018), each with tests in podcasting_tools:
+
+- Show language instead of the hardcoded `<language>en</language>`; the
+  transcription worker uses it too.
+- `podcast:season`/`episode`, `image`, `medium`, `trailer`, `updateFrequency`,
+  `podping`, VTT transcripts, `valueTimeSplit` with `remoteItem` (the
+  migration import now keeps remote splits as well).
+- `lnaddress` recipients turned out to be supported already (both V4V editors
+  offer the type and resolve the LNURL callback); only a recipient stored
+  without a type was mislabelled as a node. A Spark-backed instance address
+  as the default recipient waits for the Spark wallet to land.
+- Podcast Index: the show page checks (keylessly) whether the index lists the
+  show and shows the feed address to submit or how to claim it. Submitting
+  stays manual — the API needs a key with write permission.
+- `hopp/` in the download statistics, with Hopp's `; Phone)` device token.
+
+Still open on the self-hosted path: `podroll`, `alternateEnclosure`,
+`license`, `location`, a `medium` other than `podcast`.

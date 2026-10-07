@@ -58,7 +58,18 @@ the "who sees what" page says so.
 
 - **Server work (podcasting_tools):** add `('hopp/', 'Hopp')` to
   `download_stats._APP_MARKERS`, so Sovereigncast's statistics count Hopp instead
-  of "Other". The `/`-suffixed marker avoids matching unrelated words.
+  of "Other". The `/`-suffixed marker avoids matching unrelated words. *Done
+  2026-10-07*, together with `; Phone)` as a device token — without it an Android
+  UA lacking a browser's "Mobile" was filed as a tablet.
+- **The player must send the User-Agent too, not only the HTTP client.**
+  Media3's default `HttpDataSource` identifies as `ExoPlayerLib/…` (counted as
+  "Other"), and AVPlayer as `AppleCoreMedia/…` — which download statistics,
+  Sovereigncast's included, count as **Apple Podcasts**. Set the UA on the
+  Media3 data source factory and on `AVURLAsset` (`AVURLAssetHTTPHeaderFieldsKey`,
+  undocumented but widely used — verify in the iOS spike)
+  for streaming as well as downloads. Do not leave Ktor's OkHttp engine on its
+  default `okhttp/…` UA either: Sovereigncast treats that as a bot and does not
+  count the download at all.
 - Backup rules (`data_extraction_rules.xml` on Android, `isExcludedFromBackup`
   on iOS) are part of phase 1, not an afterthought.
 - The crash handler writes reports locally; the "share report" screen shows the
