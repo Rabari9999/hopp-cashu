@@ -52,12 +52,12 @@ fun ChapterProgressBar(
                 ) { change, _ -> dragFraction = (change.position.x / size.width).coerceIn(0f, 1f) }
             },
     ) {
-        val h = 5.dp.toPx()
+        val h = 6.dp.toPx()
         val y = size.height / 2 - h / 2
         val r = CornerRadius(h / 2, h / 2)
         drawRoundRect(trackColor, Offset(0f, y), Size(size.width, h), r)
         drawRoundRect(fillColor, Offset(0f, y), Size(size.width * shown, h), r)
-        val gap = 2.dp.toPx()
+        val gap = 3.dp.toPx()
         for (b in boundaries) drawRect(gapColor, Offset(size.width * b - gap / 2, y), Size(gap, h))
         drawCircle(fillColor, radius = 7.5.dp.toPx(), center = Offset(size.width * shown, size.height / 2))
     }

@@ -1,6 +1,6 @@
 # Spike 3 — playback with chapters on Android
 
-- **Date:** 2026-10-07 (built), device test on a Pixel 9 pending
+- **Date:** 2026-10-07 — device test on a Pixel 9: all functions work
 - **Question (ADR 0003, 0012, 0019):** does a Media3 player behind the shared
   `PlaybackEngine` interface give background playback, lock-screen and headset
   control, and does the chapter control of ADR 0019 work in practice?
@@ -34,3 +34,16 @@
 - [ ] Bluetooth / headset play-pause; unplugging headphones pauses
 - [ ] Phone call or other audio: pauses and resumes (audio focus)
 - [ ] Close and reopen the app: same episode, same position
+
+## Device test feedback (Pixel 9, 2026-10-07)
+
+All checklist items work. Two look-and-feel findings, fixed:
+
+1. Now playing could only be closed with the button, not swiped down; and
+   opening the playing episode again reloaded it from the last *saved*
+   position (saved every 5 s), so it jumped back a few seconds. Now: swipe
+   down / back minimises to a mini player, and the loaded episode is never
+   reloaded.
+2. The progress bar's track had 1.09:1 contrast (1.25:1 dark), so the chapter
+   gaps were barely visible. Now a dedicated `progressTrack` colour with
+   ≥ 3:1, a 6 dp track and 3 dp gaps (ADR 0019).

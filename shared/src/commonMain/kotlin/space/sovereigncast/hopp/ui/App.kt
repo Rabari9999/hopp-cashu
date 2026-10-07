@@ -27,6 +27,7 @@ import space.sovereigncast.hopp.platform.PositionStore
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.app_tagline
 import space.sovereigncast.hopp.ui.spike.EpisodeListScreen
+import space.sovereigncast.hopp.ui.spike.MiniPlayer
 import space.sovereigncast.hopp.ui.spike.NowPlayingScreen
 import space.sovereigncast.hopp.ui.spike.PlaybackSpikeModel
 import space.sovereigncast.hopp.ui.theme.HoppTheme
@@ -56,8 +57,10 @@ private fun PlaybackSpike(deps: AppDependencies) {
     val model = remember { PlaybackSpikeModel(http, deps.engine, deps.positions, scope) }
     DisposableEffect(Unit) { onDispose { http.close() } }
     val ui by model.ui.collectAsState()
-    if (ui.selected != null) NowPlayingScreen(model, ui)
-    else EpisodeListScreen(ui, onSelect = { model.select(it) }, onRetry = model::loadFeed)
+    if (ui.selected != null && ui.expanded) NowPlayingScreen(model, ui)
+    else EpisodeListScreen(ui, onSelect = { model.select(it) }, onRetry = model::loadFeed) {
+        MiniPlayer(model, ui)
+    }
 }
 
 @Composable

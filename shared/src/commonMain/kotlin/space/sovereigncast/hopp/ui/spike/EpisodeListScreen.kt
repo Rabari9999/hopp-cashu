@@ -40,8 +40,9 @@ import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatTime
 
 @Composable
-fun EpisodeListScreen(ui: SpikeUi, onSelect: (Episode) -> Unit, onRetry: () -> Unit) {
-    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+fun EpisodeListScreen(ui: SpikeUi, onSelect: (Episode) -> Unit, onRetry: () -> Unit, miniPlayer: @Composable () -> Unit = {}) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Box(Modifier.weight(1f).fillMaxWidth()) {
         when {
             ui.loading -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()
@@ -92,5 +93,7 @@ fun EpisodeListScreen(ui: SpikeUi, onSelect: (Episode) -> Unit, onRetry: () -> U
                 }
             }
         }
+    }
+    miniPlayer()
     }
 }

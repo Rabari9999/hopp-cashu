@@ -52,12 +52,18 @@ pays someone".
 | value (payment fill) | `#f7931a` | `#f7931a` |
 | onValue (label on orange) | `#0a0a0a` | `#0a0a0a` |
 | valueText (orange as text) | `#a65500` | `#f7931a` |
+| progressTrack (unplayed part of progress bars) | `#8a8984` | `#6e6d68` |
 
 Contrast, measured (WCAG): text `#0a0a0a`/`#f6f5f2` 18.2:1; secondary text
 6.1:1 light, 7.7:1 dark; **label on orange must be black** (8.6:1 — white on
 orange is 2.3:1); orange as text on light uses `valueText` `#a65500` (4.9:1),
 on dark the brand orange itself (8.6:1). This implements ADR 0016's contrast
 rule.
+
+**Progress bars** use `progressTrack` for the unplayed part (3.2:1 light, 3.8:1
+dark against the background — WCAG's 3:1 for non-text UI), `onSurface` for the
+played part and 3 dp gaps at chapter starts. The first draft used
+`surfaceVariant` (1.1:1) and the chapter gaps were invisible on a real device.
 
 Preview: `docs/brand/palette-preview.png`.
 
@@ -87,6 +93,9 @@ controls (speed, −15 s, play, +30 s, sleep timer) → **value bar** → sheets
   listener turns it on (ADR 0005); the first tap shows a short invitation with
   rate and budget.
 - **Chapters, Transcript, People, Community** open as bottom sheets.
+- **Swipe down** (or back) minimises now playing to the mini player; tapping
+  the mini player or swiping it up opens it again — without reloading, so
+  playback continues seamlessly.
 - **Jumping between chapters** costs no extra space: the chapter label on the
   cover is the control — `‹` and `›` (40 dp) jump to the previous/next chapter,
   the middle shows title, "chapter 4 of 9" and time left, and opens the chapter

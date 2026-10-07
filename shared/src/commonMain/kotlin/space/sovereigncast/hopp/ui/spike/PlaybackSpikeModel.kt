@@ -25,7 +25,9 @@ data class SpikeUi(
     val loading: Boolean = true,
     val error: String? = null,
     val feed: Feed? = null,
+    /** The episode loaded in the player (mini player when not expanded). */
     val selected: Episode? = null,
+    val expanded: Boolean = false,
     val chapters: ChapterIndex = ChapterIndex(emptyList()),
     val chaptersError: String? = null,
 )
@@ -69,17 +71,27 @@ class PlaybackSpikeModel(
                 val feed = withContext(Dispatchers.Default) { FeedParser.parse(bytes) }
                 _ui.update { it.copy(loading = false, feed = feed) }
                 // The service may still be playing from before the activity was recreated.
-                engine.state.value.itemId?.let { id -> feed.episodes.firstOrNull { it.guid == id }?.let { select(it, autoplay = false, reload = false) } }
+                engine.state.value.itemId?.let { id -> feed.episodes.firstOrNull { it.guid == id }?.let { select(it, autoplay = false, expand = false) } }
             } catch (e: Exception) {
                 _ui.update { it.copy(loading = false, error = e.message ?: e::class.simpleName) }
             }
         }
     }
 
-    fun select(episode: Episode, autoplay: Boolean = true, reload: Boolean = true) {
+    /**
+     * Opens an episode in the player. The one already loaded is only shown
+     * again — reloading it would restart from the last *saved* position, a
+     * few seconds behind where it is playing.
+     */
+    fun select(episode: Episode, autoplay: Boolean = true, expand: Boolean = true) {
         val feed = _ui.value.feed ?: return
-        _ui.update { it.copy(selected = episode, chapters = ChapterIndex(emptyList()), chaptersError = null) }
-        if (reload) {
+        val alreadyLoaded = engine.state.value.itemId == episode.guid
+        if (alreadyLoaded && _ui.value.selected?.guid == episode.guid) {
+            _ui.update { it.copy(expanded = expand) }
+            return
+        }
+        _ui.update { it.copy(selected = episode, expanded = expand, chapters = ChapterIndex(emptyList()), chaptersError = null) }
+        if (!alreadyLoaded) {
             val url = episode.enclosure?.url ?: return
             engine.load(
                 PlaybackItem(
@@ -102,7 +114,9 @@ class PlaybackSpikeModel(
         }
     }
 
-    fun close() = _ui.update { it.copy(selected = null) }
+    /** Minimise to the mini player; playback goes on. */
+    fun minimize() = _ui.update { it.copy(expanded = false) }
+    fun expand() = _ui.update { if (it.selected != null) it.copy(expanded = true) else it }
 
     fun togglePlay() = engine.state.value.let { if (it.isPlaying) engine.pause() else engine.play() }
     fun skipBy(deltaMs: Long) = engine.seekTo((engine.state.value.positionMs + deltaMs).coerceAtLeast(0))

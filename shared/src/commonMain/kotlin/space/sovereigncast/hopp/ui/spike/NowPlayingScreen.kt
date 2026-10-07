@@ -1,6 +1,13 @@
 package space.sovereigncast.hopp.ui.spike
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.backhandler.BackHandler
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,7 +89,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
     val episode = ui.selected ?: return
@@ -99,10 +106,29 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
 
-    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+    // Swipe down (or back) minimises to the mini player, as in every player app.
+    BackHandler(enabled = true) { model.minimize() }
+    val dragY = remember { Animatable(0f) }
+    val dismissPx = with(LocalDensity.current) { 120.dp.toPx() }
+    Box(
+        Modifier.fillMaxSize()
+            .offset { IntOffset(0, dragY.value.roundToInt()) }
+            .background(colors.background)
+            .safeDrawingPadding()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        scope.launch {
+                            if (dragY.value > dismissPx) { model.minimize(); dragY.snapTo(0f) } else dragY.animateTo(0f)
+                        }
+                    },
+                    onDragCancel = { scope.launch { dragY.animateTo(0f) } },
+                ) { change, dy -> change.consume(); scope.launch { dragY.snapTo((dragY.value + dy).coerceAtLeast(0f)) } }
+            },
+    ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = model::close) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
+                IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
                 Text(feed.podcast.title ?: "", Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.size(48.dp))
             }
@@ -156,7 +182,7 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.engine.seekTo((f * duration).toLong()) },
-                trackColor = colors.surfaceVariant, fillColor = colors.onSurface, gapColor = colors.background,
+                trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
