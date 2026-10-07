@@ -1,0 +1,41 @@
+# DRAFT — the metadata file for an F-Droid inclusion request
+# (gitlab.com/fdroid/fdroiddata, metadata/space.sovereigncast.hopp.yml).
+# Not used by our build; kept here so it changes together with the build.
+# Before submitting: the repository must be public, a release tag must exist,
+# and AllowedAPKSigningKeys gets the SHA-256 of the release certificate
+# (ADR 0011: one key everywhere — F-Droid publishes OUR signed APK once its
+# own build from source matches it).
+
+Categories:
+  - Multimedia
+License: MIT
+AuthorName: Nodesignal
+WebSite: https://sovereigncast.space
+SourceCode: https://gitlab.com/nodesignal/hopp
+IssueTracker: https://gitlab.com/nodesignal/hopp/-/issues
+Changelog: https://gitlab.com/nodesignal/hopp/-/blob/HEAD/CHANGELOG.md
+
+AutoName: Hopp
+
+RepoType: git
+Repo: https://gitlab.com/nodesignal/hopp.git
+Binaries: https://gitlab.com/nodesignal/hopp/-/releases/v%v/downloads/hopp-%v-foss.apk
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    subdir: androidApp
+    sudo:
+      - apt-get update
+      - apt-get install -y -t trixie openjdk-21-jdk-headless
+      - update-java-alternatives -a
+    gradle:
+      - foss
+
+AllowedAPKSigningKeys: TODO-sha256-of-the-release-certificate-lowercase-hex
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1

@@ -7,7 +7,7 @@ variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
   GRADLE_USER_HOME: /cache/gradle
 
-stages: [test, build]
+stages: [test, build, release]
 
 shared-tests:
   stage: test
@@ -28,3 +28,19 @@ android-debug:
     expire_in: 2 weeks
     paths:
       - androidApp/build/outputs/apk/*/debug/*.apk
+
+# On a release tag: unsigned release builds (ADR 0017). The maintainer signs
+# locally; scripts/compare_apks.py (or `apksigcopier compare`, which F-Droid
+# uses) then checks that the signed APK is this build plus a signature.
+release-unsigned:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9.]+$/
+  script:
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - ./gradlew --console=plain :androidApp:assembleFossRelease :androidApp:bundlePlayRelease
+  artifacts:
+    expire_in: never
+    paths:
+      - androidApp/build/outputs/apk/foss/release/*.apk
+      - androidApp/build/outputs/bundle/playRelease/*.aab
