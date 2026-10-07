@@ -1,0 +1,30 @@
+# Runs on Hopp's own runner only (ADR 0017): tag "hopp", image built locally.
+default:
+  image: hopp-ci:1
+  tags: [hopp]
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GRADLE_USER_HOME: /cache/gradle
+
+stages: [test, build]
+
+shared-tests:
+  stage: test
+  script:
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - ./gradlew --console=plain :shared:jvmTest
+  artifacts:
+    when: always
+    reports:
+      junit: shared/build/test-results/jvmTest/*.xml
+
+android-debug:
+  stage: build
+  script:
+    - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug
+  artifacts:
+    expire_in: 2 weeks
+    paths:
+      - androidApp/build/outputs/apk/*/debug/*.apk

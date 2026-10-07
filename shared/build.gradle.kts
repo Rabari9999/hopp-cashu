@@ -52,6 +52,8 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.xmlutil.core)
+            implementation(libs.secp256k1.kmp)
+            implementation(libs.ktor.client.websockets)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -59,9 +61,11 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.secp256k1.jni.android)
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.secp256k1.jni.jvm)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
