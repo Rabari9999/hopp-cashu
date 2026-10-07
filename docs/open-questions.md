@@ -41,9 +41,7 @@ Decided → [ADR 0013](adr/0013-app-architecture.md).
 
 ## 13. Privacy
 
-What the app reveals: its User-Agent (so Sovereigncast's download statistics can
-count it), no analytics, crash reports yes/no and how, which third parties see
-what (Podcast Index, feeds, wallets, relays).
+Decided → [ADR 0015](adr/0015-privacy.md).
 
 ## 14. Languages and accessibility
 
@@ -67,5 +65,5 @@ Draft:
   UnifiedPush, person search, trending, categories, richer P2.0 tags.
 - **P2–3** — push gateway for iOS / FCM.
 - **P3** — built-in Spark + Cashu wallets, Nostr-based Sovereigncast directory,
-  gPodder sync, live items, CarPlay, Chromecast, widgets. (Android Auto and
+  gPodder sync, live items, CarPlay, Chromecast, widgets, Tor/proxy setting. (Android Auto and
   Android skip-silence moved to P1 — ADR 0012.)
