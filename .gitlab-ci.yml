@@ -31,6 +31,9 @@ shared-tests:
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - ./gradlew --console=plain :shared:jvmTest
+    # Kotlin/Native builds Apple klibs on Linux too (linking needs a Mac):
+    # catches iOS compile errors without one.
+    - ./gradlew --console=plain :shared:compileKotlinIosSimulatorArm64 :shared:compileKotlinIosArm64
   artifacts:
     when: always
     reports:

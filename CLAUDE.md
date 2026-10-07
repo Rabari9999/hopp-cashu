@@ -19,8 +19,12 @@ the maintainer asking. Spike results are in `docs/spikes/`.
 ./gradlew :androidApp:assembleFossDebug           # or assemblePlayDebug
 ```
 
-Needs JDK 21 and the Android SDK (`local.properties`: `sdk.dir=…`). iOS targets
-compile only on macOS; on Linux Gradle skips them. The build box is small and
+Needs JDK 21 and the Android SDK (`local.properties`: `sdk.dir=…`). The iOS
+Kotlin code compiles on Linux too (`./gradlew :shared:compileKotlinIosSimulatorArm64`,
+Apple klibs cross-compile); linking the framework and running the app need a
+Mac with Xcode. K/N gotchas met so far: `AVAudioSession` lives in
+`platform.AVFAudio`, and Objective-C category methods (`setActive`, AVPlayer's
+`currentTime`, `seekToTime` …) are extensions that need an explicit import. The build box is small and
 shared — run one Gradle build at a time and prefer `--no-daemon`: on
 2026-10-07 a long-lived Gradle + Kotlin daemon pair stalled an APK build for
 40 minutes that took 2.5 minutes without them.
