@@ -20,8 +20,10 @@ the maintainer asking. Spike results are in `docs/spikes/`.
 ```
 
 Needs JDK 21 and the Android SDK (`local.properties`: `sdk.dir=…`). iOS targets
-compile only on macOS; on Linux Gradle skips them. The build box has 6 GB RAM —
-run one Gradle build at a time.
+compile only on macOS; on Linux Gradle skips them. The build box is small and
+shared — run one Gradle build at a time and prefer `--no-daemon`: on
+2026-10-07 a long-lived Gradle + Kotlin daemon pair stalled an APK build for
+40 minutes that took 2.5 minutes without them.
 
 ## Conventions
 
