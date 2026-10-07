@@ -1,8 +1,9 @@
 # Logo brief
 
 Round 1 explored four directions (receiver waves, the hop, wordmark-led,
-"h" monogram). **"The hop" is the favourite.** Round 2 refines it with the
-prompt below (used with Claude Design; attach the Sovereigncast logo from
+"h" monogram). **"The hop" is the favourite.** Round 2 refined it with the
+prompt below; its result is in `round 2/` and was chosen (see "Round 2 result").
+Round 3 only fixes production details (used with Claude Design; attach the Sovereigncast logo from
 `nodesignal/sovereigncast-space`, `public_src/assets/sovereigncast-logo.png`,
 as reference).
 
@@ -86,4 +87,56 @@ Tagline: "Honest open podcast player".
 
 Finish with a comparison row: all four icons at home-screen size next to
 Pocket Casts / Overcast-style neighbours, plus the lockup of the strongest variant.
+```
+
+## Round 2 result (chosen, 2026-10-07)
+
+Variant B, one single hop, three elements: a **hollow ring** (take-off — and the
+"o" of the wordmark), an **arc**, a **solid orange dot** (the payment landing).
+Monoline black `#0a0a0a`, stroke 7 on a 100-unit grid, one accent `#f7931a`,
+icon background warm off-white `#f6f5f2`, secondary text `#5e5d59`, wordmark in
+**Figtree** ExtraBold (OFL).
+
+Checked by rendering every file: reads at 48 px under circle, squircle, rounded
+and square masks, light and dark, as an Android 13 themed icon and as a 24 px
+notification icon.
+
+Decisions:
+- **The headphone reading is welcome.** Arc plus two "ear cups" reads as
+  headphones: listening and paying in one sign. Do not design it away.
+- **Lowercase "hopp" in every logo**; the name in running text and the stores
+  stays "Hopp".
+- **The hop animation is built in code** (Compose: the dot travels along the arc
+  path), for the splash screen and the boost confirmation; skipped under
+  "reduce motion" (ADR 0016). No storyboard file.
+
+## Round 3 prompt (production fixes only)
+
+```text
+Keep the chosen "hopp" mark exactly as it is — hollow ring, arc, solid orange
+dot; it may read as headphones, that is intended. Only fix production details
+and re-export the same file set with the same file names.
+
+1. Lowercase everywhere: hopp-lockup-horizontal.svg uses "Hopp" — switch it to
+   the lowercase "hopp" wordmark style used in hopp-wordmark.svg.
+2. hopp-endorsed.svg and hopp-endorsed-white.svg cut the text off at
+   "Sovereignca…": widen the viewBox (or adjust size) so "— by Sovereigncast"
+   fits completely, with the same right margin as the left one.
+3. Convert ALL text to outlined paths (wordmark, tagline, endorsement). No
+   <text> elements may remain: Android vector drawables cannot render text, and
+   viewers without Figtree fall back to another font.
+4. Wordmark: the arc currently starts touching the top of the "o" and reads like
+   an accent on it. Start it with a small, clear gap above the "o" — a take-off,
+   not a joint. Same in every file that contains the wordmark.
+5. App icons (Android foreground + monochrome, iOS light/dark): scale the mark
+   from 0.60 to about 0.66 of the canvas, still centred and inside the 66 dp safe
+   zone of the 108 dp adaptive canvas.
+6. Add a small-size symbol (hopp-symbol-small.svg, 16–24 px use: favicon,
+   notification) with a heavier stroke so the ring's hole stays open at 16 px.
+7. iOS 18: add hopp-icon-ios-1024-dark-transparent.svg (mark on transparent
+   background, light strokes) and hopp-icon-ios-1024-tinted.svg (single-color
+   grayscale mark on transparent background), per Apple's dark/tinted icon rules.
+8. Keep colours exactly: #0a0a0a, #f7931a, #f6f5f2, #5e5d59, white.
+
+Also give one sentence on how the mark encodes Lightning and Cashu.
 ```
