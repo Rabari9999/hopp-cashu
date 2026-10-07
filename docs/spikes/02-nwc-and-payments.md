@@ -51,8 +51,30 @@
    wallet can; otherwise LNURL with an `rss::payment` comment whose URL the
    show's Sovereigncast instance serves, or a plain comment for other shows.
 
-## Still to verify with real systems
+## Live test with a real wallet (2026-10-07)
 
-- A real NWC connection (Alby Hub or similar), small budget: info event,
-  keysend boost to Nodesignal's node, invoice payment to a Lightning address.
-- Relay behaviour in the wild: auth (NIP-42) prompts, rate limits, slow `OK`.
+Alby Hub via `relay.getalby.com`, 100 sats, from the build box (JVM,
+`NwcLiveTest`, only runs with `HOPP_NWC_URI` set — never in CI):
+
+- Info event: `nip44_v2 nip04`; `pay_keysend`, `pay_invoice`, `multi_pay_*`,
+  `get_balance`, `make_invoice`, hold invoices, notifications.
+- A real 21-sat Hopp boost on "Nodesignal-Recap – September 2026" through
+  `BoostSender` with the feed's split: **16.8 sats keysend to Nodesignal's
+  node** (bLIP-10 boostagram, `696969 = 2`) and **4.2 sats to Karsten's
+  Lightning address via its `.well-known/keysend` route** (`696969 = 12`).
+- 5 sats to the same address **by LNURL-pay** (`pay_invoice`), forcing the
+  route a wallet without keysend takes; the invoice passed the amount and
+  description-hash checks.
+- All paid, 0 fees, balance 100 → 74 sats.
+
+`BoostSender` is the router of ADR 0005: node → keysend; lnaddress → keysend
+route if the wallet can, else LNURL with an `rss::payment` or plain comment;
+unpayable shares skipped and reported. Unit-tested against the fake wallet
+and mocked LNURL endpoints.
+
+## Still to verify
+
+- Relay behaviour in the wild over longer sessions: auth (NIP-42) prompts,
+  rate limits, slow `OK`.
+- That the boost shows up in Sovereigncast as a boostagram on the episode
+  (invoice → episode linking by GUID).
