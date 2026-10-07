@@ -1,4 +1,21 @@
 # Runs on Hopp's own runner only (ADR 0017): tag "hopp", image built locally.
+# Build only when something that goes into the app changed — documentation
+# commits do not tie up the (single-job) build box. Tags and manual runs
+# always build.
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - changes:
+        - shared/**/*
+        - androidApp/**/*
+        - iosApp/**/*
+        - gradle/**/*
+        - "*.gradle.kts"
+        - gradle.properties
+        - ci/**/*
+        - .gitlab-ci.yml
+
 default:
   image: hopp-ci:1
   tags: [hopp]
