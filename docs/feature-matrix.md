@@ -41,9 +41,11 @@ community web page; they need a stable Listener API v1 first.
 
 | Feature | Phase |
 |---|---|
-| Release Boosting (live progress, boost the next release) | P2 |
-| Boost2Unlock (progress, contribute, halving-clip unlock at 50 %) | P2 |
-| Topic suggestions: open list, free vote, sats boost, submit | P2 |
+| Release Boosting: live progress, pay through a Lightning invoice | **P1** (slim layer, ADR 0018) |
+| Boost2Unlock: progress, pay through a Lightning invoice | **P1** (slim layer) |
+| Halving / Boost2Unlock clips | P2 |
+| Topic suggestions: open list, free vote | **P1** (slim layer) |
+| Topic suggestions: submit, sats boost | P2 |
 | Paid Q&A | P2 |
 | Top boosts / top boosters / top episodes | P2 |
 | Ecash (Cashu) redemption, nutzaps | P3 |

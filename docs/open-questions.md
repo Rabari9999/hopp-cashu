@@ -53,15 +53,6 @@ Decided → [ADR 0017](adr/0017-quality-and-builds.md).
 
 ## 10. Phase plan
 
-Draft:
-- **P0** — spikes (ADR 0003, 0005), Listener API v1 spec, close Sovereigncast
-  feed gaps (feature matrix).
-- **P1** — core player: subscribe (search with V4V filter, feed URL, OPML,
-  podroll), playback with chapters, transcripts, persons, soundbites, downloads,
-  boosts + streaming via NWC, local background refresh.
-- **P2** — Sovereigncast layer, optional Nostr identity + sync, WebPush /
-  UnifiedPush, person search, trending, categories, richer P2.0 tags.
-- **P2–3** — push gateway for iOS / FCM.
-- **P3** — built-in Spark + Cashu wallets, Nostr-based Sovereigncast directory,
-  gPodder sync, live items, CarPlay, Chromecast, widgets, Tor/proxy setting. (Android Auto and
-  Android skip-silence moved to P1 — ADR 0012.)
+Decided → [ADR 0018](adr/0018-phase-plan.md).
+
+All topics of the specification phase are decided. New questions go here.

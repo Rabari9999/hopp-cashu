@@ -13,8 +13,9 @@ suggestions, Q&A, leaderboards) on top of the standard player.
 
 ## Status
 
-**Specification phase — no code yet.** Decisions are recorded as ADRs before
-implementation starts.
+**Specification complete — no code yet.** Eighteen decisions are recorded as
+ADRs; [ADR 0018](docs/adr/0018-phase-plan.md) is the phase plan that starts
+implementation with phase 0.
 
 - [Architecture decisions](docs/adr/)
 - [Podcasting 2.0 feature matrix](docs/feature-matrix.md)
