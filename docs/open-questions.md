@@ -37,9 +37,7 @@ Decided → [ADR 0012](adr/0012-player-features-phase-1.md).
 
 ## 12. App architecture
 
-Module layout of the KMP project, local data model (SQLDelight), feed refresh
-strategy and conditional requests, offline behaviour, how the Sovereigncast
-layer caches and polls the Listener API.
+Decided → [ADR 0013](adr/0013-app-architecture.md).
 
 ## 13. Privacy
 
