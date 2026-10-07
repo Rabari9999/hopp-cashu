@@ -8,10 +8,20 @@ Guidance for Claude Code in this repository.
 Android + iOS (Kotlin Multiplatform + Compose Multiplatform), the listener-side
 companion of Sovereigncast (`gitlab.com/nodesignal/podcasting_tools`).
 
-**Status: specification phase, no code yet.** Read `docs/adr/` first — the
-decisions there are settled and should not be re-litigated without the
-maintainer asking. Open topics and their current proposals are in
-`docs/open-questions.md`.
+**Status: phase 0 (ADR 0018) — project skeleton and spikes.** Read `docs/adr/`
+first — the decisions there are settled and should not be re-litigated without
+the maintainer asking. Spike results are in `docs/spikes/`.
+
+## Build
+
+```bash
+./gradlew :shared:jvmTest                         # shared core tests (JVM)
+./gradlew :androidApp:assembleFossDebug           # or assemblePlayDebug
+```
+
+Needs JDK 21 and the Android SDK (`local.properties`: `sdk.dir=…`). iOS targets
+compile only on macOS; on Linux Gradle skips them. The build box has 6 GB RAM —
+run one Gradle build at a time.
 
 ## Conventions
 

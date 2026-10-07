@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/DTDs/Podcast-1.0.dtd" xmlns:pc="https://podcastindex.org/namespace/1.0/">
+<channel><title>Variants</title><pc:guid>11111111-2222-5333-8444-555555555555</pc:guid>
+<pc:value type="lightning" method="keysend"><pc:valueRecipient name="Host" type="node" address="02abc" split="100"/></pc:value>
+<itunes:image href="https://example.test/cover.jpg"/><item><title>Episode 1</title><guid isPermaLink="false">ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate>
+<enclosure url="https://example.test/1.mp3" length="1000" type="audio/mpeg"/></item><item><title>Ep 2</title><guid>ep-2</guid><pc:season>2</pc:season><pc:episode>7</pc:episode><enclosure url="https://example.test/2.mp3" type="audio/mpeg"/></item></channel></rss>

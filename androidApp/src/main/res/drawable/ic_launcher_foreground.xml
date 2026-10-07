@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from docs/brand/logo/android/ic_launcher_foreground.svg (ADR 0019). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="18.36" android:translateY="14.44" android:scaleX="0.7128" android:scaleY="0.7128">
+        <path android:strokeColor="#FF0A0A0A" android:strokeWidth="7" android:strokeLineCap="round"
+            android:pathData="M10,68a12,12 0 1,0 24,0a12,12 0 1,0 -24,0" />
+        <path android:strokeColor="#FF0A0A0A" android:strokeWidth="7" android:strokeLineCap="round"
+            android:pathData="M22,47C22,12 78,12 78,47" />
+        <path android:fillColor="#FFF7931A" android:pathData="M66,68a12,12 0 1,0 24,0a12,12 0 1,0 -24,0" />
+    </group>
+</vector>

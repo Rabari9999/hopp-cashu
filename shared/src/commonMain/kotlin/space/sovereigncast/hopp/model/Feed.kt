@@ -1,0 +1,98 @@
+package space.sovereigncast.hopp.model
+
+/**
+ * A parsed feed: what Hopp keeps of an RSS document with the iTunes and
+ * Podcasting 2.0 namespaces (feature matrix, docs/feature-matrix.md).
+ *
+ * Plain values only — no network, no database. Times are epoch seconds (UTC),
+ * durations and offsets seconds.
+ */
+data class Feed(
+    val podcast: Podcast,
+    val episodes: List<Episode>,
+    /** What the parser had to tolerate or skip; empty for a clean feed. */
+    val warnings: List<String> = emptyList(),
+)
+
+data class Podcast(
+    val title: String? = null,
+    val link: String? = null,
+    val description: String? = null,
+    val language: String? = null,
+    val author: String? = null,
+    val imageUrl: String? = null,
+    val explicit: Boolean? = null,
+    val podcastGuid: String? = null,
+    val locked: Boolean? = null,
+    val medium: String? = null,
+    val updateFrequency: UpdateFrequency? = null,
+    val usesPodping: Boolean = false,
+    val funding: List<Funding> = emptyList(),
+    val txt: List<TxtRecord> = emptyList(),
+    val persons: List<Person> = emptyList(),
+    val value: ValueBlock? = null,
+    val podroll: List<RemoteItem> = emptyList(),
+    val trailers: List<Trailer> = emptyList(),
+)
+
+data class Episode(
+    /** `<guid>`, else the enclosure URL — the spec's own fallback. */
+    val guid: String,
+    val title: String? = null,
+    val description: String? = null,
+    val link: String? = null,
+    val publishedAt: Long? = null,
+    val enclosure: Enclosure? = null,
+    val durationSeconds: Long? = null,
+    val imageUrl: String? = null,
+    val season: Int? = null,
+    val episodeNumber: Double? = null,
+    val episodeType: String? = null,
+    val explicit: Boolean? = null,
+    val chaptersUrl: String? = null,
+    val transcripts: List<TranscriptRef> = emptyList(),
+    val persons: List<Person> = emptyList(),
+    val soundbites: List<Soundbite> = emptyList(),
+    val value: ValueBlock? = null,
+    val socialInteracts: List<SocialInteract> = emptyList(),
+)
+
+data class Enclosure(val url: String, val length: Long? = null, val type: String? = null)
+data class UpdateFrequency(val text: String?, val rrule: String?, val complete: Boolean = false)
+data class Funding(val url: String, val text: String?)
+data class TxtRecord(val purpose: String?, val value: String)
+data class Person(val name: String, val role: String?, val group: String?, val img: String?, val href: String?)
+data class TranscriptRef(val url: String, val type: String, val language: String?, val rel: String?)
+data class Soundbite(val startTime: Double, val duration: Double, val title: String?)
+data class SocialInteract(val uri: String, val protocol: String, val accountId: String?, val priority: Int?)
+data class Trailer(val title: String?, val url: String, val publishedAt: Long?, val length: Long?, val type: String?, val season: Int?)
+
+data class ValueBlock(
+    val type: String,
+    val method: String,
+    /** BTC decimal as written in the feed ("0.00000005"). */
+    val suggested: String? = null,
+    val recipients: List<ValueRecipient> = emptyList(),
+    val timeSplits: List<ValueTimeSplit> = emptyList(),
+)
+
+data class ValueRecipient(
+    val name: String?,
+    val type: String,
+    val address: String,
+    val split: Int,
+    val fee: Boolean = false,
+    val customKey: String? = null,
+    val customValue: String? = null,
+)
+
+data class ValueTimeSplit(
+    val startTime: Double,
+    val duration: Double,
+    val remoteStartTime: Double? = null,
+    val remotePercentage: Int? = null,
+    val recipients: List<ValueRecipient> = emptyList(),
+    val remoteItem: RemoteItem? = null,
+)
+
+data class RemoteItem(val feedGuid: String, val itemGuid: String? = null, val feedUrl: String? = null, val medium: String? = null)

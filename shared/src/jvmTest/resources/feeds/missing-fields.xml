@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+<channel><title>Sparse</title>
+<item><title>No guid</title><enclosure url="https://example.test/a.mp3" type="audio/mpeg"/></item>
+<item><title>No enclosure – text post</title><guid>text-1</guid></item>
+<item><guid>no-title</guid><enclosure url="https://example.test/b.mp3" length="" type=""/></item>
+</channel></rss>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+<channel><title>Tom &amp; Jerry&nbsp;Show</title><description>Fragen &amp; Antworten &ouml;ffentlich – Q&A live</description>
+<item><title>Episode 1</title><guid isPermaLink="false">ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate>
+<enclosure url="https://example.test/1.mp3" length="1000" type="audio/mpeg"/><description>Gast: M&uuml;ller &mdash; &copy; 2026</description></item><item><title>Episode 2</title><guid isPermaLink="false">ep-2</guid><pubDate>Mon, 02 Jun 2026 06:00:00 +0000</pubDate>
+<enclosure url="https://example.test/2.mp3" length="1000" type="audio/mpeg"/></item></channel></rss>
