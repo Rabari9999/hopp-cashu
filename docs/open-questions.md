@@ -49,8 +49,7 @@ Decided → [ADR 0016](adr/0016-languages-and-accessibility.md).
 
 ## 15. Quality and builds
 
-Test strategy for the shared core and the platform layers, CI on GitLab (Android
-on Linux runners; iOS built locally, ADR 0011), release checklist.
+Decided → [ADR 0017](adr/0017-quality-and-builds.md).
 
 ## 10. Phase plan
 
