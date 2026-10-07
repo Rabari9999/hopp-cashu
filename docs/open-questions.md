@@ -33,9 +33,7 @@ Decided → [ADR 0010](adr/0010-listener-api-v1.md).
 
 ## 11. Player features in phase 1
 
-Playback (speed, skip intervals, gapless resume), queue, downloads (automatic or
-manual, storage limits), sleep timer, chapter and transcript views, lock screen
-and headset controls, car integration (Android Auto / CarPlay — phase 1 or 3?).
+Decided → [ADR 0012](adr/0012-player-features-phase-1.md).
 
 ## 12. App architecture
 
@@ -71,4 +69,5 @@ Draft:
   UnifiedPush, person search, trending, categories, richer P2.0 tags.
 - **P2–3** — push gateway for iOS / FCM.
 - **P3** — built-in Spark + Cashu wallets, Nostr-based Sovereigncast directory,
-  gPodder sync, live items, Android Auto / CarPlay (unless pulled earlier).
+  gPodder sync, live items, CarPlay, Chromecast, widgets. (Android Auto and
+  Android skip-silence moved to P1 — ADR 0012.)

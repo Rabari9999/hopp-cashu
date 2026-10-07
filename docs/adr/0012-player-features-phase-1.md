@@ -1,0 +1,72 @@
+# ADR 0012 — Player features in phase 1
+
+- **Status:** accepted
+- **Date:** 2026-10-07
+
+## Context
+
+ADRs 0001–0011 settle infrastructure: discovery, wallet, identity, push,
+directories, the Listener API, distribution. This one settles what listeners use
+every day in the first release.
+
+## Decision
+
+### Baseline (what any serious podcast player has)
+
+- **Playback:** speed 0.5×–3×, remembered per show; skip intervals configurable
+  (default 10 s back, 30 s forward); every episode keeps its position; an episode
+  counts as played from 95 %.
+- **Lock screen, notification, headset and Bluetooth controls:** chapter title
+  and chapter image in the now-playing view; previous/next jump between chapters
+  when the episode has them.
+- **Chapters:** list with images, tap to seek, current chapter highlighted,
+  chapter links tappable.
+- **Transcript:** follows playback with the current cue highlighted, tap to
+  seek, searchable.
+- **Episode page:** persons with image and link, soundbites as previews,
+  `podcast:funding` link.
+- **Queue:** "play next" / "play last", reorderable, auto-advance.
+- **Sleep timer:** minutes, end of episode, and **end of chapter**.
+- **Value for value in the player:** boost button with amount presets and a
+  message, a view of the split (who gets how much), streaming indicator with
+  sats per minute and running total (streaming itself off by default, ADR 0005).
+
+### Start screen: inbox + library
+
+Two tabs: **New** — the new episodes of all subscriptions, newest first — and
+**Library** — the subscribed shows. Most listeners ask "what is new?" rather
+than "which show?".
+
+### Downloads: automatic on Wi-Fi
+
+New episodes of subscribed shows download automatically on Wi-Fi only; switchable
+per show; bounded by a storage limit (oldest unplayed downloads go first when it
+is reached); played episodes are deleted after 24 hours. Manual download per
+episode is always available. Streaming works without downloading.
+
+### Extras
+
+| Extra | Phase | Why |
+|---|---|---|
+| **Android Auto** | 1 | Falls out of the Media3 `MediaLibraryService` the lock-screen integration needs anyway. |
+| **Skip silence** | 1 on Android | Built into ExoPlayer; on iOS it needs custom audio processing — later, if asked for. |
+| **CarPlay** | 3 | Needs Apple's CarPlay audio entitlement and its own template UI. |
+| **Chromecast** | 3 | Needs Google Play Services — `play` flavor only. |
+
+The maintainer gave no preference on the extras; this split follows effort and
+value and is easy to revisit.
+
+### Not in phase 1 (decided elsewhere)
+
+Video via `alternateEnclosure` and cross-device sync (phase 2), live items
+(phase 3), home-screen widgets (phase 3).
+
+## Consequences
+
+- The playback engine interface (ADR 0003) must expose chapter boundaries, so
+  that "next/previous" on headsets and the end-of-chapter sleep timer work the
+  same on both platforms.
+- The download scheduler needs Wi-Fi-only constraints and a storage budget on
+  both platforms (WorkManager / background `URLSession`), and the feed refresh
+  (topic 12) decides when new episodes are noticed.
+- Android Auto requires a browsable media tree (New, Library, Queue, Downloads).
