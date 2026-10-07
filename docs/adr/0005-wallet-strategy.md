@@ -50,6 +50,16 @@ Options considered:
   `get_info`; otherwise unpayable.
 - `lnaddress` recipient → LNURL-pay → bolt11 → `pay_invoice` (works with any
   wallet).
+- **Metadata for `lnaddress` recipients** (decided 2026-10-07 after spike 2):
+  1. If the wallet can keysend and the address publishes
+     `/.well-known/keysend/<user>`, pay **by keysend** with the full bLIP-10
+     boostagram (and the published custom record).
+  2. Otherwise LNURL-pay with a LUD-12 comment. For a **Sovereigncast show**
+     the comment follows the podcast namespace's `rss::payment` convention
+     (`rss::payment::boost <url> <message>`), and the URL is served by the
+     show's Sovereigncast instance with the `x-rss-payment` header — the
+     instance sees the show's boosts anyway. For **any other show** the comment
+     is just the message: Hopp hosts nothing (ADR 0015).
 - **Unpayable share → skipped and shown.** It is neither paid nor charged, and
   it is not redistributed to the other recipients: the podcaster's split is
   respected. The listener sees which recipient could not be reached.
@@ -91,5 +101,9 @@ are paid once they reach a whole sat; payments are batched.
   `lnaddress` when its address is `name@domain`. Defaulting the show's own
   recipient to a Spark Lightning address waits for the Spark wallet, which is
   not on `main` yet.
+- **Server work (podcasting_tools), from spike 2:** a Listener API endpoint
+  that stores a boost's metadata and serves it at a URL with the
+  `x-rss-payment` header; and `_split_recipients` should treat `fee="true"`
+  recipients as a percentage off the top, as the value spec (and Hopp) does.
 - **Phase 3:** Apple requires developers offering wallet functionality to be
   enrolled as an organisation (to be verified before Phase 3).

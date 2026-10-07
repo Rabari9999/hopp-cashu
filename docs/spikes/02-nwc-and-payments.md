@@ -47,6 +47,10 @@
      but **someone has to host that URL**. Fountain hosts its own. Hopp runs no
      server (ADR 0015).
 
+   **Decided (ADR 0005):** keysend via the `.well-known/keysend` route when the
+   wallet can; otherwise LNURL with an `rss::payment` comment whose URL the
+   show's Sovereigncast instance serves, or a plain comment for other shows.
+
 ## Still to verify with real systems
 
 - A real NWC connection (Alby Hub or similar), small budget: info event,

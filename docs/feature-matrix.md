@@ -71,5 +71,9 @@ Closed on 2026-10-07 (phase 0, ADR 0018), each with tests in podcasting_tools:
   stays manual — the API needs a key with write permission.
 - `hopp/` in the download statistics, with Hopp's `; Phone)` device token.
 
+Found by Hopp's spike 2 (open): a Listener API endpoint serving boost
+metadata for `rss::payment` comments (ADR 0005), and fee recipients in
+`_split_recipients` (percentage off the top, per the value spec).
+
 Still open on the self-hosted path: `podroll`, `alternateEnclosure`,
 `license`, `location`, a `medium` other than `podcast`.
