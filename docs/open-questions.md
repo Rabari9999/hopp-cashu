@@ -57,8 +57,7 @@ Decided → [ADR 0018](adr/0018-phase-plan.md).
 
 ## 16. Visual design
 
-Foundations decided → [ADR 0019](adr/0019-visual-design.md). Still open: icon
-set, navigation structure, the key screens (now playing, boost dialog,
-Sovereigncast layer).
+Decided → [ADR 0019](adr/0019-visual-design.md): logo, design system, icons,
+navigation, now playing, show page with community tab, boost dialog.
 
 All other topics of the specification phase are decided. New questions go here.

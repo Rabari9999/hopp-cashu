@@ -16,7 +16,7 @@ suggestions, Q&A, leaderboards) on top of the standard player.
 **Specification complete — no code yet.** The decisions are recorded as ADRs;
 [ADR 0018](docs/adr/0018-phase-plan.md) is the phase plan that starts
 implementation with phase 0, [ADR 0019](docs/adr/0019-visual-design.md) the
-visual design (logo final, design-system foundations; key screens next).
+visual design (logo, design system, key screens).
 
 - [Architecture decisions](docs/adr/)
 - [Podcasting 2.0 feature matrix](docs/feature-matrix.md)

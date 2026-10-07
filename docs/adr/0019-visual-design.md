@@ -1,6 +1,6 @@
 # ADR 0019 — Visual design
 
-- **Status:** accepted (foundations); key screens still to be designed
+- **Status:** accepted
 - **Date:** 2026-10-07
 
 ## Decision
@@ -61,6 +61,70 @@ rule.
 
 Preview: `docs/brand/palette-preview.png`.
 
+### Icons
+
+**Material Symbols Rounded** (Apache 2.0) for everything standard — round, in
+line with the shapes, available in Compose. Own drawings only for the value
+layer: **boost is the hop from the logo** (arc + dot), never a lightning bolt;
+always paired with the word "Boost". On an orange fill the hop is single-colour
+black (an orange dot on orange disappears).
+
+### Navigation
+
+Bottom bar with three tabs — **New · Library · Discover** — and the mini player
+above it. Wallet, boost history and settings sit behind a profile button at the
+top right. Calm and centred on listening.
+
+### Now playing
+
+From top to bottom: large cover (the chapter image replaces it when a chapter
+has one) → title and people → progress bar with the chapter boundaries as gaps →
+controls (speed, −15 s, play, +30 s, sleep timer) → **value bar** → sheets.
+
+- **Value bar:** the boost button and the streaming switch with rate and today's
+  total, on one surface card; the only orange on screen. Prominent on purpose,
+  kept compact (about 7 dp vertical padding). Streaming is off until the
+  listener turns it on (ADR 0005); the first tap shows a short invitation with
+  rate and budget.
+- **Chapters, Transcript, People, Community** open as bottom sheets.
+- **Jumping between chapters** costs no extra space: the chapter label on the
+  cover is the control — `‹` and `›` (40 dp) jump to the previous/next chapter,
+  the middle shows title, "chapter 4 of 9" and time left, and opens the chapter
+  sheet. Without chapters the label is absent. In addition: **swipe the cover**
+  left/right (snaps to the chapter) and **long-press ↺/↻** to skip by chapter.
+  Hardware/lock-screen/Android Auto "next" keeps its usual meaning (next item
+  in the queue).
+
+### Show page
+
+Header (cover, title, cadence, subscribe) → **Sovereigncast card**, only while an
+action runs (Release Boosting or Boost2Unlock: label "via Sovereigncast",
+progress bar, time or amount left, pay button) → tabs **Episodes · Community**.
+Each episode shows its boosted sats.
+
+**Community tab:** the running action as a card; topic suggestions with a vote
+button (filled = voted) and boosted amounts in orange; "suggest" action; top
+boosters of the month; a quiet line naming the Sovereigncast instance the data
+comes from. Phase 1 shows progress, paying, the open suggestions and free votes;
+the rest arrives in phase 2 (ADR 0018).
+
+### Boost dialog
+
+A bottom sheet: recipient and position ("episode 296 · at 27:14"), amount
+presets as pills, optional message and name, the **split** and one large button
+with the exact amount; underneath the paying wallet and the budget left today.
+
+The split is **compact**: one bar with a segment per recipient in shades of
+grey, an unpayable recipient hatched orange; below it the largest four as a
+running line and "+N more ›" to expand the full list; one line naming what is
+skipped (ADR 0005). Seven recipients take three lines instead of seven.
+
+Drafts: `docs/design/key-screens-draft-1.png` (first round) and
+`key-screens-draft-2.png` (revised value bar, community tab, compact split,
+chapter control), rendered by `docs/design/render_drafts.py`. They fix
+structure and hierarchy, not pixels — the screenshot tests (ADR 0017) become
+the reference once the screens exist.
+
 ## Consequences
 
 - `value`, `onValue` and `valueText` are custom colour roles next to the
@@ -68,5 +132,7 @@ Preview: `docs/brand/palette-preview.png`.
   nothing in Material's own components turns orange by accident.
 - Figtree ships as a font resource in the shared module (Compose Multiplatform
   resources).
-- Icon set, navigation and the key screens (now playing, boost dialog,
-  Sovereigncast layer) are the next design step.
+- The chapter control needs a chapter index in the player state (current
+  chapter, boundaries) shared by the label, the swipe and the long-press.
+- Further screens (onboarding, wallet connection, search, settings) follow the
+  same rules and are designed when they are built.
