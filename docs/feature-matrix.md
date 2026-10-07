@@ -47,6 +47,7 @@ community web page; they need a stable Listener API v1 first.
 | Paid Q&A | P2 |
 | Top boosts / top boosters / top episodes | P2 |
 | Ecash (Cashu) redemption, nutzaps | P3 |
+| Ecash streaming over a Spilman channel (`ecash_channel` capability, ADR 0014) | P3 |
 
 ## Server-side gaps found along the way (Sovereigncast)
 

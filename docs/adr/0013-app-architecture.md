@@ -40,7 +40,7 @@ Dependency injection with Koin; navigation with Navigation Compose
 | `queue` | queue order |
 | `chapter_cache`, `transcript_cache` | fetched chapters and transcripts, available offline |
 | `boost_log` | **local record of every boost sent**: amount, recipients, result per recipient — listeners can see where their sats went |
-| `stream_ledger` | streaming amounts owed per recipient and not yet paid (sub-sat remainders, minutes listened offline) |
+| `accrual`, `settlement` | streaming sats owed and their payment per rail — split into accrual (always offline-capable) and settlement (Lightning, later Spilman/NUT-18); see [ADR 0014](0014-streaming-accrual-and-settlement.md) |
 
 ### Feed refresh
 
@@ -57,8 +57,8 @@ Dependency injection with Koin; navigation with Navigation Compose
 ### Offline
 
 Library, queue, downloaded episodes, cached chapters and transcripts, and
-positions work offline. Streaming sats accumulate in `stream_ledger` (within the
-budget) and are paid once the network is back. Boosts are never queued: without
+positions work offline. Streaming sats accrue offline and are settled once the
+network is back (ADR 0014). Boosts are never queued: without
 a network the app says so instead of executing a payment later unasked.
 
 ### Sovereigncast layer
