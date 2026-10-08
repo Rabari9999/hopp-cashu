@@ -34,9 +34,10 @@ data class WalletInfo(
     val methods: Set<String>,
     val encryptions: Set<String>,
     val alias: String? = null,
-    /** The wallet's own node key (get_info) — paying it would pay oneself. */
+    /** The node's key (get_info). Not the wallet's identity: sub-wallets share it. */
     val ownPubkey: String? = null,
-    /** The wallet's own Lightning address (lud16 in the connection string). */
+    /** The wallet's own Lightning address (lud16 in the connection string) —
+     *  the one thing that names exactly this (sub-)wallet. */
     val ownAddress: String? = null,
 ) {
     val canKeysend get() = "pay_keysend" in methods

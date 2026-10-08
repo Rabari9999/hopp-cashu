@@ -76,7 +76,7 @@ class BoostSender(
         var keysendFailure: String? = null
         if (wallet.canKeysend) {
             val route = runCatching { lnAddress.keysendInfo(address) }.getOrNull()
-            if (route != null && !route.pubkey.equals(wallet.ownPubkey, ignoreCase = true)) {
+            if (route != null) {
                 val result = keysend(share, route.pubkey, route.customKey, route.customValue, totalMsat, ctx, "lnaddress keysend")
                 if (result !is ShareResult.Failed || !wallet.canPayInvoice) return result
                 keysendFailure = result.reason
@@ -88,7 +88,6 @@ class BoostSender(
             val msat = share.amountMsat / 1000 * 1000
             val request = lnAddress.payRequest(address)
             val invoice = lnAddress.invoice(request, msat, comment(ctx))
-            if (Bolt11.parse(invoice).payeeHex?.equals(wallet.ownPubkey, ignoreCase = true) == true) return ShareResult.Skipped(share, SkipReason.SELF)
             val paid = nwc.payInvoice(invoice)
             ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
         } catch (e: Exception) {
@@ -132,12 +131,17 @@ object SkipReason {
     const val REMOTE = "the remote item's value block could not be found"
 }
 
-/** The recipient is the paying wallet itself — its node or its address. */
-fun isSelf(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): Boolean = when (recipient.type.lowercase()) {
-    "node" -> wallet.ownPubkey != null && recipient.address.equals(wallet.ownPubkey, ignoreCase = true)
-    "lnaddress" -> wallet.ownAddress != null && recipient.address.trim().equals(wallet.ownAddress.trim(), ignoreCase = true)
-    else -> false
-}
+/**
+ * The recipient is the paying wallet itself. Only its Lightning address says
+ * so: a node key does not — sub-wallets on one node (Alby Hub, LNbits …) share
+ * it and are told apart by the recipient's customKey/customValue, so a share
+ * to the wallet's own node may well be another wallet's (device feedback
+ * 2026-10-08). Should it really be this wallet, the wallet refuses and the
+ * listener sees its reason.
+ */
+fun isSelf(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): Boolean =
+    recipient.type.equals("lnaddress", ignoreCase = true) && wallet.ownAddress != null &&
+        recipient.address.trim().equals(wallet.ownAddress.trim(), ignoreCase = true)
 
 /** Why a share cannot be paid with this wallet, before trying (ADR 0005:
  *  shown in the boost dialog, neither paid nor handed to the others). */

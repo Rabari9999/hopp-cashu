@@ -190,7 +190,6 @@ class ValueService(
     /** Sends a boost and logs it; returns each recipient's outcome. */
     suspend fun boost(item: EpisodeItem, positionSeconds: Long?, amountMsat: Long, message: String?): List<ShareResult> {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
-        wallet.ensureNodeInfo()
         val info = wallet.wallet.value?.info ?: client.info()
         val block = blockFor(item) ?: throw IllegalStateException("no value block")
         val ctx = context(item, "boost", positionSeconds, message)
@@ -282,7 +281,6 @@ class ValueService(
     suspend fun settle() = settling.withLock {
         distribute()
         val client = wallet.client() ?: return@withLock
-        wallet.ensureNodeInfo()
         val info = wallet.wallet.value?.info ?: return@withLock
         val budget = settings.current().dailyBudgetSats * 1000L
         var left = budget - withContext(Dispatchers.IO) { pq.spentSince(startOfToday()).executeAsOne() }

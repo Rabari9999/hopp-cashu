@@ -72,13 +72,17 @@ button (Android; iOS offers no such slot). One tap sends a fixed amount —
 message, never past the daily budget; a notification says what arrived. It
 appears only with a wallet connected.
 
-### Paying oneself (added 2026-10-08)
+### Paying oneself (added 2026-10-08, corrected the same day)
 
-A share whose recipient is the paying wallet itself — its node key from
-`get_info`, its `lud16`, an invoice naming it as payee — is skipped as
-"paying yourself": wallets refuse such payments, and podcasters are often
-recipients of their own shows. A Lightning address whose keysend route fails
-is paid by LNURL after all.
+A share whose recipient is the paying wallet itself is skipped as "paying
+yourself" — wallets refuse such payments, and podcasters are often recipients
+of their own shows. **Only the wallet's Lightning address** (`lud16` in the
+connection string) identifies it: a node key does not, because sub-wallets on
+one node (Alby Hub, LNbits …) share it and are told apart by the recipient's
+`customKey`/`customValue`. A share to the wallet's own node is therefore paid
+like any other, with its custom record; if it really is this wallet, the
+wallet refuses and the listener sees its reason. A Lightning address whose
+keysend route fails is paid by LNURL after all.
 
 ### App split
 

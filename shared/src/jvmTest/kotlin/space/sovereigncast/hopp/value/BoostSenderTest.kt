@@ -20,6 +20,7 @@ import space.sovereigncast.hopp.value.nwc.WalletInfo
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class BoostSenderTest {
@@ -89,21 +90,38 @@ class BoostSenderTest {
         assertEquals(listOf("pay_keysend", "pay_invoice"), wallet.requests.map { it.first })
     }
 
-    /** The paying wallet's own address or node is not paid — it would be a
-     *  payment to oneself, which wallets refuse. */
+    /** The paying wallet's own Lightning address is not paid — wallets refuse
+     *  a payment to themselves, and podcasters often boost their own show. */
     @Test
-    fun theWalletDoesNotPayItself() = runBlocking {
+    fun theWalletDoesNotPayItsOwnAddress() = runBlocking {
         val block = ValueBlock("lightning", "keysend", recipients = listOf(
-            r("Me", "lnaddress", "Noroute@W.test", 30),
-            r("My node", "node", "02mine", 30),
-            r("Other", "node", "02other", 40),
+            r("Me", "lnaddress", "Noroute@W.test", 50),
+            r("Other", "node", "02other", 50),
         ))
         val sender = BoostSender(nwc, LnAddressClient(http),
-            WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2"), ownPubkey = "02mine", ownAddress = "noroute@w.test"))
+            WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2"), ownAddress = "noroute@w.test"))
         val results = sender.send(block, 10_000, ctx)
         println(results.describe())
-        assertEquals(listOf(SkipReason.SELF, SkipReason.SELF), results.filterIsInstance<ShareResult.Skipped>().map { it.reason })
-        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first }, "only the other node is paid")
+        assertEquals(SkipReason.SELF, (results[0] as ShareResult.Skipped).reason)
+        assertIs<ShareResult.Paid>(results[1])
         assertEquals("self", unpayableReason(block.recipients[0], WalletInfo(setOf("pay_invoice"), emptySet(), ownAddress = "noroute@w.test")))
+    }
+
+    /** Device feedback 2026-10-08: sub-wallets share their node's key and are
+     *  told apart by customKey/customValue. A share to "my" node with another
+     *  wallet's custom record is someone else's — it is paid, with the record. */
+    @Test
+    fun aSubWalletOnTheSameNodeIsNotMistakenForOneself() = runBlocking {
+        val node = "02" + "d".repeat(64)
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(
+            ValueRecipient("Cutting", "node", node, 100, customKey = "696969", customValue = "12"),
+        ))
+        val sender = BoostSender(nwc, LnAddressClient(http),
+            WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2"), ownPubkey = node, ownAddress = "me@w.test"))
+        val result = sender.send(block, 10_000, ctx).single()
+        assertIs<ShareResult.Paid>(result)
+        val records = wallet.requests.single().second["tlv_records"].toString()
+        assertTrue("696969" in records, "the sub-wallet's custom record goes along: $records")
+        assertEquals(null, unpayableReason(block.recipients[0], WalletInfo(setOf("pay_keysend"), emptySet(), ownPubkey = node)))
     }
 }

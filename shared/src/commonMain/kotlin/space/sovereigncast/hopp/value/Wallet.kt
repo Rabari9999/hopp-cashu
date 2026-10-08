@@ -24,7 +24,7 @@ data class ConnectedWallet(
     val encryptions: Set<String> = emptySet(),
     val relay: String = "",
     val lud16: String? = null,
-    /** The node's key from get_info — so a boost does not pay the wallet itself. */
+    /** The node's key from get_info — shared by every sub-wallet on that node. */
     val pubkey: String? = null,
 ) {
     val info: WalletInfo get() = WalletInfo(methods, encryptions, alias, pubkey, lud16)
@@ -74,17 +74,6 @@ class WalletRepository(
         secrets.put(INFO, json.encodeToString(ConnectedWallet.serializer(), wallet))
         _wallet.value = wallet
         return wallet
-    }
-
-    /** A wallet connected before Hopp asked for its node key gets asked once now. */
-    suspend fun ensureNodeInfo() {
-        val w = _wallet.value ?: return
-        if (w.pubkey != null || "get_info" !in w.methods) return
-        val (alias, pubkey) = runCatching { client()?.nodeInfo() }.getOrNull() ?: return
-        if (pubkey == null) return
-        val updated = w.copy(alias = w.alias ?: alias, pubkey = pubkey)
-        secrets.put(INFO, json.encodeToString(ConnectedWallet.serializer(), updated))
-        _wallet.value = updated
     }
 
     fun disconnect() {
