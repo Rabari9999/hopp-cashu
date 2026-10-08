@@ -37,13 +37,6 @@ interface PlaybackEngine {
     fun release()
 }
 
-/** Last position per episode, so playback resumes where it stopped. A spike
- *  stand-in for the `episode.position` column of ADR 0013. */
-interface PositionStore {
-    fun get(episodeId: String): Long
-    fun put(episodeId: String, positionMs: Long)
-}
-
 /** Identifies Hopp to feed hosts, players and APIs (ADR 0015):
  *  `Hopp/<version> (<Android|iOS>; <Phone|Tablet>)`. */
 data class AppInfo(val version: String, val platform: String, val deviceClass: String) {

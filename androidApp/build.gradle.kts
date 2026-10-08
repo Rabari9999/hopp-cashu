@@ -15,6 +15,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.androidx.work.runtime)
     implementation(libs.koin.core)
+    implementation(libs.koin.android)
+    implementation(libs.sqldelight.android)
     implementation(libs.ktor.client.core)
 }
 

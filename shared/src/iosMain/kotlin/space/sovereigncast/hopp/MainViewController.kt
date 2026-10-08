@@ -1,13 +1,13 @@
 package space.sovereigncast.hopp
 
 import androidx.compose.ui.window.ComposeUIViewController
-import space.sovereigncast.hopp.playback.IosPlaybackEngine
+import org.koin.core.context.startKoin
+import space.sovereigncast.hopp.di.sharedModule
 import space.sovereigncast.hopp.ui.App
-import space.sovereigncast.hopp.ui.AppDependencies
 
-private val app by lazy { iosAppInfo() }
-private val engine by lazy { IosPlaybackEngine(app.userAgent) }
-private val deps by lazy { AppDependencies(app, engine, UserDefaultsPositionStore()) }
+private val koin by lazy { startKoin { modules(sharedModule(IosPlatform())) } }
 
+// OPML import/export and background refresh (BGAppRefreshTask) come with the
+// iOS work after phase 2 (ADR 0018).
 @Suppress("FunctionName", "unused") // called from Swift
-fun MainViewController() = ComposeUIViewController { App(deps) }
+fun MainViewController() = ComposeUIViewController { koin; App() }

@@ -1,4 +1,4 @@
-package space.sovereigncast.hopp.ui.spike
+package space.sovereigncast.hopp.ui.player
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -85,17 +85,19 @@ import space.sovereigncast.hopp.resources.sheet_transcript
 import space.sovereigncast.hopp.ui.components.ChapterProgressBar
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatTime
+import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
-    val episode = ui.selected ?: return
-    val feed = ui.feed ?: return
-    val state by model.engine.state.collectAsState()
-    val chapters = ui.chapters
+fun NowPlayingScreen(model: PlayerController) {
+    val now by model.current.collectAsState()
+    val playing = now ?: return
+    val episode = playing.item
+    val state by model.state.collectAsState()
+    val chapters = playing.chapters
     val position = state.positionMs
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val current = chapters.current(position)
@@ -129,7 +131,7 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
-                Text(feed.podcast.title ?: "", Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+                Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.size(48.dp))
             }
 
@@ -148,7 +150,7 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
                     },
             ) {
                 AsyncImage(
-                    model = chapters.imageAt(position) ?: episode.imageUrl ?: feed.podcast.imageUrl,
+                    model = chapters.imageAt(position) ?: playing.artworkUrl,
                     contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
                 )
                 if (current != null) {
@@ -171,9 +173,9 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
             }
 
             Spacer(Modifier.height(16.dp))
-            Text(episode.title ?: "", style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                (listOf(feed.podcast.title) + episode.persons.map { it.name }).filterNotNull().distinct().joinToString(" · "),
+                (listOf(playing.podcastTitle) + playing.persons.map { it.name }).filter { it.isNotBlank() }.distinct().joinToString(" · "),
                 color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
 
@@ -181,7 +183,7 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
             ChapterProgressBar(
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
-                onSeek = { f -> model.engine.seekTo((f * duration).toLong()) },
+                onSeek = { f -> model.seekTo((f * duration).toLong()) },
                 trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
             )
@@ -253,7 +255,7 @@ fun NowPlayingScreen(model: PlaybackSpikeModel, ui: SpikeUi) {
                 itemsIndexed(chapters.stops) { i, ch ->
                     val active = i == chapters.currentIndex(position)
                     Row(
-                        Modifier.fillMaxWidth().clickable { model.engine.seekTo((ch.startSeconds * 1000).toLong()); showChapters = false }
+                        Modifier.fillMaxWidth().clickable { model.seekTo((ch.startSeconds * 1000).toLong()); showChapters = false }
                             .padding(horizontal = 24.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {

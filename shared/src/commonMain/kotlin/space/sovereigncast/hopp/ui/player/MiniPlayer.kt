@@ -1,4 +1,4 @@
-package space.sovereigncast.hopp.ui.spike
+package space.sovereigncast.hopp.ui.player
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -38,13 +38,16 @@ import space.sovereigncast.hopp.resources.np_pause
 import space.sovereigncast.hopp.resources.np_play
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatTime
+import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** The mini player above the tab bar (ADR 0019): tap or swipe up to expand. */
 @Composable
-fun MiniPlayer(model: PlaybackSpikeModel, ui: SpikeUi) {
-    val episode = ui.selected ?: return
-    val state by model.engine.state.collectAsState()
+fun MiniPlayer(model: PlayerController) {
+    val now by model.current.collectAsState()
+    val playing = now ?: return
+    val episode = playing.item
+    val state by model.state.collectAsState()
     val colors = MaterialTheme.colorScheme
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val track = Hopp.colors.progressTrack
@@ -62,12 +65,12 @@ fun MiniPlayer(model: PlaybackSpikeModel, ui: SpikeUi) {
         }
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
-                model = episode.imageUrl ?: ui.feed?.podcast?.imageUrl, contentDescription = null,
+                model = playing.artworkUrl, contentDescription = null,
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(episode.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(episode.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     "${formatTime(state.positionMs)} / ${formatTime(duration)}",
                     style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,

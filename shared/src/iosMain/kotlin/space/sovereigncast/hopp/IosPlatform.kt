@@ -1,11 +1,15 @@
 package space.sovereigncast.hopp
 
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import platform.Foundation.NSBundle
-import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIDevice
 import platform.UIKit.UIUserInterfaceIdiomPad
+import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.platform.AppInfo
-import space.sovereigncast.hopp.platform.PositionStore
+import space.sovereigncast.hopp.platform.PlaybackEngine
+import space.sovereigncast.hopp.playback.IosPlaybackEngine
 
 /** Hopp's identity on this device (ADR 0015). */
 fun iosAppInfo() = AppInfo(
@@ -14,9 +18,8 @@ fun iosAppInfo() = AppInfo(
     deviceClass = if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) "Tablet" else "Phone",
 )
 
-/** Spike stand-in for the position column of the episode table (ADR 0013). */
-class UserDefaultsPositionStore : PositionStore {
-    private val defaults = NSUserDefaults.standardUserDefaults
-    override fun get(episodeId: String): Long = defaults.integerForKey("position.$episodeId")
-    override fun put(episodeId: String, positionMs: Long) = defaults.setInteger(positionMs, forKey = "position.$episodeId")
+class IosPlatform : Platform {
+    override val app: AppInfo = iosAppInfo()
+    override fun sqlDriver(): SqlDriver = NativeSqliteDriver(HoppDatabase.Schema, "hopp.db")
+    override fun playbackEngine(): PlaybackEngine = IosPlaybackEngine(app.userAgent)
 }

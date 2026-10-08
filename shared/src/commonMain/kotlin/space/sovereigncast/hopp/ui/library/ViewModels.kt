@@ -1,0 +1,101 @@
+package space.sovereigncast.hopp.ui.library
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import space.sovereigncast.hopp.data.EpisodeItem
+import space.sovereigncast.hopp.data.EpisodeRepository
+import space.sovereigncast.hopp.data.PodcastRepository
+import space.sovereigncast.hopp.data.Show
+import space.sovereigncast.hopp.data.SubscribeResult
+import space.sovereigncast.hopp.model.Podcast
+
+private fun <T> ViewModel.state(flow: kotlinx.coroutines.flow.Flow<T>, initial: T): StateFlow<T> =
+    flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
+
+/** Pull-to-refresh over all subscriptions, shared by New and Library. */
+abstract class RefreshingViewModel(private val podcasts: PodcastRepository) : ViewModel() {
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+    fun refresh() {
+        if (_refreshing.value) return
+        _refreshing.value = true
+        viewModelScope.launch { try { podcasts.refreshAll() } finally { _refreshing.value = false } }
+    }
+}
+
+class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository) : RefreshingViewModel(podcasts) {
+    val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
+    val hasShows: StateFlow<Boolean?> = state(kotlinx.coroutines.flow.flow { podcasts.shows.collect { emit(it.isNotEmpty()) } }, null)
+    fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
+    fun clear() = viewModelScope.launch { episodes.clearInbox() }
+}
+
+class LibraryViewModel(podcasts: PodcastRepository, episodes: EpisodeRepository) : RefreshingViewModel(podcasts) {
+    val shows: StateFlow<List<Show>?> = state(podcasts.shows, null)
+    val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress, emptyList())
+}
+
+class ShowViewModel(
+    private val podcastId: Long,
+    private val podcasts: PodcastRepository,
+    private val episodes: EpisodeRepository,
+) : ViewModel() {
+    val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
+    val episodeList: StateFlow<List<EpisodeItem>?> = state(episodes.ofPodcast(podcastId), null)
+    private val _meta = MutableStateFlow<Podcast?>(null)
+    val meta: StateFlow<Podcast?> = _meta.asStateFlow()
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    init { viewModelScope.launch { _meta.value = podcasts.podcastMeta(podcastId) } }
+
+    fun refresh() {
+        if (_refreshing.value) return
+        _refreshing.value = true
+        viewModelScope.launch {
+            try { runCatching { podcasts.refresh(podcastId) }; _meta.value = podcasts.podcastMeta(podcastId) }
+            finally { _refreshing.value = false }
+        }
+    }
+
+    fun togglePlayed(item: EpisodeItem) = viewModelScope.launch { episodes.setPlayed(item.id, !item.played) }
+    fun unsubscribe(onDone: () -> Unit) = viewModelScope.launch { podcasts.unsubscribe(podcastId); onDone() }
+}
+
+sealed interface AddState {
+    data object Idle : AddState
+    data object Working : AddState
+    data class Done(val result: SubscribeResult) : AddState
+    data class Imported(val subscribed: Int, val already: Int, val failed: Int) : AddState
+}
+
+class DiscoverViewModel(private val podcasts: PodcastRepository) : ViewModel() {
+    private val _state = MutableStateFlow<AddState>(AddState.Idle)
+    val state: StateFlow<AddState> = _state.asStateFlow()
+
+    fun subscribe(url: String) {
+        _state.value = AddState.Working
+        viewModelScope.launch { _state.value = AddState.Done(podcasts.subscribe(url)) }
+    }
+
+    fun importOpml(text: String) {
+        _state.value = AddState.Working
+        viewModelScope.launch {
+            val results = podcasts.importOpml(text).map { it.second }
+            _state.value = AddState.Imported(
+                subscribed = results.count { it is SubscribeResult.Subscribed },
+                already = results.count { it is SubscribeResult.AlreadySubscribed },
+                failed = results.count { it is SubscribeResult.Failed },
+            )
+        }
+    }
+
+    suspend fun exportOpml(): String = podcasts.exportOpml()
+    fun reset() { _state.value = AddState.Idle }
+}

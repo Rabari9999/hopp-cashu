@@ -7,12 +7,28 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import space.sovereigncast.hopp.playback.AndroidPlaybackEngine
+import androidx.activity.result.contract.ActivityResultContracts
 import space.sovereigncast.hopp.ui.App
-import space.sovereigncast.hopp.ui.AppDependencies
+import space.sovereigncast.hopp.ui.PlatformActions
 
-class MainActivity : ComponentActivity() {
-    private lateinit var engine: AndroidPlaybackEngine
+class MainActivity : ComponentActivity(), PlatformActions {
+    private var onOpml: ((String) -> Unit)? = null
+    private var pendingExport: String? = null
+
+    private val openOpml = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val callback = onOpml ?: return@registerForActivityResult
+        onOpml = null
+        uri ?: return@registerForActivityResult
+        val text = contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return@registerForActivityResult
+        callback(text)
+    }
+
+    private val saveOpml = registerForActivityResult(ActivityResultContracts.CreateDocument("text/x-opml")) { uri ->
+        val text = pendingExport ?: return@registerForActivityResult
+        pendingExport = null
+        uri ?: return@registerForActivityResult
+        contentResolver.openOutputStream(uri)?.use { it.write(text.encodeToByteArray()) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,13 +37,17 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
-        engine = AndroidPlaybackEngine(applicationContext)
-        val deps = AppDependencies(appInfo(this), engine, PrefsPositionStore(applicationContext))
-        setContent { App(deps) }
+        setContent { App(this) }
     }
 
-    override fun onDestroy() {
-        engine.release()
-        super.onDestroy()
+    override fun pickOpml(onText: (String) -> Unit) {
+        onOpml = onText
+        openOpml.launch(arrayOf("text/x-opml", "text/xml", "application/xml", "application/octet-stream", "*/*"))
     }
+
+    override fun exportOpml(text: String) {
+        pendingExport = text
+        saveOpml.launch("hopp-subscriptions.opml")
+    }
+
 }

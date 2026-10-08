@@ -1,76 +1,163 @@
 package space.sovereigncast.hopp.ui
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import io.ktor.client.HttpClient
+import kotlinx.serialization.Serializable
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import space.sovereigncast.hopp.net.createHttpClient
-import space.sovereigncast.hopp.platform.AppInfo
-import space.sovereigncast.hopp.platform.PlaybackEngine
-import space.sovereigncast.hopp.platform.PositionStore
+import org.koin.compose.koinInject
+import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.Res
-import space.sovereigncast.hopp.resources.app_tagline
-import space.sovereigncast.hopp.ui.spike.EpisodeListScreen
-import space.sovereigncast.hopp.ui.spike.MiniPlayer
-import space.sovereigncast.hopp.ui.spike.NowPlayingScreen
-import space.sovereigncast.hopp.ui.spike.PlaybackSpikeModel
+import space.sovereigncast.hopp.resources.back
+import space.sovereigncast.hopp.resources.nav_discover
+import space.sovereigncast.hopp.resources.nav_library
+import space.sovereigncast.hopp.resources.nav_new
+import space.sovereigncast.hopp.resources.settings
+import space.sovereigncast.hopp.ui.library.DiscoverScreen
+import space.sovereigncast.hopp.ui.library.InboxScreen
+import space.sovereigncast.hopp.ui.library.LibraryScreen
+import space.sovereigncast.hopp.ui.library.SettingsScreen
+import space.sovereigncast.hopp.ui.library.ShowScreen
+import space.sovereigncast.hopp.ui.player.MiniPlayer
+import space.sovereigncast.hopp.ui.player.NowPlayingScreen
 import space.sovereigncast.hopp.ui.theme.HoppTheme
 
-/** What the platform hands to the shared UI. */
-class AppDependencies(val app: AppInfo, val engine: PlaybackEngine, val positions: PositionStore)
+@Serializable object InboxRoute
+@Serializable object LibraryRoute
+@Serializable object DiscoverRoute
+@Serializable object SettingsRoute
+@Serializable data class ShowRoute(val id: Long)
 
-/** Phase 0: the playback spike when the platform provides a player (Android),
- *  the placeholder otherwise (iOS until its spike). */
+private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
+
+private val tabs = listOf(
+    Tab(InboxRoute, Res.string.nav_new, Icons.Rounded.Notifications),
+    Tab(LibraryRoute, Res.string.nav_library, Icons.AutoMirrored.Rounded.List),
+    Tab(DiscoverRoute, Res.string.nav_discover, Icons.Rounded.Search),
+)
+
+/**
+ * Hopp's frame (ADR 0019): three tabs — New, Library, Discover — with the
+ * mini player above the tab bar and now playing over everything. Settings
+ * sit behind the profile button.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun App(deps: AppDependencies? = null) {
+fun App(platformActions: PlatformActions = NoPlatformActions) {
+    val http: HttpClient = koinInject()
+    // Images through the shared client: Hopp's User-Agent on them too (ADR 0015).
+    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory(http)) }.build() }
+    val player: PlayerController = koinInject()
+    val expanded by player.expanded.collectAsState()
+    val nav = rememberNavController()
+    val entry by nav.currentBackStackEntryAsState()
+    val destination = entry?.destination
+    val onTab = tabs.firstOrNull { tab -> destination?.hasRoute(tab.route::class) == true }
+    val title = when {
+        onTab != null -> stringResource(onTab.label)
+        destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
+        else -> ""
+    }
+    val showRoute = { id: Long -> nav.navigate(ShowRoute(id)) }
+
     HoppTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            if (deps == null) Placeholder() else PlaybackSpike(deps)
+        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Box(Modifier.fillMaxSize()) {
+                    Scaffold(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        topBar = {
+                            CenterAlignedTopAppBar(
+                                title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+                                navigationIcon = {
+                                    if (onTab == null) IconButton(onClick = { nav.popBackStack() }) {
+                                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(Res.string.back))
+                                    }
+                                },
+                                actions = {
+                                    if (onTab != null) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
+                                        Icon(Icons.Rounded.AccountCircle, stringResource(Res.string.settings))
+                                    }
+                                },
+                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                            )
+                        },
+                        bottomBar = {
+                            Column {
+                                MiniPlayer(player)
+                                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                                    tabs.forEach { tab ->
+                                        NavigationBarItem(
+                                            selected = onTab == tab,
+                                            onClick = {
+                                                nav.navigate(tab.route) {
+                                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            },
+                                            icon = { Icon(tab.icon, null) },
+                                            label = { Text(stringResource(tab.label)) },
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                    ) { padding ->
+                        NavHost(nav, startDestination = InboxRoute, modifier = Modifier.padding(padding)) {
+                            composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { nav.navigate(DiscoverRoute) }) }
+                            composable<LibraryRoute> { LibraryScreen(onShow = showRoute, onPlay = { player.play(it) }) }
+                            composable<DiscoverRoute> { DiscoverScreen(onShow = showRoute) }
+                            composable<SettingsRoute> { SettingsScreen() }
+                            composable<ShowRoute> { e ->
+                                val id = e.toRoute<ShowRoute>().id
+                                ShowScreen(id, onPlay = { player.play(it) }, onGone = { nav.popBackStack() })
+                            }
+                        }
+                    }
+                    AnimatedVisibility(expanded, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+                        NowPlayingScreen(player)
+                    }
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun PlaybackSpike(deps: AppDependencies) {
-    val http = remember { createHttpClient(deps.app) }
-    // Images through the same client: same User-Agent as everything else.
-    setSingletonImageLoaderFactory { context ->
-        ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory(http)) }.build()
-    }
-    val scope = rememberCoroutineScope()
-    val model = remember { PlaybackSpikeModel(http, deps.engine, deps.positions, scope) }
-    DisposableEffect(Unit) { onDispose { http.close() } }
-    val ui by model.ui.collectAsState()
-    if (ui.selected != null && ui.expanded) NowPlayingScreen(model, ui)
-    else EpisodeListScreen(ui, onSelect = { model.select(it) }, onRetry = model::loadFeed) {
-        MiniPlayer(model, ui)
-    }
-}
-
-@Composable
-private fun Placeholder() {
-    Column(
-        modifier = Modifier.padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("hopp", style = MaterialTheme.typography.displayMedium)
-        Text(stringResource(Res.string.app_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
