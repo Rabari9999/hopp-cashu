@@ -1,12 +1,23 @@
 package space.sovereigncast.hopp.value
 
+import fr.acinq.secp256k1.Secp256k1
+import space.sovereigncast.hopp.crypto.Sha256
+
 /**
  * The parts of a BOLT11 invoice Hopp must check before paying: the amount
  * (ADR 0005: pay only if it is exactly what the listener chose) and the
  * description hash (LUD-06: it must commit to the LNURL metadata).
  * Not a full decoder — signature and routing hints are the wallet's business.
  */
-data class Bolt11(val network: String, val amountMsat: Long?, val paymentHash: String?, val descriptionHashHex: String?) {
+data class Bolt11(
+    val network: String,
+    val amountMsat: Long?,
+    val paymentHash: String?,
+    val descriptionHashHex: String?,
+    /** Who gets paid: the `n` field, else recovered from the signature
+     *  (BOLT 11) — null if neither works. */
+    val payeeHex: String? = null,
+) {
     companion object {
         private const val CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
@@ -29,6 +40,7 @@ data class Bolt11(val network: String, val amountMsat: Long?, val paymentHash: S
             var i = 7 // 35-bit timestamp
             var paymentHash: String? = null
             var descriptionHash: String? = null
+            var payee: String? = null
             while (i + 3 <= words.size - 104) { // last 104 words: signature
                 val tag = words[i]
                 val len = words[i + 1] * 32 + words[i + 2]
@@ -36,10 +48,34 @@ data class Bolt11(val network: String, val amountMsat: Long?, val paymentHash: S
                 when (CHARSET[tag]) {
                     'p' -> if (len == 52) paymentHash = toBytes(field).toHexString()
                     'h' -> if (len == 52) descriptionHash = toBytes(field).toHexString()
+                    'n' -> if (len == 53) payee = toBytes(field).toHexString()
                 }
                 i += 3 + len
             }
-            return Bolt11(net, amount, paymentHash, descriptionHash)
+            return Bolt11(net, amount, paymentHash, descriptionHash, payee ?: recoverPayee(hrp, words))
+        }
+
+        /** The signature signs SHA-256(hrp ‖ data without signature, padded to
+         *  whole bytes); the recovery id lets the key be recovered from it. */
+        internal fun recoverPayee(hrp: String, words: List<Int>): String? = runCatching {
+            val signature = toBytes(words.takeLast(104))
+            val signed = hrp.encodeToByteArray() + toBytesPadded(words.dropLast(104))
+            val full = Secp256k1.ecdsaRecover(signature.copyOfRange(0, 64), Sha256.digest(signed), signature[64].toInt())
+            Secp256k1.pubKeyCompress(full).toHexString()
+        }.getOrNull()
+
+        /** For tests: the payee from the signature alone, ignoring an `n` field. */
+        internal fun payeeFromSignature(invoice: String): String? {
+            val s = invoice.trim().lowercase()
+            val sep = s.lastIndexOf('1')
+            return recoverPayee(s.substring(0, sep), s.substring(sep + 1).map { CHARSET.indexOf(it) }.dropLast(6))
+        }
+
+        private fun toBytesPadded(words: List<Int>): ByteArray {
+            val out = ArrayList<Byte>(); var acc = 0; var bits = 0
+            for (w in words) { acc = (acc shl 5) or w; bits += 5; while (bits >= 8) { bits -= 8; out += ((acc shr bits) and 0xFF).toByte() } }
+            if (bits > 0) out += ((acc shl (8 - bits)) and 0xFF).toByte()
+            return out.toByteArray()
         }
 
         private fun amountMsat(n: Long, multiplier: String): Long = when (multiplier) {

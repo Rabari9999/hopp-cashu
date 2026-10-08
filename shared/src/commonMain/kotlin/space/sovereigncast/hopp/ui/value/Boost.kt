@@ -73,6 +73,10 @@ import space.sovereigncast.hopp.resources.np_streaming
 import space.sovereigncast.hopp.resources.reason_invoice
 import space.sovereigncast.hopp.resources.reason_keysend
 import space.sovereigncast.hopp.resources.reason_remote
+import space.sovereigncast.hopp.resources.reason_self
+import space.sovereigncast.hopp.resources.reason_dust
+import space.sovereigncast.hopp.resources.boost_none_payable
+import space.sovereigncast.hopp.resources.boost_not_paid
 import space.sovereigncast.hopp.resources.stream_invite_on
 import space.sovereigncast.hopp.resources.stream_invite_text
 import space.sovereigncast.hopp.resources.stream_invite_title
@@ -83,6 +87,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 import space.sovereigncast.hopp.value.BoostPlan
 import space.sovereigncast.hopp.value.PlannedShare
 import space.sovereigncast.hopp.value.ShareResult
+import space.sovereigncast.hopp.value.SkipReason
 
 /**
  * The value bar of now playing (ADR 0019): the boost button and the streaming
@@ -208,7 +213,10 @@ fun BoostSheet(
                 null -> Unit
             }
 
-            val canBoost = plan is BoostPlan.Ready && amount > 0
+            val ready = plan as? BoostPlan.Ready
+            val nonePayable = ready != null && ready.shares.isNotEmpty() && ready.shares.all { it.unpayable != null }
+            if (nonePayable && wallet != null) Text(stringResource(Res.string.boost_none_payable), color = colors.error)
+            val canBoost = ready != null && amount > 0 && !nonePayable
             val over = amount * 1000 > left
             val w = wallet
             if (w == null) {
@@ -291,11 +299,17 @@ private fun SplitView(shares: List<PlannedShare>) {
     }
 }
 
+/** A reason in the listener's words: the dialog's codes and the router's
+ *  skip reasons are translated, anything else (a wallet's own error) shown
+ *  as it came. */
 @Composable
-private fun reasonText(code: String): String = when (code) {
-    "keysend" -> stringResource(Res.string.reason_keysend)
-    "remote" -> stringResource(Res.string.reason_remote)
-    else -> stringResource(Res.string.reason_invoice)
+internal fun reasonText(reason: String): String = when (reason) {
+    "keysend", SkipReason.KEYSEND -> stringResource(Res.string.reason_keysend)
+    "remote", SkipReason.REMOTE -> stringResource(Res.string.reason_remote)
+    "invoice", SkipReason.INVOICE -> stringResource(Res.string.reason_invoice)
+    "self", SkipReason.SELF -> stringResource(Res.string.reason_self)
+    SkipReason.DUST -> stringResource(Res.string.reason_dust)
+    else -> reason
 }
 
 @Composable
@@ -304,7 +318,19 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(48.dp))
         Text(stringResource(Res.string.boost_done, formatSats(paid.sumOf { it.share.amountMsat } / 1000)), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        if (paid.size < results.size) Text(stringResource(Res.string.boost_partial, paid.size, results.size), color = Hopp.colors.valueText)
+        if (paid.size < results.size) {
+            Text(stringResource(Res.string.boost_partial, paid.size, results.size), color = Hopp.colors.valueText)
+            // Who was not paid, and why — the wallet's own words when it refused.
+            results.filterNot { it is ShareResult.Paid }.forEach { r ->
+                val why = when (r) {
+                    is ShareResult.Skipped -> reasonText(r.reason)
+                    is ShareResult.Failed -> reasonText(r.reason)
+                    else -> ""
+                }
+                Text(stringResource(Res.string.boost_not_paid, r.share.recipient.name ?: r.share.recipient.address, why),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         TextButton(onClick = onClose, modifier = Modifier.padding(bottom = 16.dp)) { Text(stringResource(Res.string.boost_close)) }
     }
 }

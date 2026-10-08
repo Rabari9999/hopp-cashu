@@ -34,7 +34,7 @@ class BoostSenderTest {
         val json = headersOf(HttpHeaders.ContentType, "application/json")
         when (req.url.encodedPath) {
             "/.well-known/keysend/withroute" -> respond("""{"status":"OK","tag":"keysend","pubkey":"03route","customData":[{"customKey":"696969","customValue":"7"}]}""", headers = json)
-            "/.well-known/lnurlp/noroute" -> respond("""{"tag":"payRequest","callback":"https://w.test/cb","minSendable":1000,"maxSendable":1000000000,"metadata":${JsonPrimitive(metadata)},"commentAllowed":100}""", headers = json)
+            "/.well-known/lnurlp/noroute", "/.well-known/lnurlp/withroute" -> respond("""{"tag":"payRequest","callback":"https://w.test/cb","minSendable":1000,"maxSendable":1000000000,"metadata":${JsonPrimitive(metadata)},"commentAllowed":100}""", headers = json)
             "/cb" -> respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), Sha256.digest(metadata.encodeToByteArray()))}"}""", headers = json)
             else -> respond("", HttpStatusCode.NotFound)
         }
@@ -66,12 +66,44 @@ class BoostSenderTest {
             r("node", "node", "02node", 50),
             r("route", "lnaddress", "withroute@w.test", 50),
         ))
-        // Phoenix-like wallet: invoices only. withroute@ has no lnurlp here, so it fails visibly.
+        // Phoenix-like wallet: invoices only — the keysend route is not even tried.
         val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_invoice"), setOf("nip44_v2")))
         val results = sender.send(block, 10_000, ctx)
         println(results.describe())
         assertIs<ShareResult.Skipped>(results[0])
-        assertIs<ShareResult.Failed>(results[1])
+        assertEquals("lnurl", (results[1] as ShareResult.Paid).route)
         Unit
+    }
+
+    /** Device feedback 2026-10-08: an address whose keysend route fails is
+     *  paid by invoice after all, instead of failing. */
+    @Test
+    fun aFailedKeysendRouteFallsBackToAnInvoice() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Cutting", "lnaddress", "withroute@w.test", 100)))
+        wallet.failMethod = "pay_keysend"
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2")))
+        val result = sender.send(block, 10_000, ctx).single()
+        println(listOf(result).describe())
+        assertIs<ShareResult.Paid>(result)
+        assertEquals("lnurl after keysend failed", result.route)
+        assertEquals(listOf("pay_keysend", "pay_invoice"), wallet.requests.map { it.first })
+    }
+
+    /** The paying wallet's own address or node is not paid — it would be a
+     *  payment to oneself, which wallets refuse. */
+    @Test
+    fun theWalletDoesNotPayItself() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(
+            r("Me", "lnaddress", "Noroute@W.test", 30),
+            r("My node", "node", "02mine", 30),
+            r("Other", "node", "02other", 40),
+        ))
+        val sender = BoostSender(nwc, LnAddressClient(http),
+            WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2"), ownPubkey = "02mine", ownAddress = "noroute@w.test"))
+        val results = sender.send(block, 10_000, ctx)
+        println(results.describe())
+        assertEquals(listOf(SkipReason.SELF, SkipReason.SELF), results.filterIsInstance<ShareResult.Skipped>().map { it.reason })
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first }, "only the other node is paid")
+        assertEquals("self", unpayableReason(block.recipients[0], WalletInfo(setOf("pay_invoice"), emptySet(), ownAddress = "noroute@w.test")))
     }
 }

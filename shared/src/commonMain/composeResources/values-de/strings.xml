@@ -115,8 +115,6 @@
     <string name="wallet_connected">Verbunden: %1$s</string>
     <string name="wallet_balance">Guthaben: %1$s sats</string>
     <string name="wallet_balance_unknown">Die Wallet gibt ihr Guthaben nicht preis</string>
-    <string name="wallet_keysend_yes">Kann Keysend – erreicht alle Empfänger</string>
-    <string name="wallet_keysend_no">Kann kein Keysend – Empfänger mit Node-Adresse werden übersprungen</string>
     <string name="wallet_disconnect">Trennen</string>
     <string name="wallet_budget">Tagesbudget für Boosts und Streaming</string>
     <string name="wallet_spent_today">Heute ausgegeben: %1$s von %2$s sats</string>
@@ -160,4 +158,14 @@
     <string name="stream_invite_text">Pro gehörter Minute gehen %1$d sats an die Show – aufgeteilt wie im Feed angegeben, in Paketen bezahlt. Boosts und Streaming zusammen geben höchstens %2$s sats am Tag aus; ändern kannst du das unter Wallet.</string>
     <string name="stream_invite_on">Streaming starten</string>
     <string name="stream_notice">Nachgezahlt, was offline anfiel: %1$s sats für %2$d Folge(n)</string>
+    <string name="reason_self">das bist du – deine eigene Wallet</string>
+    <string name="reason_dust">weniger als 1 Sat</string>
+    <string name="boost_none_payable">Deine Wallet kann keinen Empfänger dieser Show erreichen.</string>
+    <string name="boost_not_paid">%1$s: %2$s</string>
+    <string name="wallet_can_invoice">Rechnungen zahlen (Lightning-Adressen)</string>
+    <string name="wallet_can_keysend">Keysend (Node-Empfänger)</string>
+    <string name="wallet_yes">ja</string>
+    <string name="wallet_no">nein</string>
+    <string name="wallet_cannot_pay">Diese Verbindung kann weder Rechnungen zahlen noch Keysend senden – Boosts und Streaming funktionieren damit nicht. Prüfe die Berechtigungen der Verbindung in deiner Wallet.</string>
+    <string name="wallet_no_keysend_note">Empfänger mit Node-Adresse werden übersprungen; Lightning-Adressen werden per Rechnung bezahlt.</string>
 </resources>

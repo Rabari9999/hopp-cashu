@@ -115,8 +115,6 @@
     <string name="wallet_connected">Connected: %1$s</string>
     <string name="wallet_balance">Balance: %1$s sats</string>
     <string name="wallet_balance_unknown">The wallet does not share its balance</string>
-    <string name="wallet_keysend_yes">Sends keysend — reaches every recipient</string>
-    <string name="wallet_keysend_no">Cannot send keysend — recipients with a node address are skipped</string>
     <string name="wallet_disconnect">Disconnect</string>
     <string name="wallet_budget">Daily budget for boosts and streaming</string>
     <string name="wallet_spent_today">Spent today: %1$s of %2$s sats</string>
@@ -160,4 +158,14 @@
     <string name="stream_invite_text">%1$d sats per minute of listening go to the show — split as its feed says, paid in batches. Boosts and streaming together spend at most %2$s sats a day; change that under Wallet.</string>
     <string name="stream_invite_on">Start streaming</string>
     <string name="stream_notice">Paid what accrued offline: %1$s sats for %2$d episode(s)</string>
+    <string name="reason_self">that\'s you — your own wallet</string>
+    <string name="reason_dust">less than 1 sat</string>
+    <string name="boost_none_payable">Your wallet cannot reach any recipient of this show.</string>
+    <string name="boost_not_paid">%1$s: %2$s</string>
+    <string name="wallet_can_invoice">Pay invoices (Lightning addresses)</string>
+    <string name="wallet_can_keysend">Keysend (node recipients)</string>
+    <string name="wallet_yes">yes</string>
+    <string name="wallet_no">no</string>
+    <string name="wallet_cannot_pay">This connection can neither pay invoices nor send keysend — boosts and streaming will not work. Check the connection\'s permissions in your wallet.</string>
+    <string name="wallet_no_keysend_note">Recipients with a node address are skipped; Lightning addresses are paid by invoice.</string>
 </resources>

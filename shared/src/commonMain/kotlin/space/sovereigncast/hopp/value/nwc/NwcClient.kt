@@ -30,7 +30,15 @@ import kotlin.time.Duration.Companion.seconds
 
 class NwcException(val code: String, message: String) : Exception("$code: $message")
 
-data class WalletInfo(val methods: Set<String>, val encryptions: Set<String>, val alias: String? = null) {
+data class WalletInfo(
+    val methods: Set<String>,
+    val encryptions: Set<String>,
+    val alias: String? = null,
+    /** The wallet's own node key (get_info) — paying it would pay oneself. */
+    val ownPubkey: String? = null,
+    /** The wallet's own Lightning address (lud16 in the connection string). */
+    val ownAddress: String? = null,
+) {
     val canKeysend get() = "pay_keysend" in methods
     val canPayInvoice get() = "pay_invoice" in methods
 }
@@ -78,6 +86,13 @@ class NwcClient(
                 encryptions = event.tag("encryption")?.split(' ')?.toSet() ?: setOf("nip04"),
             )
         }
+    }
+
+    /** NIP-47 get_info: the node's alias and key, if the wallet tells. */
+    suspend fun nodeInfo(): Pair<String?, String?> {
+        val result = request("get_info", buildJsonObject { })
+        return result["alias"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } to
+            result["pubkey"]?.jsonPrimitive?.contentOrNull?.lowercase()?.takeIf { it.length == 66 }
     }
 
     suspend fun payInvoice(invoice: String, amountMsat: Long? = null): PaymentResult {

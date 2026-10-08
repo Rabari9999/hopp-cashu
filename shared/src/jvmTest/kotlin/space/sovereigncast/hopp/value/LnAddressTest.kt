@@ -139,3 +139,17 @@ object TestInvoices {
 
     @Suppress("unused") fun hex(b: ByteArray) = b.toHex()
 }
+
+/** Who an invoice pays — to recognise a payment to oneself (device feedback 2026-10-08). */
+class Bolt11PayeeTest {
+    private val alby = javaClass.getResourceAsStream("/invoices/alby-21sat.txt")!!.readBytes().decodeToString().trim()
+
+    @Test
+    fun thePayeeComesFromTheNFieldOrTheSignature() {
+        val parsed = Bolt11.parse(alby)
+        assertEquals("02d0fd6c2ec89fbbed6c94bd86e695b3d3086f3ecb7767da3123e519ee36d7bca2", parsed.payeeHex)
+        // Most wallets leave `n` out; the signature names the same key.
+        assertEquals(parsed.payeeHex, Bolt11.payeeFromSignature(alby))
+        assertEquals(21_000L, parsed.amountMsat)
+    }
+}

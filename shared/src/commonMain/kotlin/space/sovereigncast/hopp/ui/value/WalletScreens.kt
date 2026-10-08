@@ -55,8 +55,12 @@ import space.sovereigncast.hopp.resources.wallet_disconnect
 import space.sovereigncast.hopp.resources.wallet_failed
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.wallet_intro
-import space.sovereigncast.hopp.resources.wallet_keysend_no
-import space.sovereigncast.hopp.resources.wallet_keysend_yes
+import space.sovereigncast.hopp.resources.wallet_can_invoice
+import space.sovereigncast.hopp.resources.wallet_can_keysend
+import space.sovereigncast.hopp.resources.wallet_cannot_pay
+import space.sovereigncast.hopp.resources.wallet_no
+import space.sovereigncast.hopp.resources.wallet_no_keysend_note
+import space.sovereigncast.hopp.resources.wallet_yes
 import space.sovereigncast.hopp.resources.wallet_limit_tip
 import space.sovereigncast.hopp.resources.wallet_name
 import space.sovereigncast.hopp.resources.wallet_rate
@@ -106,8 +110,13 @@ fun WalletScreen(onHistory: () -> Unit, incomingUri: String? = null, vm: WalletV
                 balance?.let { stringResource(Res.string.wallet_balance, formatSats(it / 1000)) } ?: stringResource(Res.string.wallet_balance_unknown),
                 color = colors.onSurfaceVariant,
             )
-            Text(stringResource(if (w.canKeysend) Res.string.wallet_keysend_yes else Res.string.wallet_keysend_no), color = colors.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall)
+            // What the connection may do — the wallet decides, per connection.
+            Capability(stringResource(Res.string.wallet_can_invoice), w.canPayInvoice)
+            Capability(stringResource(Res.string.wallet_can_keysend), w.canKeysend)
+            when {
+                !w.canPayInvoice && !w.canKeysend -> Text(stringResource(Res.string.wallet_cannot_pay), color = colors.error)
+                !w.canKeysend -> Text(stringResource(Res.string.wallet_no_keysend_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
             OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
         }
 
@@ -181,9 +190,20 @@ private fun PaymentRow(p: Payment) {
                 else -> stringResource(Res.string.history_failed)
             }
             Text(
-                "${l.name ?: l.address.take(16)} · ${formatSats(l.msat / 1000)} sats · $status" + (l.reason?.let { " ($it)" } ?: ""),
+                "${l.name ?: l.address.take(16)} · ${formatSats(l.msat / 1000)} sats · $status" + (l.reason?.let { " (${reasonText(it)})" } ?: ""),
                 style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun Capability(label: String, yes: Boolean) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            (if (yes) "✓ " else "✗ ") + stringResource(if (yes) Res.string.wallet_yes else Res.string.wallet_no),
+            color = if (yes) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold,
+        )
     }
 }

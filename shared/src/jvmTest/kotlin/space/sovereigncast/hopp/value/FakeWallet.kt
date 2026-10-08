@@ -21,6 +21,10 @@ class FakeWallet(
 ) {
     val requests = mutableListOf<Pair<String, JsonObject>>()
     var failWith: Pair<String, String>? = null
+    /** Fail only this method (e.g. pay_keysend) — the others answer. */
+    var failMethod: String? = null
+    /** What get_info names as the wallet's node. */
+    var nodePubkey: String? = null
     private val json = Json
 
     init {
@@ -39,10 +43,11 @@ class FakeWallet(
         requests += method to body["params"]!!.jsonObject
         val response = buildJsonObject {
             put("result_type", method)
-            val fail = failWith
+            val fail = failWith ?: ("PAYMENT_FAILED" to "no route").takeIf { failMethod == method }
             if (fail != null) put("error", buildJsonObject { put("code", fail.first); put("message", fail.second) })
             else put("result", when (method) {
                 "get_balance" -> buildJsonObject { put("balance", 21_000_000) }
+                "get_info" -> buildJsonObject { put("alias", "Fake Hub"); nodePubkey?.let { put("pubkey", it) } }
                 else -> buildJsonObject { put("preimage", "00".repeat(32)); put("fees_paid", 1000) }
             })
         }.toString()

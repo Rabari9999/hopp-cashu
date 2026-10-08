@@ -24,8 +24,10 @@ data class ConnectedWallet(
     val encryptions: Set<String> = emptySet(),
     val relay: String = "",
     val lud16: String? = null,
+    /** The node's key from get_info — so a boost does not pay the wallet itself. */
+    val pubkey: String? = null,
 ) {
-    val info: WalletInfo get() = WalletInfo(methods, encryptions, alias)
+    val info: WalletInfo get() = WalletInfo(methods, encryptions, alias, pubkey, lud16)
     val canKeysend: Boolean get() = info.canKeysend
     val canPayInvoice: Boolean get() = info.canPayInvoice
     /** A name to show: the wallet's alias, else the relay's host. */
@@ -63,12 +65,26 @@ class WalletRepository(
      *  Throws with the reason when either fails — nothing is stored then. */
     suspend fun connect(uri: String): ConnectedWallet {
         val connection = NwcConnection.parse(uri)
-        val info = NwcClient(connection, connector, { clock.now() }, 20.seconds).info()
-        val wallet = ConnectedWallet(info.alias, info.methods, info.encryptions, connection.relays.first(), connection.lud16)
+        val client = NwcClient(connection, connector, { clock.now() }, 20.seconds)
+        val info = client.info()
+        // Name and node key, if the wallet answers get_info — not required.
+        val (alias, pubkey) = if ("get_info" in info.methods) runCatching { client.nodeInfo() }.getOrDefault(null to null) else null to null
+        val wallet = ConnectedWallet(alias ?: info.alias, info.methods, info.encryptions, connection.relays.first(), connection.lud16, pubkey)
         secrets.put(URI, uri.trim())
         secrets.put(INFO, json.encodeToString(ConnectedWallet.serializer(), wallet))
         _wallet.value = wallet
         return wallet
+    }
+
+    /** A wallet connected before Hopp asked for its node key gets asked once now. */
+    suspend fun ensureNodeInfo() {
+        val w = _wallet.value ?: return
+        if (w.pubkey != null || "get_info" !in w.methods) return
+        val (alias, pubkey) = runCatching { client()?.nodeInfo() }.getOrNull() ?: return
+        if (pubkey == null) return
+        val updated = w.copy(alias = w.alias ?: alias, pubkey = pubkey)
+        secrets.put(INFO, json.encodeToString(ConnectedWallet.serializer(), updated))
+        _wallet.value = updated
     }
 
     fun disconnect() {

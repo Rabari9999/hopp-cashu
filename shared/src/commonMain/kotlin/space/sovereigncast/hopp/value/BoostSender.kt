@@ -52,32 +52,48 @@ class BoostSender(
 
     /** One recipient's share — streaming settles them one by one. */
     suspend fun payShare(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {
-        if (share.amountMsat < 1000) return ShareResult.Skipped(share, "below 1 sat")
+        if (share.amountMsat < 1000) return ShareResult.Skipped(share, SkipReason.DUST)
         val r = share.recipient
+        if (isSelf(r, wallet)) return ShareResult.Skipped(share, SkipReason.SELF)
         return when (r.type.lowercase()) {
-            Splits.REMOTE -> ShareResult.Skipped(share, "the remote item's value block could not be found")
+            Splits.REMOTE -> ShareResult.Skipped(share, SkipReason.REMOTE)
             "node" -> if (wallet.canKeysend) keysend(share, r.address, r.customKey, r.customValue, totalMsat, ctx, "keysend")
-                else ShareResult.Skipped(share, "wallet cannot send keysend")
+                else ShareResult.Skipped(share, SkipReason.KEYSEND)
             "lnaddress" -> payLnAddress(share, totalMsat, ctx)
             else -> ShareResult.Skipped(share, "unknown recipient type ${r.type}")
         }
     }
 
+    /**
+     * A Lightning address: by its keysend route when the wallet can (full
+     * boostagram), and if that fails — Alby's shared node behind its older
+     * addresses no longer forwards everywhere — by LNURL-pay after all
+     * (device feedback 2026-10-08: such shares failed although an invoice
+     * would have gone through).
+     */
     private suspend fun payLnAddress(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {
         val address = share.recipient.address
+        var keysendFailure: String? = null
         if (wallet.canKeysend) {
             val route = runCatching { lnAddress.keysendInfo(address) }.getOrNull()
-            if (route != null) return keysend(share, route.pubkey, route.customKey, route.customValue, totalMsat, ctx, "lnaddress keysend")
+            if (route != null && !route.pubkey.equals(wallet.ownPubkey, ignoreCase = true)) {
+                val result = keysend(share, route.pubkey, route.customKey, route.customValue, totalMsat, ctx, "lnaddress keysend")
+                if (result !is ShareResult.Failed || !wallet.canPayInvoice) return result
+                keysendFailure = result.reason
+            }
         }
-        if (!wallet.canPayInvoice) return ShareResult.Skipped(share, "wallet cannot pay invoices")
+        if (!wallet.canPayInvoice) return ShareResult.Skipped(share, SkipReason.INVOICE)
+        val route = if (keysendFailure != null) "lnurl after keysend failed" else "lnurl"
         return try {
             val msat = share.amountMsat / 1000 * 1000
             val request = lnAddress.payRequest(address)
             val invoice = lnAddress.invoice(request, msat, comment(ctx))
+            if (Bolt11.parse(invoice).payeeHex?.equals(wallet.ownPubkey, ignoreCase = true) == true) return ShareResult.Skipped(share, SkipReason.SELF)
             val paid = nwc.payInvoice(invoice)
-            ShareResult.Paid(share.copy(amountMsat = msat), "lnurl", paid.preimage, paid.feesPaidMsat)
+            ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
         } catch (e: Exception) {
-            ShareResult.Failed(share, "lnurl", e.message ?: e::class.simpleName ?: "error")
+            val reason = e.message ?: e::class.simpleName ?: "error"
+            ShareResult.Failed(share, route, keysendFailure?.let { "$reason (keysend: $it)" } ?: reason)
         }
     }
 
@@ -107,9 +123,25 @@ class BoostSender(
     }
 }
 
+/** Why a share was not paid — the texts the UI translates. */
+object SkipReason {
+    const val DUST = "below 1 sat"
+    const val SELF = "paying yourself"
+    const val KEYSEND = "wallet cannot send keysend"
+    const val INVOICE = "wallet cannot pay invoices"
+    const val REMOTE = "the remote item's value block could not be found"
+}
+
+/** The recipient is the paying wallet itself — its node or its address. */
+fun isSelf(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): Boolean = when (recipient.type.lowercase()) {
+    "node" -> wallet.ownPubkey != null && recipient.address.equals(wallet.ownPubkey, ignoreCase = true)
+    "lnaddress" -> wallet.ownAddress != null && recipient.address.trim().equals(wallet.ownAddress.trim(), ignoreCase = true)
+    else -> false
+}
+
 /** Why a share cannot be paid with this wallet, before trying (ADR 0005:
  *  shown in the boost dialog, neither paid nor handed to the others). */
-fun unpayableReason(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): String? = when (recipient.type.lowercase()) {
+fun unpayableReason(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): String? = if (isSelf(recipient, wallet)) "self" else when (recipient.type.lowercase()) {
     "node" -> if (wallet.canKeysend) null else "keysend"
     "lnaddress" -> if (wallet.canPayInvoice || wallet.canKeysend) null else "invoice"
     Splits.REMOTE -> "remote"
