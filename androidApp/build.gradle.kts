@@ -1,4 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -28,6 +31,32 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
+// Which state of the code an APK is: the commit's date (UTC) and short hash —
+// not the build time, so two builds of one commit stay identical (ADR 0011).
+// Falls back to GitLab's variables where git refuses the checkout (another
+// user owns it inside the CI container), and to nothing outside a repository.
+fun git(vararg args: String): String? = providers.exec {
+    commandLine("git", *args)
+    environment("TZ", "UTC")
+    isIgnoreExitValue = true
+}.standardOutput.asText.get().trim().takeIf { it.isNotEmpty() }
+
+val onReleaseTag = git("describe", "--exact-match", "--tags", "HEAD") != null || System.getenv("CI_COMMIT_TAG") != null
+val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local:%Y%m%d-%H%M")
+    ?: System.getenv("CI_COMMIT_SHORT_SHA")?.let { sha ->
+        val stamp = System.getenv("CI_COMMIT_TIMESTAMP")?.let { ts ->
+            OffsetDateTime.parse(ts).atZoneSameInstant(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
+        }
+        listOfNotNull(stamp, sha).joinToString("-")
+    }
+val appVersion = "0.0.1"
+
+// hopp-0.0.1-20261008-1012-fd61d90-foss-debug.apk; on a release tag the
+// version alone says it: hopp-0.1.0-foss-release-unsigned.apk.
+base {
+    archivesName.set(listOfNotNull("hopp", appVersion, revision.takeUnless { onReleaseTag }).joinToString("-"))
+}
+
 android {
     namespace = "space.sovereigncast.hopp"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -37,7 +66,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "0.0.1"
+        versionName = appVersion
     }
     buildFeatures {
         buildConfig = true
@@ -72,6 +101,8 @@ android {
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
+            // Settings shows it, so a bug report names the exact build.
+            revision?.let { versionNameSuffix = "-dev.$it" }
         }
         getByName("release") {
             isMinifyEnabled = false
