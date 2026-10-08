@@ -13,20 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import space.sovereigncast.hopp.resources.settings_apple
 import space.sovereigncast.hopp.resources.settings_directories
 import space.sovereigncast.hopp.resources.settings_fyyd
-import space.sovereigncast.hopp.resources.settings_key
-import space.sovereigncast.hopp.resources.settings_own_key
-import space.sovereigncast.hopp.resources.settings_own_key_note
 import space.sovereigncast.hopp.resources.settings_pi_note
-import space.sovereigncast.hopp.resources.settings_save
-import space.sovereigncast.hopp.resources.settings_secret
 import space.sovereigncast.hopp.resources.settings_sees_searches
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -97,21 +87,6 @@ fun SettingsScreen(vm: SettingsViewModel = koinViewModel()) {
         Text(stringResource(Res.string.settings_pi_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         Toggle(stringResource(Res.string.settings_fyyd), stringResource(Res.string.settings_sees_searches), s.fyydSearch) { on -> vm.update { it.copy(fyydSearch = on) } }
         Toggle(stringResource(Res.string.settings_apple), stringResource(Res.string.settings_sees_searches), s.appleSearch) { on -> vm.update { it.copy(appleSearch = on) } }
-        Label(stringResource(Res.string.settings_own_key))
-        var key by remember(s.podcastIndexKey) { mutableStateOf(s.podcastIndexKey) }
-        var secret by remember(s.podcastIndexSecret) { mutableStateOf(s.podcastIndexSecret) }
-        OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.settings_key)) })
-        OutlinedTextField(
-            secret, { secret = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.settings_secret)) },
-            visualTransformation = PasswordVisualTransformation(),
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.settings_own_key_note), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(
-                onClick = { vm.update { it.copy(podcastIndexKey = key.trim(), podcastIndexSecret = secret.trim()) } },
-                enabled = key != s.podcastIndexKey || secret != s.podcastIndexSecret,
-            ) { Text(stringResource(Res.string.settings_save)) }
-        }
 
         Section(stringResource(Res.string.settings_subscriptions))
         OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }

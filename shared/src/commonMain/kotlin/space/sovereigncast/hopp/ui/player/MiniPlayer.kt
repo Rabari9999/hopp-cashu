@@ -57,7 +57,7 @@ fun MiniPlayer(model: PlayerController) {
             .clickable { model.expand() }
             .pointerInput(Unit) { detectVerticalDragGestures { change, dy -> if (dy < -10) { change.consume(); model.expand() } } },
     ) {
-        HorizontalDivider(color = colors.outline)
+        HorizontalDivider(color = colors.outlineVariant)
         Canvas(Modifier.fillMaxWidth().height(3.dp)) {
             drawRect(track, Offset.Zero, size)
             val f = if (duration > 0) (state.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f

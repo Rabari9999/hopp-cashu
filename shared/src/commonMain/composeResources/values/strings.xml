@@ -97,7 +97,7 @@
     <string name="discover_open_feed">Open as feed</string>
     <string name="discover_value_only">Value4Value only</string>
     <string name="discover_no_results">Nothing found</string>
-    <string name="discover_unavailable">Search is not available in this build. Add your own Podcast Index key in Settings — or open a show by its feed address.</string>
+    <string name="discover_unavailable">Search is not available in this build. Open a show by its feed address instead.</string>
     <string name="discover_failed">%1$s did not answer</string>
     <string name="discover_podroll">Recommended by your shows</string>
     <string name="discover_privacy">Your searches go to: %1$s</string>
@@ -107,9 +107,4 @@
     <string name="settings_fyyd">fyyd — strong for German-language shows</string>
     <string name="settings_apple">Apple Podcasts</string>
     <string name="settings_sees_searches">Sees your searches when switched on.</string>
-    <string name="settings_own_key">Own Podcast Index key</string>
-    <string name="settings_own_key_note">Optional. Empty uses the one built into Hopp.</string>
-    <string name="settings_key">Key</string>
-    <string name="settings_secret">Secret</string>
-    <string name="settings_save">Save</string>
 </resources>

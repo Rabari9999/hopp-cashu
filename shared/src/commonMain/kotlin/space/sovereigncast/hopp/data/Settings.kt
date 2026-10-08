@@ -21,9 +21,6 @@ data class Settings(
     /** Extra directories, off by default — each sees the searches (ADR 0008). */
     val fyydSearch: Boolean = false,
     val appleSearch: Boolean = false,
-    /** The listener's own Podcast Index key; empty = the one in the app. */
-    val podcastIndexKey: String = "",
-    val podcastIndexSecret: String = "",
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -39,8 +36,6 @@ data class Settings(
                 storageLimitMb = values["storage_limit_mb"]?.toIntOrNull() ?: d.storageLimitMb,
                 fyydSearch = values["fyyd_search"]?.toBooleanStrictOrNull() ?: d.fyydSearch,
                 appleSearch = values["apple_search"]?.toBooleanStrictOrNull() ?: d.appleSearch,
-                podcastIndexKey = values["podcastindex_key"] ?: d.podcastIndexKey,
-                podcastIndexSecret = values["podcastindex_secret"] ?: d.podcastIndexSecret,
             )
         }
     }
@@ -52,8 +47,6 @@ data class Settings(
         "storage_limit_mb" to storageLimitMb.toString(),
         "fyyd_search" to fyydSearch.toString(),
         "apple_search" to appleSearch.toString(),
-        "podcastindex_key" to podcastIndexKey,
-        "podcastindex_secret" to podcastIndexSecret,
     )
 }
 

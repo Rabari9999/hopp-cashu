@@ -52,6 +52,7 @@ import space.sovereigncast.hopp.resources.nav_library
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
 import space.sovereigncast.hopp.data.DownloadRepository
+import space.sovereigncast.hopp.directory.DirectoryShow
 import space.sovereigncast.hopp.resources.downloads_title
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.ui.library.DiscoverScreen
@@ -72,7 +73,8 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 @Serializable object SettingsRoute
 @Serializable data class ShowRoute(val id: Long)
-@Serializable data class ShowPreviewRoute(val feedUrl: String)
+/** What the directory already knows rides along, so the page shows it at once. */
+@Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
 @Serializable object QueueRoute
 @Serializable object DownloadsRoute
 
@@ -177,13 +179,20 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<QueueRoute> { QueueScreen(onPlay = { player.play(it) }) }
                             composable<DownloadsRoute> { DownloadsScreen(onPlay = { player.play(it) }) }
-                            composable<DiscoverRoute> { DiscoverScreen(onPreview = { nav.navigate(ShowPreviewRoute(it)) }) }
+                            composable<DiscoverRoute> {
+                                DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
+                            }
                             composable<ShowPreviewRoute> { e ->
                                 // Subscribed: the show's own page takes the preview's place —
                                 // unless the listener has moved on while it loaded.
-                                ShowPreviewScreen(e.toRoute<ShowPreviewRoute>().feedUrl, onOpen = { id ->
-                                    if (nav.currentBackStackEntry?.id == e.id) nav.navigate(ShowRoute(id)) { popUpTo<ShowPreviewRoute> { inclusive = true } }
-                                })
+                                val route = e.toRoute<ShowPreviewRoute>()
+                                ShowPreviewScreen(
+                                    route.feedUrl,
+                                    known = route.title?.let { DirectoryShow(it, route.feedUrl, route.author, route.imageUrl) },
+                                    onOpen = { id ->
+                                        if (nav.currentBackStackEntry?.id == e.id) nav.navigate(ShowRoute(id)) { popUpTo<ShowPreviewRoute> { inclusive = true } }
+                                    },
+                                )
                             }
                             composable<SettingsRoute> { SettingsScreen() }
                             composable<ShowRoute> { e ->

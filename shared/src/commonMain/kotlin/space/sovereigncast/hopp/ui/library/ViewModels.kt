@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.directory.DirectoryRepository
@@ -198,7 +199,7 @@ class DiscoverViewModel(private val podcasts: PodcastRepository, private val dir
 
 sealed interface PreviewState {
     data object Loading : PreviewState
-    data class Loaded(val feed: Feed, val feedUrl: String) : PreviewState
+    data class Loaded(val feed: Feed, val feedUrl: String, val etag: String? = null, val lastModified: String? = null) : PreviewState
     data class Failed(val reason: String) : PreviewState
 }
 
@@ -231,7 +232,7 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
                     is FetchResult.Fetched -> {
                         val feed = withContext(Dispatchers.Default) { FeedParser.parse(r.bytes) }
                         if (feed.podcast.title == null && feed.episodes.isEmpty()) PreviewState.Failed("not a podcast feed")
-                        else PreviewState.Loaded(feed, r.movedTo ?: url)
+                        else PreviewState.Loaded(feed, r.movedTo ?: url, r.etag, r.lastModified)
                     }
                     else -> PreviewState.Failed("empty response")
                 }
@@ -241,12 +242,17 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
         }
     }
 
+    /** Uses the feed this page has already loaded — waits for it if it is
+     *  still on its way, rather than fetching and parsing it a second time. */
     fun subscribe(onDone: (Long) -> Unit) {
         if (_working.value) return
         _working.value = true
         _error.value = null
         viewModelScope.launch {
-            when (val r = podcasts.subscribe((_state.value as? PreviewState.Loaded)?.feedUrl ?: url)) {
+            val loaded = _state.first { it !is PreviewState.Loading } as? PreviewState.Loaded
+            val result = if (loaded != null) podcasts.subscribe(loaded.feedUrl, loaded.feed, loaded.etag, loaded.lastModified)
+                else podcasts.subscribe(url)
+            when (val r = result) {
                 is SubscribeResult.Subscribed -> onDone(r.podcastId)
                 is SubscribeResult.AlreadySubscribed -> onDone(r.podcastId)
                 is SubscribeResult.Failed -> _error.value = r.reason

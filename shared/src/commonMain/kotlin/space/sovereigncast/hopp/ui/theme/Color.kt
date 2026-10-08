@@ -25,8 +25,17 @@ internal val LightScheme: ColorScheme = lightColorScheme(
     onSurface = Ink,
     surfaceVariant = Color(0xFFECEBE7),
     onSurfaceVariant = Color(0xFF5E5D59),
-    outline = Color(0xFFD6D4CE),
+    // outline: boundaries of controls (switch off, text field, chip) — ≥ 3:1
+    // (WCAG 1.4.11). outlineVariant: decoration only, hairlines and dividers.
+    outline = Color(0xFF7A7974),
     outlineVariant = Color(0xFFD6D4CE),
+    // Neutral containers — left unset, Material's baseline tints menus,
+    // sheets and the switch track purple.
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFFFFFF),
+    surfaceContainer = Color(0xFFFBFAF8),
+    surfaceContainerHigh = Color(0xFFF1F0EC),
+    surfaceContainerHighest = Color(0xFFECEBE7),
 )
 
 internal val DarkScheme: ColorScheme = darkColorScheme(
@@ -40,8 +49,13 @@ internal val DarkScheme: ColorScheme = darkColorScheme(
     onSurface = Paper,
     surfaceVariant = Color(0xFF232220),
     onSurfaceVariant = Color(0xFFA3A19B),
-    outline = Color(0xFF3A3935),
+    outline = Color(0xFF7A7974),
     outlineVariant = Color(0xFF3A3935),
+    surfaceContainerLowest = Color(0xFF0A0A0A),
+    surfaceContainerLow = Color(0xFF161615),
+    surfaceContainer = Color(0xFF1C1C1A),
+    surfaceContainerHigh = Color(0xFF232220),
+    surfaceContainerHighest = Color(0xFF2A2927),
 )
 
 /**

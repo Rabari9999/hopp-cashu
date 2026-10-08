@@ -248,7 +248,7 @@ fun NowPlayingScreen(model: PlayerController) {
             // Value bar (ADR 0019) — not wired to a wallet in this spike.
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
-                    .border(1.dp, colors.outline, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(

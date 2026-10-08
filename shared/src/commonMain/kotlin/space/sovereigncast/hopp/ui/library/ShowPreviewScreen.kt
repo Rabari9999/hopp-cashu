@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import space.sovereigncast.hopp.directory.DirectoryShow
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.discover_add_button
 import space.sovereigncast.hopp.resources.preview_failed
@@ -41,7 +42,7 @@ import space.sovereigncast.hopp.ui.components.formatTime
  * to the show's page; an already subscribed show opens it.
  */
 @Composable
-fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit) {
+fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryShow? = null) {
     val vm: ShowPreviewViewModel = koinViewModel(key = "preview-$feedUrl") { parametersOf(feedUrl) }
     val state by vm.state.collectAsState()
     val subscribedId by vm.subscribedId.collectAsState()
@@ -49,44 +50,54 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit) {
     val error by vm.error.collectAsState()
     val colors = MaterialTheme.colorScheme
 
-    when (val s = state) {
-        PreviewState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        is PreviewState.Failed -> EmptyState(stringResource(Res.string.preview_failed, s.reason), feedUrl)
-        is PreviewState.Loaded -> {
-            val p = s.feed.podcast
-            val episodes = s.feed.episodes.sortedByDescending { it.publishedAt ?: 0 }
-            LazyColumn {
-                item {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Cover(p.imageUrl, 112.dp, corner = 18.dp)
-                        Spacer(Modifier.size(14.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(p.title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            p.author?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
-                            Text(
-                                listOfNotNull(stringResource(Res.string.show_episodes, episodes.size), "⚡ V4V".takeIf { p.value != null }).joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
-                            )
-                            val id = subscribedId
-                            if (id != null) OutlinedButton(onClick = { onOpen(id) }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
-                            else Button(onClick = { vm.subscribe(onOpen) }, enabled = !working) { Text(stringResource(Res.string.discover_add_button)) }
-                        }
-                    }
-                    error?.let { Text(stringResource(Res.string.result_failed, it), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
-                    p.description?.let { d ->
-                        Text(plainText(d), color = colors.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                    }
-                }
-                items(episodes.take(100), key = { it.guid }) { e ->
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-                        Text(e.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            listOfNotNull(formatDate(e.publishedAt).takeIf { it.isNotEmpty() }, e.durationSeconds?.let { formatTime(it * 1000) }).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
-                        )
+    val loaded = state as? PreviewState.Loaded
+    val p = loaded?.feed?.podcast
+    val episodes = remember(loaded) { loaded?.feed?.episodes.orEmpty().sortedByDescending { it.publishedAt ?: 0 }.take(100) }
+    val count = loaded?.feed?.episodes?.size ?: 0
+    val failed = state as? PreviewState.Failed
+    // What the directory already said shows at once; the feed fills in the rest.
+    val title = p?.title ?: known?.title
+    if (failed != null && title == null) {
+        EmptyState(stringResource(Res.string.preview_failed, failed.reason), feedUrl)
+        return
+    }
+    LazyColumn {
+        item {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(p?.imageUrl ?: known?.imageUrl, 112.dp, corner = 18.dp)
+                Spacer(Modifier.size(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
+                    if (loaded != null) Text(
+                        listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                    )
+                    val id = subscribedId
+                    if (id != null) OutlinedButton(onClick = { onOpen(id) }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
+                    else Button(onClick = { vm.subscribe(onOpen) }, enabled = !working && failed == null) {
+                        if (working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.onPrimary)
+                        else Text(stringResource(Res.string.discover_add_button))
                     }
                 }
+            }
+            error?.let { Text(stringResource(Res.string.result_failed, it), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
+            failed?.let { Text(stringResource(Res.string.preview_failed, it.reason), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
+            p?.description?.let { d ->
+                Text(plainText(d), color = colors.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            }
+            if (state == PreviewState.Loading) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            }
+        }
+        items(episodes, key = { it.guid }) { e ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Text(e.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(formatDate(e.publishedAt).takeIf { it.isNotEmpty() }, e.durationSeconds?.let { formatTime(it * 1000) }).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                )
             }
         }
     }

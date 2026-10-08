@@ -59,7 +59,7 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
  *  recommendations from the subscribed shows' podroll, OPML import. Every
  *  show opens its page first — subscribing happens there. */
 @Composable
-fun DiscoverScreen(onPreview: (String) -> Unit, vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel()) {
+fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel()) {
     val query by vm.query.collectAsState()
     val valueOnly by vm.valueOnly.collectAsState()
     val search by vm.search.collectAsState()
@@ -83,11 +83,11 @@ fun DiscoverScreen(onPreview: (String) -> Unit, vm: DiscoverViewModel = koinView
                         if (query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Rounded.Clear, stringResource(Res.string.cancel)) }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); if (!searchable(q) && address != null) onPreview(address) }),
+                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); if (!searchable(q) && address != null) onPreview(address, null) }),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
-                    if (address != null) Button(onClick = { onPreview(address) }) { Text(stringResource(Res.string.discover_open_feed)) }
+                    if (address != null) Button(onClick = { onPreview(address, null) }) { Text(stringResource(Res.string.discover_open_feed)) }
                 }
                 settings?.let { s ->
                     val sources = listOfNotNull("Podcast Index", "fyyd".takeIf { s.fyydSearch && !valueOnly }, "Apple".takeIf { s.appleSearch && !valueOnly })
@@ -107,12 +107,12 @@ fun DiscoverScreen(onPreview: (String) -> Unit, vm: DiscoverViewModel = koinView
                     r.shows.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
                 }
                 if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
-                items(r.shows, key = { "r" + it.feedUrl }) { show -> DirectoryRow(show, feedKey(show.feedUrl) in subscribed) { onPreview(show.feedUrl) } }
+                items(r.shows, key = { "r" + it.feedUrl }) { show -> DirectoryRow(show, feedKey(show.feedUrl) in subscribed) { onPreview(show.feedUrl, show) } }
             }
             SearchUi.Idle -> if (q.isEmpty()) {
                 if (podroll.isNotEmpty()) {
                     item { Header(stringResource(Res.string.discover_podroll)) }
-                    items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false) { onPreview(show.feedUrl) } }
+                    items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false) { onPreview(show.feedUrl, show) } }
                 }
                 item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

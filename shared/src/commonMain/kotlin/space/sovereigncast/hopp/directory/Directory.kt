@@ -148,7 +148,7 @@ data class SearchResult(
     val shows: List<DirectoryShow>,
     /** Sources that were asked and did not answer. */
     val failed: List<Source> = emptyList(),
-    /** No source could be asked at all (no key, nothing else switched on). */
+    /** No source could be asked at all (a build without key, nothing else switched on). */
     val unavailable: Boolean = false,
 )
 
@@ -176,11 +176,9 @@ class DirectoryRepository(
 ) {
     private var podrollCache: Pair<Set<String>, List<DirectoryShow>>? = null
 
-    private suspend fun credentials(): PodcastIndexCredentials? {
-        val s = settings.current()
-        return if (s.podcastIndexKey.isNotBlank() && s.podcastIndexSecret.isNotBlank()) PodcastIndexCredentials(s.podcastIndexKey.trim(), s.podcastIndexSecret.trim())
-        else builtIn
-    }
+    // The app's own key only: a field for the listener's would confuse far
+    // more people than it helps (ADR 0008, amended 2026-10-08).
+    private fun credentials(): PodcastIndexCredentials? = builtIn
 
     /** With [valueOnly], only the Podcast Index can answer — the others do not know. */
     suspend fun search(term: String, valueOnly: Boolean): SearchResult = coroutineScope {

@@ -248,8 +248,10 @@ class AndroidAppFlowTest {
         rule.onNode(hasSetTextAction()).performTextInput("test show")
         waitFor("Test Show")
         tap("Test Show")
+        // At once, from the search result — the feed takes 1.5 s here.
         waitFor("Subscribe")
-        check(has("Ep 2")) { "the real feed is shown: ${screen()}" }
+        check(has("A") && !has("Ep 2")) { "the directory's data first: ${screen()}" }
+        waitFor("Ep 2") // then the real feed
         tap("Subscribe"); waitFor("✓ Subscribed")
         back()
         rule.onNode(hasSetTextAction()).performTextInput("x") // search again: now marked as subscribed

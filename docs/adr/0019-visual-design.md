@@ -46,7 +46,9 @@ pays someone".
 | surfaceVariant (chips, fields) | `#ecebe7` | `#232220` |
 | onSurface (text) | `#0a0a0a` | `#f6f5f2` |
 | onSurfaceVariant (secondary text) | `#5e5d59` | `#a3a19b` |
-| outline | `#d6d4ce` | `#3a3935` |
+| outline (boundaries of controls: switch off, fields, chips) | `#7a7974` | `#7a7974` |
+| outlineVariant (decoration: hairlines, dividers) | `#d6d4ce` | `#3a3935` |
+| surfaceContainer… (menus, sheets, switch track) | `#ffffff` → `#ecebe7` | `#0a0a0a` → `#2a2927` |
 | primary (play, main actions) | `#0a0a0a` | `#f6f5f2` |
 | onPrimary | `#f6f5f2` | `#0a0a0a` |
 | value (payment fill) | `#f7931a` | `#f7931a` |
@@ -58,7 +60,12 @@ Contrast, measured (WCAG): text `#0a0a0a`/`#f6f5f2` 18.2:1; secondary text
 6.1:1 light, 7.7:1 dark; **label on orange must be black** (8.6:1 — white on
 orange is 2.3:1); orange as text on light uses `valueText` `#a65500` (4.9:1),
 on dark the brand orange itself (8.6:1). This implements ADR 0016's contrast
-rule.
+rule. Controls need 3:1 against what they sit on (WCAG 1.4.11): `outline`
+`#7a7974` gives 4.0:1 on the light background, 3.7:1 on the light switch
+track, 4.5:1 on the dark background, 3.3:1 on the dark track. The first
+`outline` (`#d6d4ce` / `#3a3935`, 1.4:1 / 1.7:1) left a switch that is off
+nearly invisible — found on the device, 2026-10-08; it lives on as
+`outlineVariant` for decoration.
 
 **Progress bars** use `progressTrack` for the unplayed part (3.2:1 light, 3.8:1
 dark against the background — WCAG's 3:1 for non-text UI), `onSurface` for the

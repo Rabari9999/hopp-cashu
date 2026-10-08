@@ -34,7 +34,11 @@ settles it.
 - Key and secret **ship in the app** (common practice; the Podcast Index hands
   out free keys to apps). No server of ours sees what listeners search.
 - If the key is abused, it is rotated with the next release.
-- Listeners may enter **their own key** in the settings.
+- ~~Listeners may enter **their own key** in the settings.~~ Withdrawn
+  2026-10-08, after the field was on the device: it confused far more people
+  than it would ever help, and a key abused or rate-limited is rotated with a
+  release anyway. Should F-Droid ship without the key (open question 17), a
+  hidden advanced field is the place to bring it back.
 - Rejected: proxying through the push gateway (ADR 0007) — it would keep the
   secret, but we would see every search.
 

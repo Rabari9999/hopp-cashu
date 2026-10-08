@@ -129,6 +129,13 @@ class PodcastRepository(
             return SubscribeResult.Failed(e.message ?: "not a podcast feed")
         }
         if (feed.episodes.isEmpty() && feed.podcast.title == null) return SubscribeResult.Failed("not a podcast feed")
+        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified)
+    }
+
+    /** Subscribes to a feed that is already fetched and parsed — the show page
+     *  before subscribing has done both, and doing them twice was the slow
+     *  part of subscribing (device feedback 2026-10-08). */
+    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?): SubscribeResult {
         withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
         }
@@ -137,7 +144,7 @@ class PodcastRepository(
             db.transactionWithResult {
                 val p = feed.podcast
                 q.insert(feedUrl, p.podcastGuid, p.title ?: feedUrl, p.author, p.imageUrl,
-                    json.encodeToString(Podcast.serializer(), p), fetched.etag, fetched.lastModified, now, now)
+                    json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now)
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
                 for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)

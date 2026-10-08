@@ -49,7 +49,7 @@ class DirectoryTest {
                 val date = req.headers["X-Auth-Date"]!!
                 val key = req.headers["X-Auth-Key"]!!
                 keysUsed += key
-                val secret = if (key == "own-key") "own-secret" else "s3cr\$t"
+                val secret = "s3cr\$t"
                 if (req.headers[HttpHeaders.Authorization] != Sha1.digest((key + secret + date).encodeToByteArray()).toHex())
                     return@MockEngine respondError(HttpStatusCode.Unauthorized)
                 when {
@@ -125,13 +125,12 @@ class DirectoryTest {
     }
 
     @Test
-    fun withoutAKeySearchIsUnavailableUnlessTheListenerBringsOne() = test {
+    fun aBuildWithoutKeySearchesOnlyWhatIsSwitchedOn() = test {
         assertTrue(directory(builtIn = null).search("alpha", valueOnly = false).unavailable)
-        settings.update { it.copy(podcastIndexKey = "own-key", podcastIndexSecret = "own-secret") }
-        assertEquals(listOf("Alpha"), directory(builtIn = null).search("alpha", valueOnly = false).shows.map { it.title })
-        // The listener's key also wins over the app's.
-        directory().search("alpha", valueOnly = false)
-        assertEquals("own-key", keysUsed.last())
+        settings.update { it.copy(fyydSearch = true) }
+        val r = directory(builtIn = null).search("alpha", valueOnly = false)
+        assertEquals(listOf(Source.Fyyd, Source.Fyyd), r.shows.map { it.source })
+        assertTrue(keysUsed.isEmpty())
     }
 
     @Test

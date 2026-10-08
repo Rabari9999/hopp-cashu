@@ -97,7 +97,7 @@
     <string name="discover_open_feed">Als Feed öffnen</string>
     <string name="discover_value_only">Nur Value4Value</string>
     <string name="discover_no_results">Nichts gefunden</string>
-    <string name="discover_unavailable">In diesem Build ist die Suche nicht verfügbar. Hinterlege einen eigenen Podcast-Index-Schlüssel in den Einstellungen – oder öffne eine Show über ihre Feed-Adresse.</string>
+    <string name="discover_unavailable">In diesem Build ist die Suche nicht verfügbar. Öffne eine Show stattdessen über ihre Feed-Adresse.</string>
     <string name="discover_failed">%1$s hat nicht geantwortet</string>
     <string name="discover_podroll">Empfohlen von deinen Shows</string>
     <string name="discover_privacy">Deine Suchen gehen an: %1$s</string>
@@ -107,9 +107,4 @@
     <string name="settings_fyyd">fyyd – stark bei deutschsprachigen Shows</string>
     <string name="settings_apple">Apple Podcasts</string>
     <string name="settings_sees_searches">Sieht deine Suchen, wenn eingeschaltet.</string>
-    <string name="settings_own_key">Eigener Podcast-Index-Schlüssel</string>
-    <string name="settings_own_key_note">Optional. Leer nutzt den in Hopp eingebauten.</string>
-    <string name="settings_key">Schlüssel</string>
-    <string name="settings_secret">Secret</string>
-    <string name="settings_save">Speichern</string>
 </resources>
