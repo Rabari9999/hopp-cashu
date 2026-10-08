@@ -89,8 +89,24 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val expanded by player.expanded.collectAsState()
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
+    val backStack by nav.currentBackStack.collectAsState()
     val destination = entry?.destination
     val onTab = tabs.firstOrNull { tab -> destination?.hasRoute(tab.route::class) == true }
+    // The tab whose stack is showing: a show opened from Discover belongs to
+    // Discover, not to no tab at all.
+    val currentTab = backStack.asReversed().firstNotNullOfOrNull { e -> tabs.firstOrNull { e.destination.hasRoute(it.route::class) } }
+    // Each tab keeps its own stack (device feedback 2026-10-08: a show page
+    // pushed onto New came back when New was tapped and looked like a New
+    // tab full of episodes). Tapping the tab you are on goes back to its root.
+    val selectTab = { tab: Tab ->
+        if (tab == currentTab) nav.popBackStack(tab.route, inclusive = false)
+        else nav.navigate(tab.route) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+        Unit
+    }
     val title = when {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
@@ -126,14 +142,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                                     tabs.forEach { tab ->
                                         NavigationBarItem(
-                                            selected = onTab == tab,
-                                            onClick = {
-                                                nav.navigate(tab.route) {
-                                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            },
+                                            selected = currentTab == tab,
+                                            onClick = { selectTab(tab) },
                                             icon = { Icon(tab.icon, null) },
                                             label = { Text(stringResource(tab.label)) },
                                         )
@@ -143,13 +153,15 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         },
                     ) { padding ->
                         NavHost(nav, startDestination = InboxRoute, modifier = Modifier.padding(padding)) {
-                            composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { nav.navigate(DiscoverRoute) }) }
+                            composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { selectTab(tabs[2]) }) }
                             composable<LibraryRoute> { LibraryScreen(onShow = showRoute, onPlay = { player.play(it) }) }
                             composable<DiscoverRoute> { DiscoverScreen(onShow = showRoute) }
                             composable<SettingsRoute> { SettingsScreen() }
                             composable<ShowRoute> { e ->
                                 val id = e.toRoute<ShowRoute>().id
-                                ShowScreen(id, onPlay = { player.play(it) }, onGone = { nav.popBackStack() })
+                                // Only this page leaves, and only once — the show can vanish while
+                                // the page waits in another tab's stack.
+                                ShowScreen(id, onPlay = { player.play(it) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
                             }
                         }
                     }

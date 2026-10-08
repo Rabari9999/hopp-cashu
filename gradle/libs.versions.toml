@@ -22,6 +22,11 @@ xmlutil = "1.0.2"
 sqldelight = "2.4.1"
 work = "2.12.0"
 secp256k1 = "0.24.0"
+robolectric = "4.17"
+androidx-test-core = "1.7.0"
+junit = "4.13.2"
+# The Jetpack Compose that compose-multiplatform resolves to on Android.
+androidx-compose-test = "1.11.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
@@ -59,6 +64,11 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 secp256k1-kmp = { module = "fr.acinq.secp256k1:secp256k1-kmp", version.ref = "secp256k1" }
 secp256k1-jni-jvm = { module = "fr.acinq.secp256k1:secp256k1-kmp-jni-jvm", version.ref = "secp256k1" }
 secp256k1-jni-android = { module = "fr.acinq.secp256k1:secp256k1-kmp-jni-android", version.ref = "secp256k1" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
+junit = { module = "junit:junit", version.ref = "junit" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-test" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-test" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }

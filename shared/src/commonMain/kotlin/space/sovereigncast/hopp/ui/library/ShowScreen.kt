@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +54,9 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
     val episodes by vm.episodeList.collectAsState()
     val meta by vm.meta.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
+    val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
+    LaunchedEffect(gone) { if (gone) onGone() }
     val colors = MaterialTheme.colorScheme
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
@@ -93,7 +96,7 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
         AlertDialog(
             onDismissRequest = { confirm = false },
             text = { Text(stringResource(Res.string.show_unsubscribe_confirm, show?.title ?: "")) },
-            confirmButton = { TextButton(onClick = { confirm = false; vm.unsubscribe(onGone) }) { Text(stringResource(Res.string.show_unsubscribe)) } },
+            confirmButton = { TextButton(onClick = { confirm = false; vm.unsubscribe() }) { Text(stringResource(Res.string.show_unsubscribe)) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }

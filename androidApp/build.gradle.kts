@@ -18,6 +18,14 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.sqldelight.android)
     implementation(libs.ktor.client.core)
+    // Android's own SQLite, without a device (Robolectric): the driver the
+    // app really uses, which the shared JVM tests cannot reach.
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
 
 android {
@@ -49,7 +57,22 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    // One debug key for every build, checked in: CI otherwise signs each APK
+    // with a fresh throwaway key, and Android refuses to install it over the
+    // previous one. Debug builds only — the release key never leaves the
+    // maintainer (docs/signing.md).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         getByName("release") {
             isMinifyEnabled = false
         }
@@ -60,6 +83,9 @@ android {
     }
     // Reproducible builds for F-Droid (ADR 0011): no build-time-dependent
     // metadata in the APK.
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false

@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,9 @@ fun DiscoverScreen(onShow: (Long) -> Unit, vm: DiscoverViewModel = koinViewModel
     var url by remember { mutableStateOf("") }
     val actions = LocalPlatformActions.current
     val colors = MaterialTheme.colorScheme
+    // "Subscribed to …" is about the moment it happened; coming back to the
+    // tab later it would point at a show that may be gone.
+    DisposableEffect(vm) { onDispose { vm.reset() } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(Res.string.discover_search_soon), color = colors.onSurfaceVariant)

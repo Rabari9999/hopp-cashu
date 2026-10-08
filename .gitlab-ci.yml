@@ -43,11 +43,18 @@ android-debug:
   stage: build
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
+    # Robolectric fetches its Android jars into ~/.m2 — keep them across jobs.
+    - mkdir -p /cache/m2 && ln -sfn /cache/m2 ~/.m2
+    # The app on Android's own Compose, lifecycle and SQLite, no device.
+    - ./gradlew --console=plain :androidApp:testFossDebugUnitTest
     - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug
   artifacts:
+    when: always
     expire_in: 2 weeks
     paths:
       - androidApp/build/outputs/apk/*/debug/*.apk
+    reports:
+      junit: androidApp/build/test-results/testFossDebugUnitTest/*.xml
 
 # On a release tag: unsigned release builds (ADR 0017). The maintainer signs
 # locally; scripts/compare_apks.py (or `apksigcopier compare`, which F-Droid

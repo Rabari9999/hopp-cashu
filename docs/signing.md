@@ -25,3 +25,9 @@ SHA-256 digest.
 
 If the key were ever lost, Hopp could not be updated on F-Droid or Zapstore
 again and Google Play would need a key upgrade — hence the offline backups.
+
+Debug builds are a different matter: they are signed with
+`androidApp/debug.keystore`, checked in on purpose (password `android`,
+SHA-256 `5F:A6:6E:42:…:B8:68`). It only lets one debug APK replace the
+previous one; it is worth nothing to anyone, and an APK signed with it can
+never update a release install.

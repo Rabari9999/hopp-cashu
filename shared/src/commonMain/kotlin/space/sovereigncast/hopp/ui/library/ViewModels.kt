@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -47,6 +48,8 @@ class ShowViewModel(
     private val episodes: EpisodeRepository,
 ) : ViewModel() {
     val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
+    /** Unsubscribed — here or anywhere else while this page waited in a stack. */
+    val gone: StateFlow<Boolean> = state(podcasts.show(podcastId).map { it == null }, false)
     val episodeList: StateFlow<List<EpisodeItem>?> = state(episodes.ofPodcast(podcastId), null)
     private val _meta = MutableStateFlow<Podcast?>(null)
     val meta: StateFlow<Podcast?> = _meta.asStateFlow()
@@ -65,7 +68,7 @@ class ShowViewModel(
     }
 
     fun togglePlayed(item: EpisodeItem) = viewModelScope.launch { episodes.setPlayed(item.id, !item.played) }
-    fun unsubscribe(onDone: () -> Unit) = viewModelScope.launch { podcasts.unsubscribe(podcastId); onDone() }
+    fun unsubscribe() = viewModelScope.launch { podcasts.unsubscribe(podcastId) }
 }
 
 sealed interface AddState {
