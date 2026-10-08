@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -46,6 +47,9 @@ kotlin {
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.lifecycle.viewmodelCompose)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
             implementation(libs.navigation.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
@@ -66,13 +70,16 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.secp256k1.jni.android)
+            implementation(libs.sqldelight.android)
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.secp256k1.jni.jvm)
+            implementation(libs.sqldelight.jvm)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native)
         }
     }
 }
@@ -84,3 +91,15 @@ compose.resources {
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }
+
+// The local database (ADR 0013). Schema version 1 until the first release:
+// before then the schema changes in place; from the beta on, every change is
+// a numbered migration in src/commonMain/sqldelight/migrations.
+sqldelight {
+    databases {
+        create("HoppDatabase") {
+            packageName.set("space.sovereigncast.hopp.db")
+        }
+    }
+}
+

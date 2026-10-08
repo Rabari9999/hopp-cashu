@@ -1,0 +1,15 @@
+-- Fetched chapter files, so chapters work offline (ADR 0013).
+CREATE TABLE chapter_cache (
+    episode_id INTEGER PRIMARY KEY NOT NULL,
+    json TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+);
+
+select:
+SELECT json FROM chapter_cache WHERE episode_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO chapter_cache (episode_id, json, fetched_at) VALUES (?, ?, ?);
+
+deleteByPodcast:
+DELETE FROM chapter_cache WHERE episode_id IN (SELECT id FROM episode WHERE podcast_id = ?);

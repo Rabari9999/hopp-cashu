@@ -13,6 +13,8 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.koin.core)
     implementation(libs.ktor.client.core)
 }
 

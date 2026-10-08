@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * A parsed feed: what Hopp keeps of an RSS document with the iTunes and
  * Podcasting 2.0 namespaces (feature matrix, docs/feature-matrix.md).
@@ -7,6 +9,7 @@ package space.sovereigncast.hopp.model
  * Plain values only — no network, no database. Times are epoch seconds (UTC),
  * durations and offsets seconds.
  */
+@Serializable
 data class Feed(
     val podcast: Podcast,
     val episodes: List<Episode>,
@@ -14,6 +17,7 @@ data class Feed(
     val warnings: List<String> = emptyList(),
 )
 
+@Serializable
 data class Podcast(
     val title: String? = null,
     val link: String? = null,
@@ -35,6 +39,7 @@ data class Podcast(
     val trailers: List<Trailer> = emptyList(),
 )
 
+@Serializable
 data class Episode(
     /** `<guid>`, else the enclosure URL — the spec's own fallback. */
     val guid: String,
@@ -57,16 +62,26 @@ data class Episode(
     val socialInteracts: List<SocialInteract> = emptyList(),
 )
 
+@Serializable
 data class Enclosure(val url: String, val length: Long? = null, val type: String? = null)
+@Serializable
 data class UpdateFrequency(val text: String?, val rrule: String?, val complete: Boolean = false)
+@Serializable
 data class Funding(val url: String, val text: String?)
+@Serializable
 data class TxtRecord(val purpose: String?, val value: String)
+@Serializable
 data class Person(val name: String, val role: String?, val group: String?, val img: String?, val href: String?)
+@Serializable
 data class TranscriptRef(val url: String, val type: String, val language: String?, val rel: String?)
+@Serializable
 data class Soundbite(val startTime: Double, val duration: Double, val title: String?)
+@Serializable
 data class SocialInteract(val uri: String, val protocol: String, val accountId: String?, val priority: Int?)
+@Serializable
 data class Trailer(val title: String?, val url: String, val publishedAt: Long?, val length: Long?, val type: String?, val season: Int?)
 
+@Serializable
 data class ValueBlock(
     val type: String,
     val method: String,
@@ -76,6 +91,7 @@ data class ValueBlock(
     val timeSplits: List<ValueTimeSplit> = emptyList(),
 )
 
+@Serializable
 data class ValueRecipient(
     val name: String?,
     val type: String,
@@ -86,6 +102,7 @@ data class ValueRecipient(
     val customValue: String? = null,
 )
 
+@Serializable
 data class ValueTimeSplit(
     val startTime: Double,
     val duration: Double,
@@ -95,4 +112,5 @@ data class ValueTimeSplit(
     val remoteItem: RemoteItem? = null,
 )
 
+@Serializable
 data class RemoteItem(val feedGuid: String, val itemGuid: String? = null, val feedUrl: String? = null, val medium: String? = null)

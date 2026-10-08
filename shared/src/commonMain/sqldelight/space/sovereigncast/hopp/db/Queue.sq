@@ -1,0 +1,11 @@
+-- Up next (ADR 0012), in order. Filled in package 2.
+CREATE TABLE queue (
+    episode_id INTEGER PRIMARY KEY NOT NULL,
+    sort_key INTEGER NOT NULL
+);
+
+selectAll:
+SELECT episode_id FROM queue ORDER BY sort_key;
+
+deleteByPodcast:
+DELETE FROM queue WHERE episode_id IN (SELECT id FROM episode WHERE podcast_id = ?);

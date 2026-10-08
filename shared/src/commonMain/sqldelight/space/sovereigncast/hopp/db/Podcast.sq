@@ -1,0 +1,56 @@
+-- A subscribed show (ADR 0013). What the feed says lives in meta_json (the
+-- parsed model.Podcast); columns are what is sorted, filtered or ours.
+CREATE TABLE podcast (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    feed_url TEXT NOT NULL UNIQUE,
+    podcast_guid TEXT,
+    title TEXT NOT NULL,
+    author TEXT,
+    image_url TEXT,
+    meta_json TEXT NOT NULL,
+    -- Conditional requests: an unchanged feed costs a 304 and is not parsed.
+    etag TEXT,
+    last_modified TEXT,
+    last_checked_at INTEGER,
+    last_error TEXT,
+    -- Sovereigncast layer (ADR 0002): instance base URL once verified.
+    sc_base_url TEXT,
+    sc_verified_at INTEGER,
+    sc_capabilities_json TEXT,
+    subscribed_at INTEGER NOT NULL,
+    playback_speed REAL,
+    auto_download INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
+
+insert:
+INSERT INTO podcast (feed_url, podcast_guid, title, author, image_url, meta_json, etag, last_modified, last_checked_at, subscribed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertId:
+SELECT last_insert_rowid();
+
+selectAll:
+SELECT * FROM podcast ORDER BY title COLLATE NOCASE;
+
+selectById:
+SELECT * FROM podcast WHERE id = ?;
+
+selectByFeedUrl:
+SELECT * FROM podcast WHERE feed_url = ?;
+
+updateFromFeed:
+UPDATE podcast SET podcast_guid = ?, title = ?, author = ?, image_url = ?, meta_json = ?,
+    etag = ?, last_modified = ?, last_checked_at = ?, last_error = NULL
+WHERE id = ?;
+
+markChecked:
+UPDATE podcast SET etag = coalesce(?, etag), last_modified = coalesce(?, last_modified), last_checked_at = ?, last_error = ?
+WHERE id = ?;
+
+updateFeedUrl:
+UPDATE podcast SET feed_url = ? WHERE id = ?;
+
+delete:
+DELETE FROM podcast WHERE id = ?;
