@@ -1,0 +1,228 @@
+package space.sovereigncast.hopp.data
+
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.respondError
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.net.FeedFetcher
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/** Package 2: the version 1 → 2 migration, the queue, downloads (ADR 0012). */
+class DownloadsAndQueueTest {
+    private val audio = ByteArray(600_000) { (it % 251).toByte() }
+    private var items = 2
+    private var failAudio: (String) -> Boolean = { false }
+    private var audioStatus = HttpStatusCode.OK
+    private val ranges = mutableListOf<String?>()
+    private var now = 1_000_000L
+
+    private fun feed(n: Int) = buildString {
+        append("""<?xml version="1.0"?><rss version="2.0"><channel><title>Test Show</title>""")
+        for (i in n downTo 1) append("""<item><title>Ep $i</title><guid>ep-$i</guid><pubDate>Mon, 0$i Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/$i.mp3?src=feed" type="audio/mpeg"/></item>""")
+        append("</channel></rss>")
+    }
+
+    private val http = HttpClient(MockEngine { req ->
+        when {
+            req.url.encodedPath == "/feed.xml" -> respond(feed(items))
+            req.url.host == "cdn.test" -> {
+                if (failAudio(req.url.encodedPath)) throw IOException("network gone")
+                if (audioStatus != HttpStatusCode.OK) return@MockEngine respondError(audioStatus)
+                val range = req.headers[HttpHeaders.Range]
+                ranges += range
+                val from = range?.removePrefix("bytes=")?.removeSuffix("-")?.toInt() ?: 0
+                val body = audio.copyOfRange(from, audio.size)
+                respond(body, if (range != null) HttpStatusCode.PartialContent else HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentLength, body.size.toString()))
+            }
+            else -> respond("", HttpStatusCode.NotFound)
+        }
+    })
+    private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }
+    private val db = HoppDatabase(driver)
+    private val dir = Files.createTempDirectory("hopp-dl").toFile()
+    private val files = DownloadFiles(dir.absolutePath)
+    private val scheduled = mutableListOf<Boolean>()
+    private val scheduler = DownloadScheduler { scheduled += it }
+    private val clock = Clock { now }
+    private val settings = SettingsRepository(db)
+    private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler)
+    private val episodes = EpisodeRepository(db, http, clock)
+    private val downloads = DownloadRepository(db, http, clock, files, scheduler, settings)
+    private val queue = QueueRepository(db)
+
+    private fun test(block: suspend () -> Unit) { runBlocking { block() } }
+    private suspend fun subscribe() = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+    private suspend fun byTitle(podcastId: Long, title: String) = episodes.ofPodcast(podcastId).first().single { it.title == title }
+
+    @Test
+    fun aVersionOneDatabaseIsMigrated() = test {
+        val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        V1_SCHEMA.split(";").map(String::trim).filter(String::isNotEmpty).forEach { old.execute(null, it, 0) }
+        old.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at) VALUES ('https://pod.test/feed.xml', 'Old', '{}', 1)", 0)
+        old.execute(null, "INSERT INTO episode (podcast_id, guid, title, meta_json, first_seen_at, position_ms) VALUES (1, 'g', 'Kept', '{\"guid\":\"g\"}', 1, 4200)", 0)
+        HoppDatabase.Schema.migrate(old, 1, HoppDatabase.Schema.version)
+        val migrated = HoppDatabase(old)
+        val item = EpisodeRepository(migrated, http, clock).item(1)!!
+        assertEquals("Kept" to 4200L, item.title to item.positionMs)
+        assertEquals(DownloadState.NONE, item.downloadState)
+        SettingsRepository(migrated).update { it.copy(skipBackSeconds = 15) }
+        assertEquals(15, SettingsRepository(migrated).current().skipBackSeconds)
+    }
+
+    @Test
+    fun theQueueKeepsItsOrder() = test {
+        items = 4
+        val id = subscribe()
+        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e1); queue.playLast(e2); queue.playNext(e3); queue.playLast(e4)
+        assertEquals(listOf(e3, e1, e2, e4), queue.items.first().map { it.id })
+        queue.playNext(e4) // already in it: moves to the front
+        assertEquals(listOf(e4, e3, e1, e2), queue.items.first().map { it.id })
+        queue.reorder(listOf(e1, e2, e3, e4))
+        assertEquals(e1, queue.pop())
+        assertEquals(listOf(e2, e3, e4), queue.items.first().map { it.id })
+        podcasts.unsubscribe(id)
+        assertNull(queue.peek())
+    }
+
+    @Test
+    fun newEpisodesDownloadOnWifiAndRequestedOnesAnywhere() = test {
+        val id = subscribe()
+        val newest = byTitle(id, "Ep 2")
+        assertEquals(DownloadState.QUEUED, newest.downloadState, "the newest one is queued at subscribe")
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 1").downloadState, "the back catalogue is not")
+        assertEquals(listOf(false), scheduled)
+
+        assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 2").downloadState, "no automatic download on mobile data")
+
+        downloads.request(byTitle(id, "Ep 1").id)
+        assertEquals(listOf(false, true), scheduled)
+        assertTrue(downloads.runPending(includeAuto = false))
+        val requested = byTitle(id, "Ep 1")
+        assertEquals(DownloadState.DONE, requested.downloadState)
+        assertContentEquals(audio, File(requested.downloadPath!!).readBytes())
+        assertTrue(requested.downloadPath!!.endsWith(".mp3"))
+        assertEquals("file://${requested.downloadPath}", requested.playableUrl)
+
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+        assertEquals(2L * audio.size, downloads.usedBytes.first())
+
+        items = 3
+        podcasts.refresh(id)
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 3").downloadState, "a new episode is queued on refresh")
+        podcasts.setAutoDownload(id, false)
+        items = 4
+        podcasts.refresh(id)
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState, "unless the show is switched off")
+    }
+
+    @Test
+    fun anInterruptedDownloadResumes() = test {
+        val id = subscribe()
+        val ep = byTitle(id, "Ep 2")
+        File(dir, "${ep.id}.part").writeBytes(audio.copyOfRange(0, 100_000))
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals("bytes=100000-", ranges.last())
+        assertContentEquals(audio, File(byTitle(id, "Ep 2").downloadPath!!).readBytes())
+    }
+
+    @Test
+    fun aLostNetworkKeepsItQueuedAndADeadLinkFails() = test {
+        val id = subscribe()
+        failAudio = { true }
+        assertFalse(downloads.runPending(includeAuto = true), "worth a retry")
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 2").downloadState)
+        failAudio = { false }
+        audioStatus = HttpStatusCode.NotFound
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.FAILED, byTitle(id, "Ep 2").downloadState)
+        audioStatus = HttpStatusCode.OK
+        downloads.request(byTitle(id, "Ep 2").id) // try again by hand
+        assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+    }
+
+    @Test
+    fun playedFilesGoAfterADayAndTheLimitTakesTheOldestUnplayed() = test {
+        items = 3
+        val id = subscribe()
+        (1..3).forEach { downloads.request(byTitle(id, "Ep $it").id) }
+        downloads.runPending(includeAuto = true)
+        assertEquals(3, downloads.downloads.first().count { it.downloadState == DownloadState.DONE })
+
+        episodes.setPlayed(byTitle(id, "Ep 3").id, true)
+        now += 23 * 3600; downloads.cleanup()
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 3").downloadState, "kept within the day")
+        now += 2 * 3600; downloads.cleanup()
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 3").downloadState)
+
+        // Two files of 600 kB against a limit of 1 MB: the older unplayed one goes.
+        settings.update { it.copy(storageLimitMb = 0) }
+        downloads.cleanup()
+        assertEquals(2, downloads.downloads.first().count { it.downloadState == DownloadState.DONE }, "0 means no limit")
+        settings.update { it.copy(storageLimitMb = 1) }
+        downloads.cleanup()
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 1").downloadState)
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+
+        // A file deleted behind Hopp's back is no longer listed.
+        File(byTitle(id, "Ep 2").downloadPath!!).delete()
+        downloads.cleanup()
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 2").downloadState)
+    }
+
+    @Test
+    fun removingAndUnsubscribingDeleteTheFiles() = test {
+        items = 2
+        val id = subscribe()
+        downloads.request(byTitle(id, "Ep 1").id)
+        downloads.runPending(includeAuto = true)
+        val path = byTitle(id, "Ep 1").downloadPath!!
+        downloads.remove(byTitle(id, "Ep 1").id)
+        assertFalse(File(path).exists())
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 1").downloadState)
+        val other = byTitle(id, "Ep 2").downloadPath!!
+        podcasts.unsubscribe(id)
+        assertFalse(File(other).exists())
+    }
+}
+
+/** The schema as package 1 shipped it (version 1). */
+private val V1_SCHEMA = """
+CREATE TABLE podcast (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, feed_url TEXT NOT NULL UNIQUE, podcast_guid TEXT, title TEXT NOT NULL,
+    author TEXT, image_url TEXT, meta_json TEXT NOT NULL, etag TEXT, last_modified TEXT, last_checked_at INTEGER,
+    last_error TEXT, sc_base_url TEXT, sc_verified_at INTEGER, sc_capabilities_json TEXT, subscribed_at INTEGER NOT NULL,
+    playback_speed REAL, auto_download INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
+CREATE TABLE episode (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, podcast_id INTEGER NOT NULL, guid TEXT NOT NULL, title TEXT,
+    published_at INTEGER, duration_seconds INTEGER, image_url TEXT, enclosure_url TEXT, chapters_url TEXT,
+    meta_json TEXT NOT NULL, position_ms INTEGER NOT NULL DEFAULT 0, played INTEGER NOT NULL DEFAULT 0,
+    last_played_at INTEGER, in_inbox INTEGER NOT NULL DEFAULT 0, first_seen_at INTEGER NOT NULL,
+    download_state INTEGER NOT NULL DEFAULT 0, download_path TEXT, UNIQUE (podcast_id, guid)
+);
+CREATE INDEX episode_podcast_idx ON episode(podcast_id, published_at);
+CREATE INDEX episode_inbox_idx ON episode(in_inbox, published_at);
+CREATE TABLE queue (episode_id INTEGER PRIMARY KEY NOT NULL, sort_key INTEGER NOT NULL);
+CREATE TABLE chapter_cache (episode_id INTEGER PRIMARY KEY NOT NULL, json TEXT NOT NULL, fetched_at INTEGER NOT NULL)
+"""

@@ -7,6 +7,11 @@ import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import space.sovereigncast.hopp.data.Clock
+import space.sovereigncast.hopp.data.DownloadFiles
+import space.sovereigncast.hopp.data.DownloadRepository
+import space.sovereigncast.hopp.data.DownloadScheduler
+import space.sovereigncast.hopp.data.QueueRepository
+import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.db.HoppDatabase
@@ -16,6 +21,10 @@ import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.library.DiscoverViewModel
+import space.sovereigncast.hopp.ui.library.DownloadsViewModel
+import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
+import space.sovereigncast.hopp.ui.library.QueueViewModel
+import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.library.InboxViewModel
 import space.sovereigncast.hopp.ui.library.LibraryViewModel
 import space.sovereigncast.hopp.ui.library.ShowViewModel
@@ -25,6 +34,9 @@ interface Platform {
     val app: AppInfo
     fun sqlDriver(): SqlDriver
     fun playbackEngine(): PlaybackEngine
+    /** A directory outside the OS backup (ADR 0015). */
+    fun downloadDir(): String
+    fun downloadScheduler(): DownloadScheduler
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -34,12 +46,21 @@ fun sharedModule(platform: Platform) = module {
     single { createHttpClient(get()) }
     single<Clock> { Clock { kotlin.time.Clock.System.now().epochSeconds } }
     single { FeedFetcher(get()) }
-    single { PodcastRepository(get(), get(), get()) }
+    single { DownloadFiles(platform.downloadDir()) }
+    single { platform.downloadScheduler() }
+    single { SettingsRepository(get()) }
+    single { QueueRepository(get()) }
+    single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
+    single { PodcastRepository(get(), get(), get(), get(), get()) }
     single { EpisodeRepository(get(), get(), get()) }
     single { platform.playbackEngine() }
-    single { PlayerController(get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     viewModel { InboxViewModel(get(), get()) }
-    viewModel { LibraryViewModel(get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
     viewModel { DiscoverViewModel(get()) }
+    viewModel { QueueViewModel(get()) }
+    viewModel { DownloadsViewModel(get()) }
+    viewModel { EpisodeActionsViewModel(get(), get(), get()) }
+    viewModel { SettingsViewModel(get(), get()) }
 }

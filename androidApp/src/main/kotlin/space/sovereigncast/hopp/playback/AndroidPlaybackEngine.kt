@@ -88,6 +88,9 @@ class AndroidPlaybackEngine(context: Context) : PlaybackEngine {
     override fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs); publish() }
     override fun setSpeed(speed: Float) = withController { it.setPlaybackSpeed(speed) }
 
+    // Applied by PlaybackService from the settings — ExoPlayer's own feature.
+    override val supportsSkipSilence: Boolean = true
+
     /** Releases the controller only; the service keeps playing. */
     override fun release() {
         controller?.release()

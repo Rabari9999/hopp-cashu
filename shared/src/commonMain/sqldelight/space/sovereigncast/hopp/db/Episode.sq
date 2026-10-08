@@ -16,8 +16,15 @@ CREATE TABLE episode (
     last_played_at INTEGER,
     in_inbox INTEGER NOT NULL DEFAULT 0,
     first_seen_at INTEGER NOT NULL,
+    -- DownloadState: 0 none, 1 queued, 2 downloading, 3 done, 4 failed.
     download_state INTEGER NOT NULL DEFAULT 0,
     download_path TEXT,
+    -- Version 2 (migrations/1.sqm): when it was played (downloads go 24 h
+    -- later), its size on disk, and whether the listener asked for it —
+    -- a requested download may use mobile data, an automatic one may not.
+    played_at INTEGER,
+    download_size INTEGER,
+    download_manual INTEGER NOT NULL DEFAULT 0,
     UNIQUE (podcast_id, guid)
 );
 
@@ -26,8 +33,8 @@ CREATE INDEX episode_inbox_idx ON episode(in_inbox, published_at);
 
 -- Only what the feed knows; a known episode keeps the listener's state.
 insertIfNew:
-INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url, meta_json, in_inbox, first_seen_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url, meta_json, in_inbox, first_seen_at, download_state)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateFromFeed:
 UPDATE episode SET title = ?, published_at = ?, duration_seconds = ?, image_url = ?, enclosure_url = ?, chapters_url = ?, meta_json = ?
@@ -70,10 +77,56 @@ savePosition:
 UPDATE episode SET position_ms = ?, last_played_at = ?, in_inbox = 0 WHERE id = ?;
 
 markPlayed:
-UPDATE episode SET played = 1, position_ms = 0, in_inbox = 0 WHERE id = ?;
+UPDATE episode SET played = 1, played_at = ?, position_ms = 0, in_inbox = 0 WHERE id = ?;
 
 markUnplayed:
-UPDATE episode SET played = 0 WHERE id = ?;
+UPDATE episode SET played = 0, played_at = NULL WHERE id = ?;
 
 deleteByPodcast:
 DELETE FROM episode WHERE podcast_id = ?;
+
+-- Downloads (ADR 0012) ------------------------------------------------------
+
+requestDownload:
+UPDATE episode SET download_state = 1, download_manual = ? WHERE id = ? AND download_state IN (0, 4);
+
+setDownloadState:
+UPDATE episode SET download_state = ? WHERE id = ?;
+
+setDownloaded:
+UPDATE episode SET download_state = 3, download_path = ?, download_size = ? WHERE id = ?;
+
+clearDownload:
+UPDATE episode SET download_state = 0, download_path = NULL, download_size = NULL, download_manual = 0 WHERE id = ?;
+
+-- An app killed mid-download left it "downloading"; the .part file resumes.
+resetInterrupted:
+UPDATE episode SET download_state = 1 WHERE download_state = 2;
+
+-- What to fetch next: requested ones first, then the newest.
+nextDownload:
+SELECT * FROM episode
+WHERE download_state = 1 AND enclosure_url IS NOT NULL AND (download_manual = 1 OR :includeAuto = 1)
+ORDER BY download_manual DESC, published_at DESC
+LIMIT 1;
+
+selectDownloads:
+SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.download_state IN (1, 2, 3, 4)
+ORDER BY e.download_state = 3, e.published_at DESC;
+
+downloadedBytes:
+SELECT CAST(coalesce(sum(download_size), 0) AS INTEGER) FROM episode WHERE download_state = 3;
+
+-- Played a day ago: the file goes (ADR 0012).
+playedDownloadsBefore:
+SELECT id, download_path FROM episode WHERE download_state = 3 AND played = 1 AND played_at < ?;
+
+-- Over the storage limit, the oldest unplayed downloads go first.
+unplayedDownloadsOldestFirst:
+SELECT id, download_path, download_size FROM episode WHERE download_state = 3 AND played = 0
+ORDER BY published_at ASC, id ASC;
+
+downloadPathsOfPodcast:
+SELECT download_path FROM episode WHERE podcast_id = ? AND download_path IS NOT NULL;

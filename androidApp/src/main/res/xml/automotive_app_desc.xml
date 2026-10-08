@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto: Hopp is a media app (ADR 0012). Metadata only — nothing
+     proprietary is linked, so the foss flavor keeps it too. -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

@@ -1,0 +1,12 @@
+-- The listener's settings as key/value pairs (version 2). Typed and defaulted
+-- in data.Settings; an unknown key is simply ignored.
+CREATE TABLE setting (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
+
+selectAll:
+SELECT key, value FROM setting;
+
+put:
+INSERT OR REPLACE INTO setting (key, value) VALUES (?, ?);

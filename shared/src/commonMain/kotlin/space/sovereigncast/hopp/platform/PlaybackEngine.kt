@@ -35,6 +35,9 @@ interface PlaybackEngine {
     fun seekTo(positionMs: Long)
     fun setSpeed(speed: Float)
     fun release()
+    /** ExoPlayer has it built in; on iOS it needs own audio processing
+     *  (ADR 0012) — the setting is hidden there. */
+    val supportsSkipSilence: Boolean get() = false
 }
 
 /** Identifies Hopp to feed hosts, players and APIs (ADR 0015):

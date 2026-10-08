@@ -62,6 +62,8 @@ kotlin {
             implementation(libs.coil.network.ktor)
             implementation(libs.secp256k1.kmp)
             implementation(libs.ktor.client.websockets)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.reorderable)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

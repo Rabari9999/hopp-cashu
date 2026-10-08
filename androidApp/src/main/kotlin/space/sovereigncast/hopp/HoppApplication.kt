@@ -12,6 +12,10 @@ import androidx.work.WorkerParameters
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.mp.KoinPlatform
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import space.sovereigncast.hopp.data.DownloadRepository
+import space.sovereigncast.hopp.data.DownloadScheduler
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.di.sharedModule
 import java.util.concurrent.TimeUnit
@@ -24,6 +28,12 @@ class HoppApplication : Application() {
             modules(sharedModule(AndroidPlatform(this@HoppApplication)))
         }
         scheduleRefresh(this)
+        // Whatever was queued when the app last stopped, and yesterday's played files.
+        val koin = KoinPlatform.getKoin()
+        MainScope().launch {
+            koin.get<DownloadRepository>().cleanup()
+            koin.get<DownloadScheduler>().run { schedule(manual = true); schedule(manual = false) }
+        }
     }
 }
 
@@ -40,6 +50,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     override suspend fun doWork(): Result {
         val podcasts = KoinPlatform.getKoin().get<PodcastRepository>()
         val summary = podcasts.refreshAll()
+        KoinPlatform.getKoin().get<DownloadRepository>().cleanup()
         return if (summary.failed == summary.checked && summary.checked > 0) Result.retry() else Result.success()
     }
 }

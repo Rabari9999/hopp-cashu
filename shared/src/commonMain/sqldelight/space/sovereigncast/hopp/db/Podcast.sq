@@ -54,3 +54,9 @@ UPDATE podcast SET feed_url = ? WHERE id = ?;
 
 delete:
 DELETE FROM podcast WHERE id = ?;
+
+setSpeed:
+UPDATE podcast SET playback_speed = ? WHERE id = ?;
+
+setAutoDownload:
+UPDATE podcast SET auto_download = ? WHERE id = ?;

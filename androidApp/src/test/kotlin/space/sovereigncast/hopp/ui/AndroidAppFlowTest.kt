@@ -62,6 +62,8 @@ class TestApp : Application() {
             // A file, like on the device.
             override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema, app, "hopp.db")
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
+            override fun downloadDir(): String = java.io.File(app.cacheDir, "episodes").absolutePath
+            override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
         }
         val nodesignal = java.io.File("../shared/src/jvmTest/resources/feeds/nodesignal-podhome.xml").readBytes()
         // As slow as a phone on the road: the listener moves on while it loads.

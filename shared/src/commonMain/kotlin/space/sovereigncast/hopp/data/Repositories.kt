@@ -38,6 +38,8 @@ data class Show(
     val author: String?,
     val imageUrl: String?,
     val lastError: String?,
+    val autoDownload: Boolean = true,
+    val playbackSpeed: Float? = null,
 )
 
 /** An episode as the UI lists it — the parsed feed data stays in the database
@@ -57,6 +59,22 @@ data class EpisodeItem(
     val inInbox: Boolean,
     val podcastTitle: String? = null,
     val podcastImageUrl: String? = null,
+    val downloadState: Int = DownloadState.NONE,
+    val downloadPath: String? = null,
+) {
+    /** What the player opens: the file once it is complete, else the stream. */
+    val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let { "file://$it" } ?: enclosureUrl
+}
+
+/** One mapping for every query that selects `episode.*` (plus the show's
+ *  title and image where joined) — SQLDelight gives each its own type. */
+internal fun episodeItem(
+    id: Long, podcastId: Long, guid: String, title: String?, publishedAt: Long?, durationSeconds: Long?, imageUrl: String?,
+    enclosureUrl: String?, chaptersUrl: String?, positionMs: Long, played: Long, inInbox: Long, downloadState: Long,
+    downloadPath: String?, podcastTitle: String? = null, podcastImageUrl: String? = null,
+) = EpisodeItem(
+    id, podcastId, guid, title ?: "", publishedAt, durationSeconds, imageUrl, enclosureUrl, chaptersUrl, positionMs,
+    played == 1L, inInbox == 1L, podcastTitle, podcastImageUrl, downloadState.toInt(), downloadPath,
 )
 
 internal val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
@@ -73,16 +91,18 @@ class PodcastRepository(
     private val db: HoppDatabase,
     private val fetcher: FeedFetcher,
     private val clock: Clock,
+    private val files: DownloadFiles? = null,
+    private val downloads: DownloadScheduler = DownloadScheduler.None,
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
 
     val shows: Flow<List<Show>> = q.selectAll().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error) }
+        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat()) }
     }
 
     fun show(id: Long): Flow<Show?> = q.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.let { r ->
-        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error)
+        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat())
     } }
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(Dispatchers.IO) {
@@ -119,10 +139,11 @@ class PodcastRepository(
                     json.encodeToString(Podcast.serializer(), p), fetched.etag, fetched.lastModified, now, now)
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
-                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now)
+                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)
                 id
             }
         }
+        downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
 
@@ -142,7 +163,7 @@ class PodcastRepository(
             return 0
         }
         val feed: Feed = withContext(Dispatchers.Default) { FeedParser.parse(result.bytes) }
-        return withContext(Dispatchers.IO) {
+        val added = withContext(Dispatchers.IO) {
             db.transactionWithResult {
                 result.movedTo?.let { moved -> if (q.selectByFeedUrl(moved).executeAsOneOrNull() == null) q.updateFeedUrl(moved, id) }
                 val p = feed.podcast
@@ -155,12 +176,14 @@ class PodcastRepository(
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url,
                             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
                     } else {
-                        insertEpisode(id, e, inInbox = true, now); added++
+                        insertEpisode(id, e, inInbox = true, now, autoDownload = row.auto_download == 1L); added++
                     }
                 }
                 added
             }
         }
+        if (added > 0 && row.auto_download == 1L) downloads.schedule(manual = false)
+        return added
     }
 
     suspend fun refreshAll(parallel: Int = 4): RefreshSummary = coroutineScope {
@@ -178,6 +201,7 @@ class PodcastRepository(
     }
 
     suspend fun unsubscribe(id: Long) = withContext(Dispatchers.IO) {
+        eq.downloadPathsOfPodcast(id).executeAsList().forEach { path -> path?.let { files?.delete(it) } }
         db.transaction {
             db.chapterCacheQueries.deleteByPodcast(id)
             db.queueQueries.deleteByPodcast(id)
@@ -198,9 +222,15 @@ class PodcastRepository(
         }.awaitAll()
     }
 
-    private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long) {
+    suspend fun setSpeed(id: Long, speed: Float) = withContext(Dispatchers.IO) { q.setSpeed(speed.toDouble(), id) }
+    suspend fun setAutoDownload(id: Long, on: Boolean) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id) }
+
+    /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */
+    private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long, autoDownload: Boolean) {
+        val queued = inInbox && autoDownload && e.enclosure?.url != null
         eq.insertIfNew(podcastId, e.guid, e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url,
-            e.chaptersUrl, json.encodeToString(Episode.serializer(), e), if (inInbox) 1 else 0, now)
+            e.chaptersUrl, json.encodeToString(Episode.serializer(), e), if (inInbox) 1 else 0, now,
+            if (queued) DownloadState.QUEUED.toLong() else DownloadState.NONE.toLong())
     }
 }
 
@@ -213,15 +243,15 @@ class EpisodeRepository(
 
     val inbox: Flow<List<EpisodeItem>> = eq.selectInbox().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
-            EpisodeItem(r.id, r.podcast_id, r.guid, r.title ?: "", r.published_at, r.duration_seconds, r.image_url,
-                r.enclosure_url, r.chapters_url, r.position_ms, r.played == 1L, r.in_inbox == 1L, r.podcast_title, r.podcast_image_url)
+            episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
         }
     }
 
     val inProgress: Flow<List<EpisodeItem>> = eq.selectInProgress().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
-            EpisodeItem(r.id, r.podcast_id, r.guid, r.title ?: "", r.published_at, r.duration_seconds, r.image_url,
-                r.enclosure_url, r.chapters_url, r.position_ms, r.played == 1L, r.in_inbox == 1L, r.podcast_title, r.podcast_image_url)
+            episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
         }
     }
 
@@ -237,7 +267,7 @@ class EpisodeRepository(
     suspend fun savePosition(id: Long, positionMs: Long) = withContext(Dispatchers.IO) { eq.savePosition(positionMs, clock.now(), id) }
 
     suspend fun setPlayed(id: Long, played: Boolean) = withContext(Dispatchers.IO) {
-        if (played) eq.markPlayed(id) else eq.markUnplayed(id)
+        if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
     }
 
     suspend fun dismiss(id: Long) = withContext(Dispatchers.IO) { eq.setInbox(0, id) }
@@ -255,8 +285,8 @@ class EpisodeRepository(
         return chapters
     }
 
-    private fun space.sovereigncast.hopp.db.Episode.toItem() = EpisodeItem(
-        id, podcast_id, guid, title ?: "", published_at, duration_seconds, image_url, enclosure_url, chapters_url,
-        position_ms, played == 1L, in_inbox == 1L,
+    private fun space.sovereigncast.hopp.db.Episode.toItem() = episodeItem(
+        id, podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url,
+        position_ms, played, in_inbox, download_state, download_path,
     )
 }

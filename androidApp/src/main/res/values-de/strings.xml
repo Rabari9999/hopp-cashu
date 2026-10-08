@@ -1,0 +1,8 @@
+<resources>
+    <string name="auto_new">Neu</string>
+    <string name="auto_queue">Als Nächstes</string>
+    <string name="auto_downloads">Downloads</string>
+    <string name="auto_library">Bibliothek</string>
+    <string name="downloads_channel">Downloads</string>
+    <string name="downloads_running">Folgen werden geladen</string>
+</resources>
