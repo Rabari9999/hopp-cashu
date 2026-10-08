@@ -118,6 +118,22 @@ class ValueBarViewModel(
         }
     }
 
+    fun planShow(podcastId: Long, amountSats: Long) = viewModelScope.launch {
+        _plan.value = value.planShow(podcastId, amountSats * 1000)
+    }
+
+    fun sendShow(podcastId: Long, amountSats: Long, message: String, name: String) {
+        _boost.value = BoostState.Sending
+        viewModelScope.launch {
+            settings.update { it.copy(senderName = name.trim()) }
+            _boost.value = try {
+                BoostState.Done(value.boostShow(podcastId, amountSats * 1000, message))
+            } catch (e: Exception) {
+                BoostState.Failed(e.message ?: "error")
+            }
+        }
+    }
+
     fun resetBoost() { _boost.value = BoostState.Editing; _plan.value = null }
 
     fun setStreaming(on: Boolean) = viewModelScope.launch {

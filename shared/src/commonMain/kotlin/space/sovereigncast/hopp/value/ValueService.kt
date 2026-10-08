@@ -187,6 +187,32 @@ class ValueService(
         return BoostPlan.Ready(planned, positionSeconds)
     }
 
+    /** A boost to the show as a whole (device feedback 2026-10-08): its own
+     *  value block, no episode, no time splits. */
+    suspend fun planShow(podcastId: Long, amountMsat: Long): BoostPlan {
+        val block = podcasts.podcastMeta(podcastId)?.value ?: return BoostPlan.NoValue
+        val info = wallet.wallet.value?.info
+        val planned = Splits.divide(block.recipients, amountMsat).map { s ->
+            PlannedShare(s.recipient, s.amountMsat, info?.let { unpayableReason(s.recipient, it) })
+        }
+        return BoostPlan.Ready(planned, null)
+    }
+
+    suspend fun boostShow(podcastId: Long, amountMsat: Long, message: String?): List<ShareResult> {
+        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
+        val info = wallet.wallet.value?.info ?: client.info()
+        val block = podcasts.podcastMeta(podcastId)?.value ?: throw IllegalStateException("no value block")
+        val show = podcasts.show(podcastId).first()
+        val ctx = BoostContext(
+            action = "boost", appVersion = app.version, podcast = show?.title, episode = null, feedUrl = show?.feedUrl,
+            podcastGuid = show?.podcastGuid, episodeGuid = null, positionSeconds = null,
+            senderName = settings.current().senderName.takeIf { it.isNotBlank() }, message = message?.takeIf { it.isNotBlank() },
+        )
+        val results = BoostSender(client, lnAddress, info).send(block, amountMsat, ctx)
+        record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
+        return results
+    }
+
     /** Sends a boost and logs it; returns each recipient's outcome. */
     suspend fun boost(item: EpisodeItem, positionSeconds: Long?, amountMsat: Long, message: String?): List<ShareResult> {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
@@ -230,7 +256,15 @@ class ValueService(
         )
     }
 
-    private suspend fun log(kind: String, item: EpisodeItem, results: List<ShareResult>, message: String?) = withContext(Dispatchers.IO) {
+    private suspend fun log(kind: String, item: EpisodeItem, results: List<ShareResult>, message: String?) {
+        val show = podcasts.show(item.podcastId).first()
+        record(kind, item.podcastId, item.id, show?.title ?: item.podcastTitle, item.title, results, message)
+    }
+
+    private suspend fun record(
+        kind: String, podcastId: Long, episodeId: Long?, podcastTitle: String?, episodeTitle: String?,
+        results: List<ShareResult>, message: String?,
+    ) = withContext(Dispatchers.IO) {
         val lines = results.map { r ->
             val rec = r.share.recipient
             when (r) {
@@ -240,9 +274,7 @@ class ValueService(
             }
         }
         val paid = results.filterIsInstance<ShareResult.Paid>().sumOf { it.share.amountMsat }
-        val show = podcasts.show(item.podcastId).first()
-        pq.insert(clock.now(), kind, item.podcastId, item.id, show?.title ?: item.podcastTitle, item.title, paid, message,
-            json.encodeToString(lineList, lines))
+        pq.insert(clock.now(), kind, podcastId, episodeId, podcastTitle, episodeTitle, paid, message, json.encodeToString(lineList, lines))
     }
 
     // ── streaming ─────────────────────────────────────────────────────────

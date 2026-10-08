@@ -208,4 +208,23 @@ class ValueServiceTest {
         settings.update { it.copy(quickBoostSats = 0) }
         assertEquals(QuickBoost.Off, value.quickBoost(ep, 30))
     }
+
+    /** Device feedback 2026-10-08: a boost to the whole show — its block, no
+     *  episode, no song from a time split. */
+    @Test
+    fun theWholeShowCanBeBoosted() = test {
+        wallet.connect(uri())
+        val podcastId = episode().podcastId
+        val plan = value.planShow(podcastId, 100_000) as BoostPlan.Ready
+        assertEquals(listOf(90_000L, 10_000L), plan.shares.map { it.amountMsat })
+        val results = value.boostShow(podcastId, 100_000, "Für alles")
+        assertTrue(results.all { it is ShareResult.Paid })
+        assertEquals(listOf(host to 90L, cohost to 10L), keysends())
+        val logged = value.payments.first().single()
+        assertEquals("Show", logged.podcastTitle)
+        assertNull(logged.episodeTitle)
+        // The boostagram names the show but no episode.
+        val tlv = fake.requests.first().second.toString()
+        assertTrue("episode_guid" !in tlv || "null" in tlv)
+    }
 }

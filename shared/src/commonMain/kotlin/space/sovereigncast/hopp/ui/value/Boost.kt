@@ -67,6 +67,7 @@ import space.sovereigncast.hopp.resources.boost_title
 import space.sovereigncast.hopp.resources.boost_unreachable
 import space.sovereigncast.hopp.resources.boost_via
 import space.sovereigncast.hopp.resources.boost_where
+import space.sovereigncast.hopp.resources.boost_whole_show
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.np_boost
 import space.sovereigncast.hopp.resources.np_over_budget
@@ -162,11 +163,13 @@ private val PRESETS = listOf(100L, 500L, 1_000L, 2_100L)
 @Composable
 fun BoostSheet(
     vm: ValueBarViewModel,
-    item: EpisodeItem,
+    /** null: a boost to the whole show (device feedback 2026-10-08). */
+    item: EpisodeItem?,
     showTitle: String,
     positionMs: Long,
     onDismiss: () -> Unit,
     onOpenWallet: () -> Unit,
+    podcastId: Long = item?.podcastId ?: 0,
 ) {
     val wallet by vm.connected.collectAsState()
     val settings by vm.current.collectAsState()
@@ -181,7 +184,10 @@ fun BoostSheet(
     var message by remember { mutableStateOf("") }
     var name by remember(settings?.senderName) { mutableStateOf(settings?.senderName.orEmpty()) }
     var overConfirmed by remember { mutableStateOf(false) }
-    LaunchedEffect(amount) { overConfirmed = false; if (amount > 0) vm.plan(item, position, amount) }
+    LaunchedEffect(amount) {
+        overConfirmed = false
+        if (amount > 0) { if (item != null) vm.plan(item, position, amount) else vm.planShow(podcastId, amount) }
+    }
 
     ModalBottomSheet(onDismissRequest = { vm.resetBoost(); onDismiss() }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -190,7 +196,10 @@ fun BoostSheet(
                 Spacer(Modifier.size(8.dp))
                 Text(stringResource(Res.string.boost_title, showTitle), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
-            Text(stringResource(Res.string.boost_where, item.title, formatTime(positionMs)), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(
+                if (item != null) stringResource(Res.string.boost_where, item.title, formatTime(positionMs)) else stringResource(Res.string.boost_whole_show),
+                color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+            )
 
             when (val s = state) {
                 is BoostState.Done -> { BoostDone(s.results, onClose = { vm.resetBoost(); onDismiss() }); return@Column }
@@ -231,7 +240,10 @@ fun BoostSheet(
                     busy = state == BoostState.Sending,
                 ) {
                     if (over && !overConfirmed) overConfirmed = true
-                    else { haptics.performHapticFeedback(HapticFeedbackType.LongPress); vm.send(item, position, amount, message, name) }
+                    else {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (item != null) vm.send(item, position, amount, message, name) else vm.sendShow(podcastId, amount, message, name)
+                    }
                 }
                 Text(
                     stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),
@@ -335,5 +347,18 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
             }
         }
         TextButton(onClick = onClose, modifier = Modifier.padding(bottom = 16.dp)) { Text(stringResource(Res.string.boost_close)) }
+    }
+}
+
+/** The orange Boost pill — on a show page for the whole show. */
+@Composable
+fun BoostPill(onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onClick).padding(horizontal = 15.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.size(6.dp))
+        Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
     }
 }

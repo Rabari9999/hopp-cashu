@@ -180,4 +180,5 @@
     <string name="episode_play">Play</string>
     <string name="episode_resume">Continue · %1$s left</string>
     <string name="episode_shownotes">Show notes</string>
+    <string name="boost_whole_show">For the whole show</string>
 </resources>

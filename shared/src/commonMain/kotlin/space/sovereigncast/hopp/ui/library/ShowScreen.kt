@@ -24,6 +24,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.material3.Switch
 import androidx.compose.foundation.layout.fillMaxWidth
 import space.sovereigncast.hopp.resources.show_auto_download
+import space.sovereigncast.hopp.ui.value.BoostPill
+import space.sovereigncast.hopp.ui.value.BoostSheet
+import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,7 +55,7 @@ import space.sovereigncast.hopp.resources.show_unsubscribe_confirm
  *  the Community tab (ADR 0019) arrive in package 5. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShowScreen(podcastId: Long, onGone: () -> Unit) {
+fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}) {
     val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
@@ -64,6 +67,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit) {
     val refreshing by vm.refreshing.collectAsState()
     val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
+    var boosting by remember { mutableStateOf(false) }
     LaunchedEffect(gone) { if (gone) onGone() }
     val colors = MaterialTheme.colorScheme
 
@@ -77,7 +81,11 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit) {
                         Text(show?.title ?: "", style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
                         show?.author?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
                         episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
-                        OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
+                            // The whole show, not one episode (device feedback 2026-10-08).
+                            if (meta?.value != null) BoostPill { boosting = true }
+                        }
                     }
                 }
                 show?.let { s ->
@@ -105,6 +113,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (boosting) {
+        val valueVm: ValueBarViewModel = koinViewModel()
+        BoostSheet(
+            valueVm, item = null, showTitle = show?.title.orEmpty(), positionMs = 0, podcastId = podcastId,
+            onDismiss = { boosting = false }, onOpenWallet = { boosting = false; onOpenWallet() },
+        )
     }
 
     if (confirm) {

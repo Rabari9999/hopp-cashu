@@ -275,7 +275,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 val id = e.toRoute<ShowRoute>().id
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
-                                ShowScreen(id, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
+                                ShowScreen(id, onOpenWallet = { nav.navigate(WalletRoute()) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
                             }
                         }
                     }
