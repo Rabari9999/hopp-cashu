@@ -47,15 +47,15 @@ class BoostSender(
     private val lnAddress: LnAddressClient,
     private val wallet: WalletInfo,
 ) {
-    suspend fun send(block: ValueBlock, totalMsat: Long, ctx: BoostContext): List<ShareResult> =
-        Splits.divideAt(block, totalMsat, ctx.positionSeconds?.toDouble()).map { share ->
-            if (share.amountMsat < 1000) ShareResult.Skipped(share, "below 1 sat")
-            else pay(share, totalMsat, ctx)
-        }
+    suspend fun send(block: ValueBlock, totalMsat: Long, ctx: BoostContext, remote: ValueBlock? = null): List<ShareResult> =
+        Splits.divideAt(block, totalMsat, ctx.positionSeconds?.toDouble(), remote).map { share -> payShare(share, totalMsat, ctx) }
 
-    private suspend fun pay(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {
+    /** One recipient's share — streaming settles them one by one. */
+    suspend fun payShare(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {
+        if (share.amountMsat < 1000) return ShareResult.Skipped(share, "below 1 sat")
         val r = share.recipient
         return when (r.type.lowercase()) {
+            Splits.REMOTE -> ShareResult.Skipped(share, "the remote item's value block could not be found")
             "node" -> if (wallet.canKeysend) keysend(share, r.address, r.customKey, r.customValue, totalMsat, ctx, "keysend")
                 else ShareResult.Skipped(share, "wallet cannot send keysend")
             "lnaddress" -> payLnAddress(share, totalMsat, ctx)
@@ -105,6 +105,15 @@ class BoostSender(
             else -> null
         }
     }
+}
+
+/** Why a share cannot be paid with this wallet, before trying (ADR 0005:
+ *  shown in the boost dialog, neither paid nor handed to the others). */
+fun unpayableReason(recipient: space.sovereigncast.hopp.model.ValueRecipient, wallet: WalletInfo): String? = when (recipient.type.lowercase()) {
+    "node" -> if (wallet.canKeysend) null else "keysend"
+    "lnaddress" -> if (wallet.canPayInvoice || wallet.canKeysend) null else "invoice"
+    Splits.REMOTE -> "remote"
+    else -> "type"
 }
 
 /** For tests and diagnostics: who got what by which route. */

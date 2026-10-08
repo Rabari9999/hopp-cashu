@@ -81,6 +81,9 @@ class DownloadsAndQueueTest {
         val item = EpisodeRepository(migrated, http, clock).item(1)!!
         assertEquals("Kept" to 4200L, item.title to item.positionMs)
         assertEquals(DownloadState.NONE, item.downloadState)
+        // Version 3: the payment log and streaming tables are there too.
+        assertEquals(0L, migrated.paymentQueries.spentSince(0).executeAsOne())
+        assertEquals(0L, migrated.streamingQueries.owedTotal().executeAsOne())
         SettingsRepository(migrated).update { it.copy(skipBackSeconds = 15) }
         assertEquals(15, SettingsRepository(migrated).current().skipBackSeconds)
     }

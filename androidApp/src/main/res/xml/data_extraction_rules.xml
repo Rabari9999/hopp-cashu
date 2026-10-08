@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer: cloud backup and device-to-device transfer alike
+     leave the keys behind (ADR 0015). Downloads sit in noBackupFilesDir. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="hopp_secrets.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="hopp_secrets.xml" />
+    </device-transfer>
+</data-extraction-rules>

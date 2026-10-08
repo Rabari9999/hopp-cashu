@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.value
 
 import space.sovereigncast.hopp.model.ValueBlock
 import space.sovereigncast.hopp.model.ValueRecipient
+import space.sovereigncast.hopp.model.ValueTimeSplit
 
 /** One recipient's share of a payment, in millisatoshis. */
 data class Share(val recipient: ValueRecipient, val amountMsat: Long)
@@ -35,20 +36,33 @@ object Splits {
         return (feeAmounts + rest).filter { it.second > 0 }.map { Share(it.first, it.second) }
     }
 
-    /**
-     * The shares at a playback position: inside a time split with inline
-     * recipients, `remotePercentage` (default 100) goes to them and the rest
-     * to the main block. Remote items (another feed's value block) are not
-     * resolved here — the caller has to fetch that block first.
-     */
-    fun divideAt(block: ValueBlock, totalMsat: Long, positionSeconds: Double?): List<Share> {
-        val active = positionSeconds?.let { pos ->
-            block.timeSplits.firstOrNull { pos >= it.startTime && pos < it.startTime + it.duration && it.recipients.isNotEmpty() }
-        } ?: return divide(block.recipients, totalMsat)
-        val percent = (active.remotePercentage ?: 100).coerceIn(0, 100)
-        val remote = totalMsat * percent / 100
-        return divide(block.recipients, totalMsat - remote) + divide(active.recipients, remote)
+    /** The value time split that applies at [positionSeconds], if any. */
+    fun activeSplit(block: ValueBlock, positionSeconds: Double?): ValueTimeSplit? = positionSeconds?.let { pos ->
+        block.timeSplits.firstOrNull { pos >= it.startTime && pos < it.startTime + it.duration && (it.recipients.isNotEmpty() || it.remoteItem != null) }
     }
+
+    /**
+     * The shares at a playback position: inside a time split,
+     * `remotePercentage` (default 100) goes to its recipients and the rest to
+     * the main block. A split pointing at another feed (`remoteItem` — music
+     * from Wavlake, say) needs that feed's value block, resolved by the caller
+     * as [remote]. Unresolved, the share stays as one "remote" recipient that
+     * is skipped and shown, not handed to the others (ADR 0005).
+     */
+    fun divideAt(block: ValueBlock, totalMsat: Long, positionSeconds: Double?, remote: ValueBlock? = null): List<Share> {
+        val active = activeSplit(block, positionSeconds) ?: return divide(block.recipients, totalMsat)
+        val percent = (active.remotePercentage ?: 100).coerceIn(0, 100)
+        val remoteMsat = totalMsat * percent / 100
+        val main = divide(block.recipients, totalMsat - remoteMsat)
+        val targets = active.recipients.ifEmpty { remote?.recipients.orEmpty() }
+        if (targets.isNotEmpty()) return main + divide(targets, remoteMsat)
+        if (remoteMsat <= 0) return main
+        val placeholder = ValueRecipient(name = active.remoteItem?.medium ?: "remote", type = REMOTE, address = active.remoteItem?.feedGuid ?: "", split = 100)
+        return main + Share(placeholder, remoteMsat)
+    }
+
+    /** Recipient type of an unresolved remote item's share. */
+    const val REMOTE = "remote"
 
     private fun largestRemainder(recipients: List<ValueRecipient>, amount: Long): List<Pair<ValueRecipient, Long>> {
         val totalWeight = recipients.sumOf { it.split.toLong() }

@@ -1,0 +1,37 @@
+-- Version 2 → 3 (package 4): the payment log, streaming accrual and settlement.
+CREATE TABLE payment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    podcast_id INTEGER,
+    episode_id INTEGER,
+    podcast_title TEXT,
+    episode_title TEXT,
+    amount_msat INTEGER NOT NULL,
+    message TEXT,
+    results_json TEXT NOT NULL
+);
+CREATE INDEX payment_created_idx ON payment(created_at);
+CREATE INDEX payment_episode_idx ON payment(episode_id);
+
+CREATE TABLE accrual (
+    episode_id INTEGER NOT NULL,
+    bucket TEXT NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    position_seconds REAL NOT NULL,
+    media_seconds REAL NOT NULL DEFAULT 0,
+    accrued_msat INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (episode_id, bucket)
+);
+
+CREATE TABLE settlement (
+    episode_id INTEGER NOT NULL,
+    recipient_key TEXT NOT NULL,
+    rail TEXT NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    recipient_json TEXT NOT NULL,
+    owed_msat INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    PRIMARY KEY (episode_id, recipient_key, rail)
+);

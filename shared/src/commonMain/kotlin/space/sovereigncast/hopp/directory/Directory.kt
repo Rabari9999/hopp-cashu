@@ -201,6 +201,12 @@ class DirectoryRepository(
         SearchResult(shows, failed = answers.filter { it.second.isFailure }.map { it.first })
     }
 
+    /** The feed address of the show with this `podcast:guid`, if the index knows it. */
+    suspend fun feedUrlForGuid(guid: String): String? {
+        val credentials = credentials() ?: return null
+        return runCatching { podcastIndex.byGuid(guid, credentials) }.getOrNull()?.feedUrl
+    }
+
     /** "From your shows": what the subscribed shows recommend in their
      *  `podcast:podroll`, resolved via the Podcast Index, without what is
      *  already subscribed. Kept until the subscriptions change. */

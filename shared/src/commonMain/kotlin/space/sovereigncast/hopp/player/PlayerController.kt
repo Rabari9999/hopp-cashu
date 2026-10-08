@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.player
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +20,9 @@ import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
+import space.sovereigncast.hopp.value.ValueService
 
 /** What is loaded in the player, with what the now-playing screen shows. */
 data class NowPlaying(
@@ -54,6 +57,8 @@ class PlayerController(
     private val queue: QueueRepository,
     settingsRepository: SettingsRepository,
     private val scope: CoroutineScope,
+    /** Streaming sats (ADR 0014); null in tests that do not pay. */
+    private val value: ValueService? = null,
     private val nowMs: () -> Long = { monotonic.elapsedNow().inWholeMilliseconds },
 ) {
     private val _current = MutableStateFlow<NowPlaying?>(null)
@@ -73,9 +78,15 @@ class PlayerController(
     private var lastTickMs: Long? = null
     private var lastChapter = -1
     private var lastPosition = 0L
+    private var heardId: Long? = null
+    private var heardAt = 0L
 
     init {
         scope.launch { settingsRepository.settings.collect { _settings.value = it } }
+        // Streaming is paid in batches; offline debt is caught up here too.
+        if (value != null) scope.launch {
+            while (true) { delay(SETTLE_EVERY); runCatching { value.settle() } }
+        }
         scope.launch {
             var wasPlaying = false
             engine.state.collect { s ->
@@ -85,6 +96,7 @@ class PlayerController(
                 // the service still playing from before the UI was recreated.
                 if (expectedId == null && _current.value?.item?.id != id) follow(id)
                 tickSleep(s)
+                hear(id, s)
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
                     ended && wasPlaying -> { episodes.setPlayed(id, true); lastSaved = 0; onEnded() }
@@ -95,6 +107,18 @@ class PlayerController(
                 wasPlaying = s.isPlaying
             }
         }
+    }
+
+    /** Media time heard since the last report — a jump (seek, chapter) is
+     *  not listening and accrues nothing (ADR 0014). */
+    private fun hear(id: Long, s: PlaybackState) {
+        val delta = s.positionMs - heardAt
+        val heard = s.isPlaying && heardId == id && delta > 0 && delta <= MAX_TICK_MS * s.speed.coerceAtLeast(1f)
+        heardId = id
+        heardAt = s.positionMs
+        if (!heard || value == null) return
+        val item = _current.value?.item?.takeIf { it.id == id } ?: return
+        scope.launch { runCatching { value.accrue(item, s.positionMs, delta) } }
     }
 
     private suspend fun follow(id: Long) {
@@ -221,6 +245,9 @@ class PlayerController(
     }
 
     companion object {
+        /** Longer than any engine report gap while playing — a bigger jump is a seek. */
+        const val MAX_TICK_MS = 5_000L
+        val SETTLE_EVERY = 5.minutes
         val SPEEDS = listOf(1f, 1.2f, 1.5f, 1.8f, 2f, 0.8f)
         val SPEED_CHOICES = listOf(0.8f, 1f, 1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f)
     }

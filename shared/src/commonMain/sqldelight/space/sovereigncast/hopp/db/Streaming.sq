@@ -1,0 +1,66 @@
+-- Streaming sats (ADR 0014) in two layers. Accrual: what was heard, per
+-- episode and per value time split ("bucket": "" or "ts:<start>"), converted
+-- with the rate at the time — offline as well as online.
+CREATE TABLE accrual (
+    episode_id INTEGER NOT NULL,
+    bucket TEXT NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    -- A position inside the bucket: decides which split applies.
+    position_seconds REAL NOT NULL,
+    media_seconds REAL NOT NULL DEFAULT 0,
+    -- Not yet handed to settlement.
+    accrued_msat INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (episode_id, bucket)
+);
+
+-- Settlement: owed per recipient and rail until it is a whole sat and paid.
+-- Phase 1 has the 'lightning' rail; ecash rails join in phase 3.
+CREATE TABLE settlement (
+    episode_id INTEGER NOT NULL,
+    recipient_key TEXT NOT NULL,
+    rail TEXT NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    recipient_json TEXT NOT NULL,
+    owed_msat INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    PRIMARY KEY (episode_id, recipient_key, rail)
+);
+
+-- No upsert: ON CONFLICT … DO UPDATE needs SQLite 3.24, Android 8 has 3.18.
+ensureAccrual:
+INSERT OR IGNORE INTO accrual (episode_id, bucket, podcast_id, position_seconds) VALUES (?, ?, ?, ?);
+
+addAccrual:
+UPDATE accrual SET media_seconds = media_seconds + :seconds, accrued_msat = accrued_msat + :msat, position_seconds = :position
+WHERE episode_id = :episodeId AND bucket = :bucket;
+
+pendingAccruals:
+SELECT * FROM accrual WHERE accrued_msat > 0;
+
+takeAccrual:
+UPDATE accrual SET accrued_msat = accrued_msat - :msat WHERE episode_id = :episodeId AND bucket = :bucket;
+
+ensureSettlement:
+INSERT OR IGNORE INTO settlement (episode_id, recipient_key, rail, podcast_id, recipient_json) VALUES (?, ?, ?, ?, ?);
+
+owe:
+UPDATE settlement SET owed_msat = owed_msat + :msat, recipient_json = :recipient
+WHERE episode_id = :episodeId AND recipient_key = :key AND rail = :rail;
+
+payable:
+SELECT * FROM settlement WHERE rail = ? AND owed_msat >= ? ORDER BY episode_id, recipient_key;
+
+paid:
+UPDATE settlement SET owed_msat = owed_msat - :msat, attempts = 0, last_error = NULL
+WHERE episode_id = :episodeId AND recipient_key = :key AND rail = :rail;
+
+failed:
+UPDATE settlement SET attempts = attempts + 1, last_error = :error
+WHERE episode_id = :episodeId AND recipient_key = :key AND rail = :rail;
+
+owedTotal:
+SELECT CAST(coalesce(sum(owed_msat), 0) AS INTEGER) FROM settlement;
+
+accruedTotal:
+SELECT CAST(coalesce(sum(accrued_msat), 0) AS INTEGER) FROM accrual;

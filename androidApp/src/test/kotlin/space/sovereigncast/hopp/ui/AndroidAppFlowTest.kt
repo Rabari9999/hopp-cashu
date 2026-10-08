@@ -67,6 +67,7 @@ class TestApp : Application() {
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
             override fun downloadDir(): String = java.io.File(app.cacheDir, "episodes").absolutePath
             override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
+            override fun secretStore() = space.sovereigncast.hopp.platform.MemorySecretStore()
         }
         val nodesignal = java.io.File("../shared/src/jvmTest/resources/feeds/nodesignal-podhome.xml").readBytes()
         // As slow as a phone on the road: the listener moves on while it loads.

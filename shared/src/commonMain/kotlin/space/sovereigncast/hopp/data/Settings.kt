@@ -21,11 +21,22 @@ data class Settings(
     /** Extra directories, off by default — each sees the searches (ADR 0008). */
     val fyydSearch: Boolean = false,
     val appleSearch: Boolean = false,
+    /** What boosts and streaming may spend per day together (ADR 0005); Hopp
+     *  enforces it on top of any limit set in the wallet. */
+    val dailyBudgetSats: Int = 5_000,
+    /** Streaming sats — off until the listener turns it on (ADR 0005). */
+    val streaming: Boolean = false,
+    /** Sats per minute; 0 = what the show suggests. */
+    val streamRateSats: Int = 0,
+    /** Sent with boosts if set; empty = anonymous. */
+    val senderName: String = "",
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
         val skipForwardChoices = listOf(10, 15, 30, 45, 60)
         val storageChoicesMb = listOf(1_024, 2_048, 5_120, 10_240, 0)
+        val budgetChoicesSats = listOf(1_000, 5_000, 10_000, 21_000, 50_000)
+        val streamRateChoicesSats = listOf(0, 1, 5, 10, 21, 50)
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -36,6 +47,10 @@ data class Settings(
                 storageLimitMb = values["storage_limit_mb"]?.toIntOrNull() ?: d.storageLimitMb,
                 fyydSearch = values["fyyd_search"]?.toBooleanStrictOrNull() ?: d.fyydSearch,
                 appleSearch = values["apple_search"]?.toBooleanStrictOrNull() ?: d.appleSearch,
+                dailyBudgetSats = values["daily_budget_sats"]?.toIntOrNull() ?: d.dailyBudgetSats,
+                streaming = values["streaming"]?.toBooleanStrictOrNull() ?: d.streaming,
+                streamRateSats = values["stream_rate_sats"]?.toIntOrNull() ?: d.streamRateSats,
+                senderName = values["sender_name"] ?: d.senderName,
             )
         }
     }
@@ -47,6 +62,10 @@ data class Settings(
         "storage_limit_mb" to storageLimitMb.toString(),
         "fyyd_search" to fyydSearch.toString(),
         "apple_search" to appleSearch.toString(),
+        "daily_budget_sats" to dailyBudgetSats.toString(),
+        "streaming" to streaming.toString(),
+        "stream_rate_sats" to streamRateSats.toString(),
+        "sender_name" to senderName,
     )
 }
 

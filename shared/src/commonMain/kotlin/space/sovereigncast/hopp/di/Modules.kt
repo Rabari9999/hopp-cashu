@@ -23,7 +23,11 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.createHttpClient
 import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.PlaybackEngine
+import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.value.LnAddressClient
+import space.sovereigncast.hopp.value.ValueService
+import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.ui.library.DiscoverViewModel
 import space.sovereigncast.hopp.ui.library.DownloadsViewModel
 import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
@@ -42,6 +46,7 @@ interface Platform {
     /** A directory outside the OS backup (ADR 0015). */
     fun downloadDir(): String
     fun downloadScheduler(): DownloadScheduler
+    fun secretStore(): SecretStore
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -59,7 +64,11 @@ fun sharedModule(platform: Platform) = module {
     single { PodcastRepository(get(), get(), get(), get(), get()) }
     single { EpisodeRepository(get(), get(), get()) }
     single { platform.playbackEngine() }
-    single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    single { platform.secretStore() }
+    single { WalletRepository(get(), get(), get()) }
+    single { LnAddressClient(get()) }
+    single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }

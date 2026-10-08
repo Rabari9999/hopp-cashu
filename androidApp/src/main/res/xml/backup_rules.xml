@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. Everything but the keys (ADR 0015): the encrypted
+     wallet connection could not be decrypted elsewhere anyway. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="hopp_secrets.xml" />
+</full-backup-content>

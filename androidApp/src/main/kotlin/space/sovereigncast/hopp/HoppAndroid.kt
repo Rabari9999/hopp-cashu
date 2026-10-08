@@ -8,7 +8,9 @@ import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.download.WorkDownloadScheduler
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.platform.AppInfo
+import space.sovereigncast.hopp.platform.KeystoreSecretStore
 import space.sovereigncast.hopp.platform.PlaybackEngine
+import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.playback.AndroidPlaybackEngine
 
 /** Hopp's identity on this device (ADR 0015). Tablet = smallest width ≥ 600 dp. */
@@ -25,4 +27,5 @@ class AndroidPlatform(private val context: Context) : Platform {
     // noBackupFilesDir: app-private, never in Auto Backup (ADR 0015).
     override fun downloadDir(): String = java.io.File(context.noBackupFilesDir, "episodes").absolutePath
     override fun downloadScheduler(): DownloadScheduler = WorkDownloadScheduler(context)
+    override fun secretStore(): SecretStore = KeystoreSecretStore(context)
 }

@@ -1,0 +1,33 @@
+-- Every payment Hopp made (ADR 0013's boost log): boosts and streaming. Titles
+-- are copied in so the history survives unsubscribing.
+CREATE TABLE payment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at INTEGER NOT NULL,
+    -- 'boost' | 'stream'
+    kind TEXT NOT NULL,
+    podcast_id INTEGER,
+    episode_id INTEGER,
+    podcast_title TEXT,
+    episode_title TEXT,
+    -- What actually went out, all recipients together.
+    amount_msat INTEGER NOT NULL,
+    message TEXT,
+    -- Per recipient: name, address, msat, paid / skipped / failed, route, reason.
+    results_json TEXT NOT NULL
+);
+
+CREATE INDEX payment_created_idx ON payment(created_at);
+CREATE INDEX payment_episode_idx ON payment(episode_id);
+
+insert:
+INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, results_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+recent:
+SELECT * FROM payment ORDER BY created_at DESC, id DESC LIMIT 200;
+
+spentSince:
+SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ?;
+
+spentSinceOfKind:
+SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ? AND kind = ?;

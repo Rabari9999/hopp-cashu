@@ -93,6 +93,7 @@ kotlin {
             implementation(libs.secp256k1.kmp)
             implementation(libs.ktor.client.websockets)
             implementation(libs.kotlinx.io.core)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.reorderable)
         }
         commonTest.dependencies {
