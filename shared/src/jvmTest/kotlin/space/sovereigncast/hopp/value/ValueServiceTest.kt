@@ -192,4 +192,20 @@ class ValueServiceTest {
         delay(200)
         assertEquals(20_000L, value.pendingMsat.first(), "20 s of content at one sat a second")
     }
+
+    /** The lock-screen button: the set amount at once, never past the budget. */
+    @Test
+    fun aQuickBoostSendsTheSetAmountWithinTheBudget() = test {
+        val ep = episode()
+        assertEquals(QuickBoost.NoWallet, value.quickBoost(ep, 30))
+        wallet.connect(uri())
+        val sent = value.quickBoost(ep, 30) as QuickBoost.Sent
+        assertEquals(100L, sent.paidSats)
+        assertEquals("Show", sent.show)
+        assertEquals(listOf(host to 90L, cohost to 10L), keysends())
+        settings.update { it.copy(dailyBudgetSats = 150) }
+        assertEquals(QuickBoost.OverBudget, value.quickBoost(ep, 30), "100 more would make 200 of 150")
+        settings.update { it.copy(quickBoostSats = 0) }
+        assertEquals(QuickBoost.Off, value.quickBoost(ep, 30))
+    }
 }

@@ -5,4 +5,12 @@
     <string name="auto_library">Bibliothek</string>
     <string name="downloads_channel">Downloads</string>
     <string name="downloads_running">Folgen werden geladen</string>
+    <string name="quick_boost">Boost</string>
+    <string name="boosts_channel">Boosts</string>
+    <string name="quick_boost_sent">%1$s sats an %2$s geboostet</string>
+    <string name="quick_boost_partial">%1$s von %2$s sats an %3$s geboostet – Details im Zahlungsverlauf</string>
+    <string name="quick_boost_budget">Boost nicht gesendet: Das Tagesbudget ist aufgebraucht</string>
+    <string name="quick_boost_no_value">Boost nicht gesendet: Diese Show kann keine Boosts empfangen</string>
+    <string name="quick_boost_no_wallet">Boost nicht gesendet: Keine Wallet verbunden</string>
+    <string name="quick_boost_failed">Boost fehlgeschlagen: %1$s</string>
 </resources>

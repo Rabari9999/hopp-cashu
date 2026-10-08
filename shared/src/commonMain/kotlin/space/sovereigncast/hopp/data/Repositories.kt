@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.data
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -263,8 +264,21 @@ class EpisodeRepository(
         }
     }
 
+    fun recentlyPlayed(limit: Long): Flow<List<EpisodeItem>> = eq.selectRecentlyPlayed(limit).asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.map { r ->
+            episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
+        }
+    }
+
     fun ofPodcast(podcastId: Long): Flow<List<EpisodeItem>> =
         eq.selectByPodcast(podcastId).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toItem() } }
+
+    /** The newest [limit] episodes of a show (paging, device feedback 2026-10-08). */
+    fun ofPodcastPage(podcastId: Long, limit: Long): Flow<List<EpisodeItem>> =
+        eq.selectByPodcastPage(podcastId, limit).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toItem() } }
+
+    fun countOfPodcast(podcastId: Long): Flow<Long> = eq.countByPodcast(podcastId).asFlow().mapToOne(Dispatchers.IO)
 
     suspend fun item(id: Long): EpisodeItem? = withContext(Dispatchers.IO) { eq.selectById(id).executeAsOneOrNull()?.toItem() }
 

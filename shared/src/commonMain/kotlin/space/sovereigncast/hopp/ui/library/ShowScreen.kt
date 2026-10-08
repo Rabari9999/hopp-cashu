@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -55,6 +56,9 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
     val episodes by vm.episodeList.collectAsState()
+    val count by vm.episodeCount.collectAsState()
+    val listState = rememberLazyListState()
+    OnNearEnd(listState) { vm.loadMore() }
     val meta by vm.meta.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val gone by vm.gone.collectAsState()
@@ -63,7 +67,7 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
     val colors = MaterialTheme.colorScheme
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
-        LazyColumn {
+        LazyColumn(state = listState) {
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Cover(show?.imageUrl, 112.dp, corner = 18.dp)
@@ -71,7 +75,7 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(show?.title ?: "", style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
                         show?.author?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
-                        episodes?.let { Text(stringResource(Res.string.show_episodes, it.size), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                        episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
                         OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
                     }
                 }

@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +49,7 @@ import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.back
 import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
+import space.sovereigncast.hopp.resources.nav_home
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
 import androidx.compose.material3.SnackbarHost
@@ -71,6 +72,7 @@ import space.sovereigncast.hopp.ui.library.DiscoverScreen
 import space.sovereigncast.hopp.ui.library.DownloadsScreen
 import space.sovereigncast.hopp.ui.library.LocalDownloadProgress
 import space.sovereigncast.hopp.ui.library.QueueScreen
+import space.sovereigncast.hopp.ui.library.HomeScreen
 import space.sovereigncast.hopp.ui.library.InboxScreen
 import space.sovereigncast.hopp.ui.library.LibraryScreen
 import space.sovereigncast.hopp.ui.library.SettingsScreen
@@ -80,6 +82,7 @@ import space.sovereigncast.hopp.ui.player.MiniPlayer
 import space.sovereigncast.hopp.ui.player.NowPlayingScreen
 import space.sovereigncast.hopp.ui.theme.HoppTheme
 
+@Serializable object HomeRoute
 @Serializable object InboxRoute
 @Serializable object LibraryRoute
 @Serializable object DiscoverRoute
@@ -95,13 +98,13 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab(InboxRoute, Res.string.nav_new, Icons.Rounded.Notifications),
+    Tab(HomeRoute, Res.string.nav_home, Icons.Rounded.Home),
     Tab(LibraryRoute, Res.string.nav_library, Icons.AutoMirrored.Rounded.List),
     Tab(DiscoverRoute, Res.string.nav_discover, Icons.Rounded.Search),
 )
 
 /**
- * Hopp's frame (ADR 0019): three tabs — New, Library, Discover — with the
+ * Hopp's frame (ADR 0019): three tabs — Home, Library, Discover — with the
  * mini player above the tab bar and now playing over everything. Settings
  * sit behind the profile button.
  */
@@ -137,6 +140,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
+        destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -197,7 +201,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                         },
                     ) { padding ->
-                        NavHost(nav, startDestination = InboxRoute, modifier = Modifier.padding(padding)) {
+                        NavHost(nav, startDestination = HomeRoute, modifier = Modifier.padding(padding)) {
+                            composable<HomeRoute> {
+                                HomeScreen(onPlay = { player.play(it) }, onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) })
+                            }
                             composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { selectTab(tabs[2]) }) }
                             composable<LibraryRoute> {
                                 LibraryScreen(

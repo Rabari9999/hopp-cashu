@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,7 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,7 +55,11 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
 
     val loaded = state as? PreviewState.Loaded
     val p = loaded?.feed?.podcast
-    val episodes = remember(loaded) { loaded?.feed?.episodes.orEmpty().sortedByDescending { it.publishedAt ?: 0 }.take(100) }
+    val all = remember(loaded) { loaded?.feed?.episodes.orEmpty().sortedByDescending { it.publishedAt ?: 0 } }
+    var shown by remember(loaded) { mutableIntStateOf(PAGE) }
+    val episodes = all.take(shown)
+    val listState = rememberLazyListState()
+    OnNearEnd(listState) { if (shown < all.size) shown += PAGE }
     val count = loaded?.feed?.episodes?.size ?: 0
     val failed = state as? PreviewState.Failed
     // What the directory already said shows at once; the feed fills in the rest.
@@ -61,7 +68,7 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
         EmptyState(stringResource(Res.string.preview_failed, failed.reason), feedUrl)
         return
     }
-    LazyColumn {
+    LazyColumn(state = listState) {
         item {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Cover(p?.imageUrl ?: known?.imageUrl, 112.dp, corner = 18.dp)

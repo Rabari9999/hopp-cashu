@@ -64,6 +64,22 @@ Options considered:
   it is not redistributed to the other recipients: the podcaster's split is
   respected. The listener sees which recipient could not be reached.
 
+### Quick boost outside the app (added 2026-10-08)
+
+The media controls on the lock screen and in the notification carry a **Boost**
+button (Android; iOS offers no such slot). One tap sends a fixed amount —
+100 sats by default, adjustable, or off — without a dialog and without a
+message, never past the daily budget; a notification says what arrived. It
+appears only with a wallet connected.
+
+### Paying oneself (added 2026-10-08)
+
+A share whose recipient is the paying wallet itself — its node key from
+`get_info`, its `lud16`, an invoice naming it as payee — is skipped as
+"paying yourself": wallets refuse such payments, and podcasters are often
+recipients of their own shows. A Lightning address whose keysend route fails
+is paid by LNURL after all.
+
 ### App split
 
 **Opt-in, off by default.** "Support Hopp" is a voluntary, visible split in the

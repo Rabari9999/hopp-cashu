@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The hop from the logo (ADR 0019): boost, never a lightning bolt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round"
+        android:pathData="M5.3,14.4C5.3,4.3 18.7,4.3 18.7,12.5" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M15.3,17.3a3.4,3.4 0,1 0,6.8 0a3.4,3.4 0,1 0,-6.8 0z" />
+</vector>

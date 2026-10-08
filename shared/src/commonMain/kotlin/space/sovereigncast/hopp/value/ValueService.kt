@@ -75,6 +75,16 @@ sealed interface BoostPlan {
     data class Ready(val shares: List<PlannedShare>, val positionSeconds: Long?) : BoostPlan
 }
 
+/** What a quick boost from the lock screen did. */
+sealed interface QuickBoost {
+    data class Sent(val paidSats: Long, val amountSats: Long, val recipientsPaid: Int, val recipients: Int, val show: String) : QuickBoost
+    data object Off : QuickBoost
+    data object NoWallet : QuickBoost
+    data object NoValue : QuickBoost
+    data object OverBudget : QuickBoost
+    data class Failed(val reason: String) : QuickBoost
+}
+
 /** A streaming catch-up after time offline: paid within the budget (ADR 0014). */
 data class StreamNotice(val paidSats: Long, val episodes: Int)
 
@@ -127,6 +137,10 @@ class ValueService(
                 runCatching { json.decodeFromString(lineList, r.results_json) }.getOrDefault(emptyList()))
         }
     }
+
+    /** Home's "Recently boosted": episode id → sats boosted to it in all. */
+    fun recentBoosts(limit: Long): Flow<List<Pair<Long, Long>>> =
+        pq.recentBoosts(limit).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.mapNotNull { r -> r.episode_id?.let { it to (r.total_msat ?: 0L) / 1000 } } }
 
     // ── value blocks ──────────────────────────────────────────────────────
 
@@ -184,6 +198,28 @@ class ValueService(
         val results = BoostSender(client, lnAddress, info).send(block, amountMsat, ctx, remote)
         log(KIND_BOOST, item, results, message)
         return results
+    }
+
+    /**
+     * The boost button outside the app — lock screen, notification (device
+     * feedback 2026-10-08): the configured amount at once, no dialog, no
+     * message; never past today's budget.
+     */
+    suspend fun quickBoost(item: EpisodeItem, positionSeconds: Long?): QuickBoost {
+        val s = settings.current()
+        if (s.quickBoostSats <= 0) return QuickBoost.Off
+        if (wallet.wallet.value == null) return QuickBoost.NoWallet
+        val amount = s.quickBoostSats * 1000L
+        if (amount > budgetLeftMsat.first()) return QuickBoost.OverBudget
+        if (blockFor(item) == null) return QuickBoost.NoValue
+        return try {
+            val results = boost(item, positionSeconds, amount, null)
+            val paid = results.filterIsInstance<ShareResult.Paid>()
+            QuickBoost.Sent(paid.sumOf { it.share.amountMsat } / 1000, s.quickBoostSats.toLong(), paid.size, results.size,
+                podcasts.show(item.podcastId).first()?.title ?: item.podcastTitle.orEmpty())
+        } catch (e: Exception) {
+            QuickBoost.Failed(e.message ?: "error")
+        }
     }
 
     private suspend fun context(item: EpisodeItem, action: String, positionSeconds: Long?, message: String?): BoostContext {

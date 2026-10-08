@@ -31,3 +31,9 @@ SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created
 
 spentSinceOfKind:
 SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ? AND kind = ?;
+
+-- Home: "Recently boosted" — each episode once, with what went to it.
+recentBoosts:
+SELECT episode_id, max(created_at) AS last_at, CAST(sum(amount_msat) AS INTEGER) AS total_msat
+FROM payment WHERE kind = 'boost' AND episode_id IS NOT NULL
+GROUP BY episode_id ORDER BY last_at DESC LIMIT ?;

@@ -84,8 +84,8 @@ black (an orange dot on orange disappears).
 
 ### Navigation
 
-Bottom bar with three tabs — **New · Library · Discover** — and the mini player
-above it. Wallet, boost history and settings sit behind a profile button at the
+Bottom bar with three tabs — **Home · Library · Discover** (Home replaced New
+on 2026-10-08, see ADR 0012) — and the mini player above it. Wallet, boost history and settings sit behind a profile button at the
 top right. Calm and centred on listening.
 
 ### Now playing

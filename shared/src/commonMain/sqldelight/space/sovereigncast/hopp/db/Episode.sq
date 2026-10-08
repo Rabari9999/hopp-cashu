@@ -52,6 +52,13 @@ SELECT * FROM episode WHERE podcast_id = ? AND guid = ?;
 selectByPodcast:
 SELECT * FROM episode WHERE podcast_id = ? ORDER BY published_at DESC, id DESC;
 
+-- A page of the show's episodes — the show page loads 20 at a time.
+selectByPodcastPage:
+SELECT * FROM episode WHERE podcast_id = ? ORDER BY published_at DESC, id DESC LIMIT ?;
+
+countByPodcast:
+SELECT count(*) FROM episode WHERE podcast_id = ?;
+
 -- "New" (ADR 0012): what arrived since the listener last looked, newest first.
 selectInbox:
 SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
@@ -66,6 +73,14 @@ FROM episode e JOIN podcast p ON p.id = e.podcast_id
 WHERE e.position_ms > 0 AND e.played = 0
 ORDER BY e.last_played_at DESC
 LIMIT 20;
+
+-- Home: "Recently played" — finished, newest first.
+selectRecentlyPlayed:
+SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.played = 1 AND e.played_at IS NOT NULL
+ORDER BY e.played_at DESC
+LIMIT ?;
 
 setInbox:
 UPDATE episode SET in_inbox = ? WHERE id = ?;

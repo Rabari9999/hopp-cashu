@@ -16,6 +16,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,4 +100,16 @@ fun EmptyState(title: String, text: String, action: (@Composable () -> Unit)? = 
             action?.invoke()
         }
     }
+}
+
+/** Calls [onNearEnd] when the list is scrolled to within a few items of its end. */
+@Composable
+fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: () -> Unit) {
+    val near by androidx.compose.runtime.remember(state) {
+        androidx.compose.runtime.derivedStateOf {
+            val info = state.layoutInfo
+            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(near) { if (near) onNearEnd() }
 }

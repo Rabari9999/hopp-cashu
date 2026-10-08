@@ -63,6 +63,9 @@ import space.sovereigncast.hopp.resources.wallet_no_keysend_note
 import space.sovereigncast.hopp.resources.wallet_yes
 import space.sovereigncast.hopp.resources.wallet_limit_tip
 import space.sovereigncast.hopp.resources.wallet_name
+import space.sovereigncast.hopp.resources.wallet_quick_boost
+import space.sovereigncast.hopp.resources.wallet_quick_boost_note
+import space.sovereigncast.hopp.resources.wallet_quick_boost_off
 import space.sovereigncast.hopp.resources.wallet_rate
 import space.sovereigncast.hopp.resources.wallet_rate_show
 import space.sovereigncast.hopp.resources.wallet_rate_value
@@ -140,6 +143,17 @@ fun WalletScreen(onHistory: () -> Unit, incomingUri: String? = null, vm: WalletV
                     )
                 }
             }
+
+            Text(stringResource(Res.string.wallet_quick_boost), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Settings.quickBoostChoicesSats.forEach { q ->
+                    FilterChip(
+                        selected = s.quickBoostSats == q, onClick = { vm.update { it.copy(quickBoostSats = q) } },
+                        label = { Text(if (q == 0) stringResource(Res.string.wallet_quick_boost_off) else formatSats(q.toLong())) },
+                    )
+                }
+            }
+            Text(stringResource(Res.string.wallet_quick_boost_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
             var name by remember(s.senderName) { mutableStateOf(s.senderName) }
             OutlinedTextField(

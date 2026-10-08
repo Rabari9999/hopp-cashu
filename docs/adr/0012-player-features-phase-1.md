@@ -37,6 +37,12 @@ Two tabs: **New** — the new episodes of all subscriptions, newest first — an
 **Library** — the subscribed shows. Most listeners ask "what is new?" rather
 than "which show?".
 
+**Amended 2026-10-08 (device feedback):** the first tab is **Home**, the
+listener's own front page rather than a social feed: the newest of "New" with
+a way to all of it, continue listening, recently played, recently boosted.
+Comments over Nostr join it with the identity of phase 2 (ADR 0006). "New"
+stays as a page behind Home; "continue listening" moved from the Library.
+
 ### Downloads: automatic on Wi-Fi
 
 New episodes of subscribed shows download automatically on Wi-Fi only; switchable

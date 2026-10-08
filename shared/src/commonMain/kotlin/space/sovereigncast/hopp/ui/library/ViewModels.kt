@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.directory.DirectoryRepository
@@ -58,6 +59,31 @@ class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastR
     fun clear() = viewModelScope.launch { episodes.clearInbox() }
 }
 
+/** Home (device feedback 2026-10-08): what is new, what to continue, what
+ *  was heard and boosted last — the listener's own front page. */
+class HomeViewModel(
+    private val episodes: EpisodeRepository,
+    private val podcasts: PodcastRepository,
+    value: space.sovereigncast.hopp.value.ValueService,
+) : RefreshingViewModel(podcasts) {
+    val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
+    val hasShows: StateFlow<Boolean?> = state(podcasts.shows.map { it.isNotEmpty() }, null)
+    val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress.map { it.take(HOME_ROWS) }, emptyList())
+    val recentlyPlayed: StateFlow<List<EpisodeItem>> = state(episodes.recentlyPlayed(HOME_ROWS.toLong()), emptyList())
+    /** Boosted episodes that still exist, with the sats sent to each. */
+    val recentlyBoosted: StateFlow<List<Pair<EpisodeItem, Long>>> = state(
+        value.recentBoosts(HOME_ROWS.toLong()).map { list ->
+            list.mapNotNull { (id, sats) ->
+                episodes.item(id)?.let { e -> e.copy(podcastTitle = podcasts.show(e.podcastId).first()?.title) to sats }
+            }
+        },
+        emptyList(),
+    )
+    fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
+
+    companion object { const val HOME_ROWS = 5 }
+}
+
 class LibraryViewModel(
     podcasts: PodcastRepository,
     episodes: EpisodeRepository,
@@ -65,7 +91,6 @@ class LibraryViewModel(
     downloads: DownloadRepository,
 ) : RefreshingViewModel(podcasts) {
     val shows: StateFlow<List<Show>?> = state(podcasts.shows, null)
-    val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress, emptyList())
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
 }
@@ -111,7 +136,13 @@ class ShowViewModel(
     val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
     /** Unsubscribed — here or anywhere else while this page waited in a stack. */
     val gone: StateFlow<Boolean> = state(podcasts.show(podcastId).map { it == null }, false)
-    val episodeList: StateFlow<List<EpisodeItem>?> = state(episodes.ofPodcast(podcastId), null)
+    private val limit = MutableStateFlow(PAGE)
+    /** The first [PAGE] episodes, [PAGE] more each time the list nears its end. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val episodeList: StateFlow<List<EpisodeItem>?> = state(limit.flatMapLatest { episodes.ofPodcastPage(podcastId, it.toLong()) }, null)
+    val episodeCount: StateFlow<Long> = state(episodes.countOfPodcast(podcastId), 0L)
+
+    fun loadMore() { if ((episodeList.value?.size ?: 0) >= limit.value) limit.value += PAGE }
     private val _meta = MutableStateFlow<Podcast?>(null)
     val meta: StateFlow<Podcast?> = _meta.asStateFlow()
     private val _refreshing = MutableStateFlow(false)
@@ -151,7 +182,24 @@ internal fun searchable(q: String) = q.length >= 2 && "://" !in q && '/' !in q
 /** Discover (ADR 0008): search as you type, the V4V filter, a feed address
  *  opened directly, the subscribed shows' recommendations, OPML import. */
 @OptIn(FlowPreview::class)
-class DiscoverViewModel(private val podcasts: PodcastRepository, private val directory: DirectoryRepository) : ViewModel() {
+class DiscoverViewModel(
+    private val podcasts: PodcastRepository,
+    private val directory: DirectoryRepository,
+    private val settings: SettingsRepository,
+) : ViewModel() {
+    val recent: StateFlow<List<String>> = state(settings.settings.map { it.recentSearches }, emptyList())
+
+    /** A term the listener meant — confirmed or followed to a show — not
+     *  every word typed on the way there. */
+    fun remember(term: String) {
+        val t = term.trim().takeIf { searchable(it) } ?: return
+        viewModelScope.launch {
+            settings.update { s -> s.copy(recentSearches = (listOf(t) + s.recentSearches.filterNot { it.equals(t, ignoreCase = true) }).take(Settings.RECENT_SEARCHES)) }
+        }
+    }
+
+    fun clearRecent() = viewModelScope.launch { settings.update { it.copy(recentSearches = emptyList()) } }
+
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
     private val _valueOnly = MutableStateFlow(false)
@@ -261,3 +309,6 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
         }
     }
 }
+
+/** Episodes per page on the show page and the page before subscribing. */
+const val PAGE = 20

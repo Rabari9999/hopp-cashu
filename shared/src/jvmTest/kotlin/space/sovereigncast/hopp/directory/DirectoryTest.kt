@@ -53,6 +53,8 @@ class DirectoryTest {
                 if (req.headers[HttpHeaders.Authorization] != Sha1.digest((key + secret + date).encodeToByteArray()).toHex())
                     return@MockEngine respondError(HttpStatusCode.Unauthorized)
                 when {
+                    path.endsWith("search/byterm") && req.url.parameters["q"] == "münzweg" -> respond(pi(piFeed("Münzweg", "https://muenzweg.test/feed.xml")))
+                    path.endsWith("search/byterm") && req.url.parameters["q"] == "muenzweg" -> respond(pi())
                     path.endsWith("search/byterm") -> respond(pi(
                         piFeed("Alpha", "https://alpha.test/feed.xml", "guid-alpha"),
                         piFeed("Gone", "https://gone.test/feed.xml", dead = 1),
@@ -139,5 +141,16 @@ class DirectoryTest {
         assertTrue(sub is SubscribeResult.Subscribed)
         // Itself, an unknown GUID and an index answer for a different GUID are left out.
         assertEquals(listOf("Friend"), directory().podroll().map { it.title })
+    }
+
+    @Test
+    fun umlautsAreSearchedBothWays() = test {
+        assertEquals(listOf("münzweg"), spellings("muenzweg"))
+        assertEquals(listOf("muenzweg"), spellings("münzweg"))
+        assertEquals(listOf("Grüsse"), spellings("Gruesse"))
+        assertEquals(listOf("Strasse"), spellings("Straße"))
+        assertTrue(spellings("bitcoin").isEmpty())
+        // "muenzweg" alone finds nothing at the index — its other spelling does.
+        assertEquals(listOf("Münzweg"), directory().search("muenzweg", valueOnly = false).shows.map { it.title })
     }
 }

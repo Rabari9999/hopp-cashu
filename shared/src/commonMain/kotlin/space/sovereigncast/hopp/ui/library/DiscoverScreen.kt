@@ -20,7 +20,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,6 +48,8 @@ import space.sovereigncast.hopp.resources.discover_field
 import space.sovereigncast.hopp.resources.discover_no_results
 import space.sovereigncast.hopp.resources.discover_open_feed
 import space.sovereigncast.hopp.resources.discover_podroll
+import space.sovereigncast.hopp.resources.discover_recent
+import space.sovereigncast.hopp.resources.discover_recent_clear
 import space.sovereigncast.hopp.resources.discover_privacy
 import space.sovereigncast.hopp.resources.discover_unavailable
 import space.sovereigncast.hopp.resources.discover_value_only
@@ -58,6 +64,7 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
  *  and Apple when switched on), a V4V filter, a feed address opened directly,
  *  recommendations from the subscribed shows' podroll, OPML import. Every
  *  show opens its page first — subscribing happens there. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel()) {
     val query by vm.query.collectAsState()
@@ -66,6 +73,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     val podroll by vm.podroll.collectAsState()
     val subscribed by vm.subscribed.collectAsState()
     val importState by vm.import.collectAsState()
+    val recent by vm.recent.collectAsState()
     val settings by settingsVm.current.collectAsState()
     val actions = LocalPlatformActions.current
     val focus = LocalFocusManager.current
@@ -83,7 +91,10 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                         if (query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Rounded.Clear, stringResource(Res.string.cancel)) }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); if (!searchable(q) && address != null) onPreview(address, null) }),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        focus.clearFocus()
+                        if (!searchable(q) && address != null) onPreview(address, null) else vm.remember(q)
+                    }),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
@@ -107,9 +118,22 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                     r.shows.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
                 }
                 if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
-                items(r.shows, key = { "r" + it.feedUrl }) { show -> DirectoryRow(show, feedKey(show.feedUrl) in subscribed) { onPreview(show.feedUrl, show) } }
+                items(r.shows, key = { "r" + it.feedUrl }) { show ->
+                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed) { vm.remember(q); onPreview(show.feedUrl, show) }
+                }
             }
             SearchUi.Idle -> if (q.isEmpty()) {
+                if (recent.isNotEmpty()) item {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(Res.string.discover_recent), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = { vm.clearRecent() }) { Text(stringResource(Res.string.discover_recent_clear)) }
+                        }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            recent.forEach { term -> SuggestionChip(onClick = { vm.setQuery(term) }, label = { Text(term) }) }
+                        }
+                    }
+                }
                 if (podroll.isNotEmpty()) {
                     item { Header(stringResource(Res.string.discover_podroll)) }
                     items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false) { onPreview(show.feedUrl, show) } }

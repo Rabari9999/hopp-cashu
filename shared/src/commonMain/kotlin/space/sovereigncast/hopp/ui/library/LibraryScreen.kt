@@ -37,7 +37,8 @@ import space.sovereigncast.hopp.resources.library_empty
 import space.sovereigncast.hopp.resources.library_shows
 import space.sovereigncast.hopp.resources.inbox_no_shows
 
-/** "Library" (ADR 0012): continue listening, then the subscribed shows. */
+/** "Library" (ADR 0012): up next, downloads, the subscribed shows.
+ *  "Continue listening" moved to Home. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -50,7 +51,6 @@ fun LibraryScreen(
     val shows by vm.shows.collectAsState()
     val queueCount by vm.queueCount.collectAsState()
     val downloadCount by vm.downloadCount.collectAsState()
-    val inProgress by vm.inProgress.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
@@ -61,12 +61,6 @@ fun LibraryScreen(
         LazyVerticalGrid(GridCells.Adaptive(104.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
             item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
-            if (inProgress.isNotEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) { Header(stringResource(Res.string.library_continue)) }
-                items(inProgress.take(3), key = { "p${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) { EpisodeMenu(item) }
-                }
-            }
             item(span = { GridItemSpan(maxLineSpan) }) { Header(stringResource(Res.string.library_shows)) }
             items(list, key = { it.id }) { show ->
                 Column(Modifier.padding(8.dp).clickable { onShow(show.id) }) {

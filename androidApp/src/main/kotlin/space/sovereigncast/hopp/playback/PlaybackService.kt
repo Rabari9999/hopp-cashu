@@ -1,5 +1,20 @@
 package space.sovereigncast.hopp.playback
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import android.os.Bundle
+import androidx.core.app.NotificationCompat
+import androidx.media3.session.CommandButton
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.util.concurrent.Futures
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import space.sovereigncast.hopp.R
+import space.sovereigncast.hopp.value.QuickBoost
+import space.sovereigncast.hopp.value.ValueService
+import space.sovereigncast.hopp.value.WalletRepository
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
@@ -60,9 +75,62 @@ class PlaybackService : MediaLibraryService() {
 
         val tree = MediaTree(this, koin.get(), koin.get(), koin.get(), koin.get())
         session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree)).build()
+        // The boost button on the lock screen and in the notification — only
+        // with a wallet and a quick-boost amount set.
+        scope.launch {
+            combine(koin.get<WalletRepository>().wallet, koin.get<SettingsRepository>().settings) { w, s -> w != null && s.quickBoostSats > 0 }
+                .distinctUntilChanged()
+                .collect { show -> boostShown = show; session?.setMediaButtonPreferences(buttons()) }
+        }
         // The controller follows whatever plays — also when only the car is
         // using Hopp and the app's UI never started.
         scope.launch { controller }
+    }
+
+    private var boostShown = false
+    private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
+
+    private fun buttons(): List<CommandButton> = if (!boostShown) emptyList() else listOf(
+        CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setCustomIconResId(R.drawable.ic_boost)
+            .setDisplayName(getString(R.string.quick_boost))
+            .setSessionCommand(boostCommand)
+            .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+            .build(),
+    )
+
+    /** One tap, the set amount, no dialog (device feedback 2026-10-08) — and
+     *  a notification that says what happened. */
+    private fun quickBoost() {
+        val now = controller.current.value?.item ?: return
+        val position = controller.state.value.positionMs / 1000
+        scope.launch {
+            val text = when (val r = koin.get<ValueService>().quickBoost(now, position)) {
+                is QuickBoost.Sent -> if (r.paidSats == r.amountSats) getString(R.string.quick_boost_sent, r.paidSats.toString(), r.show)
+                    else getString(R.string.quick_boost_partial, r.paidSats.toString(), r.amountSats.toString(), r.show)
+                QuickBoost.OverBudget -> getString(R.string.quick_boost_budget)
+                QuickBoost.NoValue -> getString(R.string.quick_boost_no_value)
+                QuickBoost.NoWallet -> getString(R.string.quick_boost_no_wallet)
+                is QuickBoost.Failed -> getString(R.string.quick_boost_failed, r.reason)
+                QuickBoost.Off -> return@launch
+            }
+            notifyBoost(text)
+        }
+    }
+
+    private fun notifyBoost(text: String) {
+        val manager = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(NotificationChannel(BOOST_CHANNEL, getString(R.string.boosts_channel), NotificationManager.IMPORTANCE_DEFAULT))
+        }
+        val n = NotificationCompat.Builder(this, BOOST_CHANNEL)
+            .setSmallIcon(R.drawable.ic_boost)
+            .setContentTitle(getString(R.string.quick_boost))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .build()
+        runCatching { manager.notify(BOOST_NOTIFICATION, n) }
     }
 
     /** Next/previous on headsets, the notification and in the car jump by
@@ -82,6 +150,20 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private inner class Callback(private val tree: MediaTree) : MediaLibrarySession.Callback {
+        /** Every controller — notification, lock screen, car — may send the boost. */
+        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
+            MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(boostCommand).build())
+                .setMediaButtonPreferences(buttons())
+                .build()
+
+        override fun onCustomCommand(
+            session: MediaSession, controller: MediaSession.ControllerInfo, customCommand: SessionCommand, args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == ACTION_BOOST) quickBoost()
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> = scope.future { LibraryResult.ofItem(tree.root(), params) }
@@ -119,6 +201,12 @@ class PlaybackService : MediaLibraryService() {
             val (item, position) = tree.lastPlayed()?.let { tree.resolve(it) } ?: error("nothing to resume")
             MediaItemsWithStartPosition(listOf(item), 0, position)
         }
+    }
+
+    private companion object {
+        const val ACTION_BOOST = "space.sovereigncast.hopp.BOOST"
+        const val BOOST_CHANNEL = "boosts"
+        const val BOOST_NOTIFICATION = 3
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session

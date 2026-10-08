@@ -8,4 +8,12 @@
     <!-- Download notification -->
     <string name="downloads_channel">Downloads</string>
     <string name="downloads_running">Downloading episodes</string>
+    <string name="quick_boost">Boost</string>
+    <string name="boosts_channel">Boosts</string>
+    <string name="quick_boost_sent">%1$s sats boosted to %2$s</string>
+    <string name="quick_boost_partial">%1$s of %2$s sats boosted to %3$s — details in the payment history</string>
+    <string name="quick_boost_budget">Boost not sent: today\'s budget is used up</string>
+    <string name="quick_boost_no_value">Boost not sent: this show cannot receive boosts</string>
+    <string name="quick_boost_no_wallet">Boost not sent: no wallet connected</string>
+    <string name="quick_boost_failed">Boost failed: %1$s</string>
 </resources>

@@ -168,4 +168,13 @@
     <string name="wallet_no">no</string>
     <string name="wallet_cannot_pay">This connection can neither pay invoices nor send keysend — boosts and streaming will not work. Check the connection\'s permissions in your wallet.</string>
     <string name="wallet_no_keysend_note">Recipients with a node address are skipped; Lightning addresses are paid by invoice.</string>
+    <string name="discover_recent">Recent searches</string>
+    <string name="discover_recent_clear">Clear</string>
+    <string name="nav_home">Home</string>
+    <string name="home_all">All %1$d</string>
+    <string name="home_recent">Recently played</string>
+    <string name="home_boosted">Recently boosted</string>
+    <string name="wallet_quick_boost">Quick boost (lock screen)</string>
+    <string name="wallet_quick_boost_off">Off</string>
+    <string name="wallet_quick_boost_note">The boost button on the lock screen and in the notification sends this at once — no dialog, within the daily budget.</string>
 </resources>

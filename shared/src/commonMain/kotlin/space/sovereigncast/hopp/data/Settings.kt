@@ -30,6 +30,11 @@ data class Settings(
     val streamRateSats: Int = 0,
     /** Sent with boosts if set; empty = anonymous. */
     val senderName: String = "",
+    /** The boost button on the lock screen and in the notification sends this
+     *  at once, without a dialog; 0 = no button. */
+    val quickBoostSats: Int = 100,
+    /** The last search terms, newest first (at most [RECENT_SEARCHES]). */
+    val recentSearches: List<String> = emptyList(),
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -37,6 +42,8 @@ data class Settings(
         val storageChoicesMb = listOf(1_024, 2_048, 5_120, 10_240, 0)
         val budgetChoicesSats = listOf(1_000, 5_000, 10_000, 21_000, 50_000)
         val streamRateChoicesSats = listOf(0, 1, 5, 10, 21, 50)
+        const val RECENT_SEARCHES = 4
+        val quickBoostChoicesSats = listOf(0, 21, 100, 500, 1_000)
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -51,6 +58,8 @@ data class Settings(
                 streaming = values["streaming"]?.toBooleanStrictOrNull() ?: d.streaming,
                 streamRateSats = values["stream_rate_sats"]?.toIntOrNull() ?: d.streamRateSats,
                 senderName = values["sender_name"] ?: d.senderName,
+                quickBoostSats = values["quick_boost_sats"]?.toIntOrNull() ?: d.quickBoostSats,
+                recentSearches = values["recent_searches"]?.split('\n')?.filter { it.isNotBlank() } ?: d.recentSearches,
             )
         }
     }
@@ -66,6 +75,8 @@ data class Settings(
         "streaming" to streaming.toString(),
         "stream_rate_sats" to streamRateSats.toString(),
         "sender_name" to senderName,
+        "quick_boost_sats" to quickBoostSats.toString(),
+        "recent_searches" to recentSearches.joinToString("\n"),
     )
 }
 

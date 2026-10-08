@@ -13,6 +13,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -129,7 +131,7 @@ class AndroidAppFlowTest {
         tap("Library"); waitFor("No subscriptions yet.")
         tap("Discover"); subscribe()
         tap("Library"); waitFor("Test Show")
-        tap("New"); waitFor("Ep 2")
+        tap("Home"); waitFor("Ep 2")
         check(!has("Ep 1")) { "the back catalogue landed in New: ${screen()}" }
         tap("Library"); waitFor("Test Show")
         tap("Test Show"); waitFor("✓ Subscribed")
@@ -137,7 +139,7 @@ class AndroidAppFlowTest {
         waitFor("No subscriptions yet.")
     }
 
-    /** New's own button, the result opened, back — then New is New again,
+    /** Home's own button, the result opened, back — then Home is Home again,
      *  not the show page with every episode it ever had. */
     @Test
     fun theNewTabStaysTheNewTab() {
@@ -145,7 +147,7 @@ class AndroidAppFlowTest {
         waitFor("Add a show"); tap("Add a show")
         subscribe()
         back()
-        tap("New"); waitFor("Ep 2")
+        tap("Home"); waitFor("Ep 2")
         check(!has("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
     }
 
@@ -185,7 +187,7 @@ class AndroidAppFlowTest {
         tap("Subscribe")
         tap("Library")
         waitFor("Nodesignal - Deine Bitcoin-Frequenz")
-        tap("New"); waitFor("Nodesignal-Recap - September 2026")
+        tap("Home"); waitFor("Nodesignal-Recap - September 2026")
     }
 
     // ── package 2 ──────────────────────────────────────────────────────────
@@ -312,5 +314,42 @@ class AndroidAppFlowTest {
         IncomingLinks.walletUri.value = "nostr+walletconnect://abc?relay=wss://r.test&secret=x"
         rule.waitUntil(10_000) { rule.onAllNodesWithText("nostr+walletconnect://abc", substring = true).fetchSemanticsNodes().isNotEmpty() }
         check(has("Connect")) { screen().toString() }
+    }
+
+    // ── device feedback 2026-10-08 ─────────────────────────────────────────
+
+    private fun rows(): Int = rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).fetchSemanticsNode()
+        .config[androidx.compose.ui.semantics.SemanticsProperties.CollectionInfo].rowCount
+
+    /** 325 episodes: the show page loads 20, and 20 more at the end. */
+    @Test
+    fun aLongShowLoadsItsEpisodesInPages() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        rule.waitUntil(10_000) { has("325 episodes", substring = true) }
+        check(rows() <= 1 + 20) { "the preview shows ${rows()} rows at once" }
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        rule.waitUntil(10_000) { rows() == 1 + 20 }
+        check(has("325 episodes")) { "the count is the show's, not the page's" }
+        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToIndex(20)
+        rule.waitUntil(10_000) { rows() == 1 + 40 }
+    }
+
+    @Test
+    fun recentSearchesComeBack() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("test show")
+        rule.onNode(hasSetTextAction()).performImeAction()
+        rule.onNode(hasContentDescription("Cancel")).performClick() // clear the field
+        waitFor("Recent searches")
+        tap("test show")
+        waitFor("Test Show") // searched again
+        rule.onNode(hasContentDescription("Cancel")).performClick()
+        waitFor("Recent searches")
+        tap("Clear")
+        rule.waitUntil(10_000) { !has("Recent searches") }
     }
 }

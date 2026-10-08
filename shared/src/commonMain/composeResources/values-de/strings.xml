@@ -168,4 +168,13 @@
     <string name="wallet_no">nein</string>
     <string name="wallet_cannot_pay">Diese Verbindung kann weder Rechnungen zahlen noch Keysend senden – Boosts und Streaming funktionieren damit nicht. Prüfe die Berechtigungen der Verbindung in deiner Wallet.</string>
     <string name="wallet_no_keysend_note">Empfänger mit Node-Adresse werden übersprungen; Lightning-Adressen werden per Rechnung bezahlt.</string>
+    <string name="discover_recent">Zuletzt gesucht</string>
+    <string name="discover_recent_clear">Löschen</string>
+    <string name="nav_home">Home</string>
+    <string name="home_all">Alle %1$d</string>
+    <string name="home_recent">Zuletzt gehört</string>
+    <string name="home_boosted">Zuletzt geboostet</string>
+    <string name="wallet_quick_boost">Schnell-Boost (Sperrbildschirm)</string>
+    <string name="wallet_quick_boost_off">Aus</string>
+    <string name="wallet_quick_boost_note">Der Boost-Button auf dem Sperrbildschirm und in der Benachrichtigung sendet diesen Betrag sofort – ohne Dialog, im Rahmen des Tagesbudgets.</string>
 </resources>

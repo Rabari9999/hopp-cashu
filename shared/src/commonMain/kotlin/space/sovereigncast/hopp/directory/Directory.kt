@@ -152,6 +152,23 @@ data class SearchResult(
     val unavailable: Boolean = false,
 )
 
+/**
+ * The other spellings of a German search term: "muenzweg" also as
+ * "münzweg", "münzweg" also as "muenzweg" — the directories match letters,
+ * not sounds (device feedback 2026-10-08: "Muenzweg" found nothing). Only
+ * spellings that differ from the term; at most two.
+ */
+internal fun spellings(term: String): List<String> {
+    val toUmlaut = term
+        .replace("ae", "ä").replace("oe", "ö").replace("ue", "ü")
+        .replace("Ae", "Ä").replace("Oe", "Ö").replace("Ue", "Ü")
+        .replace("AE", "Ä").replace("OE", "Ö").replace("UE", "Ü")
+    val toAscii = term
+        .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+        .replace("Ä", "Ae").replace("Ö", "Oe").replace("Ü", "Ue").replace("ß", "ss")
+    return listOf(toUmlaut, toAscii).filter { it != term }.distinct()
+}
+
 /** Two addresses of one feed: scheme, `www.`, case of the host and a trailing slash do not count. */
 internal fun feedKey(url: String): String {
     val noScheme = url.trim().substringAfter("://")
@@ -184,10 +201,17 @@ class DirectoryRepository(
     suspend fun search(term: String, valueOnly: Boolean): SearchResult = coroutineScope {
         val s = settings.current()
         val credentials = credentials()
+        val terms = listOf(term) + spellings(term)
+        // Each source with every spelling; the term's own results first, the
+        // other spellings only add what it did not find.
+        fun ask(search: suspend (String) -> List<DirectoryShow>) = async {
+            val answers = terms.map { t -> async { runCatching { search(t) } } }.map { it.await() }
+            if (answers.first().isFailure && answers.all { it.isFailure }) answers.first() else Result.success(answers.flatMap { it.getOrNull().orEmpty() })
+        }
         val asks = buildList {
-            if (credentials != null) add(Source.PodcastIndex to async { runCatching { podcastIndex.search(term, valueOnly, credentials) } })
-            if (!valueOnly && s.fyydSearch) add(Source.Fyyd to async { runCatching { fyyd.search(term) } })
-            if (!valueOnly && s.appleSearch) add(Source.Apple to async { runCatching { apple.search(term) } })
+            if (credentials != null) add(Source.PodcastIndex to ask { t -> podcastIndex.search(t, valueOnly, credentials) })
+            if (!valueOnly && s.fyydSearch) add(Source.Fyyd to ask { t -> fyyd.search(t) })
+            if (!valueOnly && s.appleSearch) add(Source.Apple to ask { t -> apple.search(t) })
         }
         if (asks.isEmpty()) return@coroutineScope SearchResult(emptyList(), unavailable = true)
         val answers = asks.map { (source, job) -> source to job.await() }

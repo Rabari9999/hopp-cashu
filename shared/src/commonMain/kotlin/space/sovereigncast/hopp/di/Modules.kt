@@ -37,6 +37,7 @@ import space.sovereigncast.hopp.ui.library.ShowPreviewViewModel
 import space.sovereigncast.hopp.ui.value.HistoryViewModel
 import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 import space.sovereigncast.hopp.ui.value.WalletViewModel
+import space.sovereigncast.hopp.ui.library.HomeViewModel
 import space.sovereigncast.hopp.ui.library.InboxViewModel
 import space.sovereigncast.hopp.ui.library.LibraryViewModel
 import space.sovereigncast.hopp.ui.library.ShowViewModel
@@ -73,13 +74,14 @@ fun sharedModule(platform: Platform) = module {
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
