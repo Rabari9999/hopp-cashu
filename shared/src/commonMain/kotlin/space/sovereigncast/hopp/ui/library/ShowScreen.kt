@@ -20,6 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.fillMaxWidth
+import space.sovereigncast.hopp.resources.show_auto_download
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -72,6 +75,15 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
                         OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
                     }
                 }
+                show?.let { s ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(stringResource(Res.string.show_auto_download), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Switch(checked = s.autoDownload, onCheckedChange = vm::setAutoDownload)
+                    }
+                }
                 show?.lastError?.let {
                     Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 16.dp))
@@ -87,6 +99,7 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
                         Icon(Icons.Rounded.Check, stringResource(if (item.played) Res.string.mark_unplayed else Res.string.mark_played),
                             tint = if (item.played) colors.onSurface else colors.outline)
                     }
+                    EpisodeMenu(item)
                 }
             }
         }

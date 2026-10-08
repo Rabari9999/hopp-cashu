@@ -44,6 +44,7 @@ fun InboxScreen(onPlay: (EpisodeItem) -> Unit, onDiscover: () -> Unit, vm: Inbox
                         IconButton(onClick = { vm.dismiss(item) }) {
                             Icon(Icons.Rounded.Close, stringResource(Res.string.inbox_dismiss), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        EpisodeMenu(item)
                     }
                 }
             }

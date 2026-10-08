@@ -28,6 +28,14 @@ pushed onto the start tab came back when that tab was tapped). Reproduce a
 device report there before guessing. Tabs keep their own stacks; open a tab
 only through `selectTab` in `App.kt`, never with a plain `navigate`.
 
+Menus and bottom sheets are popups: a Robolectric test only finds them with
+`@GraphicsMode(NATIVE)` — without it the click lands and nothing opens.
+
+The database has a schema version. A change to a `CREATE TABLE` in a `.sq`
+file needs the matching `migrations/<n>.sqm` too, and installed apps run it
+on update; `DownloadsAndQueueTest.aVersionOneDatabaseIsMigrated` shows how to
+check it against the old schema.
+
 Debug builds are signed with the checked-in `androidApp/debug.keystore`, so
 each CI APK installs over the last one; release signing is `docs/signing.md`.
 

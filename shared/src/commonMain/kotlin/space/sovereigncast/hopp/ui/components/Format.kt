@@ -26,3 +26,11 @@ fun formatDate(epochSeconds: Long?): String {
 private object Math {
     fun floorDivCompat(a: Long, b: Long): Long { val q = a / b; return if ((a % b != 0L) && ((a < 0) != (b < 0))) q - 1 else q }
 }
+
+/** Bytes → "340 MB" / "1.2 GB" (whole megabytes are enough for downloads). */
+fun formatBytes(bytes: Long): String {
+    val mb = bytes / (1024.0 * 1024.0)
+    if (mb < 1024) return "${mb.toLong()} MB"
+    val tenths = (mb / 1024 * 10).toLong()
+    return if (tenths % 10 == 0L) "${tenths / 10} GB" else "${tenths / 10}.${tenths % 10} GB"
+}

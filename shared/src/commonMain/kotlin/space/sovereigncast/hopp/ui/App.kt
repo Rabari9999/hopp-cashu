@@ -51,7 +51,13 @@ import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
+import space.sovereigncast.hopp.data.DownloadRepository
+import space.sovereigncast.hopp.resources.downloads_title
+import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.ui.library.DiscoverScreen
+import space.sovereigncast.hopp.ui.library.DownloadsScreen
+import space.sovereigncast.hopp.ui.library.LocalDownloadProgress
+import space.sovereigncast.hopp.ui.library.QueueScreen
 import space.sovereigncast.hopp.ui.library.InboxScreen
 import space.sovereigncast.hopp.ui.library.LibraryScreen
 import space.sovereigncast.hopp.ui.library.SettingsScreen
@@ -65,6 +71,8 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 @Serializable object SettingsRoute
 @Serializable data class ShowRoute(val id: Long)
+@Serializable object QueueRoute
+@Serializable object DownloadsRoute
 
 private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
 
@@ -110,12 +118,17 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val title = when {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
+        destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
+        destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
         else -> ""
     }
     val showRoute = { id: Long -> nav.navigate(ShowRoute(id)) }
 
+    val downloads: DownloadRepository = koinInject()
+    val progress by downloads.progress.collectAsState()
+
     HoppTheme {
-        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalDownloadProgress provides progress) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Box(Modifier.fillMaxSize()) {
                     Scaffold(
@@ -154,7 +167,14 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) { padding ->
                         NavHost(nav, startDestination = InboxRoute, modifier = Modifier.padding(padding)) {
                             composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { selectTab(tabs[2]) }) }
-                            composable<LibraryRoute> { LibraryScreen(onShow = showRoute, onPlay = { player.play(it) }) }
+                            composable<LibraryRoute> {
+                                LibraryScreen(
+                                    onShow = showRoute, onPlay = { player.play(it) },
+                                    onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
+                                )
+                            }
+                            composable<QueueRoute> { QueueScreen(onPlay = { player.play(it) }) }
+                            composable<DownloadsRoute> { DownloadsScreen(onPlay = { player.play(it) }) }
                             composable<DiscoverRoute> { DiscoverScreen(onShow = showRoute) }
                             composable<SettingsRoute> { SettingsScreen() }
                             composable<ShowRoute> { e ->

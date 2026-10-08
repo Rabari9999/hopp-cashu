@@ -52,4 +52,36 @@ object HoppIcons {
             moveTo(15.3f, 17.3f); arcTo(3.4f, 3.4f, 0f, true, false, 22.1f, 17.3f); arcTo(3.4f, 3.4f, 0f, true, false, 15.3f, 17.3f); close()
         }
     }
+    /** Arrow into a tray: download. */
+    val Download = icon("download") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(12f, 4f); lineTo(12f, 15f); moveTo(7.5f, 10.5f); lineTo(12f, 15f); lineTo(16.5f, 10.5f)
+            moveTo(5f, 19.5f); lineTo(19f, 19.5f)
+        }
+    }
+    /** Tick on a tray: downloaded. */
+    val Downloaded = icon("downloaded") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(7f, 10.5f); lineTo(10.5f, 14f); lineTo(17f, 7f); moveTo(5f, 19.5f); lineTo(19f, 19.5f)
+        }
+    }
+    /** Three lines with a play mark: up next. */
+    val Queue = icon("queue") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(4f, 6f); lineTo(16f, 6f); moveTo(4f, 11f); lineTo(16f, 11f); moveTo(4f, 16f); lineTo(11f, 16f)
+        }
+        path(fill = SolidColor(Color.Black)) { moveTo(14f, 13.5f); lineTo(20f, 17f); lineTo(14f, 20.5f); close() }
+    }
+    /** Crescent: sleep timer. */
+    val Moon = icon("moon") {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(14.5f, 3.5f); arcTo(8.5f, 8.5f, 0f, true, false, 20.5f, 15.5f); arcTo(7f, 7f, 0f, false, true, 14.5f, 3.5f); close()
+        }
+    }
+    /** Two bars: drag to reorder. */
+    val DragHandle = icon("drag_handle") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(5f, 9.5f); lineTo(19f, 9.5f); moveTo(5f, 14.5f); lineTo(19f, 14.5f)
+        }
+    }
 }

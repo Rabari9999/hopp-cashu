@@ -1,5 +1,28 @@
 package space.sovereigncast.hopp.ui.player
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import org.koin.compose.viewmodel.koinViewModel
+import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.player.SleepTimer
+import space.sovereigncast.hopp.resources.queue_empty_text
+import space.sovereigncast.hopp.resources.queue_title
+import space.sovereigncast.hopp.resources.skip_silence
+import space.sovereigncast.hopp.resources.sleep_active_chapter
+import space.sovereigncast.hopp.resources.sleep_active_episode
+import space.sovereigncast.hopp.resources.sleep_end_chapter
+import space.sovereigncast.hopp.resources.sleep_end_episode
+import space.sovereigncast.hopp.resources.sleep_minutes
+import space.sovereigncast.hopp.resources.sleep_off
+import space.sovereigncast.hopp.resources.sleep_title
+import space.sovereigncast.hopp.resources.speed_note
+import space.sovereigncast.hopp.resources.speed_title
+import space.sovereigncast.hopp.ui.library.QueueList
+import space.sovereigncast.hopp.ui.library.QueueViewModel
+import space.sovereigncast.hopp.ui.library.SettingsViewModel
+import kotlin.math.abs
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -32,7 +55,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
@@ -85,7 +107,6 @@ import space.sovereigncast.hopp.resources.sheet_transcript
 import space.sovereigncast.hopp.ui.components.ChapterProgressBar
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatTime
-import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
@@ -104,6 +125,11 @@ fun NowPlayingScreen(model: PlayerController) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showChapters by remember { mutableStateOf(false) }
+    var showQueue by remember { mutableStateOf(false) }
+    var showSleep by remember { mutableStateOf(false) }
+    var showSpeed by remember { mutableStateOf(false) }
+    val sleep by model.sleep.collectAsState()
+    val settings by model.settings.collectAsState()
     val valueLater = stringResource(Res.string.np_value_later)
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
@@ -132,7 +158,7 @@ fun NowPlayingScreen(model: PlayerController) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
                 Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.size(48.dp))
+                IconButton(onClick = { showQueue = true }) { Icon(HoppIcons.Queue, stringResource(Res.string.queue_title)) }
             }
 
             // Cover — the chapter image replaces it while a chapter has one.
@@ -194,13 +220,17 @@ fun NowPlayingScreen(model: PlayerController) {
 
             // Controls: speed, −15 (hold: previous chapter), play, +30 (hold: next chapter), sleep.
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                // Tap: the next speed; hold: all speeds and skip silence.
                 Text(
                     "${formatSpeed(state.speed)}×",
-                    Modifier.clip(RoundedCornerShape(50)).clickable { model.cycleSpeed() }.padding(12.dp)
-                        .semantics { contentDescription = speedLabel },
+                    Modifier.clip(RoundedCornerShape(50))
+                        .combinedClickable(onClick = { model.cycleSpeed() }, onLongClick = { showSpeed = true })
+                        .padding(12.dp).semantics { contentDescription = speedLabel },
                     fontWeight = FontWeight.Bold,
                 )
-                SkipButton(HoppIcons.Replay, "15", stringResource(Res.string.np_back15), { model.skipBy(-15_000) }, model::previousChapter)
+                val back = settings.skipBackSeconds
+                val forward = settings.skipForwardSeconds
+                SkipButton(HoppIcons.Replay, "$back", stringResource(Res.string.np_back15, back), model::skipBack, model::previousChapter)
                 Box(
                     Modifier.size(72.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
                     contentAlignment = Alignment.Center,
@@ -211,8 +241,8 @@ fun NowPlayingScreen(model: PlayerController) {
                         tint = colors.onPrimary, modifier = Modifier.size(32.dp),
                     )
                 }
-                SkipButton(HoppIcons.Forward, "30", stringResource(Res.string.np_forward30), { model.skipBy(30_000) }, model::nextChapter)
-                Text("☾", Modifier.padding(12.dp), color = colors.onSurfaceVariant)
+                SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
+                SleepButton(sleep) { showSleep = true }
             }
 
             // Value bar (ADR 0019) — not wired to a wallet in this spike.
@@ -247,6 +277,61 @@ fun NowPlayingScreen(model: PlayerController) {
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (showQueue) {
+        ModalBottomSheet(onDismissRequest = { showQueue = false }) {
+            val queue: QueueViewModel = koinViewModel()
+            val items by queue.items.collectAsState()
+            Text(stringResource(Res.string.queue_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            val list = items.orEmpty()
+            if (list.isEmpty()) {
+                Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+            } else {
+                Box(Modifier.heightIn(max = 480.dp)) {
+                    QueueList(list, onPlay = { model.play(it); showQueue = false }, onRemove = queue::remove, onReorder = queue::reorder)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    if (showSleep) {
+        ModalBottomSheet(onDismissRequest = { showSleep = false }) {
+            Text(stringResource(Res.string.sleep_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            val choose = { t: SleepTimer -> model.setSleep(t); showSleep = false }
+            SheetOption(stringResource(Res.string.sleep_off), sleep == SleepTimer.Off) { choose(SleepTimer.Off) }
+            listOf(5, 15, 30, 45, 60).forEach { m ->
+                SheetOption(stringResource(Res.string.sleep_minutes, m), false) { choose(SleepTimer.Minutes(m * 60_000L)) }
+            }
+            if (chapters.stops.isNotEmpty()) {
+                SheetOption(stringResource(Res.string.sleep_end_chapter), sleep == SleepTimer.EndOfChapter) { choose(SleepTimer.EndOfChapter) }
+            }
+            SheetOption(stringResource(Res.string.sleep_end_episode), sleep == SleepTimer.EndOfEpisode) { choose(SleepTimer.EndOfEpisode) }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+
+    if (showSpeed) {
+        ModalBottomSheet(onDismissRequest = { showSpeed = false }) {
+            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(Res.string.speed_title), style = MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PlayerController.SPEED_CHOICES.forEach { v ->
+                        FilterChip(selected = abs(v - state.speed) < 0.01f, onClick = { model.setSpeed(v) }, label = { Text("${formatSpeed(v)}×") })
+                    }
+                }
+                Text(stringResource(Res.string.speed_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                if (model.engine.supportsSkipSilence) {
+                    val settingsVm: SettingsViewModel = koinViewModel()
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(Res.string.skip_silence), Modifier.weight(1f))
+                        Switch(checked = settings.skipSilence, onCheckedChange = { on -> settingsVm.update { it.copy(skipSilence = on) } })
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
     }
 
     if (showChapters) {
@@ -304,4 +389,32 @@ private fun SheetChip(label: String, enabled: Boolean, onClick: () -> Unit) {
 private fun formatSpeed(s: Float): String {
     val tenths = kotlin.math.round(s * 10).toInt()
     return if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
+}
+
+/** The moon, with what is left when the timer runs. */
+@Composable
+private fun SleepButton(timer: SleepTimer, onClick: () -> Unit) {
+    val active = timer != SleepTimer.Off
+    val label = stringResource(Res.string.sleep_title)
+    Column(
+        Modifier.size(56.dp).clip(CircleShape).clickable(onClick = onClick).semantics { contentDescription = label },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(HoppIcons.Moon, null, Modifier.size(22.dp), tint = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+        when (timer) {
+            is SleepTimer.Minutes -> Text(formatTime(timer.remainingMs), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            SleepTimer.EndOfChapter -> Text(stringResource(Res.string.sleep_active_chapter), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            SleepTimer.EndOfEpisode -> Text(stringResource(Res.string.sleep_active_episode), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            SleepTimer.Off -> Unit
+        }
+    }
+}
+
+@Composable
+private fun SheetOption(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text,
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+    )
 }

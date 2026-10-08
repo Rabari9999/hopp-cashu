@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import app.cash.sqldelight.db.SqlDriver
@@ -82,11 +83,14 @@ class TestApp : Application() {
  *  (device feedback 2026-10-08). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = TestApp::class, qualifiers = "en")
+// Native graphics: menus and sheets are popups, and a popup is only shown
+// once it has been measured for real.
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class AndroidAppFlowTest {
     @get:Rule val rule = createComposeRule()
 
     private fun waitFor(text: String) = rule.waitUntil(10_000) { has(text) }
-    private fun has(text: String) = rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    private fun has(text: String, substring: Boolean = false) = rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     private fun tap(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
 
@@ -166,5 +170,59 @@ class AndroidAppFlowTest {
         tap("Library")
         waitFor("Nodesignal - Deine Bitcoin-Frequenz")
         tap("New"); waitFor("Nodesignal-Recap - September 2026")
+    }
+
+    // ── package 2 ──────────────────────────────────────────────────────────
+
+    /** The ⋮ of the n-th episode row on screen, top to bottom. */
+    private fun menuOf(row: Int) = rule.onAllNodes(hasContentDescription("More") and hasClickAction())[row].performClick()
+
+    @Test
+    fun playNextFillsUpNext() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Open"); waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        tap("Library"); waitFor("Up next")
+        tap("Up next"); waitFor("Ep 1")
+        rule.onNode(hasContentDescription("Remove from up next")).performClick()
+        waitFor("Nothing up next")
+    }
+
+    @Test
+    fun aRequestedDownloadIsListed() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Open"); waitFor("Ep 1")
+        menuOf(1); waitFor("Download"); tap("Download")
+        kotlinx.coroutines.runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>().runPending(includeAuto = false) }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        tap("Library"); waitFor("Downloads")
+        tap("Downloads"); waitFor("Ep 1")
+        check(has("used", substring = true)) { "no space shown: ${screen()}" }
+    }
+
+    @Test
+    fun theSleepTimerShowsWhatIsSet() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Open"); waitFor("Ep 2")
+        tap("Ep 2")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sleep timer")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Sleep timer")).performClick()
+        waitFor("End of episode"); tap("End of episode")
+        waitFor("Episode")
+    }
+
+    @Test
+    fun skipIntervalsFollowTheSettings() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("Skip back")
+        rule.onAllNodes(hasText("15 s") and hasClickAction()).onFirst().performClick()
+        rule.onNode(hasContentDescription("Back")).performClick()
+        tap("Discover"); subscribe()
+        tap("Open"); waitFor("Ep 2"); tap("Ep 2")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Back 15 seconds, hold for previous chapter")).fetchSemanticsNodes().isNotEmpty() }
     }
 }

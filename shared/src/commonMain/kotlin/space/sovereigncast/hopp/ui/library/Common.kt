@@ -75,6 +75,7 @@ fun EpisodeRow(
                     item.positionMs > 0 && duration != null -> add(stringResource(Res.string.remaining, formatTime(duration - item.positionMs)))
                     duration != null -> add(formatTime(duration))
                 }
+                downloadLabel(item)?.let(::add)
             }.joinToString(" · ")
             Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             if (!item.played && item.positionMs > 0 && duration != null && duration > 0) {
