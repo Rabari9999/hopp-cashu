@@ -34,3 +34,11 @@ fun formatBytes(bytes: Long): String {
     val tenths = (mb / 1024 * 10).toLong()
     return if (tenths % 10 == 0L) "${tenths / 10} GB" else "${tenths / 10}.${tenths % 10} GB"
 }
+
+/** 2100 → "2.100" in German, "2,100" otherwise — sats are counted, not measured. */
+fun formatSats(sats: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String {
+    val sep = if (language == "de") '.' else ','
+    val digits = sats.toString().removePrefix("-")
+    val grouped = digits.reversed().chunked(3).joinToString(sep.toString()).reversed()
+    return if (sats < 0) "-$grouped" else grouped
+}

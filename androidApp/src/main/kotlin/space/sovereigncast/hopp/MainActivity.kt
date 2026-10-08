@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import space.sovereigncast.hopp.ui.App
+import space.sovereigncast.hopp.ui.IncomingLinks
 import space.sovereigncast.hopp.ui.PlatformActions
 
 class MainActivity : ComponentActivity(), PlatformActions {
@@ -38,6 +40,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         setContent { App(this) }
+        takeLink(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        takeLink(intent)
+    }
+
+    private fun takeLink(intent: Intent?) {
+        val uri = intent?.data?.takeIf { it.scheme?.startsWith("nostr") == true } ?: return
+        IncomingLinks.walletUri.value = uri.toString()
     }
 
     override fun pickOpml(onText: (String) -> Unit) {

@@ -21,6 +21,9 @@ import space.sovereigncast.hopp.resources.speed_title
 import space.sovereigncast.hopp.ui.library.QueueList
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
+import space.sovereigncast.hopp.ui.value.BoostSheet
+import space.sovereigncast.hopp.ui.value.ValueBar
+import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 import kotlin.math.abs
 
 import androidx.compose.animation.core.Animatable
@@ -88,7 +91,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.np_back15
-import space.sovereigncast.hopp.resources.np_boost
 import space.sovereigncast.hopp.resources.np_chapter_of
 import space.sovereigncast.hopp.resources.np_close
 import space.sovereigncast.hopp.resources.np_forward30
@@ -98,8 +100,6 @@ import space.sovereigncast.hopp.resources.np_play
 import space.sovereigncast.hopp.resources.np_previous_chapter
 import space.sovereigncast.hopp.resources.np_progress
 import space.sovereigncast.hopp.resources.np_speed
-import space.sovereigncast.hopp.resources.np_streaming
-import space.sovereigncast.hopp.resources.np_value_later
 import space.sovereigncast.hopp.resources.sheet_chapters
 import space.sovereigncast.hopp.resources.sheet_community
 import space.sovereigncast.hopp.resources.sheet_people
@@ -113,7 +113,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  *  title, progress with chapter gaps, controls, value bar, sheets. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun NowPlayingScreen(model: PlayerController) {
+fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     val now by model.current.collectAsState()
     val playing = now ?: return
     val episode = playing.item
@@ -130,7 +130,8 @@ fun NowPlayingScreen(model: PlayerController) {
     var showSpeed by remember { mutableStateOf(false) }
     val sleep by model.sleep.collectAsState()
     val settings by model.settings.collectAsState()
-    val valueLater = stringResource(Res.string.np_value_later)
+    val valueVm: ValueBarViewModel = koinViewModel()
+    var showBoost by remember { mutableStateOf(false) }
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
 
@@ -245,27 +246,8 @@ fun NowPlayingScreen(model: PlayerController) {
                 SleepButton(sleep) { showSleep = true }
             }
 
-            // Value bar (ADR 0019) — not wired to a wallet in this spike.
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
-                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value)
-                        .clickable { scope.launch { snackbar.showSnackbar(valueLater) } }.padding(horizontal = 15.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
-                }
-                Text(stringResource(Res.string.np_streaming, 10), Modifier.weight(1f).padding(horizontal = 12.dp), style = MaterialTheme.typography.labelMedium)
-                Switch(
-                    checked = false, onCheckedChange = { scope.launch { snackbar.showSnackbar(valueLater) } },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Hopp.colors.value, checkedThumbColor = Hopp.colors.onValue),
-                )
-            }
+            // Value bar (ADR 0019): boost and streaming.
+            ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet)
 
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -277,6 +259,10 @@ fun NowPlayingScreen(model: PlayerController) {
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (showBoost) {
+        BoostSheet(valueVm, episode, playing.podcastTitle, position, onDismiss = { showBoost = false }, onOpenWallet = { showBoost = false; onOpenWallet() })
     }
 
     if (showQueue) {

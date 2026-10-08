@@ -29,7 +29,10 @@ device report there before guessing. Tabs keep their own stacks; open a tab
 only through `selectTab` in `App.kt`, never with a plain `navigate`.
 
 Menus and bottom sheets are popups: a Robolectric test only finds them with
-`@GraphicsMode(NATIVE)` — without it the click lands and nothing opens.
+`@GraphicsMode(NATIVE)` — without it the click lands and nothing opens. And
+give the test a phone's screen (`qualifiers = "en-w411dp-h891dp"`): on
+Robolectric's default 320×470 dp the value bar of now playing lies below the
+edge, and a tap there silently goes nowhere.
 
 The database has a schema version. A change to a `CREATE TABLE` in a `.sq`
 file needs the matching `migrations/<n>.sqm` too, and installed apps run it

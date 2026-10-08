@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -47,15 +48,17 @@ import space.sovereigncast.hopp.resources.settings_storage
 import space.sovereigncast.hopp.resources.settings_subscriptions
 import space.sovereigncast.hopp.resources.settings_unlimited
 import space.sovereigncast.hopp.resources.settings_version
+import space.sovereigncast.hopp.resources.settings_wallet
 import space.sovereigncast.hopp.resources.skip_silence
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.formatBytes
 
-/** Playback and downloads (ADR 0012), subscriptions, about. Wallet, theme
- *  and privacy (ADR 0015) arrive in packages 4 and 5. */
+/** The wallet (behind its own page), playback and downloads (ADR 0012),
+ *  directories, subscriptions, about. Theme and privacy (ADR 0015) arrive in
+ *  package 5. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: SettingsViewModel = koinViewModel()) {
+fun SettingsScreen(onWallet: () -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
     val app: AppInfo = koinInject()
     val engine: PlaybackEngine = koinInject()
     val settings by vm.current.collectAsState()
@@ -64,6 +67,11 @@ fun SettingsScreen(vm: SettingsViewModel = koinViewModel()) {
     val colors = MaterialTheme.colorScheme
     val s = settings ?: return
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            stringResource(Res.string.settings_wallet) + "  ›",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onWallet).padding(vertical = 8.dp),
+        )
         Section(stringResource(Res.string.settings_playback))
         Label(stringResource(Res.string.settings_skip_back))
         Choices(Settings.skipBackChoices, s.skipBackSeconds, { stringResource(Res.string.settings_seconds, it) }) { v -> vm.update { it.copy(skipBackSeconds = v) } }

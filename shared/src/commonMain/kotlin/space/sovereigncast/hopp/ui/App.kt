@@ -51,7 +51,19 @@ import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import org.jetbrains.compose.resources.getString
 import space.sovereigncast.hopp.data.DownloadRepository
+import space.sovereigncast.hopp.resources.stream_notice
+import space.sovereigncast.hopp.resources.wallet_history
+import space.sovereigncast.hopp.resources.wallet_title
+import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.ui.value.HistoryScreen
+import space.sovereigncast.hopp.ui.value.WalletScreen
+import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.directory.DirectoryShow
 import space.sovereigncast.hopp.resources.downloads_title
 import space.sovereigncast.hopp.resources.queue_title
@@ -75,6 +87,8 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable data class ShowRoute(val id: Long)
 /** What the directory already knows rides along, so the page shows it at once. */
 @Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
+@Serializable data class WalletRoute(val uri: String? = null)
+@Serializable object HistoryRoute
 @Serializable object QueueRoute
 @Serializable object DownloadsRoute
 
@@ -123,6 +137,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
+        destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
+        destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
         else -> ""
     }
@@ -130,6 +146,17 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
 
     val downloads: DownloadRepository = koinInject()
     val progress by downloads.progress.collectAsState()
+    val value: ValueService = koinInject()
+    val snackbar = remember { SnackbarHostState() }
+    // Streaming paid after time offline: say so (ADR 0014).
+    LaunchedEffect(Unit) {
+        value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
+    }
+    // A wallet's "connect" link opens the wallet page, filled in.
+    val incomingWallet by IncomingLinks.walletUri.collectAsState()
+    LaunchedEffect(incomingWallet) {
+        incomingWallet?.let { uri -> IncomingLinks.walletUri.value = null; player.minimize(); nav.navigate(WalletRoute(uri)) }
+    }
 
     HoppTheme {
         androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalDownloadProgress provides progress) {
@@ -137,6 +164,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                 Box(Modifier.fillMaxSize()) {
                     Scaffold(
                         containerColor = MaterialTheme.colorScheme.background,
+                        snackbarHost = { SnackbarHost(snackbar) },
                         topBar = {
                             CenterAlignedTopAppBar(
                                 title = { Text(title, style = MaterialTheme.typography.titleLarge) },
@@ -194,7 +222,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     },
                                 )
                             }
-                            composable<SettingsRoute> { SettingsScreen() }
+                            composable<SettingsRoute> { SettingsScreen(onWallet = { nav.navigate(WalletRoute()) }) }
+                            composable<WalletRoute> { e ->
+                                WalletScreen(onHistory = { nav.navigate(HistoryRoute) }, incomingUri = e.toRoute<WalletRoute>().uri)
+                            }
+                            composable<HistoryRoute> { HistoryScreen() }
                             composable<ShowRoute> { e ->
                                 val id = e.toRoute<ShowRoute>().id
                                 // Only this page leaves, and only once — the show can vanish while
@@ -204,7 +236,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         }
                     }
                     AnimatedVisibility(expanded, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
-                        NowPlayingScreen(player)
+                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute()) })
                     }
                 }
             }

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -94,7 +95,9 @@ class TestApp : Application() {
 /** The whole app on Android's Compose, lifecycle and main looper
  *  (device feedback 2026-10-08). */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = TestApp::class, qualifiers = "en")
+// A phone's screen (Pixel-sized) — Robolectric's default 320×470 dp leaves
+// now playing's value bar below the edge, where a tap never lands.
+@Config(sdk = [35], application = TestApp::class, qualifiers = "en-w411dp-h891dp")
 // Native graphics: menus and sheets are popups, and a popup is only shown
 // once it has been measured for real.
 @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
@@ -257,5 +260,57 @@ class AndroidAppFlowTest {
         back()
         rule.onNode(hasSetTextAction()).performTextInput("x") // search again: now marked as subscribed
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Subscribed", substring = true).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    // ── package 4 ──────────────────────────────────────────────────────────
+
+    private fun openEpisode() {
+        tap("Discover"); subscribe()
+        waitFor("Ep 2"); tap("Ep 2")
+        waitFor("Boost")
+    }
+
+    /** No wallet yet: the boost dialog leads to the wallet page. */
+    @Test
+    fun boostingWithoutAWalletLeadsToTheWallet() {
+        rule.setContent { App() }
+        openEpisode()
+        tap("Boost")
+        waitFor("Connect a wallet to boost")
+        tap("Connect a wallet to boost")
+        waitFor("Connection string (nostr+walletconnect://…)")
+    }
+
+    /** Streaming cannot start without a wallet — the switch says where to go. */
+    @Test
+    fun streamingWithoutAWalletLeadsToTheWallet() {
+        rule.setContent { App() }
+        openEpisode()
+        // The streaming switch — the show page's auto-download switch behind it is on.
+        rule.onNode(androidx.compose.ui.test.isToggleable() and androidx.compose.ui.test.isOff()).performClick()
+        waitFor("Connection string (nostr+walletconnect://…)")
+    }
+
+    @Test
+    fun aBrokenConnectionStringIsRefusedVisibly() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Wallet & payments  ›")
+        rule.onAllNodes(hasSetTextAction())[0].performTextInput("nostr+walletconnect://nonsense")
+        tap("Connect")
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Could not connect", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        check(!has("Daily budget for boosts and streaming")) { "budget without a wallet: ${screen()}" }
+        rule.onNode(hasText("Payment history") and hasClickAction()).performScrollTo().performClick()
+        waitFor("No payments yet")
+    }
+
+    /** A wallet's "connect" link opens the wallet page with the string filled in. */
+    @Test
+    fun aWalletLinkOpensTheWalletPage() {
+        rule.setContent { App() }
+        waitFor("Add a show")
+        IncomingLinks.walletUri.value = "nostr+walletconnect://abc?relay=wss://r.test&secret=x"
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("nostr+walletconnect://abc", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        check(has("Connect")) { screen().toString() }
     }
 }

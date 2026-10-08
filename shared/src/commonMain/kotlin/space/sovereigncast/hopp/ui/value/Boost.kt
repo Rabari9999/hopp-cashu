@@ -1,0 +1,310 @@
+package space.sovereigncast.hopp.ui.value
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import space.sovereigncast.hopp.data.EpisodeItem
+import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.boost_close
+import space.sovereigncast.hopp.resources.boost_custom
+import space.sovereigncast.hopp.resources.boost_done
+import space.sovereigncast.hopp.resources.boost_failed
+import space.sovereigncast.hopp.resources.boost_less
+import space.sovereigncast.hopp.resources.boost_message
+import space.sovereigncast.hopp.resources.boost_more
+import space.sovereigncast.hopp.resources.boost_name
+import space.sovereigncast.hopp.resources.boost_no_value
+import space.sovereigncast.hopp.resources.boost_no_wallet
+import space.sovereigncast.hopp.resources.boost_partial
+import space.sovereigncast.hopp.resources.boost_send
+import space.sovereigncast.hopp.resources.boost_send_over
+import space.sovereigncast.hopp.resources.boost_split
+import space.sovereigncast.hopp.resources.boost_title
+import space.sovereigncast.hopp.resources.boost_unreachable
+import space.sovereigncast.hopp.resources.boost_via
+import space.sovereigncast.hopp.resources.boost_where
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.np_boost
+import space.sovereigncast.hopp.resources.np_over_budget
+import space.sovereigncast.hopp.resources.np_streamed_today
+import space.sovereigncast.hopp.resources.np_streaming
+import space.sovereigncast.hopp.resources.reason_invoice
+import space.sovereigncast.hopp.resources.reason_keysend
+import space.sovereigncast.hopp.resources.reason_remote
+import space.sovereigncast.hopp.resources.stream_invite_on
+import space.sovereigncast.hopp.resources.stream_invite_text
+import space.sovereigncast.hopp.resources.stream_invite_title
+import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.ui.components.formatTime
+import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.value.BoostPlan
+import space.sovereigncast.hopp.value.PlannedShare
+import space.sovereigncast.hopp.value.ShareResult
+
+/**
+ * The value bar of now playing (ADR 0019): the boost button and the streaming
+ * switch with rate and today's total — the only orange on screen. Streaming is
+ * off until the listener turns it on, and turning it on first says what it
+ * costs (ADR 0005).
+ */
+@Composable
+fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit) {
+    val settings by vm.current.collectAsState()
+    val wallet by vm.connected.collectAsState()
+    val rate by vm.rate.collectAsState()
+    val today by vm.streamedToday.collectAsState()
+    val over by vm.overBudget.collectAsState()
+    var invite by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    LaunchedEffect(item.id, settings?.streamRateSats) { vm.forEpisode(item) }
+    val streaming = settings?.streaming == true && wallet != null
+
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
+            .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onBoost).padding(horizontal = 15.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+            Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(stringResource(Res.string.np_streaming, rate ?: 0), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            if (streaming) Text(
+                if (over) stringResource(Res.string.np_over_budget) else stringResource(Res.string.np_streamed_today, formatSats(today / 1000)),
+                style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText,
+            )
+        }
+        Switch(
+            checked = streaming,
+            onCheckedChange = { on ->
+                when {
+                    !on -> vm.setStreaming(false)
+                    wallet == null -> onOpenWallet()
+                    else -> invite = true
+                }
+            },
+            colors = SwitchDefaults.colors(checkedTrackColor = Hopp.colors.value, checkedThumbColor = Hopp.colors.onValue),
+        )
+    }
+
+    if (invite) AlertDialog(
+        onDismissRequest = { invite = false },
+        title = { Text(stringResource(Res.string.np_streaming, rate ?: 0)) },
+        text = { Text(stringResource(Res.string.stream_invite_text, rate ?: 0, formatSats((settings?.dailyBudgetSats ?: 0).toLong()))) },
+        confirmButton = { TextButton(onClick = { invite = false; vm.setStreaming(true) }) { Text(stringResource(Res.string.stream_invite_on)) } },
+        dismissButton = { TextButton(onClick = { invite = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
+}
+
+private val PRESETS = listOf(100L, 500L, 1_000L, 2_100L)
+
+/**
+ * The boost dialog (ADR 0019): where in the episode, amount presets, message
+ * and name, the split as one bar — an unreachable share in orange — and one
+ * button with the exact amount; underneath the wallet and today's budget.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun BoostSheet(
+    vm: ValueBarViewModel,
+    item: EpisodeItem,
+    showTitle: String,
+    positionMs: Long,
+    onDismiss: () -> Unit,
+    onOpenWallet: () -> Unit,
+) {
+    val wallet by vm.connected.collectAsState()
+    val settings by vm.current.collectAsState()
+    val plan by vm.plan.collectAsState()
+    val state by vm.boost.collectAsState()
+    val left by vm.budgetLeft.collectAsState()
+    val colors = MaterialTheme.colorScheme
+    val position = remember { positionMs / 1000 }
+    var amount by remember { mutableLongStateOf(1_000L) }
+    var custom by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+    var name by remember(settings?.senderName) { mutableStateOf(settings?.senderName.orEmpty()) }
+    var overConfirmed by remember { mutableStateOf(false) }
+    LaunchedEffect(amount) { overConfirmed = false; if (amount > 0) vm.plan(item, position, amount) }
+
+    ModalBottomSheet(onDismissRequest = { vm.resetBoost(); onDismiss() }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(Res.string.boost_title, showTitle), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            Text(stringResource(Res.string.boost_where, item.title, formatTime(positionMs)), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+
+            when (val s = state) {
+                is BoostState.Done -> { BoostDone(s.results, onClose = { vm.resetBoost(); onDismiss() }); return@Column }
+                is BoostState.Failed -> Text(stringResource(Res.string.boost_failed, s.reason), color = colors.error)
+                else -> Unit
+            }
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PRESETS.forEach { p -> Pill(formatSats(p), selected = !custom && amount == p) { custom = false; amount = p } }
+                Pill("…", selected = custom) { custom = true }
+            }
+            if (custom) OutlinedTextField(
+                if (amount > 0) amount.toString() else "", { t -> amount = t.filter(Char::isDigit).take(9).toLongOrNull() ?: 0 },
+                Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_custom)) }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            OutlinedTextField(message, { message = it.take(250) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
+            OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_name)) }, singleLine = true)
+
+            when (val p = plan) {
+                BoostPlan.NoValue -> Text(stringResource(Res.string.boost_no_value), color = colors.onSurfaceVariant)
+                is BoostPlan.Ready -> SplitView(p.shares)
+                null -> Unit
+            }
+
+            val canBoost = plan is BoostPlan.Ready && amount > 0
+            val over = amount * 1000 > left
+            val w = wallet
+            if (w == null) {
+                BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
+            } else {
+                BigButton(
+                    if (over && !overConfirmed) stringResource(Res.string.boost_send_over, formatSats(amount)) else stringResource(Res.string.boost_send, formatSats(amount)),
+                    enabled = canBoost && state != BoostState.Sending,
+                    busy = state == BoostState.Sending,
+                ) {
+                    if (over && !overConfirmed) overConfirmed = true
+                    else vm.send(item, position, amount, message, name)
+                }
+                Text(
+                    stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),
+                    color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Pill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50))
+            .background(if (selected) Hopp.colors.value else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 10.dp),
+    ) { Text(label, fontWeight = FontWeight.Bold, color = if (selected) Hopp.colors.onValue else MaterialTheme.colorScheme.onSurface) }
+}
+
+@Composable
+private fun BigButton(label: String, enabled: Boolean, busy: Boolean = false, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50))
+            .background(if (enabled) Hopp.colors.value else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Hopp.colors.onValue, strokeWidth = 2.dp)
+        else Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(HoppIcons.Hop, null, tint = if (enabled) Hopp.colors.onValue else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(label, fontWeight = FontWeight.Bold, color = if (enabled) Hopp.colors.onValue else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** The compact split of ADR 0019: one bar, the largest four by name, the rest
+ *  behind "+N more", and a line for what cannot be reached. */
+@Composable
+private fun SplitView(shares: List<PlannedShare>) {
+    val colors = MaterialTheme.colorScheme
+    val total = shares.sumOf { it.amountMsat }.coerceAtLeast(1)
+    var all by remember { mutableStateOf(false) }
+    val greys = listOf(colors.onSurface, colors.onSurface.copy(alpha = 0.7f), colors.onSurface.copy(alpha = 0.5f), colors.onSurface.copy(alpha = 0.35f))
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(Res.string.boost_split, shares.size), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
+            shares.forEachIndexed { i, s ->
+                val color = if (s.unpayable != null) Hopp.colors.value.copy(alpha = 0.55f) else greys[i % greys.size]
+                Box(Modifier.weight(s.amountMsat.toFloat().coerceAtLeast(1f)).height(10.dp).background(color))
+                if (i < shares.lastIndex) Spacer(Modifier.size(2.dp).background(Color.Transparent))
+            }
+        }
+        val sorted = shares.sortedByDescending { it.amountMsat }
+        val shown = if (all) sorted else sorted.take(4)
+        val line = shown.joinToString(" · ") { s -> "${s.recipient.name ?: s.recipient.address.take(12)} ${s.amountMsat * 100 / total} %" }
+        Text(line, style = MaterialTheme.typography.bodySmall)
+        if (sorted.size > 4) Text(
+            if (all) stringResource(Res.string.boost_less) else stringResource(Res.string.boost_more, sorted.size - 4),
+            style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { all = !all },
+        )
+        val unreachable = shares.filter { it.unpayable != null }
+        if (unreachable.isNotEmpty()) {
+            val why = unreachable.mapNotNull { it.unpayable }.distinct().map { reasonText(it) }.joinToString(", ")
+            Text(stringResource(Res.string.boost_unreachable, unreachable.size) + " ($why)", style = MaterialTheme.typography.bodySmall, color = Hopp.colors.valueText)
+        }
+    }
+}
+
+@Composable
+private fun reasonText(code: String): String = when (code) {
+    "keysend" -> stringResource(Res.string.reason_keysend)
+    "remote" -> stringResource(Res.string.reason_remote)
+    else -> stringResource(Res.string.reason_invoice)
+}
+
+@Composable
+private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
+    val paid = results.filterIsInstance<ShareResult.Paid>()
+    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(48.dp))
+        Text(stringResource(Res.string.boost_done, formatSats(paid.sumOf { it.share.amountMsat } / 1000)), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (paid.size < results.size) Text(stringResource(Res.string.boost_partial, paid.size, results.size), color = Hopp.colors.valueText)
+        TextButton(onClick = onClose, modifier = Modifier.padding(bottom = 16.dp)) { Text(stringResource(Res.string.boost_close)) }
+    }
+}

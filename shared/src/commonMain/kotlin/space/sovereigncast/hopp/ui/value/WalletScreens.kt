@@ -1,0 +1,189 @@
+package space.sovereigncast.hopp.ui.value
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
+import space.sovereigncast.hopp.data.Settings
+import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.history_boost
+import space.sovereigncast.hopp.resources.history_empty
+import space.sovereigncast.hopp.resources.history_empty_text
+import space.sovereigncast.hopp.resources.history_failed
+import space.sovereigncast.hopp.resources.history_paid
+import space.sovereigncast.hopp.resources.history_skipped
+import space.sovereigncast.hopp.resources.history_stream
+import space.sovereigncast.hopp.resources.wallet_balance
+import space.sovereigncast.hopp.resources.wallet_balance_unknown
+import space.sovereigncast.hopp.resources.wallet_budget
+import space.sovereigncast.hopp.resources.wallet_connect
+import space.sovereigncast.hopp.resources.wallet_connected
+import space.sovereigncast.hopp.resources.wallet_disconnect
+import space.sovereigncast.hopp.resources.wallet_failed
+import space.sovereigncast.hopp.resources.wallet_history
+import space.sovereigncast.hopp.resources.wallet_intro
+import space.sovereigncast.hopp.resources.wallet_keysend_no
+import space.sovereigncast.hopp.resources.wallet_keysend_yes
+import space.sovereigncast.hopp.resources.wallet_limit_tip
+import space.sovereigncast.hopp.resources.wallet_name
+import space.sovereigncast.hopp.resources.wallet_rate
+import space.sovereigncast.hopp.resources.wallet_rate_show
+import space.sovereigncast.hopp.resources.wallet_rate_value
+import space.sovereigncast.hopp.resources.wallet_spent_today
+import space.sovereigncast.hopp.resources.wallet_uri_hint
+import space.sovereigncast.hopp.ui.library.EmptyState
+import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.value.Payment
+import space.sovereigncast.hopp.value.ValueService
+
+/**
+ * The wallet (ADR 0005): connect over NWC by pasting the connection string
+ * (or opening a `nostr+walletconnect:` link), what the wallet can, the daily
+ * budget, the streaming rate, the name sent with boosts.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun WalletScreen(onHistory: () -> Unit, incomingUri: String? = null, vm: WalletViewModel = koinViewModel()) {
+    val wallet by vm.connected.collectAsState()
+    val settings by vm.current.collectAsState()
+    val balance by vm.balanceMsat.collectAsState()
+    val connect by vm.connect.collectAsState()
+    val spent by vm.spentToday.collectAsState()
+    val colors = MaterialTheme.colorScheme
+    var uri by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(incomingUri) { if (!incomingUri.isNullOrBlank()) uri = incomingUri }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val w = wallet
+        if (w == null) {
+            Text(stringResource(Res.string.wallet_intro))
+            OutlinedTextField(uri, { uri = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.wallet_uri_hint)) },
+                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { vm.connect(uri) }, enabled = uri.isNotBlank() && connect != ConnectState.Working) { Text(stringResource(Res.string.wallet_connect)) }
+                if (connect == ConnectState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
+            }
+            (connect as? ConnectState.Failed)?.let { Text(stringResource(Res.string.wallet_failed, it.reason), color = colors.error) }
+            Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(stringResource(Res.string.wallet_connected, w.label), style = MaterialTheme.typography.titleMedium)
+            Text(
+                balance?.let { stringResource(Res.string.wallet_balance, formatSats(it / 1000)) } ?: stringResource(Res.string.wallet_balance_unknown),
+                color = colors.onSurfaceVariant,
+            )
+            Text(stringResource(if (w.canKeysend) Res.string.wallet_keysend_yes else Res.string.wallet_keysend_no), color = colors.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
+        }
+
+        // Budget, rate and name mean something only with a wallet.
+        settings?.takeIf { wallet != null }?.let { s ->
+            Text(stringResource(Res.string.wallet_budget), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Settings.budgetChoicesSats.forEach { b ->
+                    FilterChip(selected = s.dailyBudgetSats == b, onClick = { vm.update { it.copy(dailyBudgetSats = b) } }, label = { Text(formatSats(b.toLong())) })
+                }
+            }
+            Text(stringResource(Res.string.wallet_spent_today, formatSats(spent / 1000), formatSats(s.dailyBudgetSats.toLong())),
+                color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+
+            Text(stringResource(Res.string.wallet_rate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Settings.streamRateChoicesSats.forEach { r ->
+                    FilterChip(
+                        selected = s.streamRateSats == r, onClick = { vm.update { it.copy(streamRateSats = r) } },
+                        label = { Text(if (r == 0) stringResource(Res.string.wallet_rate_show) else stringResource(Res.string.wallet_rate_value, r)) },
+                    )
+                }
+            }
+
+            var name by remember(s.senderName) { mutableStateOf(s.senderName) }
+            OutlinedTextField(
+                name, { name = it; vm.update { st -> st.copy(senderName = it.trim()) } }, Modifier.fillMaxWidth().padding(top = 8.dp),
+                label = { Text(stringResource(Res.string.wallet_name)) }, singleLine = true,
+            )
+        }
+        OutlinedButton(onClick = onHistory) { Text(stringResource(Res.string.wallet_history)) }
+    }
+}
+
+/** Every boost and streaming payment, with who got what (ADR 0013's boost log). */
+@Composable
+fun HistoryScreen(vm: HistoryViewModel = koinViewModel()) {
+    val payments by vm.payments.collectAsState()
+    val list = payments ?: return
+    if (list.isEmpty()) {
+        EmptyState(stringResource(Res.string.history_empty), stringResource(Res.string.history_empty_text))
+        return
+    }
+    LazyColumn {
+        items(list, key = { it.id }) { PaymentRow(it) }
+    }
+}
+
+@Composable
+private fun PaymentRow(p: Payment) {
+    var open by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    listOfNotNull(stringResource(if (p.kind == ValueService.KIND_STREAM) Res.string.history_stream else Res.string.history_boost), formatDate(p.createdAt))
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+                )
+                Text(listOfNotNull(p.podcastTitle, p.episodeTitle).joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleSmall)
+                p.message?.takeIf { it.isNotBlank() }?.let { Text("„$it“", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+            }
+            Text(formatSats(p.amountMsat / 1000) + " sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+        }
+        if (open) p.lines.forEach { l ->
+            val status = when (l.status) {
+                "paid" -> stringResource(Res.string.history_paid)
+                "skipped" -> stringResource(Res.string.history_skipped)
+                else -> stringResource(Res.string.history_failed)
+            }
+            Text(
+                "${l.name ?: l.address.take(16)} · ${formatSats(l.msat / 1000)} sats · $status" + (l.reason?.let { " ($it)" } ?: ""),
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
+}

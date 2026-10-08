@@ -34,6 +34,9 @@ import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.library.ShowPreviewViewModel
+import space.sovereigncast.hopp.ui.value.HistoryViewModel
+import space.sovereigncast.hopp.ui.value.ValueBarViewModel
+import space.sovereigncast.hopp.ui.value.WalletViewModel
 import space.sovereigncast.hopp.ui.library.InboxViewModel
 import space.sovereigncast.hopp.ui.library.LibraryViewModel
 import space.sovereigncast.hopp.ui.library.ShowViewModel
@@ -82,4 +85,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get()) }
+    viewModel { WalletViewModel(get(), get(), get()) }
+    viewModel { HistoryViewModel(get()) }
+    viewModel { ValueBarViewModel(get(), get(), get()) }
 }
