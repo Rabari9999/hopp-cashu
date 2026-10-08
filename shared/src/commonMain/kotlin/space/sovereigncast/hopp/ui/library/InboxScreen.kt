@@ -27,7 +27,8 @@ import space.sovereigncast.hopp.resources.inbox_to_discover
 /** "New" (ADR 0012): what arrived since the listener last looked. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InboxScreen(onPlay: (EpisodeItem) -> Unit, onDiscover: () -> Unit, vm: InboxViewModel = koinViewModel()) {
+fun InboxScreen(onDiscover: () -> Unit, vm: InboxViewModel = koinViewModel()) {
+    val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
@@ -40,10 +41,8 @@ fun InboxScreen(onPlay: (EpisodeItem) -> Unit, onDiscover: () -> Unit, vm: Inbox
             list.isEmpty() -> EmptyState(stringResource(Res.string.inbox_empty_title), stringResource(Res.string.inbox_empty_text))
             else -> LazyColumn {
                 items(list, key = { it.id }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
-                        IconButton(onClick = { vm.dismiss(item) }) {
-                            Icon(Icons.Rounded.Close, stringResource(Res.string.inbox_dismiss), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
+                        PlayButton(item)
                         EpisodeMenu(item)
                     }
                 }

@@ -1,0 +1,48 @@
+package space.sovereigncast.hopp.ui
+
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import space.sovereigncast.hopp.ui.components.showNotes
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/** Show notes on the episode page (device feedback 2026-10-08, after Pocket Casts). */
+class ShowNotesTest {
+    private val jumps = mutableListOf<Long>()
+    private fun notes(html: String) = showNotes(html, SpanStyle(), SpanStyle()) { jumps += it }
+
+    @Test
+    fun paragraphsListsAndEntitiesReadAsText() {
+        val s = notes("<p>Heute&nbsp;über   <b>Nodes</b> &amp; mehr.</p><ul><li>Eins</li><li>Zwei</li></ul><p>Tsch&uuml;ss &#8211; bis bald</p>")
+        assertEquals("Heute über Nodes & mehr.\n\n• Eins\n• Zwei\n\nTschüss – bis bald", s.text)
+        assertTrue(s.spanStyles.any { s.text.substring(it.start, it.end) == "Nodes" }, "bold kept")
+    }
+
+    @Test
+    fun linksAndBareUrlsAreTappable() {
+        val s = notes("""<p>Mehr bei <a href="https://nodesignal.space/folge">Nodesignal</a> oder https://example.org/x.</p>""")
+        val urls = s.getLinkAnnotations(0, s.length).map { (it.item as LinkAnnotation.Url).url to s.text.substring(it.start, it.end) }
+        assertEquals(setOf("https://nodesignal.space/folge" to "Nodesignal", "https://example.org/x" to "https://example.org/x"), urls.toSet())
+    }
+
+    @Test
+    fun timeMarksJumpToTheirPosition() {
+        val s = notes("<p>(00:00) Intro<br>(12:34) Hauptteil<br>1:02:03 Ende, um 2026 nichts</p>")
+        val marks = s.getLinkAnnotations(0, s.length).map { it.item }.filterIsInstance<LinkAnnotation.Clickable>()
+        assertEquals(3, marks.size)
+        marks.forEach { it.linkInteractionListener?.onClick(it) }
+        assertEquals(listOf(0L, 754L, 3723L), jumps)
+        assertEquals("(00:00) Intro\n(12:34) Hauptteil\n1:02:03 Ende, um 2026 nichts", s.text)
+    }
+
+    @Test
+    fun plainTextKeepsItsLineBreaks() {
+        assertEquals("Zeile eins\nZeile zwei", notes("Zeile eins\nZeile zwei").text)
+    }
+
+    @Test
+    fun scriptsVanish() {
+        assertEquals("Text", notes("<script>alert(1)</script><p>Text</p><style>p{}</style>").text)
+    }
+}

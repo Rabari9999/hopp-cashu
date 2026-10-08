@@ -75,6 +75,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -131,6 +133,7 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     val sleep by model.sleep.collectAsState()
     val settings by model.settings.collectAsState()
     val valueVm: ValueBarViewModel = koinViewModel()
+    val haptics = LocalHapticFeedback.current
     var showBoost by remember { mutableStateOf(false) }
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
@@ -233,7 +236,9 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
                 val forward = settings.skipForwardSeconds
                 SkipButton(HoppIcons.Replay, "$back", stringResource(Res.string.np_back15, back), model::skipBack, model::previousChapter)
                 Box(
-                    Modifier.size(72.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
+                    Modifier.size(72.dp).clip(CircleShape).background(colors.primary).clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay()
+                    },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

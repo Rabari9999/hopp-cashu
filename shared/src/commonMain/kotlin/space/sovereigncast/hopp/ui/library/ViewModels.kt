@@ -120,6 +120,31 @@ class EpisodeActionsViewModel(
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
     fun setPlayed(item: EpisodeItem, played: Boolean) = viewModelScope.launch { episodes.setPlayed(item.id, played) }
+    fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
+}
+
+/** An episode's own page (device feedback 2026-10-08, as in Pocket Casts):
+ *  what it is about before it plays. */
+class EpisodeViewModel(private val id: Long, private val episodes: EpisodeRepository, podcasts: PodcastRepository) : ViewModel() {
+    val item: StateFlow<EpisodeItem?> = state(episodes.itemFlow(id), null)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val show: StateFlow<Show?> = state(episodes.itemFlow(id).flatMapLatest { e -> e?.let { podcasts.show(it.podcastId) } ?: kotlinx.coroutines.flow.flowOf(null) }, null)
+    private val _details = MutableStateFlow<space.sovereigncast.hopp.model.Episode?>(null)
+    val details: StateFlow<space.sovereigncast.hopp.model.Episode?> = _details.asStateFlow()
+    private val _chapters = MutableStateFlow<List<space.sovereigncast.hopp.feed.Chapter>>(emptyList())
+    val chapters: StateFlow<List<space.sovereigncast.hopp.feed.Chapter>> = _chapters.asStateFlow()
+    private val _gone = MutableStateFlow(false)
+    /** Unsubscribed while this page was open. */
+    val gone: StateFlow<Boolean> = _gone.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val e = episodes.item(id) ?: run { _gone.value = true; return@launch }
+            _details.value = episodes.details(id)
+            _chapters.value = runCatching { episodes.chapters(e) }.getOrDefault(emptyList()).filter { it.inToc }
+        }
+        viewModelScope.launch { episodes.itemFlow(id).collect { if (it == null && _details.value != null) _gone.value = true } }
+    }
 }
 
 class SettingsViewModel(private val settings: SettingsRepository, private val podcasts: PodcastRepository) : ViewModel() {

@@ -140,6 +140,14 @@ class PlayerController(
         _expanded.value = expand
     }
 
+    /** From a time mark in the show notes or a chapter: there, playing. */
+    fun playAt(item: EpisodeItem, positionMs: Long) {
+        if (engine.state.value.itemId == item.id.toString() && _current.value?.item?.id == item.id) {
+            engine.seekTo(positionMs); engine.play(); return
+        }
+        scope.launch { queue.remove(item.id); open(item.copy(positionMs = positionMs, played = false), load = true, autoplay = true) }
+    }
+
     private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean) {
         val meta = podcasts.podcastMeta(item.podcastId)
         val show = podcasts.show(item.podcastId).first()

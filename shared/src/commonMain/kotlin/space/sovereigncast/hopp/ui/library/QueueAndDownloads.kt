@@ -33,19 +33,21 @@ import space.sovereigncast.hopp.ui.components.formatBytes
 
 /** "Up next" as its own page, reached from the Library. */
 @Composable
-fun QueueScreen(onPlay: (EpisodeItem) -> Unit, vm: QueueViewModel = koinViewModel()) {
+fun QueueScreen(vm: QueueViewModel = koinViewModel()) {
+    val nav = LocalEpisodeNav.current
     val items by vm.items.collectAsState()
     val list = items ?: return
     if (list.isEmpty()) {
         EmptyState(stringResource(Res.string.queue_empty), stringResource(Res.string.queue_empty_text))
         return
     }
-    QueueList(list, onPlay = onPlay, onRemove = vm::remove, onReorder = vm::reorder)
+    QueueList(list, onPlay = nav.open, onRemove = vm::remove, onReorder = vm::reorder)
 }
 
 /** Everything downloaded or on its way, with the space it takes. */
 @Composable
-fun DownloadsScreen(onPlay: (EpisodeItem) -> Unit, vm: DownloadsViewModel = koinViewModel(), settings: SettingsViewModel = koinViewModel()) {
+fun DownloadsScreen(vm: DownloadsViewModel = koinViewModel(), settings: SettingsViewModel = koinViewModel()) {
+    val nav = LocalEpisodeNav.current
     val items by vm.items.collectAsState()
     val used by vm.usedBytes.collectAsState()
     val limitMb = settings.current.collectAsState().value?.storageLimitMb
@@ -63,7 +65,8 @@ fun DownloadsScreen(onPlay: (EpisodeItem) -> Unit, vm: DownloadsViewModel = koin
         )
         LazyColumn {
             items(list, key = { it.id }) { item ->
-                EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
+                EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
+                    PlayButton(item)
                     IconButton(onClick = { vm.remove(item) }) {
                         Icon(
                             Icons.Rounded.Delete,

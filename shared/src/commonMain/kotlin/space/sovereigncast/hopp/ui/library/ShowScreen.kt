@@ -52,7 +52,8 @@ import space.sovereigncast.hopp.resources.show_unsubscribe_confirm
  *  the Community tab (ADR 0019) arrive in package 5. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Unit) {
+fun ShowScreen(podcastId: Long, onGone: () -> Unit) {
+    val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
     val episodes by vm.episodeList.collectAsState()
@@ -98,11 +99,8 @@ fun ShowScreen(podcastId: Long, onPlay: (EpisodeItem) -> Unit, onGone: () -> Uni
                 }
             }
             items(episodes.orEmpty(), key = { it.id }) { item ->
-                EpisodeRow(item, showPodcast = false, onClick = { onPlay(item) }) {
-                    IconButton(onClick = { vm.togglePlayed(item) }) {
-                        Icon(Icons.Rounded.Check, stringResource(if (item.played) Res.string.mark_unplayed else Res.string.mark_played),
-                            tint = if (item.played) colors.onSurface else colors.outline)
-                    }
+                EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
+                    PlayButton(item)
                     EpisodeMenu(item)
                 }
             }

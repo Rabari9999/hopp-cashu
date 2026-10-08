@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -172,6 +174,7 @@ fun BoostSheet(
     val state by vm.boost.collectAsState()
     val left by vm.budgetLeft.collectAsState()
     val colors = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
     val position = remember { positionMs / 1000 }
     var amount by remember { mutableLongStateOf(1_000L) }
     var custom by remember { mutableStateOf(false) }
@@ -228,7 +231,7 @@ fun BoostSheet(
                     busy = state == BoostState.Sending,
                 ) {
                     if (over && !overConfirmed) overConfirmed = true
-                    else vm.send(item, position, amount, message, name)
+                    else { haptics.performHapticFeedback(HapticFeedbackType.LongPress); vm.send(item, position, amount, message, name) }
                 }
                 Text(
                     stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),

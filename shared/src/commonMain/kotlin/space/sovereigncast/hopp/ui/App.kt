@@ -1,6 +1,19 @@
 package space.sovereigncast.hopp.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.navigation.NavBackStackEntry
+import space.sovereigncast.hopp.ui.library.EpisodeNav
+import space.sovereigncast.hopp.ui.library.EpisodeScreen
+import space.sovereigncast.hopp.ui.library.LocalEpisodeNav
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
@@ -91,6 +104,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 @Serializable object SettingsRoute
 @Serializable data class ShowRoute(val id: Long)
+@Serializable data class EpisodeRoute(val id: Long)
 /** What the directory already knows rides along, so the page shows it at once. */
 @Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
 @Serializable data class WalletRoute(val uri: String? = null)
@@ -152,6 +166,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val showRoute = { id: Long -> nav.navigate(ShowRoute(id)) }
 
     val episodeActions: EpisodeActionsViewModel = koinViewModel()
+    // A row opens the episode's page; its round button plays without opening
+    // the player (as in Pocket Casts).
+    val episodeNav = remember(nav, player) {
+        EpisodeNav(open = { nav.navigate(EpisodeRoute(it.id)) }, play = { player.play(it, expand = false) })
+    }
     val value: ValueService = koinInject()
     val snackbar = remember { SnackbarHostState() }
     // Streaming paid after time offline: say so (ADR 0014).
@@ -165,7 +184,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
 
     HoppTheme {
-        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav) {
           ProvideDownloadProgress {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Box(Modifier.fillMaxSize()) {
@@ -204,19 +223,34 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                         },
                     ) { padding ->
-                        NavHost(nav, startDestination = HomeRoute, modifier = Modifier.padding(padding)) {
+                        NavHost(
+                            nav, startDestination = HomeRoute, modifier = Modifier.padding(padding),
+                            // As in Pocket Casts: a level deeper slides in from the side,
+                            // a tab fades through (Material motion, device feedback 2026-10-08).
+                            enterTransition = { if (isTab(initialState) && isTab(targetState)) fadeThroughIn else sharedAxisIn(forward = true) },
+                            exitTransition = { if (isTab(initialState) && isTab(targetState)) fadeThroughOut else sharedAxisOut(forward = true) },
+                            popEnterTransition = { sharedAxisIn(forward = false) },
+                            popExitTransition = { sharedAxisOut(forward = false) },
+                        ) {
                             composable<HomeRoute> {
-                                HomeScreen(onPlay = { player.play(it) }, onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) })
+                                HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) })
                             }
-                            composable<InboxRoute> { InboxScreen(onPlay = { player.play(it) }, onDiscover = { selectTab(tabs[2]) }) }
+                            composable<InboxRoute> { InboxScreen(onDiscover = { selectTab(tabs[2]) }) }
                             composable<LibraryRoute> {
                                 LibraryScreen(
-                                    onShow = showRoute, onPlay = { player.play(it) },
+                                    onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
                                 )
                             }
-                            composable<QueueRoute> { QueueScreen(onPlay = { player.play(it) }) }
-                            composable<DownloadsRoute> { DownloadsScreen(onPlay = { player.play(it) }) }
+                            composable<QueueRoute> { QueueScreen() }
+                            composable<DownloadsRoute> { DownloadsScreen() }
+                            composable<EpisodeRoute> { e ->
+                                EpisodeScreen(
+                                    e.toRoute<EpisodeRoute>().id,
+                                    onShow = { nav.navigate(ShowRoute(it)) },
+                                    onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
+                                )
+                            }
                             composable<DiscoverRoute> {
                                 DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
                             }
@@ -241,11 +275,17 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 val id = e.toRoute<ShowRoute>().id
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
-                                ShowScreen(id, onPlay = { player.play(it) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
+                                ShowScreen(id, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
                             }
                         }
                     }
-                    AnimatedVisibility(expanded, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+                    // Up with a decelerating curve, down with an accelerating one — the
+                    // linear default felt like the device could not keep up.
+                    AnimatedVisibility(
+                        expanded,
+                        enter = slideInVertically(tween(420, easing = EmphasizedDecelerate)) { it } + fadeIn(tween(180)),
+                        exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
+                    ) {
                         NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute()) })
                     }
                 }
@@ -263,3 +303,23 @@ private fun ProvideDownloadProgress(content: @Composable () -> Unit) {
     val progress by downloads.progress.collectAsState()
     androidx.compose.runtime.CompositionLocalProvider(LocalDownloadProgress provides progress, content = content)
 }
+
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+private fun isTab(entry: NavBackStackEntry) = tabs.any { entry.destination.hasRoute(it.route::class) }
+
+/** Material "shared axis X": the new page comes in a little from the side and fades in. */
+private fun sharedAxisIn(forward: Boolean): EnterTransition =
+    slideInHorizontally(tween(320, easing = Emphasized)) { w -> if (forward) w / 8 else -w / 8 } +
+        fadeIn(tween(220, delayMillis = 60, easing = EmphasizedDecelerate))
+
+private fun sharedAxisOut(forward: Boolean): ExitTransition =
+    slideOutHorizontally(tween(320, easing = Emphasized)) { w -> if (forward) -w / 8 else w / 8 } +
+        fadeOut(tween(100, easing = EmphasizedAccelerate))
+
+/** Material "fade through" between tabs: out fast, in with a slight zoom. */
+private val fadeThroughIn: EnterTransition = fadeIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate)) +
+    scaleIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate), initialScale = 0.94f)
+private val fadeThroughOut: ExitTransition = fadeOut(tween(90, easing = EmphasizedAccelerate))

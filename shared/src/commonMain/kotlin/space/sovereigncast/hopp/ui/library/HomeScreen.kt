@@ -47,7 +47,8 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onPlay: (EpisodeItem) -> Unit, onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = koinViewModel()) {
+fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = koinViewModel()) {
+    val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
     val inProgress by vm.inProgress.collectAsState()
@@ -73,20 +74,18 @@ fun HomeScreen(onPlay: (EpisodeItem) -> Unit, onInbox: () -> Unit, onDiscover: (
             if (newest.isNotEmpty()) {
                 item { SectionHeader(stringResource(Res.string.nav_new), stringResource(Res.string.home_all, newest.size), onInbox) }
                 items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
-                        IconButton(onClick = { vm.dismiss(item) }) {
-                            Icon(Icons.Rounded.Close, stringResource(Res.string.inbox_dismiss), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
+                        PlayButton(item)
                         EpisodeMenu(item)
                     }
                 }
             }
-            section(continueTitle, inProgress, "c", onPlay)
-            section(recentTitle, played, "r", onPlay)
+            section(continueTitle, inProgress, "c", nav)
+            section(recentTitle, played, "r", nav)
             if (boosted.isNotEmpty()) {
                 item { SectionHeader(stringResource(Res.string.home_boosted)) }
                 items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
                         Text("${formatSats(sats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium)
                     }
@@ -96,10 +95,10 @@ fun HomeScreen(onPlay: (EpisodeItem) -> Unit, onInbox: () -> Unit, onDiscover: (
     }
 }
 
-private fun LazyListScope.section(title: String, list: List<EpisodeItem>, key: String, onPlay: (EpisodeItem) -> Unit) {
+private fun LazyListScope.section(title: String, list: List<EpisodeItem>, key: String, nav: EpisodeNav) {
     if (list.isEmpty()) return
     item { SectionHeader(title) }
-    items(list, key = { key + it.id }) { item -> EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) { EpisodeMenu(item) } }
+    items(list, key = { key + it.id }) { item -> EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) { PlayButton(item); EpisodeMenu(item) } }
 }
 
 @Composable

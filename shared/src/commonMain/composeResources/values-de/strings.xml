@@ -177,4 +177,7 @@
     <string name="wallet_quick_boost">Schnell-Boost (Sperrbildschirm)</string>
     <string name="wallet_quick_boost_off">Aus</string>
     <string name="wallet_quick_boost_note">Der Boost-Button auf dem Sperrbildschirm und in der Benachrichtigung sendet diesen Betrag sofort – ohne Dialog, im Rahmen des Tagesbudgets.</string>
+    <string name="episode_play">Abspielen</string>
+    <string name="episode_resume">Weiterhören · noch %1$s</string>
+    <string name="episode_shownotes">Shownotes</string>
 </resources>

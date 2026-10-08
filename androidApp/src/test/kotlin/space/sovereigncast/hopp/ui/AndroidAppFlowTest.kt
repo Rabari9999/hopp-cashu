@@ -42,7 +42,7 @@ import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
 
 private const val FEED = """<?xml version="1.0"?><rss version="2.0"><channel><title>Test Show</title>
-<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/></item>
+<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description></item>
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
 </channel></rss>"""
 
@@ -107,6 +107,11 @@ class AndroidAppFlowTest {
     @get:Rule val rule = createComposeRule()
 
     private fun waitFor(text: String) = rule.waitUntil(10_000) { has(text) }
+    private val koin get() = org.koin.mp.KoinPlatform.getKoin()
+    private fun engine() = koin.get<space.sovereigncast.hopp.platform.PlaybackEngine>()
+    /** Waits for app state that no node shows — idling the UI each round, or
+     *  the main thread (where the player works) never gets to run. */
+    private fun until(check: () -> Boolean) = rule.waitUntil(10_000) { rule.waitForIdle(); check() }
     private fun has(text: String, substring: Boolean = false) = rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     private fun tap(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
@@ -224,9 +229,7 @@ class AndroidAppFlowTest {
     fun theSleepTimerShowsWhatIsSet() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
-        waitFor("Ep 2")
-        tap("Ep 2")
-        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sleep timer")).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("Ep 2"); openPlayer("Ep 2")
         rule.onNode(hasContentDescription("Sleep timer")).performClick()
         waitFor("End of episode"); tap("End of episode")
         waitFor("Episode")
@@ -240,7 +243,7 @@ class AndroidAppFlowTest {
         rule.onAllNodes(hasText("15 s") and hasClickAction()).onFirst().performClick()
         rule.onNode(hasContentDescription("Back")).performClick()
         tap("Discover"); subscribe()
-        waitFor("Ep 2"); tap("Ep 2")
+        waitFor("Ep 2"); openPlayer("Ep 2")
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Back 15 seconds, hold for previous chapter")).fetchSemanticsNodes().isNotEmpty() }
     }
 
@@ -268,7 +271,15 @@ class AndroidAppFlowTest {
 
     private fun openEpisode() {
         tap("Discover"); subscribe()
-        waitFor("Ep 2"); tap("Ep 2")
+        waitFor("Ep 2"); openPlayer("Ep 2")
+    }
+
+    /** A row opens the episode's page; its Play starts it; the mini player opens now playing. */
+    private fun openPlayer(title: String) {
+        tap(title); waitFor("Show notes")
+        tap("Play")
+        until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
+        org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.player.PlayerController>().expand()
         waitFor("Boost")
     }
 
@@ -351,5 +362,37 @@ class AndroidAppFlowTest {
         waitFor("Recent searches")
         tap("Clear")
         rule.waitUntil(10_000) { !has("Recent searches") }
+    }
+
+    // ── episode page (device feedback 2026-10-08, as in Pocket Casts) ──────
+
+
+    /** A tap opens the episode, not the player: show notes with their link
+     *  and a time mark that starts the episode right there. */
+    @Test
+    fun anEpisodeOpensItsPageAndATimeMarkPlaysFromThere() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        check(engine().state.value.itemId == null) { "tapping must not play" }
+        check(has("Play")) { screen().toString() }
+        // The time mark is a link inside the show notes' text: follow it as a tap would.
+        val notes = rule.onNode(hasText("(12:34) Hauptteil", substring = true)).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.Text].first { "12:34" in it.text }
+        val mark = notes.getLinkAnnotations(0, notes.length).map { it.item }.filterIsInstance<androidx.compose.ui.text.LinkAnnotation.Clickable>().single()
+        rule.runOnUiThread { mark.linkInteractionListener!!.onClick(mark) }
+        until { engine().state.value.positionMs == 754_000L }
+    }
+
+    /** The round button in the row plays without opening the player. */
+    @Test
+    fun theRowsPlayButtonPlaysInPlace() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 2")
+        rule.onAllNodes(hasContentDescription("Play") and hasClickAction())[0].performClick()
+        until { engine().state.value.isPlaying }
+        check(!koin.get<space.sovereigncast.hopp.player.PlayerController>().expanded.value) { "the player opened" }
+        waitFor("✓ Subscribed") // still on the show page
     }
 }

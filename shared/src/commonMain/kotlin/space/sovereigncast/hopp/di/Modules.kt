@@ -31,6 +31,7 @@ import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.ui.library.DiscoverViewModel
 import space.sovereigncast.hopp.ui.library.DownloadsViewModel
 import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
+import space.sovereigncast.hopp.ui.library.EpisodeViewModel
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.library.ShowPreviewViewModel
@@ -86,6 +87,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
+    viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }

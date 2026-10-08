@@ -1,6 +1,21 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import org.koin.compose.koinInject
+import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.inbox_dismiss
+import space.sovereigncast.hopp.resources.np_pause
+import space.sovereigncast.hopp.resources.np_play
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -64,6 +80,44 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
     else -> null
 }
 
+/** What tapping an episode does (device feedback 2026-10-08, as in Pocket
+ *  Casts): the row opens the episode's page; its round button plays. */
+class EpisodeNav(val open: (EpisodeItem) -> Unit, val play: (EpisodeItem) -> Unit)
+val LocalEpisodeNav = staticCompositionLocalOf { EpisodeNav({}, {}) }
+
+/**
+ * The round play button of a row: how far it is heard as a ring around it,
+ * pause while this episode plays.
+ */
+@Composable
+fun PlayButton(item: EpisodeItem) {
+    val player: PlayerController = koinInject()
+    val nav = LocalEpisodeNav.current
+    val haptics = LocalHapticFeedback.current
+    // Only play/pause changes this, not every position tick.
+    val playingId by remember(player) { player.state.map { if (it.isPlaying) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
+    val playing = playingId == item.id.toString()
+    val duration = (item.durationSeconds ?: 0) * 1000
+    val heard = if (item.played) 1f else if (duration > 0) (item.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    val label = stringResource(if (playing) Res.string.np_pause else Res.string.np_play)
+    Box(
+        Modifier.size(44.dp).clip(CircleShape)
+            .clickable(onClickLabel = label) {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                if (playing) player.engine.pause() else nav.play(item)
+            }
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            progress = { heard }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.onSurface, trackColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressTrack,
+            gapSize = 0.dp,
+        )
+        Icon(if (playing) HoppIcons.Pause else HoppIcons.Play, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
 /** The one EpisodeActionsViewModel of the app, provided by the frame — rows
  *  used to look it up each, which costs on every row scrolled into view. */
 val LocalEpisodeActions = staticCompositionLocalOf<EpisodeActionsViewModel?> { null }
@@ -78,6 +132,7 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             fun pick(action: () -> Unit) { open = false; action() }
+            if (item.inInbox) DropdownMenuItem(text = { Text(stringResource(Res.string.inbox_dismiss)) }, onClick = { pick { vm.dismiss(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_next)) }, onClick = { pick { vm.playNext(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_last)) }, onClick = { pick { vm.playLast(item) } })
             when (item.downloadState) {
@@ -104,8 +159,10 @@ fun QueueList(items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove:
     var order by remember { mutableStateOf(items) }
     LaunchedEffect(items) { order = items }
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     val reorderable = rememberReorderableLazyListState(listState) { from, to ->
         order = order.toMutableList().apply { add(to.index, removeAt(from.index)) }
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val dragLabel = stringResource(Res.string.queue_drag)
     LazyColumn(state = listState) {

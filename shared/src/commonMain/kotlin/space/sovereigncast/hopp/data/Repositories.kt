@@ -280,6 +280,9 @@ class EpisodeRepository(
 
     fun countOfPodcast(podcastId: Long): Flow<Long> = eq.countByPodcast(podcastId).asFlow().mapToOne(Dispatchers.IO)
 
+    /** One episode, live — its page follows played, position and download. */
+    fun itemFlow(id: Long): Flow<EpisodeItem?> = eq.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.toItem() }
+
     suspend fun item(id: Long): EpisodeItem? = withContext(Dispatchers.IO) { eq.selectById(id).executeAsOneOrNull()?.toItem() }
 
     suspend fun details(id: Long): Episode? = withContext(Dispatchers.IO) {

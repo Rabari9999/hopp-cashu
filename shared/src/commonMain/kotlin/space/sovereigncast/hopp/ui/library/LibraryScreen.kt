@@ -43,7 +43,6 @@ import space.sovereigncast.hopp.resources.inbox_no_shows
 @Composable
 fun LibraryScreen(
     onShow: (Long) -> Unit,
-    onPlay: (EpisodeItem) -> Unit,
     onQueue: () -> Unit,
     onDownloads: () -> Unit,
     vm: LibraryViewModel = koinViewModel(),
