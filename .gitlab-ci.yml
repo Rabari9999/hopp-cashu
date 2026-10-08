@@ -47,12 +47,14 @@ android-debug:
     - mkdir -p /cache/m2 && ln -sfn /cache/m2 ~/.m2
     # The app on Android's own Compose, lifecycle and SQLite, no device.
     - ./gradlew --console=plain :androidApp:testFossDebugUnitTest
-    - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug
+    - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug :androidApp:assembleFossBeta
   artifacts:
     when: always
     expire_in: 2 weeks
     paths:
       - androidApp/build/outputs/apk/*/debug/*.apk
+      # Release code, debug key: the build to judge smoothness with.
+      - androidApp/build/outputs/apk/*/beta/*.apk
     reports:
       junit: androidApp/build/test-results/testFossDebugUnitTest/*.xml
 

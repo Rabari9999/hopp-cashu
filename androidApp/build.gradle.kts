@@ -104,6 +104,17 @@ android {
             // Settings shows it, so a bug report names the exact build.
             revision?.let { versionNameSuffix = "-dev.$it" }
         }
+        // Release code, debug key: what testers install to judge how Hopp
+        // feels. A debug build is not debuggable for nothing — interpreted,
+        // with the runtime's checks on, Compose in it runs several times
+        // slower and its animations stutter (device feedback 2026-10-08).
+        // Signed like the debug builds, so it installs over them.
+        create("beta") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            revision?.let { versionNameSuffix = "-beta.$it" }
+        }
         getByName("release") {
             isMinifyEnabled = false
         }

@@ -70,7 +70,10 @@ import space.sovereigncast.hopp.resources.downloads_title
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.ui.library.DiscoverScreen
 import space.sovereigncast.hopp.ui.library.DownloadsScreen
+import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
 import space.sovereigncast.hopp.ui.library.LocalDownloadProgress
+import space.sovereigncast.hopp.ui.library.LocalEpisodeActions
+import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.ui.library.QueueScreen
 import space.sovereigncast.hopp.ui.library.HomeScreen
 import space.sovereigncast.hopp.ui.library.InboxScreen
@@ -148,8 +151,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
     val showRoute = { id: Long -> nav.navigate(ShowRoute(id)) }
 
-    val downloads: DownloadRepository = koinInject()
-    val progress by downloads.progress.collectAsState()
+    val episodeActions: EpisodeActionsViewModel = koinViewModel()
     val value: ValueService = koinInject()
     val snackbar = remember { SnackbarHostState() }
     // Streaming paid after time offline: say so (ADR 0014).
@@ -163,7 +165,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
 
     HoppTheme {
-        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalDownloadProgress provides progress) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions) {
+          ProvideDownloadProgress {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Box(Modifier.fillMaxSize()) {
                     Scaffold(
@@ -247,6 +250,16 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     }
                 }
             }
+          }
         }
     }
+}
+
+/** Download progress for every row — collected here, so that a download's
+ *  progress recomposes the rows that show it, not the whole app frame. */
+@Composable
+private fun ProvideDownloadProgress(content: @Composable () -> Unit) {
+    val downloads: DownloadRepository = koinInject()
+    val progress by downloads.progress.collectAsState()
+    androidx.compose.runtime.CompositionLocalProvider(LocalDownloadProgress provides progress, content = content)
 }

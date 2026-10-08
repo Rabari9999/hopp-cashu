@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,9 +64,13 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
     else -> null
 }
 
+/** The one EpisodeActionsViewModel of the app, provided by the frame — rows
+ *  used to look it up each, which costs on every row scrolled into view. */
+val LocalEpisodeActions = staticCompositionLocalOf<EpisodeActionsViewModel?> { null }
+
 /** The ⋮ of every episode row (ADR 0012): up next, download, played. */
 @Composable
-fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = koinViewModel()) {
+fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {

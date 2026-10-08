@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.Font
@@ -23,9 +24,26 @@ fun figtree(): FontFamily = FontFamily(
     Font(Res.font.figtree_extrabold, FontWeight.ExtraBold),
 )
 
+/**
+ * Built once per font family, not on every call: a new Typography gives
+ * every text in the app a new style, and with it a new layout. Unremembered,
+ * that happened each time the app frame recomposed — on every navigation,
+ * every time now playing opened or closed — and made those animations stutter
+ * (device feedback 2026-10-08).
+ */
 @Composable
 internal fun hoppTypography(): Typography {
-    val family = figtree()
+    val regular = Font(Res.font.figtree_regular, FontWeight.Normal)
+    val medium = Font(Res.font.figtree_medium, FontWeight.Medium)
+    val semibold = Font(Res.font.figtree_semibold, FontWeight.SemiBold)
+    val bold = Font(Res.font.figtree_bold, FontWeight.Bold)
+    val extrabold = Font(Res.font.figtree_extrabold, FontWeight.ExtraBold)
+    return remember(regular, medium, semibold, bold, extrabold) {
+        buildTypography(FontFamily(regular, medium, semibold, bold, extrabold))
+    }
+}
+
+private fun buildTypography(family: FontFamily): Typography {
     val base = Typography()
     return Typography(
         displayLarge = base.displayLarge.copy(fontFamily = family, fontWeight = FontWeight.ExtraBold),

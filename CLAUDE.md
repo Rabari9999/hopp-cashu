@@ -46,6 +46,16 @@ variables. Without them the app builds and Discover says search is
 unavailable. `HOPP_LIVE_DIRECTORY=1 ./gradlew :shared:jvmTest --tests
 '*DirectoryLiveTest*'` checks the real directories with it. Never print it.
 
+Judge how Hopp *feels* only on the `beta` build (`assembleFossBeta`: release
+code, debug key, installs over a debug build). A debug build is debuggable,
+mostly interpreted and carries no baseline profile; Compose in it runs
+several times slower and its animations stutter — that is not a bug to chase.
+Two things that did make the app itself heavy (2026-10-08): a theme value
+built in a composable without `remember` (a new Typography restyles and
+re-lays out every text whenever the frame recomposes), and frame-level state
+read in `App` (download progress) that recomposes the whole frame — collect
+such state in the smallest composable that needs it.
+
 Debug builds are signed with the checked-in `androidApp/debug.keystore`, so
 each CI APK installs over the last one; release signing is `docs/signing.md`.
 
