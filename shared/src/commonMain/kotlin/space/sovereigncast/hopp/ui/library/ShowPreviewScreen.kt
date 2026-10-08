@@ -1,0 +1,93 @@
+package space.sovereigncast.hopp.ui.library
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
+import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.discover_add_button
+import space.sovereigncast.hopp.resources.preview_failed
+import space.sovereigncast.hopp.resources.result_failed
+import space.sovereigncast.hopp.resources.show_episodes
+import space.sovereigncast.hopp.resources.show_subscribed
+import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.ui.components.formatTime
+
+/**
+ * A show before subscribing (ADR 0008): loaded from its own feed, so it shows
+ * what the show publishes now — value block included. Subscribing leads on
+ * to the show's page; an already subscribed show opens it.
+ */
+@Composable
+fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit) {
+    val vm: ShowPreviewViewModel = koinViewModel(key = "preview-$feedUrl") { parametersOf(feedUrl) }
+    val state by vm.state.collectAsState()
+    val subscribedId by vm.subscribedId.collectAsState()
+    val working by vm.working.collectAsState()
+    val error by vm.error.collectAsState()
+    val colors = MaterialTheme.colorScheme
+
+    when (val s = state) {
+        PreviewState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        is PreviewState.Failed -> EmptyState(stringResource(Res.string.preview_failed, s.reason), feedUrl)
+        is PreviewState.Loaded -> {
+            val p = s.feed.podcast
+            val episodes = s.feed.episodes.sortedByDescending { it.publishedAt ?: 0 }
+            LazyColumn {
+                item {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Cover(p.imageUrl, 112.dp, corner = 18.dp)
+                        Spacer(Modifier.size(14.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(p.title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            p.author?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
+                            Text(
+                                listOfNotNull(stringResource(Res.string.show_episodes, episodes.size), "⚡ V4V".takeIf { p.value != null }).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                            )
+                            val id = subscribedId
+                            if (id != null) OutlinedButton(onClick = { onOpen(id) }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
+                            else Button(onClick = { vm.subscribe(onOpen) }, enabled = !working) { Text(stringResource(Res.string.discover_add_button)) }
+                        }
+                    }
+                    error?.let { Text(stringResource(Res.string.result_failed, it), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
+                    p.description?.let { d ->
+                        Text(plainText(d), color = colors.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    }
+                }
+                items(episodes.take(100), key = { it.guid }) { e ->
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(e.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            listOfNotNull(formatDate(e.publishedAt).takeIf { it.isNotEmpty() }, e.durationSeconds?.let { formatTime(it * 1000) }).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

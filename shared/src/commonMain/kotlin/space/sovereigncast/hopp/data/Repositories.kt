@@ -40,6 +40,7 @@ data class Show(
     val lastError: String?,
     val autoDownload: Boolean = true,
     val playbackSpeed: Float? = null,
+    val podcastGuid: String? = null,
 )
 
 /** An episode as the UI lists it — the parsed feed data stays in the database
@@ -98,11 +99,11 @@ class PodcastRepository(
     private val eq = db.episodeQueries
 
     val shows: Flow<List<Show>> = q.selectAll().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat()) }
+        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat(), it.podcast_guid) }
     }
 
     fun show(id: Long): Flow<Show?> = q.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.let { r ->
-        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat())
+        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat(), r.podcast_guid)
     } }
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(Dispatchers.IO) {

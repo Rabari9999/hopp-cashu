@@ -61,6 +61,7 @@ import space.sovereigncast.hopp.ui.library.QueueScreen
 import space.sovereigncast.hopp.ui.library.InboxScreen
 import space.sovereigncast.hopp.ui.library.LibraryScreen
 import space.sovereigncast.hopp.ui.library.SettingsScreen
+import space.sovereigncast.hopp.ui.library.ShowPreviewScreen
 import space.sovereigncast.hopp.ui.library.ShowScreen
 import space.sovereigncast.hopp.ui.player.MiniPlayer
 import space.sovereigncast.hopp.ui.player.NowPlayingScreen
@@ -71,6 +72,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 @Serializable object SettingsRoute
 @Serializable data class ShowRoute(val id: Long)
+@Serializable data class ShowPreviewRoute(val feedUrl: String)
 @Serializable object QueueRoute
 @Serializable object DownloadsRoute
 
@@ -175,7 +177,14 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<QueueRoute> { QueueScreen(onPlay = { player.play(it) }) }
                             composable<DownloadsRoute> { DownloadsScreen(onPlay = { player.play(it) }) }
-                            composable<DiscoverRoute> { DiscoverScreen(onShow = showRoute) }
+                            composable<DiscoverRoute> { DiscoverScreen(onPreview = { nav.navigate(ShowPreviewRoute(it)) }) }
+                            composable<ShowPreviewRoute> { e ->
+                                // Subscribed: the show's own page takes the preview's place —
+                                // unless the listener has moved on while it loaded.
+                                ShowPreviewScreen(e.toRoute<ShowPreviewRoute>().feedUrl, onOpen = { id ->
+                                    if (nav.currentBackStackEntry?.id == e.id) nav.navigate(ShowRoute(id)) { popUpTo<ShowPreviewRoute> { inclusive = true } }
+                                })
+                            }
                             composable<SettingsRoute> { SettingsScreen() }
                             composable<ShowRoute> { e ->
                                 val id = e.toRoute<ShowRoute>().id

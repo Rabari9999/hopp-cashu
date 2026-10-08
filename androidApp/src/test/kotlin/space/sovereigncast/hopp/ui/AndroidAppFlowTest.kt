@@ -29,6 +29,8 @@ import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.directory.DirectoryRepository
+import space.sovereigncast.hopp.directory.PodcastIndexCredentials
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.di.sharedModule
 import space.sovereigncast.hopp.platform.AppInfo
@@ -70,11 +72,20 @@ class TestApp : Application() {
         // As slow as a phone on the road: the listener moves on while it loads.
         val http = HttpClient(MockEngine { req ->
             kotlinx.coroutines.delay(1_500)
-            if (req.url.encodedPath == "/nodesignal.xml") respond(nodesignal) else respond(FEED)
+            when {
+                req.url.host == "api.podcastindex.org" ->
+                    respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"}]}""")
+                req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
+                else -> respond(FEED)
+            }
         })
         startKoin {
             allowOverride(true)
-            modules(sharedModule(platform), module { single { http } })
+            modules(sharedModule(platform), module {
+                single { http }
+                // A test key, whatever this build carries.
+                single { DirectoryRepository(get(), get(), get(), get(), get(), PodcastIndexCredentials("test-key", "test-secret")) }
+            })
         }
     }
 }
@@ -101,9 +112,11 @@ class AndroidAppFlowTest {
         walk(root)
     }
 
+    /** Discover → feed address → the show page before subscribing → Subscribe → the show's page. */
     private fun subscribe(url: String = "https://pod.test/feed.xml") {
         rule.onNode(hasSetTextAction()).performTextInput(url)
-        tap("Subscribe"); waitFor("Subscribed to Test Show")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
     }
 
     @Test
@@ -127,10 +140,9 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         waitFor("Add a show"); tap("Add a show")
         subscribe()
-        tap("Open"); waitFor("✓ Subscribed")
         back()
         tap("New"); waitFor("Ep 2")
-        check(!has("Ep 1") && !has("Add by feed address")) { "New is not New: ${screen()}" }
+        check(!has("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
     }
 
     /** A show page waiting in another tab's stack closes once the show is gone. */
@@ -138,14 +150,13 @@ class AndroidAppFlowTest {
     fun noShowPageOutlivesItsShow() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
-        tap("Open"); waitFor("✓ Subscribed")
         tap("Library"); waitFor("Test Show")
         tap("Test Show"); waitFor("✓ Subscribed")
         tap("✓ Subscribed"); tap("Unsubscribe")
         waitFor("No subscriptions yet.")
-        tap("Discover"); waitFor("Add by feed address")
+        tap("Discover"); waitFor("Search or feed address")
         rule.waitForIdle()
-        check(!has("✓ Subscribed") && !has("Subscribed to Test Show")) { "leftovers: ${screen()}" }
+        check(!has("✓ Subscribed")) { "leftovers: ${screen()}" }
     }
 
     /** Tapping the tab you are on goes back to its root. */
@@ -166,6 +177,7 @@ class AndroidAppFlowTest {
         tap("Library"); waitFor("No subscriptions yet.")
         tap("Discover")
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
+        tap("Open as feed"); waitFor("Subscribe")
         tap("Subscribe")
         tap("Library")
         waitFor("Nodesignal - Deine Bitcoin-Frequenz")
@@ -181,7 +193,7 @@ class AndroidAppFlowTest {
     fun playNextFillsUpNext() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
-        tap("Open"); waitFor("Ep 1")
+        waitFor("Ep 1")
         menuOf(1); waitFor("Play next"); tap("Play next")
         tap("Library"); waitFor("Up next")
         tap("Up next"); waitFor("Ep 1")
@@ -193,7 +205,7 @@ class AndroidAppFlowTest {
     fun aRequestedDownloadIsListed() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
-        tap("Open"); waitFor("Ep 1")
+        waitFor("Ep 1")
         menuOf(1); waitFor("Download"); tap("Download")
         kotlinx.coroutines.runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>().runPending(includeAuto = false) }
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
@@ -206,7 +218,7 @@ class AndroidAppFlowTest {
     fun theSleepTimerShowsWhatIsSet() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
-        tap("Open"); waitFor("Ep 2")
+        waitFor("Ep 2")
         tap("Ep 2")
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sleep timer")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNode(hasContentDescription("Sleep timer")).performClick()
@@ -222,7 +234,25 @@ class AndroidAppFlowTest {
         rule.onAllNodes(hasText("15 s") and hasClickAction()).onFirst().performClick()
         rule.onNode(hasContentDescription("Back")).performClick()
         tap("Discover"); subscribe()
-        tap("Open"); waitFor("Ep 2"); tap("Ep 2")
+        waitFor("Ep 2"); tap("Ep 2")
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Back 15 seconds, hold for previous chapter")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    // ── package 3 ──────────────────────────────────────────────────────────
+
+    /** A term goes to the Podcast Index; a result opens its page first. */
+    @Test
+    fun searchLeadsToTheShowPageBeforeSubscribing() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("test show")
+        waitFor("Test Show")
+        tap("Test Show")
+        waitFor("Subscribe")
+        check(has("Ep 2")) { "the real feed is shown: ${screen()}" }
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        back()
+        rule.onNode(hasSetTextAction()).performTextInput("x") // search again: now marked as subscribed
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Subscribed", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 }

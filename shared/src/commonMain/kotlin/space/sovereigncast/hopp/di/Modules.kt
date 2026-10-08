@@ -15,6 +15,10 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.directory.AppleClient
+import space.sovereigncast.hopp.directory.DirectoryRepository
+import space.sovereigncast.hopp.directory.FyydClient
+import space.sovereigncast.hopp.directory.PodcastIndexClient
 import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.createHttpClient
 import space.sovereigncast.hopp.platform.AppInfo
@@ -25,6 +29,7 @@ import space.sovereigncast.hopp.ui.library.DownloadsViewModel
 import space.sovereigncast.hopp.ui.library.EpisodeActionsViewModel
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
+import space.sovereigncast.hopp.ui.library.ShowPreviewViewModel
 import space.sovereigncast.hopp.ui.library.InboxViewModel
 import space.sovereigncast.hopp.ui.library.LibraryViewModel
 import space.sovereigncast.hopp.ui.library.ShowViewModel
@@ -58,7 +63,12 @@ fun sharedModule(platform: Platform) = module {
     viewModel { InboxViewModel(get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
-    viewModel { DiscoverViewModel(get()) }
+    single { PodcastIndexClient(get(), get()) }
+    single { FyydClient(get()) }
+    single { AppleClient(get()) }
+    single { DirectoryRepository(get(), get(), get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get()) }
+    viewModel { params -> ShowPreviewViewModel(params.get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }

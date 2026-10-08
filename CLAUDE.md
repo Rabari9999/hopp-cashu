@@ -36,6 +36,13 @@ file needs the matching `migrations/<n>.sqm` too, and installed apps run it
 on update; `DownloadsAndQueueTest.aVersionOneDatabaseIsMigrated` shows how to
 check it against the old schema.
 
+Search needs the Podcast Index key (ADR 0008), which is compiled in but not in
+git: `podcastindex.key` / `podcastindex.secret` in `~/.gradle/gradle.properties`
+on the build box, `PODCASTINDEX_KEY` / `PODCASTINDEX_SECRET` as masked CI
+variables. Without them the app builds and Discover says search is
+unavailable. `HOPP_LIVE_DIRECTORY=1 ./gradlew :shared:jvmTest --tests
+'*DirectoryLiveTest*'` checks the real directories with it. Never print it.
+
 Debug builds are signed with the checked-in `androidApp/debug.keystore`, so
 each CI APK installs over the last one; release signing is `docs/signing.md`.
 

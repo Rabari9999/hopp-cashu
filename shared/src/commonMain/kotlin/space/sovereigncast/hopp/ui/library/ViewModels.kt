@@ -8,7 +8,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import space.sovereigncast.hopp.directory.DirectoryRepository
+import space.sovereigncast.hopp.directory.DirectoryShow
+import space.sovereigncast.hopp.directory.SearchResult
+import space.sovereigncast.hopp.directory.feedKey
+import space.sovereigncast.hopp.feed.FeedParser
+import space.sovereigncast.hopp.model.Feed
+import space.sovereigncast.hopp.net.FeedFetcher
+import space.sovereigncast.hopp.net.FetchResult
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.data.DownloadState
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -120,24 +135,57 @@ class ShowViewModel(
 sealed interface AddState {
     data object Idle : AddState
     data object Working : AddState
-    data class Done(val result: SubscribeResult) : AddState
     data class Imported(val subscribed: Int, val already: Int, val failed: Int) : AddState
 }
 
-class DiscoverViewModel(private val podcasts: PodcastRepository) : ViewModel() {
-    private val _state = MutableStateFlow<AddState>(AddState.Idle)
-    val state: StateFlow<AddState> = _state.asStateFlow()
+sealed interface SearchUi {
+    data object Idle : SearchUi
+    data object Searching : SearchUi
+    data class Done(val result: SearchResult) : SearchUi
+}
 
-    fun subscribe(url: String) {
-        _state.value = AddState.Working
-        viewModelScope.launch { _state.value = AddState.Done(podcasts.subscribe(url)) }
+/** A term, not an address: search. An address goes to the show page. */
+internal fun searchable(q: String) = q.length >= 2 && "://" !in q && '/' !in q
+
+/** Discover (ADR 0008): search as you type, the V4V filter, a feed address
+ *  opened directly, the subscribed shows' recommendations, OPML import. */
+@OptIn(FlowPreview::class)
+class DiscoverViewModel(private val podcasts: PodcastRepository, private val directory: DirectoryRepository) : ViewModel() {
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+    private val _valueOnly = MutableStateFlow(false)
+    val valueOnly: StateFlow<Boolean> = _valueOnly.asStateFlow()
+    private val _search = MutableStateFlow<SearchUi>(SearchUi.Idle)
+    val search: StateFlow<SearchUi> = _search.asStateFlow()
+    private val _podroll = MutableStateFlow<List<DirectoryShow>>(emptyList())
+    val podroll: StateFlow<List<DirectoryShow>> = _podroll.asStateFlow()
+    private val _import = MutableStateFlow<AddState>(AddState.Idle)
+    val import: StateFlow<AddState> = _import.asStateFlow()
+    /** Feed keys of what is subscribed — results show it. */
+    val subscribed: StateFlow<Set<String>> = state(podcasts.shows.map { list -> list.map { feedKey(it.feedUrl) }.toSet() }, emptySet())
+
+    init {
+        viewModelScope.launch {
+            combine(_query, _valueOnly) { q, v -> q.trim() to v }
+                .debounce(400)
+                .distinctUntilChanged()
+                .collectLatest { (q, v) ->
+                    if (!searchable(q)) { _search.value = SearchUi.Idle; return@collectLatest }
+                    _search.value = SearchUi.Searching
+                    _search.value = SearchUi.Done(directory.search(q, v))
+                }
+        }
+        viewModelScope.launch { _podroll.value = runCatching { directory.podroll() }.getOrDefault(emptyList()) }
     }
 
+    fun setQuery(q: String) { _query.value = q }
+    fun setValueOnly(on: Boolean) { _valueOnly.value = on }
+
     fun importOpml(text: String) {
-        _state.value = AddState.Working
+        _import.value = AddState.Working
         viewModelScope.launch {
             val results = podcasts.importOpml(text).map { it.second }
-            _state.value = AddState.Imported(
+            _import.value = AddState.Imported(
                 subscribed = results.count { it is SubscribeResult.Subscribed },
                 already = results.count { it is SubscribeResult.AlreadySubscribed },
                 failed = results.count { it is SubscribeResult.Failed },
@@ -146,5 +194,64 @@ class DiscoverViewModel(private val podcasts: PodcastRepository) : ViewModel() {
     }
 
     suspend fun exportOpml(): String = podcasts.exportOpml()
-    fun reset() { _state.value = AddState.Idle }
+}
+
+sealed interface PreviewState {
+    data object Loading : PreviewState
+    data class Loaded(val feed: Feed, val feedUrl: String) : PreviewState
+    data class Failed(val reason: String) : PreviewState
+}
+
+/**
+ * The show page before subscribing (ADR 0008): the real feed, fetched
+ * directly — the directory's copy can be old and knows nothing of P2.0 tags.
+ */
+class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, private val podcasts: PodcastRepository) : ViewModel() {
+    private val url = FeedFetcher.normalize(input) ?: input
+    private val _state = MutableStateFlow<PreviewState>(PreviewState.Loading)
+    val state: StateFlow<PreviewState> = _state.asStateFlow()
+    private val _working = MutableStateFlow(false)
+    val working: StateFlow<Boolean> = _working.asStateFlow()
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** Already subscribed — under this address or the one it moved to. */
+    val subscribedId: StateFlow<Long?> = state(
+        combine(podcasts.shows, _state) { shows, st ->
+            val keys = setOfNotNull(feedKey(url), (st as? PreviewState.Loaded)?.feedUrl?.let(::feedKey))
+            shows.firstOrNull { feedKey(it.feedUrl) in keys }?.id
+        },
+        null,
+    )
+
+    init {
+        viewModelScope.launch {
+            _state.value = try {
+                when (val r = fetcher.fetch(url)) {
+                    is FetchResult.Fetched -> {
+                        val feed = withContext(Dispatchers.Default) { FeedParser.parse(r.bytes) }
+                        if (feed.podcast.title == null && feed.episodes.isEmpty()) PreviewState.Failed("not a podcast feed")
+                        else PreviewState.Loaded(feed, r.movedTo ?: url)
+                    }
+                    else -> PreviewState.Failed("empty response")
+                }
+            } catch (e: Exception) {
+                PreviewState.Failed(e.message ?: "network error")
+            }
+        }
+    }
+
+    fun subscribe(onDone: (Long) -> Unit) {
+        if (_working.value) return
+        _working.value = true
+        _error.value = null
+        viewModelScope.launch {
+            when (val r = podcasts.subscribe((_state.value as? PreviewState.Loaded)?.feedUrl ?: url)) {
+                is SubscribeResult.Subscribed -> onDone(r.podcastId)
+                is SubscribeResult.AlreadySubscribed -> onDone(r.podcastId)
+                is SubscribeResult.Failed -> _error.value = r.reason
+            }
+            _working.value = false
+        }
+    }
 }

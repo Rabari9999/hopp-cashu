@@ -61,3 +61,18 @@ Decided → [ADR 0019](adr/0019-visual-design.md): logo, design system, icons,
 navigation, now playing, show page with community tab, boost dialog.
 
 All other topics of the specification phase are decided. New questions go here.
+
+## 17. The Podcast Index key and F-Droid
+
+ADR 0008 ships the key in the app; since package 3 it comes from a Gradle
+property or the CI variables `PODCASTINDEX_KEY` / `PODCASTINDEX_SECRET`, not
+from git. F-Droid builds from the public source and has no secrets — and
+because the key is compiled into the APK, an F-Droid build without it is a
+different APK, so the reproducible-build check against ours (ADR 0011) fails.
+
+**Proposal:** commit the key and secret to the public repository once it goes
+public (the secret is extractable from any APK anyway, ADR 0008 accepts that),
+and rotate them if they are abused. Alternative: an F-Droid build without
+search, as its own unsigned variant — loses reproducibility for that variant.
+To be decided before the F-Droid submission.
+
