@@ -42,6 +42,15 @@ import space.sovereigncast.hopp.resources.settings_downloads
 import space.sovereigncast.hopp.resources.settings_downloads_text
 import space.sovereigncast.hopp.resources.settings_playback
 import space.sovereigncast.hopp.resources.settings_privacy
+import space.sovereigncast.hopp.resources.crash_title
+import space.sovereigncast.hopp.resources.settings_refresh
+import space.sovereigncast.hopp.resources.settings_refresh_text
+import space.sovereigncast.hopp.resources.settings_refresh_wifi
+import space.sovereigncast.hopp.resources.settings_refresh_wifi_note
+import space.sovereigncast.hopp.resources.refresh_off
+import space.sovereigncast.hopp.resources.refresh_hourly
+import space.sovereigncast.hopp.resources.refresh_daily
+import space.sovereigncast.hopp.resources.refresh_hours
 import space.sovereigncast.hopp.resources.settings_seconds
 import space.sovereigncast.hopp.resources.settings_skip_back
 import space.sovereigncast.hopp.resources.settings_skip_forward
@@ -58,7 +67,7 @@ import space.sovereigncast.hopp.ui.components.formatBytes
  *  directories, subscriptions, who sees what (ADR 0015), about. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onWallet: () -> Unit = {}, onPrivacy: () -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
+fun SettingsScreen(onWallet: () -> Unit = {}, onPrivacy: () -> Unit = {}, onCrashReport: (() -> Unit)? = null, vm: SettingsViewModel = koinViewModel()) {
     val app: AppInfo = koinInject()
     val engine: PlaybackEngine = koinInject()
     val settings by vm.current.collectAsState()
@@ -91,6 +100,21 @@ fun SettingsScreen(onWallet: () -> Unit = {}, onPrivacy: () -> Unit = {}, vm: Se
         }) { v -> vm.update { it.copy(storageLimitMb = v) } }
         Text(stringResource(Res.string.settings_downloads_text), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
+        // How often Hopp looks for new episodes by itself (ADR 0013; device feedback 2026-10-09).
+        Section(stringResource(Res.string.settings_refresh))
+        Choices(Settings.refreshChoicesHours, s.refreshHours, { h ->
+            when (h) {
+                0 -> stringResource(Res.string.refresh_off)
+                1 -> stringResource(Res.string.refresh_hourly)
+                24 -> stringResource(Res.string.refresh_daily)
+                else -> stringResource(Res.string.refresh_hours, h)
+            }
+        }) { v -> vm.update { it.copy(refreshHours = v) } }
+        if (s.refreshHours > 0) Toggle(stringResource(Res.string.settings_refresh_wifi), stringResource(Res.string.settings_refresh_wifi_note), s.refreshWifiOnly) { on ->
+            vm.update { it.copy(refreshWifiOnly = on) }
+        }
+        Text(stringResource(Res.string.settings_refresh_text), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+
         Section(stringResource(Res.string.settings_directories))
         Text(stringResource(Res.string.settings_pi_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         Toggle(stringResource(Res.string.settings_fyyd), stringResource(Res.string.settings_sees_searches), s.fyydSearch) { on -> vm.update { it.copy(fyydSearch = on) } }
@@ -103,6 +127,13 @@ fun SettingsScreen(onWallet: () -> Unit = {}, onPrivacy: () -> Unit = {}, vm: Se
             stringResource(Res.string.settings_privacy) + "  ›",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(onClick = onPrivacy).padding(vertical = 8.dp),
+        )
+
+        // Only while a report waits (ADR 0015).
+        if (onCrashReport != null) Text(
+            stringResource(Res.string.crash_title) + "  ›",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onCrashReport).padding(vertical = 8.dp),
         )
 
         Text(stringResource(Res.string.settings_about), color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))

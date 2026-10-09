@@ -65,7 +65,13 @@ class HomeViewModel(
     private val episodes: EpisodeRepository,
     private val podcasts: PodcastRepository,
     value: space.sovereigncast.hopp.value.ValueService,
+    private val settings: SettingsRepository,
 ) : RefreshingViewModel(podcasts) {
+    /** Sections folded away — kept across starts (device feedback 2026-10-09). */
+    val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
+    fun toggle(section: String) = viewModelScope.launch {
+        settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
+    }
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(podcasts.shows.map { it.isNotEmpty() }, null)
     val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress.map { it.take(HOME_ROWS) }, emptyList())
@@ -133,6 +139,9 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
     val details: StateFlow<space.sovereigncast.hopp.model.Episode?> = _details.asStateFlow()
     private val _chapters = MutableStateFlow<List<space.sovereigncast.hopp.feed.Chapter>>(emptyList())
     val chapters: StateFlow<List<space.sovereigncast.hopp.feed.Chapter>> = _chapters.asStateFlow()
+    private val _chaptersLoaded = MutableStateFlow(false)
+    /** The chapters have been fetched (or failed) — until then their tab waits. */
+    val chaptersLoaded: StateFlow<Boolean> = _chaptersLoaded.asStateFlow()
     private val _gone = MutableStateFlow(false)
     /** Unsubscribed while this page was open. */
     val gone: StateFlow<Boolean> = _gone.asStateFlow()
@@ -151,6 +160,7 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
             _hasValue.value = _details.value?.value != null || meta?.value != null
             _showPersons.value = meta?.persons.orEmpty()
             _chapters.value = runCatching { episodes.chapters(e) }.getOrDefault(emptyList()).filter { it.inToc }
+            _chaptersLoaded.value = true
         }
         viewModelScope.launch { episodes.itemFlow(id).collect { if (it == null && _details.value != null) _gone.value = true } }
     }

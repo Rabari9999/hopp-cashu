@@ -74,6 +74,17 @@ import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.privacy_title
+import space.sovereigncast.hopp.resources.crash_title
+import space.sovereigncast.hopp.resources.crash_ask
+import space.sovereigncast.hopp.resources.crash_view
+import space.sovereigncast.hopp.resources.crash_delete
+import space.sovereigncast.hopp.platform.CrashReports
+import space.sovereigncast.hopp.ui.library.CrashReportScreen
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import space.sovereigncast.hopp.ui.library.PrivacyScreen
 import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
@@ -112,6 +123,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable data class WalletRoute(val uri: String? = null)
 @Serializable object HistoryRoute
 @Serializable object PrivacyRoute
+@Serializable object CrashRoute
 @Serializable object QueueRoute
 @Serializable object DownloadsRoute
 
@@ -164,6 +176,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
+        destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
         else -> ""
     }
@@ -181,6 +194,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
     }
+    // A crash last time: offer the report, once per start (ADR 0015).
+    val crashes: CrashReports = koinInject()
+    var crashReport by remember { mutableStateOf(crashes.pending()) }
+    var crashAsked by rememberSaveable { mutableStateOf(false) }
     // A wallet's "connect" link opens the wallet page, filled in.
     val incomingWallet by IncomingLinks.walletUri.collectAsState()
     LaunchedEffect(incomingWallet) {
@@ -271,8 +288,19 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     },
                                 )
                             }
-                            composable<SettingsRoute> { SettingsScreen(onWallet = { nav.navigate(WalletRoute()) }, onPrivacy = { nav.navigate(PrivacyRoute) }) }
+                            composable<SettingsRoute> {
+                                SettingsScreen(
+                                    onWallet = { nav.navigate(WalletRoute()) }, onPrivacy = { nav.navigate(PrivacyRoute) },
+                                    onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
+                                )
+                            }
                             composable<PrivacyRoute> { PrivacyScreen() }
+                            composable<CrashRoute> {
+                                CrashReportScreen(crashReport, onDelete = {
+                                    crashes.clear(); crashReport = null
+                                    if (nav.currentBackStackEntry?.destination?.hasRoute(CrashRoute::class) == true) nav.popBackStack()
+                                })
+                            }
                             composable<WalletRoute> { e ->
                                 WalletScreen(onHistory = { nav.navigate(HistoryRoute) }, incomingUri = e.toRoute<WalletRoute>().uri)
                             }
@@ -285,6 +313,13 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                         }
                     }
+                    if (crashReport != null && !crashAsked) AlertDialog(
+                        onDismissRequest = { crashAsked = true },
+                        title = { Text(stringResource(Res.string.crash_title)) },
+                        text = { Text(stringResource(Res.string.crash_ask)) },
+                        confirmButton = { TextButton(onClick = { crashAsked = true; player.minimize(); nav.navigate(CrashRoute) }) { Text(stringResource(Res.string.crash_view)) } },
+                        dismissButton = { TextButton(onClick = { crashAsked = true; crashes.clear(); crashReport = null }) { Text(stringResource(Res.string.crash_delete)) } },
+                    )
                     // Up with a decelerating curve, down with an accelerating one — the
                     // linear default felt like the device could not keep up.
                     AnimatedVisibility(

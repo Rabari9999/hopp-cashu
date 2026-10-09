@@ -51,11 +51,12 @@ fun EpisodeRow(
     item: EpisodeItem,
     showPodcast: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -49,6 +49,9 @@ Dependency injection with Koin; navigation with Navigation Compose
 - Streaming parse; only new or changed items are written.
 - Background refresh via WorkManager / `BGAppRefreshTask`, paced by
   `podcast:updateFrequency` (hourly without it), plus pull-to-refresh.
+  **Amended 2026-10-09 (device feedback):** the listener sets the interval —
+  off, 1, 3, 6, 12 or 24 hours, hourly by default — and whether it runs on
+  Wi-Fi only. Pacing by `updateFrequency` stays open.
 - **Optional, off by default:** a Podcast Index batch check (one request with all
   subscribed GUIDs, then fetch only changed feeds). The setting says plainly that
   the Podcast Index then sees the whole subscription list — more sensitive than

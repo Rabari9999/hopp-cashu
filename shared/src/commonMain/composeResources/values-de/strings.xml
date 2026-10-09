@@ -289,6 +289,21 @@
     <string name="person_group_audio_production">Tonproduktion</string>
     <string name="person_group_audio_post">Tonnachbearbeitung</string>
     <string name="person_group_visuals">Gestaltung</string>
+    <string name="settings_refresh">Nach neuen Folgen suchen</string>
+    <string name="refresh_off">Aus</string>
+    <string name="refresh_hourly">Stündlich</string>
+    <string name="refresh_daily">Einmal am Tag</string>
+    <string name="refresh_hours">Alle %1$d Std.</string>
+    <string name="settings_refresh_wifi">Nur im WLAN</string>
+    <string name="settings_refresh_wifi_note">Keine mobilen Daten fürs Suchen</string>
+    <string name="settings_refresh_text">Im Hintergrund, so oft wie hier eingestellt. Nach unten ziehen in einer Liste sucht immer sofort.</string>
+    <string name="crash_title">Absturzbericht</string>
+    <string name="crash_ask">Hopp ist beim letzten Mal abgestürzt. Du kannst dir den Bericht ansehen und selbst teilen – gesendet wurde nichts.</string>
+    <string name="crash_view">Ansehen</string>
+    <string name="crash_delete">Löschen</string>
+    <string name="crash_share">Teilen</string>
+    <string name="crash_issue">Als GitLab-Issue</string>
+    <string name="crash_intro">Das ist der ganze Bericht, genau so, wie er dein Telefon verlassen würde: Version, System, Zeit und die Stelle, an der Hopp stehen blieb. Adressen und Schlüssel sind geschwärzt – keine Abos, keine Wallet-Daten. Hopp sendet nichts von selbst.</string>
     <string-array name="months">
         <item>Januar</item>
         <item>Februar</item>

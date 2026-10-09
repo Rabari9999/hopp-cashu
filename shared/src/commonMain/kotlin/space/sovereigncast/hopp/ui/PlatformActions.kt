@@ -8,6 +8,8 @@ interface PlatformActions {
     fun pickOpml(onText: (String) -> Unit)
     /** Saves or shares an exported OPML file. */
     fun exportOpml(text: String)
+    /** Hands text to the system's share sheet (mail, messenger, …). */
+    fun shareText(text: String, subject: String) = Unit
 }
 
 object NoPlatformActions : PlatformActions {

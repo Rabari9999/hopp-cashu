@@ -1,7 +1,7 @@
 # DRAFT — the metadata file for an F-Droid inclusion request
 # (gitlab.com/fdroid/fdroiddata, metadata/space.sovereigncast.hopp.yml).
 # Not used by our build; kept here so it changes together with the build.
-# Before submitting: the repository must be public, a release tag must exist,
+# Before submitting (the repository is public since 2026-10-09): a release tag must exist,
 # and AllowedAPKSigningKeys gets the SHA-256 of the release certificate
 # (ADR 0011: one key everywhere — F-Droid publishes OUR signed APK once its
 # own build from source matches it).

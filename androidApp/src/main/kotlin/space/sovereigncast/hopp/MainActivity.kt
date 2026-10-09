@@ -63,4 +63,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
         saveOpml.launch("hopp-subscriptions.opml")
     }
 
+    override fun shareText(text: String, subject: String) {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
+        startActivity(Intent.createChooser(send, subject))
+    }
+
 }

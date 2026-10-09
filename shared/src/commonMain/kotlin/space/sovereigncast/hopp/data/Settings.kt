@@ -43,6 +43,12 @@ data class Settings(
     val votes: Set<String> = emptySet(),
     /** The last search terms, newest first (at most [RECENT_SEARCHES]). */
     val recentSearches: List<String> = emptyList(),
+    /** Background feed refresh every this many hours; 0 = off, pull to refresh only. */
+    val refreshHours: Int = 1,
+    /** Background refresh only on Wi-Fi (or any unmetered network). */
+    val refreshWifiOnly: Boolean = false,
+    /** Home's sections the listener folded away: "new", "continue", "recent", "boosted". */
+    val homeCollapsed: Set<String> = emptySet(),
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -55,6 +61,7 @@ data class Settings(
         /** Where "Support Hopp" goes — the project's Lightning address. */
         const val SUPPORT_ADDRESS = "sovereigncast@getalby.com"
         val quickBoostChoicesSats = listOf(0, 21, 100, 500, 1_000)
+        val refreshChoicesHours = listOf(0, 1, 3, 6, 12, 24)
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -74,6 +81,9 @@ data class Settings(
                 voterId = values["voter_id"] ?: d.voterId,
                 votes = values["votes"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.votes,
                 recentSearches = values["recent_searches"]?.split('\n')?.filter { it.isNotBlank() } ?: d.recentSearches,
+                refreshHours = values["refresh_hours"]?.toIntOrNull() ?: d.refreshHours,
+                refreshWifiOnly = values["refresh_wifi_only"]?.toBooleanStrictOrNull() ?: d.refreshWifiOnly,
+                homeCollapsed = values["home_collapsed"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeCollapsed,
             )
         }
     }
@@ -94,6 +104,9 @@ data class Settings(
         "voter_id" to voterId,
         "votes" to votes.joinToString("\n"),
         "recent_searches" to recentSearches.joinToString("\n"),
+        "refresh_hours" to refreshHours.toString(),
+        "refresh_wifi_only" to refreshWifiOnly.toString(),
+        "home_collapsed" to homeCollapsed.joinToString("\n"),
     )
 }
 

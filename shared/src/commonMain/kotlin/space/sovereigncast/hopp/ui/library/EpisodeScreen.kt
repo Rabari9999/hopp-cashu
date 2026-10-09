@@ -65,6 +65,9 @@ import space.sovereigncast.hopp.resources.episode_clip_at
 import space.sovereigncast.hopp.resources.episode_play_clip
 import space.sovereigncast.hopp.ui.player.TranscriptView
 import space.sovereigncast.hopp.ui.components.PersonRow
+import space.sovereigncast.hopp.ui.components.ChapterRow
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.CircularProgressIndicator
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatTime
@@ -90,6 +93,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     val show by vm.show.collectAsState()
     val details by vm.details.collectAsState()
     val chapters by vm.chapters.collectAsState()
+    val chaptersLoaded by vm.chaptersLoaded.collectAsState()
     val hasValue by vm.hasValue.collectAsState()
     val gone by vm.gone.collectAsState()
     LaunchedEffect(gone) { if (gone) onGone() }
@@ -118,7 +122,9 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     val clips = details?.soundbites.orEmpty().filter { it.duration > 0 }
     val tabs = buildList {
         if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
-        if (chapters.isNotEmpty()) add(EpisodeTab.Chapters)
+        // From what the feed declares, not from what has loaded — a tab that
+        // arrives late would push the others aside under the listener's thumb.
+        if (e.chaptersUrl != null && (chapters.isNotEmpty() || !chaptersLoaded)) add(EpisodeTab.Chapters)
         if (details?.transcripts?.isNotEmpty() == true) add(EpisodeTab.Transcript)
         if (clips.isNotEmpty()) add(EpisodeTab.Clips)
         if (persons.isNotEmpty()) add(EpisodeTab.People)
@@ -195,14 +201,10 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                         Text(notes!!, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                EpisodeTab.Chapters -> items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { player.playAt(e, (ch.startSeconds * 1000).toLong()) }.padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(formatTime((ch.startSeconds * 1000).toLong()), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                        Text(ch.title, style = MaterialTheme.typography.bodyMedium)
-                    }
+                EpisodeTab.Chapters -> if (!chaptersLoaded) item {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                } else items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
+                    ChapterRow(ch, active = false, onSeek = { player.playAt(e, (ch.startSeconds * 1000).toLong()) }, withImages = chapters.any { it.imageUrl != null })
                 }
                 EpisodeTab.Clips -> items(clips, key = { "clip${it.startTime}" }) { c ->
                     val start = (c.startTime * 1000).toLong()

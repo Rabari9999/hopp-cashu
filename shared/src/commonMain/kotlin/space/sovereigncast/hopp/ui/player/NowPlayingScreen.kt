@@ -22,6 +22,7 @@ import space.sovereigncast.hopp.ui.library.QueueList
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.value.BoostSheet
+import space.sovereigncast.hopp.ui.components.ChapterRow
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import org.koin.compose.koinInject
@@ -345,15 +346,9 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
         ModalBottomSheet(onDismissRequest = { showChapters = false }) {
             LazyColumn(Modifier.padding(bottom = 24.dp)) {
                 itemsIndexed(chapters.stops) { i, ch ->
-                    val active = i == chapters.currentIndex(position)
-                    Row(
-                        Modifier.fillMaxWidth().clickable { model.seekTo((ch.startSeconds * 1000).toLong()); showChapters = false }
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(formatTime((ch.startSeconds * 1000).toLong()), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                        Text(ch.title, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-                    }
+                    ChapterRow(ch, active = i == chapters.currentIndex(position), onSeek = {
+                        model.seekTo((ch.startSeconds * 1000).toLong()); showChapters = false
+                    }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null })
                 }
             }
         }

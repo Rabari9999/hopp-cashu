@@ -28,4 +28,6 @@ class AndroidPlatform(private val context: Context) : Platform {
     override fun downloadDir(): String = java.io.File(context.noBackupFilesDir, "episodes").absolutePath
     override fun downloadScheduler(): DownloadScheduler = WorkDownloadScheduler(context)
     override fun secretStore(): SecretStore = KeystoreSecretStore(context)
+    // Outside Auto Backup too: a report is the listener's to share (ADR 0015).
+    override fun crashDir(): String = java.io.File(context.noBackupFilesDir, "crash").absolutePath
 }

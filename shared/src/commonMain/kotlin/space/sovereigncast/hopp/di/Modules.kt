@@ -56,6 +56,8 @@ interface Platform {
     fun downloadDir(): String
     fun downloadScheduler(): DownloadScheduler
     fun secretStore(): SecretStore
+    /** Where the crash handler leaves its report, outside the OS backup (ADR 0015); null = none. */
+    fun crashDir(): String? = null
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -68,6 +70,7 @@ fun sharedModule(platform: Platform) = module {
     single { ListenerApi(get()) }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
+    single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
     single { SettingsRepository(get()) }
     single { QueueRepository(get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
@@ -82,7 +85,7 @@ fun sharedModule(platform: Platform) = module {
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
-    viewModel { HomeViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get()) }

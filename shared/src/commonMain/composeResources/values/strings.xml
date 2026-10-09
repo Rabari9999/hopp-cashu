@@ -289,6 +289,21 @@
     <string name="person_group_audio_production">Audio production</string>
     <string name="person_group_audio_post">Audio post-production</string>
     <string name="person_group_visuals">Visuals</string>
+    <string name="settings_refresh">Looking for new episodes</string>
+    <string name="refresh_off">Off</string>
+    <string name="refresh_hourly">Every hour</string>
+    <string name="refresh_daily">Once a day</string>
+    <string name="refresh_hours">Every %1$d h</string>
+    <string name="settings_refresh_wifi">Only on Wi-Fi</string>
+    <string name="settings_refresh_wifi_note">No mobile data for looking</string>
+    <string name="settings_refresh_text">In the background, as often as set here. Pulling down on a list always looks right away.</string>
+    <string name="crash_title">Crash report</string>
+    <string name="crash_ask">Hopp crashed last time. You can look at the report and share it yourself — nothing has been sent.</string>
+    <string name="crash_view">Look at it</string>
+    <string name="crash_delete">Delete</string>
+    <string name="crash_share">Share</string>
+    <string name="crash_issue">As a GitLab issue</string>
+    <string name="crash_intro">This is the whole report, exactly as it would leave your phone: version, system, time and where Hopp stopped. Addresses and keys are blanked — no subscriptions, no wallet data. Hopp sends nothing by itself.</string>
     <string-array name="months">
         <item>January</item>
         <item>February</item>

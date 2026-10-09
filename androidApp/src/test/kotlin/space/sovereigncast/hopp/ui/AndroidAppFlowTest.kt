@@ -56,7 +56,7 @@ private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcas
 <podcast:person role="host">Thorsten</podcast:person>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
 <item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host" group="cast" href="https://primal.net/p/karsten">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
-<item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
+<item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/><podcast:chapters url="https://cdn.test/1.json" type="application/json+chapters"/></item>
 </channel></rss>"""
 
 private class FakeEngine : PlaybackEngine {
@@ -130,6 +130,7 @@ class TestApp : Application() {
             override fun downloadDir(): String = java.io.File(app.cacheDir, "episodes").absolutePath
             override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
             override fun secretStore() = space.sovereigncast.hopp.platform.MemorySecretStore()
+            override fun crashDir(): String = java.io.File(app.cacheDir, "crash").absolutePath
         }
         val nodesignal = java.io.File("../shared/src/jvmTest/resources/feeds/nodesignal-podhome.xml").readBytes()
         // As slow as a phone on the road: the listener moves on while it loads.
@@ -142,6 +143,8 @@ class TestApp : Application() {
                     respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"}]}""")
                 req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
                 req.url.encodedPath == "/2.vtt" -> respond(TRANSCRIPT)
+                req.url.encodedPath == "/1.json" -> respond("""{"version":"1.2.0","chapters":[{"startTime":0,"title":"Intro"},
+                    {"startTime":90,"title":"Die Node","img":"https://cdn.test/node.jpg","url":"https://github.com/nodesignal"}]}""")
                 else -> respond(FEED)
             }
         })
@@ -711,6 +714,59 @@ class AndroidAppFlowTest {
         check(has("primal.net ↗") && !has("Thorsten")) { "the episode's own people only: ${screen()}" }
         back()
         tap("Ep 1"); waitFor("People")
+        tap("People") // after Ep 1's chapters
         waitFor("Thorsten")
+    }
+
+    // ── device feedback 2026-10-09 (later) ─────────────────────────────────
+
+    /** Home's sections fold away and stay folded. */
+    @Test
+    fun homeSectionsFold() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Home")
+        waitFor("Ep 2")
+        rule.onNode(hasText("New") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { !has("Ep 2") }
+        until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current() }.homeCollapsed == setOf("new") }
+        rule.onNode(hasText("New") and hasClickAction()).performClick()
+        waitFor("Ep 2")
+    }
+
+    /** Chapters with their picture and their link (ADR 0012). */
+    @Test
+    fun chaptersShowTheirLink() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 1"); waitFor("Chapters")
+        waitFor("Die Node")
+        waitFor("github.com ↗")
+    }
+
+    /** A crash last time: the report is offered, read, and deleted — never sent by itself. */
+    @Test
+    fun aCrashReportIsOfferedToShare() {
+        val reports = koin.get<space.sovereigncast.hopp.platform.CrashReports>()
+        reports.write("Hopp crash report\nVersion: 0.0.1\n\njava.lang.IllegalStateException: boom")
+        rule.setContent { App() }
+        waitFor("Crash report")
+        tap("Look at it")
+        rule.waitUntil(10_000) { has("java.lang.IllegalStateException: boom", substring = true) }
+        check(has("Share") && has("As a GitLab issue")) { screen().toString() }
+        tap("Delete")
+        until { reports.pending() == null }
+    }
+
+    /** How often Hopp looks for new episodes is the listener's choice. */
+    @Test
+    fun theBackgroundRefreshIsSet() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Every 3 h")
+        until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current() }.refreshHours == 3 }
+        tap("Off")
+        rule.waitUntil(10_000) { has("Pulling down on a list always looks right away.", substring = true) }
+        rule.waitUntil(10_000) { !has("Only on Wi-Fi") } // no Wi-Fi switch without a refresh
     }
 }

@@ -1,6 +1,13 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import space.sovereigncast.hopp.ui.components.HoppIcons
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -70,22 +77,27 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = 
             EmptyState(stringResource(Res.string.inbox_empty_title), stringResource(Res.string.inbox_empty_text))
             return@PullToRefreshBox
         }
+        val collapsed by vm.collapsed.collectAsState()
         LazyColumn {
             if (newest.isNotEmpty()) {
-                item { SectionHeader(stringResource(Res.string.nav_new), stringResource(Res.string.home_all, newest.size), onInbox) }
-                items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
+                val open = "new" !in collapsed
+                item(key = "h-new") {
+                    SectionHeader(stringResource(Res.string.nav_new), open, newest.size, { vm.toggle("new") }, stringResource(Res.string.home_all, newest.size), onInbox)
+                }
+                if (open) items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
                         PlayButton(item)
                         EpisodeMenu(item)
                     }
                 }
             }
-            section(continueTitle, inProgress, "c", nav)
-            section(recentTitle, played, "r", nav)
+            section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
+            section("recent", recentTitle, played, collapsed, vm::toggle, nav)
             if (boosted.isNotEmpty()) {
-                item { SectionHeader(stringResource(Res.string.home_boosted)) }
-                items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
-                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {
+                val open = "boosted" !in collapsed
+                item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }) }
+                if (open) items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
                         Text("${formatSats(sats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium)
                     }
@@ -95,17 +107,30 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = 
     }
 }
 
-private fun LazyListScope.section(title: String, list: List<EpisodeItem>, key: String, nav: EpisodeNav) {
+private fun LazyListScope.section(key: String, title: String, list: List<EpisodeItem>, collapsed: Set<String>, toggle: (String) -> Unit, nav: EpisodeNav) {
     if (list.isEmpty()) return
-    item { SectionHeader(title) }
-    items(list, key = { key + it.id }) { item -> EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) { PlayButton(item); EpisodeMenu(item) } }
+    val open = key !in collapsed
+    item(key = "h-$key") { SectionHeader(title, open, list.size, { toggle(key) }) }
+    if (open) items(list, key = { key + it.id }) { item ->
+        EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
+    }
 }
 
+/** A section's title folds it away and back (device feedback 2026-10-09);
+ *  folded, it says how many it holds. */
 @Composable
-private fun SectionHeader(title: String, action: String? = null, onAction: () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        if (action != null) Text(
+private fun SectionHeader(title: String, open: Boolean, count: Int, onToggle: () -> Unit, action: String? = null, onAction: () -> Unit = {}) {
+    val turn by animateFloatAsState(if (open) 0f else -90f)
+    Row(
+        Modifier.fillMaxWidth().clickable(onClickLabel = title, onClick = onToggle)
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp).semantics { stateDescription = if (open) "open" else "closed" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Icon(HoppIcons.ChevronDown, null, Modifier.padding(start = 4.dp).size(22.dp).rotate(turn), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!open) Text(" $count", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.weight(1f))
+        if (action != null && open) Text(
             "$action ›", Modifier.clickable(onClick = onAction).padding(8.dp),
             style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
         )
