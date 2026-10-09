@@ -24,6 +24,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class BoostSenderTest {
+    private val comments = mutableListOf<String?>()
     private val relay = FakeRelay()
     private val wallet = FakeWallet(relay)
     private val nwc = NwcClient(
@@ -36,7 +37,7 @@ class BoostSenderTest {
         when (req.url.encodedPath) {
             "/.well-known/keysend/withroute" -> respond("""{"status":"OK","tag":"keysend","pubkey":"03route","customData":[{"customKey":"696969","customValue":"7"}]}""", headers = json)
             "/.well-known/lnurlp/noroute", "/.well-known/lnurlp/withroute" -> respond("""{"tag":"payRequest","callback":"https://w.test/cb","minSendable":1000,"maxSendable":1000000000,"metadata":${JsonPrimitive(metadata)},"commentAllowed":100}""", headers = json)
-            "/cb" -> respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), Sha256.digest(metadata.encodeToByteArray()))}"}""", headers = json)
+            "/cb" -> { comments += req.url.parameters["comment"]; respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), Sha256.digest(metadata.encodeToByteArray()))}"}""", headers = json) }
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
@@ -123,5 +124,20 @@ class BoostSenderTest {
         val records = wallet.requests.single().second["tlv_records"].toString()
         assertTrue("696969" in records, "the sub-wallet's custom record goes along: $records")
         assertEquals(null, unpayableReason(block.recipients[0], WalletInfo(setOf("pay_keysend"), emptySet(), ownPubkey = node)))
+    }
+
+    /** A Sovereigncast show's Lightning-address share carries the rss::payment
+     *  pointer to its stored metadata, then the message (ADR 0005). */
+    @Test
+    fun aSovereigncastShowsAddressGetsTheRssPaymentComment() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Karsten", "lnaddress", "noroute@w.test", 100)))
+        val stored = mutableListOf<Long>()
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_invoice"), setOf("nip44_v2"))) { share, _, _ ->
+            stored += share.amountMsat; "rss::payment::boost https://pm.test/api/listener/v1/payment-metadata/abcdefghijklmnop"
+        }
+        val noUrl = ctx.copy(rssPaymentUrl = null, message = "Danke!")
+        assertIs<ShareResult.Paid>(sender.send(block, 10_000, noUrl).single())
+        assertEquals(listOf(10_000L), stored)
+        assertEquals("rss::payment::boost https://pm.test/api/listener/v1/payment-metadata/abcdefghijklmnop Danke!", comments.last())
     }
 }

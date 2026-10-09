@@ -26,6 +26,7 @@ import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.sovereigncast.ListenerApi
+import space.sovereigncast.hopp.sovereigncast.PaymentMetadataSource
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import space.sovereigncast.hopp.value.LnAddressClient
 import space.sovereigncast.hopp.value.ValueService
@@ -37,6 +38,7 @@ import space.sovereigncast.hopp.ui.library.EpisodeViewModel
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.library.ShowPreviewViewModel
+import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
 import space.sovereigncast.hopp.ui.value.HistoryViewModel
 import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 import space.sovereigncast.hopp.ui.value.WalletViewModel
@@ -63,6 +65,7 @@ fun sharedModule(platform: Platform) = module {
     single { createHttpClient(get()) }
     single<Clock> { Clock { kotlin.time.Clock.System.now().epochSeconds } }
     single { FeedFetcher(get()) }
+    single { ListenerApi(get()) }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { SettingsRepository(get()) }
@@ -74,14 +77,15 @@ fun sharedModule(platform: Platform) = module {
     single { platform.secretStore() }
     single { WalletRepository(get(), get(), get()) }
     single { LnAddressClient(get()) }
-    single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { ListenerApi(get()) }
+    single { PaymentMetadataSource(get(), get()) }
+    single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
+    viewModel { params -> CommunityViewModel(params.get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
     single { FyydClient(get()) }
     single { AppleClient(get()) }

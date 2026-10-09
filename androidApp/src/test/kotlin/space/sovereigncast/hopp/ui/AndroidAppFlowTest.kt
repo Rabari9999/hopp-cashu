@@ -58,6 +58,33 @@ private class FakeEngine : PlaybackEngine {
     override fun release() = Unit
 }
 
+private const val SC_GUID = "e8df0b13-47de-544a-99b7-ec7cbd960a16"
+private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+<title>Nodesignal</title><podcast:guid>e8df0b13-47de-544a-99b7-ec7cbd960a16</podcast:guid>
+<podcast:txt purpose="sovereigncast">https://pm.test</podcast:txt>
+<item><title>E296</title><guid>e296</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/296.mp3" type="audio/mpeg"/></item>
+</channel></rss>"""
+
+private var votes = 12
+private var statusCalls = 0
+
+/** A Sovereigncast instance as the Listener API answers (listener-v1.yaml). */
+private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String) = when {
+    path == "/api/listener/meta" -> respond("""{"api_versions":["v1"],"instance":{"id":"i","software":"sovereigncast","version":"dev"}}""")
+    path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
+        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":false,"suggestions":true,"leaderboard":false,"top_episodes":false,"payment_metadata":true},
+        "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
+    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"","image_url":null},
+        "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36}},"poll_after_seconds":60}""")
+    path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
+    path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
+    path.endsWith("/release-boosting/invoices") -> respond(
+        """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
+        io.ktor.http.HttpStatusCode.Created)
+    path.endsWith("/payments/h1") -> respond("""{"payment_hash":"h1","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
+    else -> respond("", io.ktor.http.HttpStatusCode.NotFound)
+}
+
 /** Koin as the app has it, with a mocked network and an in-memory database. */
 class TestApp : Application() {
     override fun onCreate() {
@@ -78,6 +105,8 @@ class TestApp : Application() {
         val http = HttpClient(MockEngine { req ->
             kotlinx.coroutines.delay(1_500)
             when {
+                req.url.host == "pm.test" -> scInstance(req.url.encodedPath)
+                req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
                 req.url.host == "api.podcastindex.org" ->
                     respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"}]}""")
                 req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
@@ -417,5 +446,37 @@ class AndroidAppFlowTest {
         tap("People")
         waitFor("Karsten · host")
         check(!has("(12:34) Hauptteil", substring = true)) { "the notes stay hidden on the People tab" }
+    }
+
+    // ── Sovereigncast layer (ADR 0018, phase 1) ────────────────────────────
+
+    /** A verified show: badge, the running round, the community tab with a free vote. */
+    @Test
+    fun aSovereigncastShowShowsItsLayer() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        waitFor("RELEASE BOOSTING · via Sovereigncast")
+        check(has("E297 - BTC++ Berlin")) { screen().toString() }
+        tap("Community")
+        waitFor("BIP110")
+        rule.onNode(hasText("▲ 12") and hasClickAction()).performClick()
+        waitFor("▲ 13")
+        // Voted once, the button stays down (disabled) once the vote is stored.
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("▲ 13") and androidx.compose.ui.test.isNotEnabled()).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** Without a wallet the invoice goes to a wallet app; Hopp waits for the instance. */
+    @Test
+    fun releaseBoostingIsPaidAndConfirmed() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("RELEASE BOOSTING · via Sovereigncast")
+        tap("Boost")
+        waitFor("Bring E297 - BTC++ Berlin out sooner")
+        tap("21 · 1 min")
+        tap("Pay 21 sats with a wallet app")
+        waitFor("Open wallet app")
+        rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
     }
 }

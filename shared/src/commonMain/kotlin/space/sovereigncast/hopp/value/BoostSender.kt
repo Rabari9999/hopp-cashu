@@ -46,6 +46,9 @@ class BoostSender(
     private val nwc: NwcClient,
     private val lnAddress: LnAddressClient,
     private val wallet: WalletInfo,
+    /** For a Sovereigncast show: stores a share's boost metadata at the
+     *  instance and returns the `rss::payment::…` comment prefix (ADR 0005). */
+    private val metadata: (suspend (Share, Long, BoostContext) -> String?)? = null,
 ) {
     suspend fun send(block: ValueBlock, totalMsat: Long, ctx: BoostContext, remote: ValueBlock? = null): List<ShareResult> =
         Splits.divideAtWholeSats(block, totalMsat, ctx.positionSeconds?.toDouble(), remote).map { share -> payShare(share, totalMsat, ctx) }
@@ -87,7 +90,10 @@ class BoostSender(
         return try {
             val msat = share.amountMsat / 1000 * 1000
             val request = lnAddress.payRequest(address)
-            val invoice = lnAddress.invoice(request, msat, comment(ctx))
+            // The instance keeps the full boostagram behind a URL; the comment
+            // only has to carry that and the message.
+            val prefix = if (ctx.rssPaymentUrl == null) runCatching { metadata?.invoke(share, totalMsat, ctx) }.getOrNull() else null
+            val invoice = lnAddress.invoice(request, msat, comment(ctx, prefix))
             val paid = nwc.payInvoice(invoice)
             ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
         } catch (e: Exception) {
@@ -112,9 +118,10 @@ class BoostSender(
         ShareResult.Failed(share, route, e.message ?: e::class.simpleName ?: "error")
     }
 
-    private fun comment(ctx: BoostContext): String? {
+    private fun comment(ctx: BoostContext, prefix: String? = null): String? {
         val message = ctx.message?.trim().orEmpty()
         return when {
+            prefix != null -> "$prefix $message".trim()
             ctx.rssPaymentUrl != null -> "rss::payment::${ctx.action} ${ctx.rssPaymentUrl} $message".trim()
             message.isNotEmpty() -> message
             else -> null

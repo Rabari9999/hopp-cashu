@@ -1,5 +1,23 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextAlign
+import space.sovereigncast.hopp.resources.sc_no_suggestions
+import space.sovereigncast.hopp.resources.sc_suggestions
+import space.sovereigncast.hopp.resources.sc_tab_episodes
+import space.sovereigncast.hopp.resources.sc_via
+import space.sovereigncast.hopp.resources.sheet_community
+import space.sovereigncast.hopp.sovereigncast.ScTarget
+import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
+import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingCard
+import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
+import space.sovereigncast.hopp.ui.sovereigncast.ScPaySheet
+import space.sovereigncast.hopp.ui.sovereigncast.SuggestionRow
+import space.sovereigncast.hopp.ui.sovereigncast.UnlockCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,7 +71,7 @@ import space.sovereigncast.hopp.resources.show_unsubscribe_confirm
 
 /** A subscribed show: header, then its episodes. The Sovereigncast card and
  *  the Community tab (ADR 0019) arrive in package 5. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}) {
     val nav = LocalEpisodeNav.current
@@ -69,9 +87,19 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     var confirm by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     LaunchedEffect(gone) { if (gone) onGone() }
+    // The Sovereigncast layer (ADR 0018, phase 1) — only once the instance confirmed the show.
+    val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
+    val layer by community.layer.collectAsState()
+    val round by community.round.collectAsState()
+    val unlocks by community.unlocks.collectAsState()
+    val suggestions by community.suggestions.collectAsState()
+    val votes by community.votes.collectAsState()
+    var paying by remember { mutableStateOf<Pair<ScTarget, String>?>(null) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val hasCommunity = layer?.show?.capabilities?.suggestions == true
     val colors = MaterialTheme.colorScheme
 
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh(); community.load() }) {
         LazyColumn(state = listState) {
             item {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -80,6 +108,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(show?.title ?: "", style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
                         show?.author?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
+                        if (layer != null) ScBadge()
                         episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
@@ -106,13 +135,44 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
             }
-            items(episodes.orEmpty(), key = { it.id }) { item ->
-                EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
-                    PlayButton(item)
-                    EpisodeMenu(item)
+            // The Sovereigncast card: only while an action runs (ADR 0019).
+            round?.let { r -> item(key = "rb") { ReleaseBoostingCard(r) { paying = ScTarget.ReleaseBoosting to r.episode.title } } }
+            items(unlocks.filterNot { it.unlocked }, key = { "b2u" + it.episode.episodeGuid }) { u ->
+                UnlockCard(u) { paying = ScTarget.Boost2Unlock(u.episode.episodeGuid) to u.episode.title }
+            }
+            if (hasCommunity) stickyHeader(key = "tabs") {
+                SecondaryTabRow(selectedTabIndex = tab, containerColor = colors.background) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(Res.string.sc_tab_episodes)) })
+                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(Res.string.sheet_community)) })
+                }
+            }
+            if (!hasCommunity || tab == 0) {
+                items(episodes.orEmpty(), key = { it.id }) { item ->
+                    EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
+                        PlayButton(item)
+                        EpisodeMenu(item)
+                    }
+                }
+            } else {
+                val l = layer
+                val list = suggestions.orEmpty()
+                item(key = "sug-h") { Text(stringResource(Res.string.sc_suggestions), Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.titleMedium) }
+                if (suggestions != null && list.isEmpty()) item(key = "sug-none") {
+                    Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant)
+                }
+                items(list, key = { "sug" + it.id }) { sg ->
+                    SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes) { community.vote(sg) }
+                }
+                if (l != null) item(key = "sc-via") {
+                    Text(stringResource(Res.string.sc_via, l.host), Modifier.fillMaxWidth().padding(16.dp),
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             }
         }
+    }
+
+    paying?.let { (target, title) ->
+        ScPaySheet(community, target, title, satsPerMinute = round?.satsPerMinute?.takeIf { target is ScTarget.ReleaseBoosting }) { paying = null }
     }
 
     if (boosting) {

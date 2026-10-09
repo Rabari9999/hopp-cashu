@@ -107,6 +107,8 @@ class ValueService(
     private val directory: DirectoryRepository?,
     private val clock: Clock,
     private val app: AppInfo,
+    /** Boost metadata at a Sovereigncast instance, for Lightning-address shares. */
+    private val metadata: space.sovereigncast.hopp.sovereigncast.PaymentMetadataSource? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val lineList = ListSerializer(PaymentLine.serializer())
@@ -222,7 +224,7 @@ class ValueService(
             podcastGuid = show?.podcastGuid, episodeGuid = null, positionSeconds = null,
             senderName = settings.current().senderName.takeIf { it.isNotBlank() }, message = message?.takeIf { it.isNotBlank() },
         )
-        val results = BoostSender(client, lnAddress, info).send(block, amountMsat, ctx)
+        val results = BoostSender(client, lnAddress, info, metadata?.forShow(podcastId, app.version)).send(block, amountMsat, ctx)
         record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
         return results
     }
@@ -244,7 +246,7 @@ class ValueService(
         val block = blockFor(item) ?: throw IllegalStateException("no value block")
         val ctx = context(item, "boost", positionSeconds, message)
         val remote = Splits.activeSplit(block, positionSeconds?.toDouble())?.takeIf { it.recipients.isEmpty() }?.remoteItem?.let { remoteBlock(it) }
-        val results = BoostSender(client, lnAddress, info).send(block, amountMsat, ctx, remote)
+        val results = BoostSender(client, lnAddress, info, metadata?.forShow(item.podcastId, app.version)).send(block, amountMsat, ctx, remote)
         log(KIND_BOOST, item, results, message)
         return results
     }

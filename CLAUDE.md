@@ -56,6 +56,13 @@ re-lays out every text whenever the frame recomposes), and frame-level state
 read in `App` (download progress) that recomposes the whole frame — collect
 such state in the smallest composable that needs it.
 
+The Sovereigncast layer (`sovereigncast/`, ADR 0002/0010/0018) speaks the
+Listener API whose contract is `podcast_manager/api_specs/listener-v1.yaml` in
+`nodesignal/podcasting_tools` — read it there, do not guess field names.
+`HOPP_LIVE_SOVEREIGNCAST=1 ./gradlew :shared:jvmTest --tests '*SovereigncastLiveTest*'`
+reads Nodesignal's real instance (read only). An invoice is paid only when it
+asks for exactly the chosen amount; votes use one random voter id per install.
+
 Debug builds are signed with the checked-in `androidApp/debug.keystore`, so
 each CI APK installs over the last one; release signing is `docs/signing.md`.
 
