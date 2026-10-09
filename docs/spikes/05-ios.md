@@ -4,8 +4,11 @@
   engine play an episode behind the same `PlaybackEngine` as Android?
 - **Status:** Kotlin side compiles for `iosArm64` and `iosSimulatorArm64` on
   the Linux build box (and in CI). **Runs on the maintainer's Mac** (iPhone 17
-  simulator, 2026-10-09): app starts and is fully usable. Checklist items below
-  that need background audio or the lock screen still to confirm.
+  simulator, 2026-10-09): app starts and is fully usable; playback, resume at
+  the saved position and chapter jumps work. **Open:** no Now Playing entry on
+  the lock screen or in Control Center in the simulator, even with
+  `beginReceivingRemoteControlEvents` — the simulator is unreliable here;
+  check on a real iPhone when iOS work starts (after phase 2, ADR 0018).
 
 Met on the way: `xcode-select` pointed at the Command Line Tools (Kotlin/Native
 needs full Xcode: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`),
