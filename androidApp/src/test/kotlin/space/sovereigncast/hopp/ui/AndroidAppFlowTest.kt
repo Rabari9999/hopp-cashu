@@ -11,6 +11,15 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
@@ -66,17 +75,22 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will, wer dafür ist und wer nicht."
 private var statusCalls = 0
 
 /** A Sovereigncast instance as the Listener API answers (listener-v1.yaml). */
 private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String) = when {
     path == "/api/listener/meta" -> respond("""{"api_versions":["v1"],"instance":{"id":"i","software":"sovereigncast","version":"dev"}}""")
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
-        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":false,"suggestions":true,"leaderboard":false,"top_episodes":false,"payment_metadata":true},
+        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
-    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"","image_url":null},
-        "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36}},"poll_after_seconds":60}""")
-    path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
+    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
+        "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
+        "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
+    path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
+    path.endsWith("/leaderboard") -> respond("""{"month":"2026-10","top_boosts":[{"rank":1,"amount_sats":4221,"sender":"","message":"Gemeinsam basteln","episode":{"episode_guid":null,"title":""}}],
+        "recent_boosts":[{"amount_sats":21,"sender":"z","message":"","episode":{"episode_guid":"e296","title":"E296"}}],
+        "alltime_boosters":[{"rank":1,"sender":"Blaubär","trend":"same","prev_rank":1,"legendary":true,"medals":{"gold":8,"silver":5,"bronze":3}}],"poll_after_seconds":300}""")
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
         """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
@@ -144,6 +158,8 @@ class AndroidAppFlowTest {
     private fun until(check: () -> Boolean) = rule.waitUntil(10_000) { rule.waitForIdle(); check() }
     private fun has(text: String, substring: Boolean = false) = rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     private fun tap(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
+    /** The top-most of several — now playing lies over the page it came from. */
+    private fun tapTop(text: String) = rule.onAllNodes(hasText(text) and hasClickAction()).onLast().performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
 
     /** What is on screen, for failure messages. */
@@ -318,7 +334,7 @@ class AndroidAppFlowTest {
     fun boostingWithoutAWalletLeadsToTheWallet() {
         rule.setContent { App() }
         openEpisode()
-        tap("Boost")
+        tapTop("Boost")
         waitFor("Connect a wallet to boost")
         tap("Connect a wallet to boost")
         waitFor("Connection string (nostr+walletconnect://…)")
@@ -372,10 +388,11 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { has("325 episodes", substring = true) }
         check(rows() <= 1 + 20) { "the preview shows ${rows()} rows at once" }
         tap("Subscribe"); waitFor("✓ Subscribed")
-        rule.waitUntil(10_000) { rows() == 1 + 20 }
+        // The header sits above the list now, which holds only episodes.
+        rule.waitUntil(10_000) { rows() == 20 }
         check(has("325 episodes")) { "the count is the show's, not the page's" }
-        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToIndex(20)
-        rule.waitUntil(10_000) { rows() == 1 + 40 }
+        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToIndex(19)
+        rule.waitUntil(10_000) { rows() == 40 }
     }
 
     @Test
@@ -456,7 +473,7 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe("https://pod.test/sc.xml")
         waitFor("✓ Sovereigncast")
-        waitFor("RELEASE BOOSTING · via Sovereigncast")
+        waitFor("RELEASE BOOSTING")
         check(has("E297 - BTC++ Berlin")) { screen().toString() }
         tap("Community")
         waitFor("BIP110")
@@ -471,12 +488,106 @@ class AndroidAppFlowTest {
     fun releaseBoostingIsPaidAndConfirmed() {
         rule.setContent { App() }
         tap("Discover"); subscribe("https://pod.test/sc.xml")
-        waitFor("RELEASE BOOSTING · via Sovereigncast")
+        waitFor("RELEASE BOOSTING")
         tap("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
         tap("21 · 1 min")
         tap("Pay 21 sats with a wallet app")
         waitFor("Open wallet app")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
+    }
+
+    // ── device feedback 2026-10-09 ─────────────────────────────────────────
+
+    /** A horizontal swipe moves between the episode page's tabs. */
+    @Test
+    fun aSwipeChangesTheEpisodeTab() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasText("(12:34) Hauptteil", substring = true)).performTouchInput { swipeLeft() }
+        waitFor("Karsten · host")
+        rule.waitUntil(10_000) { !has("(12:34) Hauptteil", substring = true) }
+        rule.onNode(hasText("Karsten · host", substring = true)).performTouchInput { swipeRight() }
+        rule.waitUntil(10_000) { has("(12:34) Hauptteil", substring = true) }
+    }
+
+    /** The episode page boosts the episode itself. */
+    @Test
+    fun theEpisodePageBoosts() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        tap("Boost")
+        waitFor("Ep 2 · at 0:00")
+        waitFor("Connect a wallet to boost")
+    }
+
+    /** Auto-download and unsubscribe live in the show's menu now. */
+    @Test
+    fun theShowMenuHoldsItsSettings() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasContentDescription("Show options")).performClick()
+        waitFor("Download new episodes on Wi-Fi")
+        tap("Unsubscribe")
+        waitFor("Unsubscribe from Test Show? Positions of this show are removed.")
+    }
+
+    /** The round's card opens what the community page shows; the sheet boosts too. */
+    @Test
+    fun releaseBoostingShowsItsDetails() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("E297 - BTC++ Berlin")
+        rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+        waitFor("Jan-Paul, Thorsten & Calso waren zu Gast.")
+        check(has("1 of 72 blocks mined · 210 sats each")) { screen().toString() }
+        check(has("🔒 A clip unlocks at block 36")) { screen().toString() }
+        tapTop("Boost")
+        waitFor("Bring E297 - BTC++ Berlin out sooner")
+    }
+
+    /** A suggestion opens in full, and can be voted on from there. */
+    @Test
+    fun aSuggestionOpensInFull() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Community")
+        waitFor("BIP110")
+        rule.onNode(hasText("BIP110") and hasClickAction()).performClick()
+        waitFor("by Anonymous · 06.07.2026")
+        check(has(SUGGESTION_TEXT)) { screen().toString() }
+    }
+
+    /** The community's boosts: this month's top, the latest, the all-time ranking. */
+    @Test
+    fun theBoostsTabShowsTheLeaderboard() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Boosts")
+        waitFor("Top boosts in October 2026")
+        check(has("Gemeinsam basteln") && has("4,221 sats") && has("Blaubär")) { screen().toString() }
+        check(has("Anonymous")) { "a boost without a name" }
+    }
+
+    /** Scrolling the episodes moves the show's header away; back at the top it returns. */
+    @Test
+    fun theHeaderScrollsAwayWithTheList() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        rule.waitUntil(10_000) { rows() == 20 }
+        rule.onNodeWithText("325 episodes").assertIsDisplayed()
+        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performTouchInput { swipeUp() }
+        rule.waitForIdle()
+        rule.onNodeWithText("325 episodes").assertIsNotDisplayed()
+        repeat(4) { rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performTouchInput { swipeDown() } }
+        rule.waitForIdle()
+        rule.onNodeWithText("325 episodes").assertIsDisplayed()
     }
 }

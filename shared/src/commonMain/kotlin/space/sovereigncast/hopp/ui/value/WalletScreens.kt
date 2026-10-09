@@ -47,6 +47,8 @@ import space.sovereigncast.hopp.resources.history_fee
 import space.sovereigncast.hopp.resources.history_paid
 import space.sovereigncast.hopp.resources.history_skipped
 import space.sovereigncast.hopp.resources.history_stream
+import space.sovereigncast.hopp.resources.sc_b2u_name
+import space.sovereigncast.hopp.resources.sc_rb_name
 import space.sovereigncast.hopp.resources.wallet_balance
 import space.sovereigncast.hopp.resources.wallet_balance_unknown
 import space.sovereigncast.hopp.resources.wallet_budget
@@ -75,7 +77,7 @@ import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.wallet_support_note
 import space.sovereigncast.hopp.resources.wallet_uri_hint
 import space.sovereigncast.hopp.ui.library.EmptyState
-import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.ui.components.formatDateTime
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
 import space.sovereigncast.hopp.value.Payment
@@ -200,9 +202,15 @@ private fun PaymentRow(p: Payment) {
     Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
+                val kind = when (p.kind) {
+                    ValueService.KIND_STREAM -> Res.string.history_stream
+                    ValueService.KIND_RELEASE_BOOSTING -> Res.string.sc_rb_name
+                    ValueService.KIND_BOOST2UNLOCK -> Res.string.sc_b2u_name
+                    else -> Res.string.history_boost
+                }
+                // Date and time (device feedback 2026-10-09).
                 Text(
-                    listOfNotNull(stringResource(if (p.kind == ValueService.KIND_STREAM) Res.string.history_stream else Res.string.history_boost), formatDate(p.createdAt))
-                        .joinToString(" · "),
+                    stringResource(kind) + " · " + formatDateTime(p.createdAt),
                     style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
                 )
                 Text(listOfNotNull(p.podcastTitle, p.episodeTitle).joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis,

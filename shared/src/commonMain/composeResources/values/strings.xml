@@ -186,8 +186,8 @@
     <string name="wallet_support">Support Hopp</string>
     <string name="wallet_support_note">Optional: this share of every boost and of streaming goes to Hopp's development (%1$s) — shown in each split, taken from the amount, never added to it.</string>
     <string name="sc_badge">Sovereigncast</string>
-    <string name="sc_rb_label">RELEASE BOOSTING · via Sovereigncast</string>
-    <string name="sc_b2u_label">BOOST2UNLOCK · via Sovereigncast</string>
+    <string name="sc_rb_label">RELEASE BOOSTING</string>
+    <string name="sc_b2u_label">BOOST2UNLOCK</string>
     <string name="sc_progress">%1$s of %2$s sats</string>
     <string name="sc_publish_at">out %1$s</string>
     <string name="sc_per_minute">%1$d sats bring it out a minute earlier</string>
@@ -214,4 +214,41 @@
     <string name="sc_failed_expired">No confirmation — the invoice expired.</string>
     <string name="sc_failed_no_round">The round has just ended.</string>
     <string name="sc_failed">Did not work: %1$s</string>
+    <string name="sc_rb_name">Release Boosting</string>
+    <string name="sc_b2u_name">Boost2Unlock</string>
+    <string name="sc_details">Details</string>
+    <string name="sc_publish_long">Comes out %1$s</string>
+    <string name="sc_chain">%1$d of %2$d blocks mined · %3$s sats each</string>
+    <string name="sc_clip_at_block">A clip unlocks at block %1$d</string>
+    <string name="sc_clip_at_sats">A clip unlocks at %1$s sats</string>
+    <string name="sc_clip_play">Listen to the clip: %1$s</string>
+    <string name="sc_open_community">Open the community page</string>
+    <string name="sc_open_episode">Go to the episode</string>
+    <string name="sc_by">by %1$s</string>
+    <string name="sc_tab_boosts">Boosts</string>
+    <string name="sc_top_month">Top boosts in %1$s</string>
+    <string name="sc_recent_boosts">Latest boosts</string>
+    <string name="sc_alltime">All-time boosters</string>
+    <string name="sc_alltime_note">Placement and medals of earlier months — no amounts.</string>
+    <string name="sc_show_all">Show all %1$d</string>
+    <string name="sc_no_boosts">No boosts this month yet</string>
+    <string name="sc_anonymous">Anonymous</string>
+    <string name="sc_legendary">Legend</string>
+    <string name="sc_new">NEW</string>
+    <string name="show_options">Show options</string>
+    <string name="show_more_text">more</string>
+    <string-array name="months">
+        <item>January</item>
+        <item>February</item>
+        <item>March</item>
+        <item>April</item>
+        <item>May</item>
+        <item>June</item>
+        <item>July</item>
+        <item>August</item>
+        <item>September</item>
+        <item>October</item>
+        <item>November</item>
+        <item>December</item>
+    </string-array>
 </resources>

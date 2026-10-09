@@ -46,8 +46,9 @@
 
 ### Phase 2
 
-- The full Sovereigncast layer: submit and boost suggestions, leaderboard,
-  unlocked clips, top episodes.
+- The full Sovereigncast layer: submit and boost suggestions, unlocked clips
+  in the player, top episodes. (The leaderboard, read-only, moved into phase 1
+  on 2026-10-09 — ADR 0019.)
 - Optional Nostr identity with comments and sync (ADR 0006).
 - WebPush and UnifiedPush (ADR 0007).
 - Person search, trending, categories (ADR 0008); video via

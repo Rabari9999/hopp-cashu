@@ -249,6 +249,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     e.toRoute<EpisodeRoute>().id,
                                     onShow = { nav.navigate(ShowRoute(it)) },
                                     onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
+                                    onOpenWallet = { nav.navigate(WalletRoute()) },
                                 )
                             }
                             composable<DiscoverRoute> {

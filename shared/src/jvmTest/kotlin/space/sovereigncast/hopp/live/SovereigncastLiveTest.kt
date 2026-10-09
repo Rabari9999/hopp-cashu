@@ -24,5 +24,7 @@ class SovereigncastLiveTest {
         println("round: ${round?.episode?.title} ${round?.raisedSats}/${round?.goalSats} sats, ${round?.satsPerMinute} sats/min, out ${round?.publishAt}")
         val suggestions = api.suggestions(base, guid).suggestions
         println("suggestions: ${suggestions.size}, first: ${suggestions.firstOrNull()?.title?.take(60)} (${suggestions.firstOrNull()?.voteCount} votes)")
+        val board = api.leaderboard(base, guid)
+        println("leaderboard ${board.month}: ${board.topBoosts.size} top, ${board.recentBoosts.size} recent, ${board.alltimeBoosters.size} all-time; first ${board.topBoosts.firstOrNull()?.amountSats} sats")
     }
 }

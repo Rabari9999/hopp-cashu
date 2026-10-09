@@ -98,6 +98,7 @@ class SovereigncastRepository(
     suspend fun releaseBoosting(layer: ScLayer) = api.releaseBoosting(layer.base, layer.show.podcastGuid)
     suspend fun boost2unlock(layer: ScLayer) = api.boost2unlock(layer.base, layer.show.podcastGuid)
     suspend fun suggestions(layer: ScLayer) = api.suggestions(layer.base, layer.show.podcastGuid)
+    suspend fun leaderboard(layer: ScLayer) = api.leaderboard(layer.base, layer.show.podcastGuid)
 
     /** Free, one per listener and suggestion; remembered here to show it. */
     suspend fun vote(layer: ScLayer, suggestionId: Long): VoteResult {

@@ -124,6 +124,18 @@ boosters of the month; a quiet line naming the Sovereigncast instance the data
 comes from. Phase 1 shows progress, paying, the open suggestions and free votes;
 the rest arrives in phase 2 (ADR 0018).
 
+**Amended 2026-10-09 (device feedback):** the page was too busy. The header
+keeps cover, title, author, badge and episode count, "Subscribed" and Boost;
+auto-download and unsubscribe moved into its menu, the description folds to two
+lines. The Sovereigncast card is one compact line per action (label without
+"via Sovereigncast" — the badge says it); a tap opens a sheet with what the
+community page shows (cover, release time, description, block chain, clip,
+progress, pay button). Tabs follow a horizontal swipe, and the header scrolls
+away with the list. A third tab **Boosts** shows the month's top boosts, the
+latest boosts and the all-time ranking (read-only, so pulled forward from phase
+2). A suggestion opens in full on a tap. The episode page has the same swipeable
+tabs and a Boost button for the episode.
+
 ### Boost dialog
 
 A bottom sheet: recipient and position ("episode 296 · at 27:14"), amount

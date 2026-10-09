@@ -42,9 +42,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.boost_custom
@@ -77,113 +74,340 @@ import space.sovereigncast.hopp.resources.sc_unlock
 import space.sovereigncast.hopp.resources.sc_unlocked
 import space.sovereigncast.hopp.resources.sc_votes
 import space.sovereigncast.hopp.resources.sc_vote
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.SelectionContainer
 import space.sovereigncast.hopp.sovereigncast.Boost2UnlockEpisode
+import space.sovereigncast.hopp.sovereigncast.Booster
+import space.sovereigncast.hopp.sovereigncast.Chain
+import space.sovereigncast.hopp.sovereigncast.ClipState
+import space.sovereigncast.hopp.sovereigncast.CommunityBoost
+import space.sovereigncast.hopp.sovereigncast.UpcomingEpisode
+import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.ui.components.formatIsoShort
+import space.sovereigncast.hopp.ui.components.formatTime
+import space.sovereigncast.hopp.ui.components.isoToEpochSeconds
+import space.sovereigncast.hopp.ui.library.Cover
+import space.sovereigncast.hopp.resources.sc_anonymous
+import space.sovereigncast.hopp.resources.sc_by
+import space.sovereigncast.hopp.resources.sc_chain
+import space.sovereigncast.hopp.resources.sc_clip_at_block
+import space.sovereigncast.hopp.resources.sc_clip_at_sats
+import space.sovereigncast.hopp.resources.sc_clip_play
+import space.sovereigncast.hopp.resources.sc_details
+import space.sovereigncast.hopp.resources.sc_legendary
+import space.sovereigncast.hopp.resources.sc_new
+import space.sovereigncast.hopp.resources.sc_open_community
+import space.sovereigncast.hopp.resources.sc_open_episode
+import space.sovereigncast.hopp.resources.sc_publish_long
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
 import space.sovereigncast.hopp.sovereigncast.ScTarget
 import space.sovereigncast.hopp.sovereigncast.Suggestion
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 /** "✓ Sovereigncast" — the show was verified with its instance (ADR 0002). */
 @Composable
 fun ScBadge() {
     Text(
         "✓ " + stringResource(Res.string.sc_badge),
-        Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hopp.colors.value, RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp),
-        style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
+        Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hopp.colors.value, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 1.dp),
+        style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
     )
 }
 
-@OptIn(ExperimentalTime::class)
-private fun localTime(iso: String): String = runCatching {
-    val t = Instant.parse(iso).toLocalDateTime(TimeZone.currentSystemDefault())
-    "${t.day.toString().padStart(2, '0')}.${t.month.number.toString().padStart(2, '0')}. ${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}"
-}.getOrDefault(iso)
+/** The small orange action pill of a card. */
+@Composable
+private fun ActionPill(label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.size(6.dp))
+        Text(label, color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
+    }
+}
 
 @Composable
-private fun ActionCard(label: String, title: String, raised: Long, goal: Long, lines: List<String>, action: String?, onAction: () -> Unit) {
+private fun Progress(raised: Long, goal: Long, height: Int) = LinearProgressIndicator(
+    progress = { if (goal > 0) (raised.toFloat() / goal).coerceIn(0f, 1f) else 0f },
+    modifier = Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape((height / 2).dp)),
+    color = Hopp.colors.value, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
+)
+
+/** One compact card per running action — the details are a tap away
+ *  (device feedback 2026-10-09: the show page was too busy). */
+@Composable
+private fun ActionCard(label: String, title: String, raised: Long, goal: Long, line: String, action: String?, onAction: () -> Unit, onOpen: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(20.dp))
-            .background(colors.surface).border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .background(colors.surface).border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = stringResource(Res.string.sc_details), onClick = onOpen).padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
-        Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        LinearProgressIndicator(
-            progress = { if (goal > 0) (raised.toFloat() / goal).coerceIn(0f, 1f) else 0f },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            color = Hopp.colors.value, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
-            }
-            if (action != null) Row(
-                Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onAction).padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.size(6.dp))
-                Text(action, color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
-            }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Progress(raised, goal, 4)
+            Text(line, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (action != null) {
+            Spacer(Modifier.size(12.dp))
+            ActionPill(action, onAction)
         }
     }
 }
 
 /** The running Release Boosting round (ADR 0019's Sovereigncast card). */
 @Composable
-fun ReleaseBoostingCard(round: ReleaseBoostingRound, onBoost: () -> Unit) = ActionCard(
+fun ReleaseBoostingCard(round: ReleaseBoostingRound, onOpen: () -> Unit, onBoost: () -> Unit) = ActionCard(
     label = stringResource(Res.string.sc_rb_label),
     title = round.episode.title,
     raised = round.raisedSats, goal = round.goalSats,
-    lines = listOf(
-        stringResource(Res.string.sc_progress, formatSats(round.raisedSats), formatSats(round.goalSats)) + " · " +
-            stringResource(Res.string.sc_publish_at, localTime(round.publishAt)),
-        stringResource(Res.string.sc_per_minute, round.satsPerMinute),
-    ),
-    action = stringResource(Res.string.np_boost), onAction = onBoost,
+    line = stringResource(Res.string.sc_progress, formatSats(round.raisedSats), formatSats(round.goalSats)) + " · " +
+        stringResource(Res.string.sc_publish_at, formatIsoShort(round.publishAt)),
+    action = stringResource(Res.string.np_boost), onAction = onBoost, onOpen = onOpen,
 )
 
 /** One episode waiting to be unlocked by boosts. */
 @Composable
-fun UnlockCard(item: Boost2UnlockEpisode, onUnlock: () -> Unit) = ActionCard(
+fun UnlockCard(item: Boost2UnlockEpisode, onOpen: () -> Unit, onUnlock: () -> Unit) = ActionCard(
     label = stringResource(Res.string.sc_b2u_label),
     title = item.episode.title,
     raised = item.raisedSats, goal = item.goalSats,
-    lines = listOf(
-        if (item.unlocked) stringResource(Res.string.sc_unlocked)
+    line = if (item.unlocked) stringResource(Res.string.sc_unlocked)
         else stringResource(Res.string.sc_progress, formatSats(item.raisedSats), formatSats(item.goalSats)),
-    ),
-    action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), onAction = onUnlock,
+    action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), onAction = onUnlock, onOpen = onOpen,
 )
 
-/** An open suggestion: votes are free, one per listener (ADR 0018). */
+/**
+ * What the community page shows of the episode a round is for (device
+ * feedback 2026-10-09): cover, title, when it comes out, the description, the
+ * block chain, the clip waiting at its mark, the sats so far — and the action.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuggestionRow(s: Suggestion, voted: Boolean, onVote: () -> Unit) {
+private fun ActionSheet(
+    label: String,
+    episode: UpcomingEpisode,
+    raised: Long,
+    goal: Long,
+    action: String?,
+    communityUrl: String?,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+    facts: @Composable () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    val label = stringResource(Res.string.sc_vote)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    val uri = LocalUriHandler.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (episode.imageUrl != null) {
+                    Cover(episode.imageUrl, 72.dp, corner = 14.dp)
+                    Spacer(Modifier.size(14.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+                    Text(episode.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+            }
+            facts()
+            if (episode.description.isNotBlank()) SelectionContainer {
+                Text(episode.description, style = MaterialTheme.typography.bodyMedium)
+            }
+            Progress(raised, goal, 6)
+            Text(stringResource(Res.string.sc_progress, formatSats(raised), formatSats(goal)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            if (action != null) Box(
+                Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onAction),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(action, fontWeight = FontWeight.Bold, color = Hopp.colors.onValue)
+                }
+            }
+            if (communityUrl != null) TextButton(onClick = { runCatching { uri.openUri(communityUrl) } }) { Text(stringResource(Res.string.sc_open_community)) }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/** The clip at its mark: locked, it only says where; unlocked, it plays. */
+@Composable
+private fun ClipLine(clip: ClipState, lockedText: String) {
+    val uri = LocalUriHandler.current
+    val url = clip.url
+    if (clip.unlocked && url != null) Row(
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable { runCatching { uri.openUri(url) } }.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(HoppIcons.Play, null, tint = Hopp.colors.valueText, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.size(8.dp))
+        Text(
+            stringResource(Res.string.sc_clip_play, clip.title.ifBlank { "Clip" }) + (clip.durationSeconds?.let { " · ${formatTime(it * 1000L)}" } ?: ""),
+            fontWeight = FontWeight.Bold, color = Hopp.colors.valueText,
+        )
+    } else Text("🔒 $lockedText", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** The blocks of a round, as the community page draws them: mined ones in
+ *  orange, the halving block framed. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChainView(chain: Chain) {
+    val colors = MaterialTheme.colorScheme
+    if (chain.blocks in 1..216) FlowRow(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(chain.blocks) { i ->
+            Box(
+                Modifier.size(11.dp).clip(RoundedCornerShape(2.dp))
+                    .background(if (i < chain.minedBlocks) Hopp.colors.value else Hopp.colors.progressTrack.copy(alpha = 0.3f))
+                    .then(if (i + 1 == chain.halvingBlock) Modifier.border(1.5.dp, colors.onSurface, RoundedCornerShape(2.dp)) else Modifier),
+            )
+        }
+    }
+    Text(
+        stringResource(Res.string.sc_chain, chain.minedBlocks, chain.blocks, formatSats(chain.blockSats.toLong())),
+        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+    )
+}
+
+@Composable
+fun ReleaseBoostingSheet(round: ReleaseBoostingRound, communityUrl: String?, onBoost: () -> Unit, onDismiss: () -> Unit) = ActionSheet(
+    label = stringResource(Res.string.sc_rb_label), episode = round.episode, raised = round.raisedSats, goal = round.goalSats,
+    action = stringResource(Res.string.np_boost), communityUrl = communityUrl, onAction = onBoost, onDismiss = onDismiss,
+) {
+    Text(stringResource(Res.string.sc_publish_long, formatIsoShort(round.publishAt)), style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(Res.string.sc_per_minute, round.satsPerMinute), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    round.chain?.let { ChainView(it) }
+    round.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_block, c.atBlock ?: round.chain?.halvingBlock ?: 0)) }
+}
+
+@Composable
+fun UnlockSheet(item: Boost2UnlockEpisode, communityUrl: String?, onUnlock: () -> Unit, onDismiss: () -> Unit) {
+    val uri = LocalUriHandler.current
+    ActionSheet(
+        label = stringResource(Res.string.sc_b2u_label), episode = item.episode, raised = item.raisedSats, goal = item.goalSats,
+        action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), communityUrl = communityUrl, onAction = onUnlock, onDismiss = onDismiss,
+    ) {
+        if (item.unlocked) Text(stringResource(Res.string.sc_unlocked), style = MaterialTheme.typography.titleSmall, color = Hopp.colors.valueText)
+        item.link?.takeIf { item.unlocked }?.let { link -> TextButton(onClick = { runCatching { uri.openUri(link) } }) { Text(stringResource(Res.string.sc_open_episode)) } }
+        item.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_sats, formatSats(c.atSats ?: 0))) }
+    }
+}
+
+/** An open suggestion: votes are free, one per listener (ADR 0018); a tap
+ *  shows all of it (device feedback 2026-10-09). */
+@Composable
+fun SuggestionRow(s: Suggestion, voted: Boolean, onOpen: () -> Unit, onVote: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(Res.string.sc_details), onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(s.title, style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
             if (s.description.isNotBlank()) Text(s.description, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Row {
-                Text(stringResource(Res.string.sc_votes, s.voteCount), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-                if (s.amountSats > 0) Text(" · ${formatSats(s.amountSats)} sats", style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText)
-            }
+            if (s.amountSats > 0) Text("${formatSats(s.amountSats)} sats", style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText)
         }
         Spacer(Modifier.size(8.dp))
-        Box(
-            Modifier.clip(RoundedCornerShape(50))
-                .then(if (voted) Modifier.background(colors.onSurface) else Modifier.border(1.dp, colors.outline, RoundedCornerShape(50)))
-                .clickable(enabled = !voted, onClickLabel = label, onClick = onVote).padding(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            Text("▲ ${s.voteCount}", fontWeight = FontWeight.Bold, color = if (voted) colors.surface else colors.onSurface)
+        VoteButton(s.voteCount, voted, onVote)
+    }
+}
+
+@Composable
+private fun VoteButton(count: Int, voted: Boolean, onVote: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier.clip(RoundedCornerShape(50))
+            .then(if (voted) Modifier.background(colors.onSurface) else Modifier.border(1.dp, colors.outline, RoundedCornerShape(50)))
+            .clickable(enabled = !voted, onClickLabel = stringResource(Res.string.sc_vote), onClick = onVote).padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text("▲ $count", fontWeight = FontWeight.Bold, color = if (voted) colors.surface else colors.onSurface)
+    }
+}
+
+/** A suggestion in full: who, when, the whole description, votes and sats. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(s.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val by = listOfNotNull(
+                s.username.takeIf { it.isNotBlank() }?.let { stringResource(Res.string.sc_by, it) },
+                isoToEpochSeconds(s.createdAt)?.let { formatDate(it) },
+            )
+            if (by.isNotEmpty()) Text(by.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            if (s.description.isNotBlank()) SelectionContainer { Text(s.description, style = MaterialTheme.typography.bodyMedium) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(Res.string.sc_votes, s.voteCount) + if (s.amountSats > 0) " · ${formatSats(s.amountSats)} sats" else "",
+                    Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant,
+                )
+                VoteButton(s.voteCount, voted, onVote)
+            }
+            Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+// ── leaderboard (device feedback 2026-10-09) ───────────────────────────────
+
+private fun place(rank: Int?) = when (rank) { 1 -> "🥇"; 2 -> "🥈"; 3 -> "🥉"; null -> ""; else -> "$rank." }
+
+/** One boost of the community: sender, sats, message, which episode. */
+@Composable
+fun CommunityBoostRow(b: CommunityBoost, showRank: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.Top) {
+        if (showRank) Text(place(b.rank), Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(b.sender.ifBlank { stringResource(Res.string.sc_anonymous) }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (b.message.isNotBlank()) Text(b.message, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            if (b.episode.title.isNotBlank()) Text(b.episode.title, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Spacer(Modifier.size(8.dp))
+        Text("${formatSats(b.amountSats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** A place in the all-time ranking: no amounts, only place, trend and medals. */
+@Composable
+fun BoosterRow(b: Booster) {
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(place(b.rank), Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(b.sender.ifBlank { stringResource(Res.string.sc_anonymous) }, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (b.legendary) Text(" ⚡ " + stringResource(Res.string.sc_legendary), style = MaterialTheme.typography.labelSmall,
+                    color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+            }
+            val m = b.medals
+            if (m.gold + m.silver + m.bronze > 0) Text(
+                listOfNotNull("🥇 ${m.gold}".takeIf { m.gold > 0 }, "🥈 ${m.silver}".takeIf { m.silver > 0 }, "🥉 ${m.bronze}".takeIf { m.bronze > 0 })
+                    .joinToString("  "),
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+            )
+        }
+        val prev = b.prevRank
+        Text(
+            when {
+                b.trend == "new" -> stringResource(Res.string.sc_new)
+                b.trend == "up" && prev != null -> "▲ ${prev - b.rank}"
+                b.trend == "down" && prev != null -> "▼ ${b.rank - prev}"
+                else -> "–"
+            },
+            style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+        )
     }
 }
 
@@ -264,7 +488,8 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                 Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_custom)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
-            OutlinedTextField(message, { message = it.take(250) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
+            // The instance takes 100 characters (listener-v1.yaml, BoostRequest).
+            OutlinedTextField(message, { message = it.take(100) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
             OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_name)) }, singleLine = true)
             Box(
                 Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value)

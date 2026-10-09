@@ -16,6 +16,7 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.sovereigncast.Boost2UnlockEpisode
 import space.sovereigncast.hopp.sovereigncast.Invoice
 import space.sovereigncast.hopp.sovereigncast.InvoiceMismatch
+import space.sovereigncast.hopp.sovereigncast.Leaderboard
 import space.sovereigncast.hopp.sovereigncast.ListenerApiException
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
 import space.sovereigncast.hopp.sovereigncast.ScLayer
@@ -40,7 +41,8 @@ sealed interface ScPay {
 /**
  * The Sovereigncast side of a show page (ADR 0018, phase 1): verify the show,
  * then the running Release Boosting round, Boost2Unlock episodes, the open
- * suggestions with free votes, and paying the instance's invoices.
+ * suggestions with free votes, the leaderboard, and paying the instance's
+ * invoices.
  */
 class CommunityViewModel(
     private val podcastId: Long,
@@ -57,6 +59,9 @@ class CommunityViewModel(
     val unlocks: StateFlow<List<Boost2UnlockEpisode>> = _unlocks.asStateFlow()
     private val _suggestions = MutableStateFlow<List<Suggestion>?>(null)
     val suggestions: StateFlow<List<Suggestion>?> = _suggestions.asStateFlow()
+    private val _leaderboard = MutableStateFlow<Leaderboard?>(null)
+    /** This month's top boosts, the latest ones and the all-time boosters. */
+    val leaderboard: StateFlow<Leaderboard?> = _leaderboard.asStateFlow()
     private val _pay = MutableStateFlow<ScPay>(ScPay.Idle)
     val pay: StateFlow<ScPay> = _pay.asStateFlow()
 
@@ -78,9 +83,11 @@ class CommunityViewModel(
         val rb = async { if (c.releaseBoosting) runCatching { sc.releaseBoosting(l).round }.getOrNull() else null }
         val b2u = async { if (c.boost2unlock) runCatching { sc.boost2unlock(l).episodes }.getOrDefault(emptyList()) else emptyList() }
         val sug = async { if (c.suggestions) runCatching { sc.suggestions(l).suggestions }.getOrNull() else null }
+        val board = async { if (c.leaderboard) runCatching { sc.leaderboard(l) }.getOrNull() else null }
         _round.value = rb.await()
         _unlocks.value = b2u.await()
         _suggestions.value = sug.await()
+        board.await()?.let { _leaderboard.value = it }
     }
 
     fun vote(s: Suggestion) {

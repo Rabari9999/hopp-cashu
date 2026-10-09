@@ -20,7 +20,8 @@ import kotlinx.serialization.json.Json
  * podcast_manager/api_specs/listener-v1.yaml in nodesignal/podcasting_tools).
  * Phase 1 uses what ADR 0018 puts there: meta, the show, Release Boosting,
  * Boost2Unlock, the open suggestions with free votes, invoices and their
- * status, and the rss::payment metadata for boosts.
+ * status, and the rss::payment metadata for boosts — and, read-only, the
+ * leaderboard (device feedback 2026-10-09).
  */
 
 @Serializable data class ApiMeta(@SerialName("api_versions") val apiVersions: List<String>, val instance: Instance) {
@@ -65,6 +66,16 @@ import kotlinx.serialization.json.Json
     @SerialName("halving_block") val halvingBlock: Int,
 )
 
+/** A clip that waits at a mark; [title] and [url] only once it is unlocked (no spoilers). */
+@Serializable data class ClipState(
+    val unlocked: Boolean,
+    @SerialName("at_block") val atBlock: Int? = null,
+    @SerialName("at_sats") val atSats: Long? = null,
+    val title: String = "",
+    @SerialName("duration_seconds") val durationSeconds: Int? = null,
+    val url: String? = null,
+)
+
 @Serializable data class ReleaseBoostingRound(
     val episode: UpcomingEpisode,
     @SerialName("goal_sats") val goalSats: Long,
@@ -72,6 +83,7 @@ import kotlinx.serialization.json.Json
     @SerialName("sats_per_minute") val satsPerMinute: Int,
     @SerialName("publish_at") val publishAt: String,
     val chain: Chain? = null,
+    val clip: ClipState? = null,
 )
 
 @Serializable data class ReleaseBoosting(val round: ReleaseBoostingRound? = null, @SerialName("poll_after_seconds") val pollAfterSeconds: Int = 60)
@@ -82,6 +94,7 @@ import kotlinx.serialization.json.Json
     @SerialName("raised_sats") val raisedSats: Long,
     val unlocked: Boolean,
     val link: String? = null,
+    val clip: ClipState? = null,
 )
 
 @Serializable data class Boost2UnlockList(val episodes: List<Boost2UnlockEpisode>, @SerialName("poll_after_seconds") val pollAfterSeconds: Int = 60)
@@ -99,6 +112,39 @@ import kotlinx.serialization.json.Json
 @Serializable data class SuggestionList(val suggestions: List<Suggestion>)
 @Serializable data class VoteRequest(@SerialName("voter_id") val voterId: String)
 @Serializable data class VoteResult(@SerialName("already_voted") val alreadyVoted: Boolean)
+
+/** An episode a boost went to; no [episodeGuid] for a boost to the whole show. */
+@Serializable data class EpisodeRef(@SerialName("episode_guid") val episodeGuid: String? = null, val title: String = "")
+
+@Serializable data class CommunityBoost(
+    val rank: Int? = null,
+    @SerialName("amount_sats") val amountSats: Long,
+    val sender: String = "",
+    val message: String = "",
+    val episode: EpisodeRef = EpisodeRef(),
+)
+
+@Serializable data class Medals(val gold: Int = 0, val silver: Int = 0, val bronze: Int = 0)
+
+/** The all-time ranking carries no amounts — placement, trend and medals only. */
+@Serializable data class Booster(
+    val rank: Int,
+    val sender: String = "",
+    /** new, up, down or same */
+    val trend: String = "same",
+    @SerialName("prev_rank") val prevRank: Int? = null,
+    val legendary: Boolean = false,
+    val medals: Medals = Medals(),
+)
+
+@Serializable data class Leaderboard(
+    /** "2026-10": the month [topBoosts] covers. */
+    val month: String,
+    @SerialName("top_boosts") val topBoosts: List<CommunityBoost> = emptyList(),
+    @SerialName("recent_boosts") val recentBoosts: List<CommunityBoost> = emptyList(),
+    @SerialName("alltime_boosters") val alltimeBoosters: List<Booster> = emptyList(),
+    @SerialName("poll_after_seconds") val pollAfterSeconds: Int = 300,
+)
 
 @Serializable data class BoostRequest(
     @SerialName("amount_sats") val amountSats: Long,
@@ -168,6 +214,7 @@ class ListenerApi(private val http: HttpClient) {
     suspend fun releaseBoosting(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/release-boosting", ReleaseBoosting.serializer())
     suspend fun boost2unlock(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/boost2unlock", Boost2UnlockList.serializer())
     suspend fun suggestions(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/suggestions", SuggestionList.serializer())
+    suspend fun leaderboard(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/leaderboard", Leaderboard.serializer())
     suspend fun payment(base: String, hash: String) = get(base, "/v1/payments/${seg(hash)}", PaymentStatus.serializer())
 
     suspend fun vote(base: String, guid: String, suggestionId: Long, voterId: String) =

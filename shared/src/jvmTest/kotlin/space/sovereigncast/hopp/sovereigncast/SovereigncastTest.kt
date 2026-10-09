@@ -34,6 +34,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 
+/** listener-v1.yaml's example for the leaderboard. */
+private const val LEADERBOARD = """{"month":"2026-10",
+  "top_boosts":[{"rank":1,"amount_sats":21000,"sender":"Satoshi","message":"Great episode!","episode":{"episode_guid":"9cd0c018-4cf8-49a2-800a-cac3d2129f5e","title":"E296 - Keine Node ist auch keine Lösung"}}],
+  "recent_boosts":[{"amount_sats":2100,"sender":"Hal","message":"","episode":{"episode_guid":null,"title":""}}],
+  "alltime_boosters":[{"rank":1,"sender":"Satoshi","trend":"same","prev_rank":1,"legendary":true,"medals":{"gold":4,"silver":1,"bronze":0}}],
+  "poll_after_seconds":300}"""
+
 /** The slim Sovereigncast layer of phase 1 (ADR 0002, 0010, 0018). */
 class SovereigncastTest {
     private val guid = "e8df0b13-47de-544a-99b7-ec7cbd960a16"
@@ -63,7 +70,8 @@ class SovereigncastTest {
                     "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
                     "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
             path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297","description":"","image_url":null},
-                "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},"clip":null},"poll_after_seconds":60}""")
+                "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},"clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
+            path.endsWith("/leaderboard") -> respond(LEADERBOARD)
             path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"","username":"Anonymous","amount_sats":2226,"vote_count":12,"created_at":"2026-07-06T11:39:40Z"}]}""")
             path.endsWith("/votes") -> respond("""{"already_voted":false}""")
             path.endsWith("/release-boosting/invoices") -> respond(
@@ -135,6 +143,20 @@ class SovereigncastTest {
         assertEquals(210L to 15120L, round.raisedSats to round.goalSats)
         assertEquals(21, round.satsPerMinute)
         assertEquals("BIP110", sc.suggestions(layer).suggestions.single().title)
+    }
+
+    @Test
+    fun theLeaderboardAndTheClipMarkAreRead() = test {
+        val id = subscribe(); sc.verify(id)
+        val layer = sc.layer(id).first()!!
+        assertEquals(ClipState(unlocked = false, atBlock = 36), sc.releaseBoosting(layer).round!!.clip)
+        val board = sc.leaderboard(layer)
+        assertEquals("2026-10", board.month)
+        val top = board.topBoosts.single()
+        assertEquals(Triple(1, 21000L, "E296 - Keine Node ist auch keine Lösung"), Triple(top.rank, top.amountSats, top.episode.title))
+        assertNull(board.recentBoosts.single().episode.episodeGuid, "a boost to the whole show")
+        val first = board.alltimeBoosters.single()
+        assertTrue(first.legendary && first.medals.gold == 4 && first.trend == "same")
     }
 
     @Test

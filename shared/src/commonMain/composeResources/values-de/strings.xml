@@ -186,8 +186,8 @@
     <string name="wallet_support">Hopp unterstützen</string>
     <string name="wallet_support_note">Freiwillig: Dieser Anteil jedes Boosts und des Streamings geht an die Entwicklung von Hopp (%1$s) – in jeder Aufteilung sichtbar, aus dem Betrag genommen, nie obendrauf.</string>
     <string name="sc_badge">Sovereigncast</string>
-    <string name="sc_rb_label">RELEASE BOOSTING · über Sovereigncast</string>
-    <string name="sc_b2u_label">BOOST2UNLOCK · über Sovereigncast</string>
+    <string name="sc_rb_label">RELEASE BOOSTING</string>
+    <string name="sc_b2u_label">BOOST2UNLOCK</string>
     <string name="sc_progress">%1$s von %2$s sats</string>
     <string name="sc_publish_at">erscheint %1$s</string>
     <string name="sc_per_minute">%1$d sats bringen sie eine Minute früher</string>
@@ -214,4 +214,41 @@
     <string name="sc_failed_expired">Keine Bestätigung – die Rechnung ist abgelaufen.</string>
     <string name="sc_failed_no_round">Die Runde ist gerade zu Ende gegangen.</string>
     <string name="sc_failed">Hat nicht geklappt: %1$s</string>
+    <string name="sc_rb_name">Release Boosting</string>
+    <string name="sc_b2u_name">Boost2Unlock</string>
+    <string name="sc_details">Details</string>
+    <string name="sc_publish_long">Erscheint %1$s</string>
+    <string name="sc_chain">%1$d von %2$d Blöcken gemined · je %3$s sats</string>
+    <string name="sc_clip_at_block">Bei Block %1$d wird ein Clip freigeschaltet</string>
+    <string name="sc_clip_at_sats">Bei %1$s sats wird ein Clip freigeschaltet</string>
+    <string name="sc_clip_play">Clip anhören: %1$s</string>
+    <string name="sc_open_community">Community-Seite öffnen</string>
+    <string name="sc_open_episode">Zur Folge</string>
+    <string name="sc_by">von %1$s</string>
+    <string name="sc_tab_boosts">Boosts</string>
+    <string name="sc_top_month">Top-Boosts im %1$s</string>
+    <string name="sc_recent_boosts">Letzte Boosts</string>
+    <string name="sc_alltime">Ewige Bestenliste</string>
+    <string name="sc_alltime_note">Platzierung und Medaillen der Vormonate – ohne Beträge.</string>
+    <string name="sc_show_all">Alle %1$d anzeigen</string>
+    <string name="sc_no_boosts">Diesen Monat noch keine Boosts</string>
+    <string name="sc_anonymous">Anonym</string>
+    <string name="sc_legendary">Legende</string>
+    <string name="sc_new">NEU</string>
+    <string name="show_options">Show-Optionen</string>
+    <string name="show_more_text">mehr</string>
+    <string-array name="months">
+        <item>Januar</item>
+        <item>Februar</item>
+        <item>März</item>
+        <item>April</item>
+        <item>Mai</item>
+        <item>Juni</item>
+        <item>Juli</item>
+        <item>August</item>
+        <item>September</item>
+        <item>Oktober</item>
+        <item>November</item>
+        <item>Dezember</item>
+    </string-array>
 </resources>

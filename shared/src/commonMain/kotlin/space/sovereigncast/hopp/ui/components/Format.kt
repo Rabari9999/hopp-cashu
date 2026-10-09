@@ -1,5 +1,11 @@
 package space.sovereigncast.hopp.ui.components
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
 fun formatTime(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)
     val h = total / 3600; val m = total % 3600 / 60; val s = total % 60
@@ -7,25 +13,33 @@ fun formatTime(ms: Long): String {
     else "$m:${s.toString().padStart(2, '0')}"
 }
 
-/** Epoch seconds → "07.10.2026" (spike; locale-aware formatting comes with ADR 0016). */
+/** Epoch seconds → "07.10.2026", on the listener's clock (locale-aware formatting comes with ADR 0016). */
 fun formatDate(epochSeconds: Long?): String {
     if (epochSeconds == null) return ""
-    val days = Math.floorDivCompat(epochSeconds, 86_400)
-    val z = days + 719_468
-    val era = (if (z >= 0) z else z - 146_096) / 146_097
-    val doe = z - era * 146_097
-    val yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365
-    val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
-    val mp = (5 * doy + 2) / 153
-    val d = doy - (153 * mp + 2) / 5 + 1
-    val m = if (mp < 10) mp + 3 else mp - 9
-    val y = yoe + era * 400 + if (m <= 2) 1 else 0
-    return "${d.toString().padStart(2, '0')}.${m.toString().padStart(2, '0')}.$y"
+    val t = local(epochSeconds)
+    return "${two(t.day)}.${two(t.month.number)}.${t.year}"
 }
 
-private object Math {
-    fun floorDivCompat(a: Long, b: Long): Long { val q = a / b; return if ((a % b != 0L) && ((a < 0) != (b < 0))) q - 1 else q }
+/** Epoch seconds → "07.10.2026 · 14:05" — when a payment went out (device feedback 2026-10-09). */
+fun formatDateTime(epochSeconds: Long): String {
+    val t = local(epochSeconds)
+    return "${formatDate(epochSeconds)} · ${two(t.hour)}:${two(t.minute)}"
 }
+
+/** An API's ISO time → "09.10. 23:39" on the listener's clock; as it came if it does not parse. */
+@OptIn(ExperimentalTime::class)
+fun formatIsoShort(iso: String): String = runCatching {
+    val t = Instant.parse(iso).toLocalDateTime(TimeZone.currentSystemDefault())
+    "${two(t.day)}.${two(t.month.number)}. ${two(t.hour)}:${two(t.minute)}"
+}.getOrDefault(iso)
+
+/** An API's ISO time as epoch seconds, or null. */
+@OptIn(ExperimentalTime::class)
+fun isoToEpochSeconds(iso: String): Long? = runCatching { Instant.parse(iso).epochSeconds }.getOrNull()
+
+@OptIn(ExperimentalTime::class)
+private fun local(epochSeconds: Long) = Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(TimeZone.currentSystemDefault())
+private fun two(n: Int) = n.toString().padStart(2, '0')
 
 /** Bytes → "340 MB" / "1.2 GB" (whole megabytes are enough for downloads). */
 fun formatBytes(bytes: Long): String {

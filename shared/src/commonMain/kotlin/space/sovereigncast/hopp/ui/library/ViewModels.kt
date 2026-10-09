@@ -125,7 +125,7 @@ class EpisodeActionsViewModel(
 
 /** An episode's own page (device feedback 2026-10-08, as in Pocket Casts):
  *  what it is about before it plays. */
-class EpisodeViewModel(private val id: Long, private val episodes: EpisodeRepository, podcasts: PodcastRepository) : ViewModel() {
+class EpisodeViewModel(private val id: Long, private val episodes: EpisodeRepository, private val podcasts: PodcastRepository) : ViewModel() {
     val item: StateFlow<EpisodeItem?> = state(episodes.itemFlow(id), null)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val show: StateFlow<Show?> = state(episodes.itemFlow(id).flatMapLatest { e -> e?.let { podcasts.show(it.podcastId) } ?: kotlinx.coroutines.flow.flowOf(null) }, null)
@@ -136,11 +136,15 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
     private val _gone = MutableStateFlow(false)
     /** Unsubscribed while this page was open. */
     val gone: StateFlow<Boolean> = _gone.asStateFlow()
+    private val _hasValue = MutableStateFlow(false)
+    /** The episode or its show names recipients — a boost can go out. */
+    val hasValue: StateFlow<Boolean> = _hasValue.asStateFlow()
 
     init {
         viewModelScope.launch {
             val e = episodes.item(id) ?: run { _gone.value = true; return@launch }
             _details.value = episodes.details(id)
+            _hasValue.value = _details.value?.value != null || runCatching { podcasts.podcastMeta(e.podcastId)?.value != null }.getOrDefault(false)
             _chapters.value = runCatching { episodes.chapters(e) }.getOrDefault(emptyList()).filter { it.inToc }
         }
         viewModelScope.launch { episodes.itemFlow(id).collect { if (it == null && _details.value != null) _gone.value = true } }
