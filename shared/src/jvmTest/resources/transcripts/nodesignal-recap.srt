@@ -1,0 +1,284 @@
+1
+00:00:22,032 --> 00:00:28,732
+Herzlich willkommen bei NoSignal, deiner Bitcoin-Frequenz und der Monatszusammenfassung für den Monat September 2026.
+
+2
+00:00:29,252 --> 00:00:34,852
+Wir stehen gerade bei Blockhöhe 969.958.
+
+3
+00:00:35,192 --> 00:00:38,852
+Nur noch 42 Blöcke bis zur Marke 970.000.
+
+4
+00:00:39,192 --> 00:00:43,612
+Gut 4000 Blöcke lagen zwischen dem ersten und dem letzten Septembertag.
+
+5
+00:00:43,792 --> 00:00:46,512
+Und ich glaube, sie drehten sich fast alle um eine Frage.
+
+6
+00:00:46,772 --> 00:00:48,292
+Wem vertraust du eigentlich?
+
+7
+00:00:48,632 --> 00:00:50,372
+Und was davon prüfst du selbst?
+
+8
+00:00:50,892 --> 00:00:56,512
+Den Auftakt macht der Episode 291, das Problem der Selbstverwahrung.
+
+9
+00:00:56,972 --> 00:01:04,352
+Calzo und Martin sprachen mit Bastian Feder und Adrian Pauli über eine Studie von Fortego und UTXO Solutions.
+
+10
+00:01:04,832 --> 00:01:06,852
+Hängen geblieben ist bei mir das Dilemma.
+
+11
+00:01:07,112 --> 00:01:11,872
+Jede Maßnahme gegen Verlust erhöht das Risiko der Offenlegung und umgekehrt.
+
+12
+00:01:12,012 --> 00:01:13,572
+Man verschiebt das Problem nur.
+
+13
+00:01:13,882 --> 00:01:16,362
+Der Rat der Gäste ist ziemlich bodenständig.
+
+14
+00:01:16,542 --> 00:01:21,502
+Das eigene Recovery-Szenario einmal wirklich durchspielen, bevor der Ernstfall kommt.
+
+15
+00:01:21,922 --> 00:01:25,942
+Eine Woche später ging es weiter mit Episode 292.
+
+16
+00:01:26,322 --> 00:01:33,842
+Also, hier erklärt die elfjährige Lucy, Tochter von Chris, wie man einen Seed aus 128 Münzwürfen baut.
+
+17
+00:01:34,062 --> 00:01:37,142
+Dafür reichen 1 Cent Münzen, ganz ohne Hardware.
+
+18
+00:01:37,442 --> 00:01:39,922
+Anlass war der Coldcard-Vorfall vom Sommer.
+
+19
+00:01:40,162 --> 00:01:41,242
+Die Botschaft dahinter?
+
+20
+00:01:41,582 --> 00:01:44,422
+Vertrauen lässt sich durch Verifikation ersetzen.
+
+21
+00:01:44,762 --> 00:01:48,502
+Wenige Tage danach folgte Episode 293.
+
+22
+00:01:48,782 --> 00:01:54,102
+Hier wird es, also hier wurde es für mich besonders spannend, denn es geht ums Bezahlen.
+
+23
+00:01:54,422 --> 00:02:04,322
+Egge, der im Cashew-Ökosystem Coco baut, sprach mit Jan Paul und Thorsten über die Bitcoin++, die im Oktober zum vierten Mal in Berlin stattfindet.
+
+24
+00:02:04,482 --> 00:02:07,982
+Sein Vorschlag lautet Granularität statt Dogma.
+
+25
+00:02:08,202 --> 00:02:12,622
+Für Portemonnaiebeträge ist ein kleiner Trust-Trade-Off wie bei Cashew legitim.
+
+26
+00:02:13,062 --> 00:02:15,302
+Größere Summen bleiben non-custodial.
+
+27
+00:02:15,642 --> 00:02:18,182
+Das ist nicht Theorie, das ist gelebtes Geld.
+
+28
+00:02:18,642 --> 00:02:23,102
+Ich probiere so etwas selbst gern aus, auch wenn es beim ersten Versuch bei mir selten klappt.
+
+29
+00:02:23,662 --> 00:02:27,742
+Mitte des Monats wurde es in Episode 294 soziologisch.
+
+30
+00:02:27,922 --> 00:02:29,162
+Wie wird man Bitcoiner?
+
+31
+00:02:29,342 --> 00:02:31,322
+Drei Kartoffeln im Nodelichtmilieu.
+
+32
+00:02:31,582 --> 00:02:37,662
+Zetti, Dennis und 2Bit2Fail legten die Sinus-Milieus über die Frage, wer für Bitcoin empfänglich ist.
+
+33
+00:02:37,872 --> 00:02:47,372
+Überraschend, gerade das traditionelle und das konservativ gehobene Milieu bieten viel Anknüpfungspotenzial, weil Sicherheit und Verlässlichkeit zu Bitcoin passen.
+
+34
+00:02:47,652 --> 00:02:51,492
+Noch entscheidender scheint die Bereitschaft, eigene Glaubenssätze zu hinterfragen.
+
+35
+00:02:51,652 --> 00:02:53,172
+Das musste ich zweimal hören.
+
+36
+00:02:53,612 --> 00:02:59,412
+Den Abschluss bildete Episode 295, eine Live-Folge aus der Casa Zeti, ohne festes Thema.
+
+37
+00:03:00,012 --> 00:03:10,472
+Kaizo, Chris, Thorsten, Jan Paul, Zeti und Martin sprangen von Politik über Noster-Agenten bis zur Frage, ob man sich Bitcoiner nennen darf, ohne eigene Keys und eigene Note.
+
+38
+00:03:10,732 --> 00:03:12,072
+Da wurde es hitzig.
+
+39
+00:03:12,412 --> 00:03:18,052
+Und dann fiel ein Satz, der, also der hat mich ehrlich gesagt ein bisschen zusammenzucken lassen.
+
+40
+00:03:18,392 --> 00:03:22,672
+Ich sage Ihnen jetzt einfach, genau so wie er gefallen ist.
+
+41
+00:03:23,032 --> 00:03:27,392
+Jan Paul, alias Action Slave, bringt es auf den Punkt.
+
+42
+00:03:27,912 --> 00:03:34,452
+Wenn du nicht in der Lage bist, deine eigenen Keys zu halten und eine eigene Note laufen zu lassen, dann ist Bitcoin nichts für dich.
+
+43
+00:03:34,852 --> 00:03:36,272
+Ein harter Satz.
+
+44
+00:03:36,412 --> 00:03:41,652
+Korrigiert mich gern, falls ich daneben liege, aber ich glaube, Martins Gegenrede gehört genauso dazu.
+
+45
+00:03:41,932 --> 00:03:45,672
+Jede Generation darf ihren eigenen Zugang zu Bitcoin finden.
+
+46
+00:03:46,272 --> 00:03:47,572
+Zum Host des Monats.
+
+47
+00:03:47,712 --> 00:03:48,752
+Das ist Thorsten.
+
+48
+00:03:49,012 --> 00:03:51,472
+Zwei Folgen moderiert und zwei produziert.
+
+49
+00:03:51,652 --> 00:03:54,252
+In einem Monat, der wirklich nicht arm an Themen war.
+
+50
+00:03:54,552 --> 00:03:57,772
+Ich schaue da mit ziemlichem Respekt hin und lerne jedes Mal etwas.
+
+51
+00:03:58,072 --> 00:03:59,012
+Danke dir, Thorsten.
+
+52
+00:03:59,612 --> 00:04:01,472
+Und nun zum Boost Leaderboard.
+
+53
+00:04:01,732 --> 00:04:03,852
+Denn das war diesmal ein enges Rennen.
+
+54
+00:04:04,112 --> 00:04:08,132
+Zwischen Platz 1 und 3 liegen nur 1030 Satz.
+
+55
+00:04:08,392 --> 00:04:12,592
+Platz 1 geht an einen Boost über 50.030 Satz.
+
+56
+00:04:12,832 --> 00:04:16,432
+Gesendet per eCash, also Cashew, passend zu Egge.
+
+57
+00:04:16,772 --> 00:04:17,952
+In der Nachricht steht ...
+
+58
+00:04:18,132 --> 00:04:20,192
+Spende von Manu für das Ticket.
+
+59
+00:04:20,452 --> 00:04:21,332
+Danke dir, Manu.
+
+60
+00:04:21,712 --> 00:04:27,652
+Platz 2 Anonymous mit 50.000 Zatz und den schlichten Worten Podcast Support.
+
+61
+00:04:28,012 --> 00:04:29,572
+Schlicht, aber es kommt an.
+
+62
+00:04:29,992 --> 00:04:38,052
+Und Platz 3 Talpa mit 49.000 Zatz und der Nachricht BTC++ für Kaffee mit Egge.
+
+63
+00:04:38,332 --> 00:04:39,532
+Ich hoffe, der Kaffee wird gut.
+
+64
+00:04:39,712 --> 00:04:41,092
+Das Gespräch erst recht.
+
+65
+00:04:41,612 --> 00:04:45,232
+Ein Monat, der mehr Fragen stellt als beantwortet, ist gut so.
+
+66
+00:04:45,392 --> 00:04:48,132
+Wie viel Verantwortung will ich für mein eigenes Geld tragen?
+
+67
+00:04:48,332 --> 00:04:50,252
+Und wie viel darf mir abgenommen werden?
+
+68
+00:04:50,432 --> 00:04:52,292
+Eine fertige Antwort habe ich nicht.
+
+69
+00:04:52,472 --> 00:04:56,112
+Dieser Rückblick ging mir dafür schon ein Stück leichter von der Hand als früher.
+
+70
+00:04:56,812 --> 00:05:01,652
+Damit verbleiben wir mit unseren Worten Focus on the signal, not on the noise.
+
+71
+00:05:01,932 --> 00:05:04,272
+Und bis zum nächsten Monatsrückblick.
+

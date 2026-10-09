@@ -310,6 +310,25 @@ class EpisodeRepository(
         return chapters
     }
 
+    private val transcripts = mutableMapOf<Long, List<space.sovereigncast.hopp.feed.Cue>>()
+
+    /** Whether the episode names a transcript at all — the player's chip. */
+    suspend fun hasTranscript(id: Long): Boolean = details(id)?.transcripts?.isNotEmpty() == true
+
+    /**
+     * The episode's transcript (ADR 0012) in the best format the feed offers,
+     * kept in memory for the session; empty when there is none.
+     */
+    suspend fun transcript(item: EpisodeItem): List<space.sovereigncast.hopp.feed.Cue> {
+        transcripts[item.id]?.let { return it }
+        val ref = space.sovereigncast.hopp.feed.TranscriptParser.pick(details(item.id)?.transcripts.orEmpty()) ?: return emptyList()
+        val text = http.get(ref.url).bodyAsText()
+        val cues = withContext(Dispatchers.Default) { space.sovereigncast.hopp.feed.TranscriptParser.parse(text, ref.type, ref.url) }
+        if (transcripts.size > 8) transcripts.clear()
+        transcripts[item.id] = cues
+        return cues
+    }
+
     private fun space.sovereigncast.hopp.db.Episode.toItem() = episodeItem(
         id, podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url,
         position_ms, played, in_inbox, download_state, download_path,

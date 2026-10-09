@@ -109,14 +109,18 @@ android {
         // with the runtime's checks on, Compose in it runs several times
         // slower and its animations stutter (device feedback 2026-10-08).
         // Signed like the debug builds, so it installs over them.
+        // R8 (package 5): smaller and faster, and what the stores get. Configured
+        // before "beta" is created, which copies it.
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
         create("beta") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             revision?.let { versionNameSuffix = "-beta.$it" }
-        }
-        getByName("release") {
-            isMinifyEnabled = false
         }
     }
     compileOptions {

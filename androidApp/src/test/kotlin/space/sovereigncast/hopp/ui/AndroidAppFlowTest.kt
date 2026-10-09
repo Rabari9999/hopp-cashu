@@ -52,8 +52,9 @@ import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
 
 private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Test Show</title>
+<podcast:funding url="https://fund.test/">Unterstütze uns</podcast:funding>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
-<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person></item>
+<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/></item>
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
 </channel></rss>"""
 
@@ -76,6 +77,7 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+private const val TRANSCRIPT = "WEBVTT\n\n00:00:01.000 --> 00:00:05.000\n<v Karsten>Willkommen zur zweiten Folge.\n\n00:12:34.000 --> 00:12:40.000\n<v Karsten>Jetzt kommt der Hauptteil.\n"
 
 /** A month with ten top boosts and a long all-time list — longer than the screen. */
 private val LEADERBOARD = buildString {
@@ -98,13 +100,14 @@ private var statusCalls = 0
 private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String) = when {
     path == "/api/listener/meta" -> respond("""{"api_versions":["v1"],"instance":{"id":"i","software":"sovereigncast","version":"dev"}}""")
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
-        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true},
+        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true,"episode_sats":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
         "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
     path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
     path.endsWith("/leaderboard") -> respond(LEADERBOARD)
+    path.endsWith("/episode-sats") -> respond("""{"episodes":[{"episode_guid":"e296","boosted_sats":2100}],"poll_after_seconds":600}""")
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
         """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
@@ -138,6 +141,7 @@ class TestApp : Application() {
                 req.url.host == "api.podcastindex.org" ->
                     respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"}]}""")
                 req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
+                req.url.encodedPath == "/2.vtt" -> respond(TRANSCRIPT)
                 else -> respond(FEED)
             }
         })
@@ -619,5 +623,58 @@ class AndroidAppFlowTest {
         repeat(4) { rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performTouchInput { swipeDown() } }
         rule.waitForIdle()
         rule.onNodeWithText("325 episodes").assertIsDisplayed()
+    }
+
+    // ── package 5 ──────────────────────────────────────────────────────────
+
+    /** The transcript follows the episode; a line jumps there; search finds or says so. */
+    @Test
+    fun theTranscriptReadsAlongAndJumps() {
+        rule.setContent { App() }
+        openEpisode()
+        tap("Transcript")
+        waitFor("Willkommen zur zweiten Folge.")
+        check(has("Karsten")) { "the speaker" }
+        tap("Jetzt kommt der Hauptteil.")
+        until { engine().state.value.positionMs == 754_000L }
+        rule.onNode(hasSetTextAction()).performTextInput("Bitcoin")
+        waitFor("Nothing found")
+    }
+
+    @Test
+    fun thePlayerShowsWhoIsInTheEpisode() {
+        rule.setContent { App() }
+        openEpisode()
+        tapTop("People") // the player's chip, over the episode page's tab
+        waitFor("host")
+        check(has("Karsten")) { screen().toString() }
+    }
+
+    /** Who sees what (ADR 0015), behind the settings. */
+    @Test
+    fun thePrivacyPageSaysWhoSeesWhat() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Privacy · who sees what", substring = true) and hasClickAction()).performScrollTo().performClick()
+        rule.waitUntil(10_000) { has("Hopp collects nothing itself", substring = true) }
+        check(has("Podcast Index")) { screen().toString() }
+        check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
+    }
+
+    /** podcast:funding on the show page. */
+    @Test
+    fun theShowsOwnSupportLinkIsThere() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("♥ Unterstütze uns ›")
+    }
+
+    /** What the community boosted each episode with (Sovereigncast). */
+    @Test
+    fun episodesShowTheirBoostedSats() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        waitFor(" 2,100 sats")
     }
 }

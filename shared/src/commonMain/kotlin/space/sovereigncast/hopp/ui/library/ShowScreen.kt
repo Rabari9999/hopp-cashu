@@ -43,6 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
+import space.sovereigncast.hopp.resources.show_support
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringArrayResource
@@ -124,6 +129,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val unlocks by community.unlocks.collectAsState()
     val suggestions by community.suggestions.collectAsState()
     val board by community.leaderboard.collectAsState()
+    val episodeSats by community.episodeSats.collectAsState()
     val votes by community.votes.collectAsState()
     var paying by remember { mutableStateOf<Pair<ScTarget, String>?>(null) }
     var details by remember { mutableStateOf<Any?>(null) } // a round, an unlock or a suggestion
@@ -172,6 +178,16 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
                     meta?.description?.let { d -> FoldingText(plainText(d)) }
+                    // podcast:funding — the show's own way to be supported (ADR 0012).
+                    meta?.funding?.firstOrNull()?.let { f ->
+                        val uri = LocalUriHandler.current
+                        Text(
+                            "♥ " + (f.text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.show_support)) + " ›",
+                            Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { runCatching { uri.openUri(f.url) } }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     // The Sovereigncast card: only while an action runs (ADR 0019).
                     round?.let { r ->
                         ReleaseBoostingCard(r, onOpen = { details = r }) { paying = ScTarget.ReleaseBoosting to r.episode.title }
@@ -186,7 +202,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
             when (tabs.getOrNull(index)) {
                 ShowTab.Episodes, null -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     items(episodes.orEmpty(), key = { it.id }) { item ->
-                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
+                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }, boostedSats = episodeSats[item.guid]) {
                             PlayButton(item)
                             EpisodeMenu(item)
                         }

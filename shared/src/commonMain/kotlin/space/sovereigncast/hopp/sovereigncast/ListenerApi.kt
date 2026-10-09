@@ -36,6 +36,7 @@ import kotlinx.serialization.json.Json
     val leaderboard: Boolean = false,
     @SerialName("top_episodes") val topEpisodes: Boolean = false,
     @SerialName("payment_metadata") val paymentMetadata: Boolean = false,
+    @SerialName("episode_sats") val episodeSats: Boolean = false,
 )
 
 @Serializable data class ScShow(
@@ -146,6 +147,9 @@ import kotlinx.serialization.json.Json
     @SerialName("poll_after_seconds") val pollAfterSeconds: Int = 300,
 )
 
+@Serializable data class EpisodeSats(@SerialName("episode_guid") val episodeGuid: String, @SerialName("boosted_sats") val boostedSats: Long)
+@Serializable data class EpisodeSatsList(val episodes: List<EpisodeSats>, @SerialName("poll_after_seconds") val pollAfterSeconds: Int = 600)
+
 @Serializable data class BoostRequest(
     @SerialName("amount_sats") val amountSats: Long,
     val message: String? = null,
@@ -215,6 +219,7 @@ class ListenerApi(private val http: HttpClient) {
     suspend fun boost2unlock(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/boost2unlock", Boost2UnlockList.serializer())
     suspend fun suggestions(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/suggestions", SuggestionList.serializer())
     suspend fun leaderboard(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/leaderboard", Leaderboard.serializer())
+    suspend fun episodeSats(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/episode-sats", EpisodeSatsList.serializer())
     suspend fun payment(base: String, hash: String) = get(base, "/v1/payments/${seg(hash)}", PaymentStatus.serializer())
 
     suspend fun vote(base: String, guid: String, suggestionId: Long, voterId: String) =

@@ -41,6 +41,7 @@ import space.sovereigncast.hopp.resources.settings_about
 import space.sovereigncast.hopp.resources.settings_downloads
 import space.sovereigncast.hopp.resources.settings_downloads_text
 import space.sovereigncast.hopp.resources.settings_playback
+import space.sovereigncast.hopp.resources.settings_privacy
 import space.sovereigncast.hopp.resources.settings_seconds
 import space.sovereigncast.hopp.resources.settings_skip_back
 import space.sovereigncast.hopp.resources.settings_skip_forward
@@ -54,11 +55,10 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.formatBytes
 
 /** The wallet (behind its own page), playback and downloads (ADR 0012),
- *  directories, subscriptions, about. Theme and privacy (ADR 0015) arrive in
- *  package 5. */
+ *  directories, subscriptions, who sees what (ADR 0015), about. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onWallet: () -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
+fun SettingsScreen(onWallet: () -> Unit = {}, onPrivacy: () -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
     val app: AppInfo = koinInject()
     val engine: PlaybackEngine = koinInject()
     val settings by vm.current.collectAsState()
@@ -98,6 +98,12 @@ fun SettingsScreen(onWallet: () -> Unit = {}, vm: SettingsViewModel = koinViewMo
 
         Section(stringResource(Res.string.settings_subscriptions))
         OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
+
+        Text(
+            stringResource(Res.string.settings_privacy) + "  ›",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clickable(onClick = onPrivacy).padding(vertical = 8.dp),
+        )
 
         Text(stringResource(Res.string.settings_about), color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
         Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)

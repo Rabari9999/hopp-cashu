@@ -73,6 +73,8 @@ import org.jetbrains.compose.resources.getString
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
+import space.sovereigncast.hopp.resources.privacy_title
+import space.sovereigncast.hopp.ui.library.PrivacyScreen
 import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.value.HistoryScreen
@@ -109,6 +111,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
 @Serializable data class WalletRoute(val uri: String? = null)
 @Serializable object HistoryRoute
+@Serializable object PrivacyRoute
 @Serializable object QueueRoute
 @Serializable object DownloadsRoute
 
@@ -160,6 +163,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
+        destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
         else -> ""
     }
@@ -267,7 +271,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     },
                                 )
                             }
-                            composable<SettingsRoute> { SettingsScreen(onWallet = { nav.navigate(WalletRoute()) }) }
+                            composable<SettingsRoute> { SettingsScreen(onWallet = { nav.navigate(WalletRoute()) }, onPrivacy = { nav.navigate(PrivacyRoute) }) }
+                            composable<PrivacyRoute> { PrivacyScreen() }
                             composable<WalletRoute> { e ->
                                 WalletScreen(onHistory = { nav.navigate(HistoryRoute) }, incomingUri = e.toRoute<WalletRoute>().uri)
                             }

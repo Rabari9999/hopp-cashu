@@ -45,11 +45,12 @@ implemented in Sovereigncast; ecash and push are not part of it yet.
 |---|---|
 | Release Boosting: live progress, pay through a Lightning invoice | **P1** (slim layer, ADR 0018) |
 | Boost2Unlock: progress, pay through a Lightning invoice | **P1** (slim layer) |
-| Halving / Boost2Unlock clips | P2 |
+| Halving / Boost2Unlock clips | P2 (P1: where it waits, and a link once unlocked) |
 | Topic suggestions: open list, free vote | **P1** (slim layer) |
 | Topic suggestions: submit, sats boost | P2 |
 | Paid Q&A | P2 |
-| Top boosts / top boosters / top episodes | P2 |
+| Top boosts and the all-time boosters (read-only), boosted sats per episode | **P1** (pulled forward 2026-10-09, ADR 0019) |
+| Top episodes | P2 |
 | Ecash (Cashu) redemption, nutzaps | P3 |
 | Ecash streaming over a Spilman channel (`ecash_channel` capability, ADR 0014) | P3 |
 

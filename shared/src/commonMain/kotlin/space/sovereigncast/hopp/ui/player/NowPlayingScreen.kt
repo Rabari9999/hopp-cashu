@@ -22,6 +22,11 @@ import space.sovereigncast.hopp.ui.library.QueueList
 import space.sovereigncast.hopp.ui.library.QueueViewModel
 import space.sovereigncast.hopp.ui.library.SettingsViewModel
 import space.sovereigncast.hopp.ui.value.BoostSheet
+import space.sovereigncast.hopp.data.EpisodeRepository
+import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
+import org.koin.compose.koinInject
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.flow.map
 import space.sovereigncast.hopp.ui.value.ValueBar
 import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 import kotlin.math.abs
@@ -135,6 +140,13 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     val valueVm: ValueBarViewModel = koinViewModel()
     val haptics = LocalHapticFeedback.current
     var showBoost by remember { mutableStateOf(false) }
+    var showTranscript by remember { mutableStateOf(false) }
+    var showPeople by remember { mutableStateOf(false) }
+    var showCommunity by remember { mutableStateOf(false) }
+    val episodeRepo: EpisodeRepository = koinInject()
+    val hasTranscript by produceState(false, episode.id) { value = runCatching { episodeRepo.hasTranscript(episode.id) }.getOrDefault(false) }
+    val sc: SovereigncastRepository = koinInject()
+    val hasCommunity by remember(episode.podcastId) { sc.layer(episode.podcastId).map { it != null } }.collectAsState(false)
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
 
@@ -257,9 +269,9 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 SheetChip(stringResource(Res.string.sheet_chapters), enabled = chapters.stops.isNotEmpty()) { showChapters = true }
-                SheetChip(stringResource(Res.string.sheet_transcript), enabled = false) {}
-                SheetChip(stringResource(Res.string.sheet_people), enabled = false) {}
-                SheetChip(stringResource(Res.string.sheet_community), enabled = false) {}
+                SheetChip(stringResource(Res.string.sheet_transcript), enabled = hasTranscript) { showTranscript = true }
+                SheetChip(stringResource(Res.string.sheet_people), enabled = playing.persons.isNotEmpty()) { showPeople = true }
+                SheetChip(stringResource(Res.string.sheet_community), enabled = hasCommunity) { showCommunity = true }
             }
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
         }
@@ -269,6 +281,10 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     if (showBoost) {
         BoostSheet(valueVm, episode, playing.podcastTitle, position, onDismiss = { showBoost = false }, onOpenWallet = { showBoost = false; onOpenWallet() })
     }
+
+    if (showTranscript) TranscriptSheet(episode, position, onSeek = model::seekTo) { showTranscript = false }
+    if (showPeople) PeopleSheet(playing.persons) { showPeople = false }
+    if (showCommunity) CommunitySheet(episode.podcastId) { showCommunity = false }
 
     if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
