@@ -23,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import app.cash.sqldelight.db.SqlDriver
@@ -75,6 +76,21 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+
+/** A month with ten top boosts and a long all-time list — longer than the screen. */
+private val LEADERBOARD = buildString {
+    append("""{"month":"2026-10","top_boosts":[""")
+    append((1..10).joinToString(",") { r ->
+        val (sender, message) = if (r == 1) "" to "Gemeinsam basteln" else "Booster $r" to "Danke für Folge $r, das war wirklich eine ausgesprochen gute Folge!"
+        """{"rank":$r,"amount_sats":${4231 - r * 10},"sender":"$sender","message":"$message","episode":{"episode_guid":"e296","title":"E296"}}"""
+    })
+    append("""],"recent_boosts":[{"amount_sats":21,"sender":"z","message":"","episode":{"episode_guid":"e296","title":"E296"}}],"alltime_boosters":[""")
+    append((1..30).joinToString(",") { r ->
+        val name = if (r == 1) "Blaubär" else "Hörer $r"
+        """{"rank":$r,"sender":"$name","trend":"same","prev_rank":$r,"legendary":${r < 4},"medals":{"gold":${30 - r},"silver":1,"bronze":0}}"""
+    })
+    append("""],"poll_after_seconds":300}""")
+}
 private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will, wer dafür ist und wer nicht."
 private var statusCalls = 0
 
@@ -88,9 +104,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
         "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
     path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
-    path.endsWith("/leaderboard") -> respond("""{"month":"2026-10","top_boosts":[{"rank":1,"amount_sats":4221,"sender":"","message":"Gemeinsam basteln","episode":{"episode_guid":null,"title":""}}],
-        "recent_boosts":[{"amount_sats":21,"sender":"z","message":"","episode":{"episode_guid":"e296","title":"E296"}}],
-        "alltime_boosters":[{"rank":1,"sender":"Blaubär","trend":"same","prev_rank":1,"legendary":true,"medals":{"gold":8,"silver":5,"bronze":3}}],"poll_after_seconds":300}""")
+    path.endsWith("/leaderboard") -> respond(LEADERBOARD)
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
         """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
@@ -569,8 +583,24 @@ class AndroidAppFlowTest {
         waitFor("✓ Sovereigncast")
         tap("Boosts")
         waitFor("Top boosts in October 2026")
-        check(has("Gemeinsam basteln") && has("4,221 sats") && has("Blaubär")) { screen().toString() }
-        check(has("Anonymous")) { "a boost without a name" }
+        check(has("Gemeinsam basteln") && has("4,221 sats") && has("Anonymous")) { screen().toString() }
+        // The tab's own list — the pager around it scrolls by index too.
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollToIndexAction()).onLast().performScrollToNode(hasText("Blaubär"))
+        waitFor("Blaubär")
+    }
+
+    /** Device feedback 2026-10-09: opened while the leaderboard still loads, the
+     *  tab jumped down to the all-time list. It opens at the month's top. */
+    @Test
+    fun theBoostsTabOpensAtTheTop() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        rule.waitUntil(10_000) { has("Boosts") }
+        tap("Boosts") // before the leaderboard has arrived
+        waitFor("Top boosts in October 2026")
+        rule.waitForIdle()
+        rule.onNodeWithText("Top boosts in October 2026").assertIsDisplayed()
+        rule.onNodeWithText("Gemeinsam basteln").assertIsDisplayed()
     }
 
     /** Scrolling the episodes moves the show's header away; back at the top it returns. */

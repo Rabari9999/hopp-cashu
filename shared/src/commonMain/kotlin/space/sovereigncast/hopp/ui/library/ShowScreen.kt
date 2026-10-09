@@ -20,6 +20,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -204,8 +205,16 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     if (l != null) item(key = "sc-via") { ScVia(l.host) }
                 }
                 ShowTab.Boosts -> LazyColumn(Modifier.fillMaxSize()) {
-                    board?.let { b -> leaderboard(b) }
-                    layer?.let { l -> item(key = "sc-via") { ScVia(l.host) } }
+                    // Nothing but a spinner until the list is there: a lone footer
+                    // would be the item the list keeps in view, and the arriving
+                    // leaderboard would open at its end (device feedback 2026-10-09).
+                    val b = board
+                    if (b == null) item(key = "board-loading") {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    } else {
+                        leaderboard(b)
+                        layer?.let { l -> item(key = "sc-via") { ScVia(l.host) } }
+                    }
                 }
             }
         }
