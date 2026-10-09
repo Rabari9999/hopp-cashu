@@ -59,6 +59,11 @@ import space.sovereigncast.hopp.resources.episode_shownotes
 import space.sovereigncast.hopp.resources.np_pause
 import space.sovereigncast.hopp.resources.sheet_chapters
 import space.sovereigncast.hopp.resources.sheet_people
+import space.sovereigncast.hopp.resources.sheet_transcript
+import space.sovereigncast.hopp.resources.episode_clips
+import space.sovereigncast.hopp.resources.episode_clip_at
+import space.sovereigncast.hopp.resources.episode_play_clip
+import space.sovereigncast.hopp.ui.player.TranscriptView
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatTime
@@ -72,7 +77,8 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  * tappable links and time marks, the chapters.
  */
 private enum class EpisodeTab(val label: StringResource) {
-    Notes(Res.string.episode_shownotes), Chapters(Res.string.sheet_chapters), People(Res.string.sheet_people)
+    Notes(Res.string.episode_shownotes), Chapters(Res.string.sheet_chapters), Transcript(Res.string.sheet_transcript),
+    Clips(Res.string.episode_clips), People(Res.string.sheet_people)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -103,10 +109,15 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     // Show notes, chapters and people as tabs rather than one long column
     // (device feedback 2026-10-08) — only the ones the episode has; a swipe
     // moves between them (2026-10-09).
+    // Transcript and clips too (device feedback 2026-10-09) — clips only
+    // here: in the player they would interrupt what is playing.
     val persons = details?.persons.orEmpty()
+    val clips = details?.soundbites.orEmpty().filter { it.duration > 0 }
     val tabs = buildList {
         if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
         if (chapters.isNotEmpty()) add(EpisodeTab.Chapters)
+        if (details?.transcripts?.isNotEmpty() == true) add(EpisodeTab.Transcript)
+        if (clips.isNotEmpty()) add(EpisodeTab.Clips)
         if (persons.isNotEmpty()) add(EpisodeTab.People)
     }
     val pager = rememberPagerState { tabs.size }
@@ -166,6 +177,14 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
             }
         },
     ) { index ->
+        if (tabs.getOrNull(index) == EpisodeTab.Transcript) {
+            // The position only while this episode is the one loaded — then it reads along.
+            val position by remember(player, e.id) {
+                player.state.map { s -> s.positionMs.takeIf { s.itemId == e.id.toString() } }.distinctUntilChanged()
+            }.collectAsState(null)
+            TranscriptView(e, position, onSeek = { ms -> player.playAt(e, ms) }, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).padding(top = 8.dp))
+            return@TabbedPage
+        }
         LazyColumn(Modifier.fillMaxSize()) {
             when (tabs.getOrNull(index)) {
                 EpisodeTab.Notes -> item {
@@ -182,6 +201,22 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                         Text(ch.title, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+                EpisodeTab.Clips -> items(clips, key = { "clip${it.startTime}" }) { c ->
+                    val start = (c.startTime * 1000).toLong()
+                    val length = (c.duration * 1000).toLong()
+                    Row(
+                        Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(Res.string.episode_play_clip)) { player.playClip(e, start, length) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(HoppIcons.Play, null, Modifier.size(20.dp), tint = Hopp.colors.valueText)
+                        Column(Modifier.weight(1f)) {
+                            Text(c.title?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.episode_clip_at, formatTime(start)), style = MaterialTheme.typography.bodyMedium)
+                            Text(formatTime(start) + " · " + formatTime(length), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        }
+                    }
+                }
+                EpisodeTab.Transcript -> Unit
                 EpisodeTab.People -> item {
                     FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         persons.forEach { p -> AssistChip(onClick = {}, label = { Text(listOfNotNull(p.name, p.role).joinToString(" · ")) }) }

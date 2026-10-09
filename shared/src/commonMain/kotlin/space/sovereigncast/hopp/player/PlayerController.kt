@@ -80,6 +80,10 @@ class PlayerController(
     private var lastPosition = 0L
     private var heardId: Long? = null
     private var heardAt = 0L
+    /** A clip being played (podcast:soundbite): it pauses at [Clip.endMs] and
+     *  goes back to where the listener was. */
+    private class Clip(val itemId: Long, val startMs: Long, val endMs: Long, val returnTo: Long) { var reached = false }
+    private var clip: Clip? = null
 
     init {
         scope.launch { settingsRepository.settings.collect { _settings.value = it } }
@@ -96,6 +100,7 @@ class PlayerController(
                 // the service still playing from before the UI was recreated.
                 if (expectedId == null && _current.value?.item?.id != id) follow(id)
                 tickSleep(s)
+                tickClip(id, s)
                 hear(id, s)
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
@@ -138,6 +143,31 @@ class PlayerController(
         }
         scope.launch { queue.remove(item.id); open(item, load = !loaded, autoplay = true) }
         _expanded.value = expand
+    }
+
+    /**
+     * A clip of the episode (podcast:soundbite, device feedback 2026-10-09):
+     * from its start to its end, then paused and back at the listener's own
+     * position — a preview does not move where they are.
+     */
+    fun playClip(item: EpisodeItem, startMs: Long, durationMs: Long) {
+        val loaded = engine.state.value.itemId == item.id.toString()
+        val returnTo = if (loaded) engine.state.value.positionMs else item.positionMs
+        clip = Clip(item.id, startMs, startMs + durationMs, returnTo)
+        playAt(item, startMs)
+    }
+
+    private fun tickClip(id: Long, s: PlaybackState) {
+        val c = clip ?: return
+        val inside = s.positionMs >= c.startMs - 2_000 && s.positionMs <= c.endMs + 5_000
+        when {
+            c.itemId != id -> if (c.reached) clip = null // another episode took over
+            // Until the player has got there, a position elsewhere is the load, not the listener.
+            !c.reached -> c.reached = inside && s.positionMs < c.endMs
+            // Moved away by hand: no longer the clip.
+            !inside -> clip = null
+            s.positionMs >= c.endMs -> { clip = null; engine.pause(); engine.seekTo(c.returnTo) }
+        }
     }
 
     /** From a time mark in the show notes or a chapter: there, playing. */

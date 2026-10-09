@@ -276,6 +276,9 @@
     <string name="transcript_follow">Mitlesen</string>
     <string name="transcript_no_match">Nichts gefunden</string>
     <string name="transcript_failed">Das Transkript ließ sich nicht laden.</string>
+    <string name="episode_clips">Clips</string>
+    <string name="episode_clip_at">Clip bei %1$s</string>
+    <string name="episode_play_clip">Clip abspielen</string>
     <string-array name="months">
         <item>Januar</item>
         <item>Februar</item>

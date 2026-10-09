@@ -54,7 +54,7 @@ import space.sovereigncast.hopp.platform.PlaybackState
 private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Test Show</title>
 <podcast:funding url="https://fund.test/">Unterstütze uns</podcast:funding>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
-<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/></item>
+<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
 </channel></rss>"""
 
@@ -522,10 +522,11 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Show notes")
+        // Show notes → transcript, the next tab of this episode.
         rule.onNode(hasText("(12:34) Hauptteil", substring = true)).performTouchInput { swipeLeft() }
-        waitFor("Karsten · host")
+        waitFor("Willkommen zur zweiten Folge.")
         rule.waitUntil(10_000) { !has("(12:34) Hauptteil", substring = true) }
-        rule.onNode(hasText("Karsten · host", substring = true)).performTouchInput { swipeRight() }
+        rule.onNode(hasText("Willkommen zur zweiten Folge.") and hasClickAction()).performTouchInput { swipeRight() }
         rule.waitUntil(10_000) { has("(12:34) Hauptteil", substring = true) }
     }
 
@@ -631,7 +632,7 @@ class AndroidAppFlowTest {
     fun theTranscriptReadsAlongAndJumps() {
         rule.setContent { App() }
         openEpisode()
-        tap("Transcript")
+        tapTop("Transcript") // the player's chip, over the episode page's tab
         waitFor("Willkommen zur zweiten Folge.")
         check(has("Karsten")) { "the speaker" }
         tap("Jetzt kommt der Hauptteil.")
@@ -666,5 +667,35 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         waitFor("♥ Unterstütze uns ›")
+    }
+
+    // ── device feedback 2026-10-09: transcript and clips on the episode page ──
+
+    /** The episode page's transcript, readable before playing; a line starts it there. */
+    @Test
+    fun theEpisodePageHasTheTranscript() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        tap("Transcript")
+        waitFor("Jetzt kommt der Hauptteil.")
+        check(has("12:34")) { "times, while not playing along: ${screen()}" }
+        tap("Jetzt kommt der Hauptteil.")
+        until { engine().state.value.positionMs == 754_000L && engine().state.value.isPlaying }
+    }
+
+    /** A clip plays its stretch, then stops and goes back. */
+    @Test
+    fun theEpisodePagePlaysItsClips() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        tap("Clips")
+        waitFor("Der Kern")
+        check(has("12:34 · 0:30")) { screen().toString() }
+        tap("Der Kern")
+        until { engine().state.value.positionMs == 754_000L && engine().state.value.isPlaying }
+        rule.runOnUiThread { engine().seekTo(784_000) }
+        until { !engine().state.value.isPlaying && engine().state.value.positionMs == 0L }
     }
 }

@@ -140,6 +140,13 @@ latest boosts and the all-time ranking (read-only, so pulled forward from phase
 2). A suggestion opens in full on a tap. The episode page has the same swipeable
 tabs and a Boost button for the episode.
 
+**Amended 2026-10-09 (device feedback, later):** the episode page also has a
+**Transcript** tab (readable before playing; reads along while the episode
+plays; a line starts it there) and a **Clips** tab for `podcast:soundbite`. A
+clip plays its stretch, then pauses and returns to the listener's own position.
+Clips live only on the episode page — in the player they would interrupt what
+is playing. With more than three tabs the tab row scrolls.
+
 ### Boost dialog
 
 A bottom sheet: recipient and position ("episode 296 · at 27:14"), amount

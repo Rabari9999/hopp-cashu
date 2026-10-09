@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.SecondaryTabRow
+import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,10 +78,13 @@ fun TabbedPage(
             { Box(Modifier.draggable(drag, Orientation.Vertical)) { header() } },
             {
                 when {
+                    // Up to three share the width; more scroll, so no label is cut.
+                    tabs.size > 3 -> SecondaryScrollableTabRow(
+                        selectedTabIndex = pager.currentPage.coerceAtMost(tabs.lastIndex),
+                        containerColor = MaterialTheme.colorScheme.background, edgePadding = 8.dp,
+                    ) { tabItems(tabs, pager, scope) }
                     tabs.size > 1 -> SecondaryTabRow(selectedTabIndex = pager.currentPage.coerceAtMost(tabs.lastIndex), containerColor = MaterialTheme.colorScheme.background) {
-                        tabs.forEachIndexed { i, label ->
-                            Tab(selected = pager.currentPage == i, onClick = { scope.launch { pager.animateScrollToPage(i) } }, text = { Text(label) })
-                        }
+                        tabItems(tabs, pager, scope)
                     }
                     singleLabel && tabs.size == 1 -> Text(tabs[0], Modifier.padding(start = 16.dp, top = 12.dp), style = MaterialTheme.typography.titleMedium)
                     else -> Box(Modifier)
@@ -103,3 +108,9 @@ fun TabbedPage(
         }
     }
 }
+
+@Composable
+private fun tabItems(tabs: List<String>, pager: PagerState, scope: CoroutineScope) =
+    tabs.forEachIndexed { i, label ->
+        Tab(selected = pager.currentPage == i, onClick = { scope.launch { pager.animateScrollToPage(i) } }, text = { Text(label, maxLines = 1) })
+    }

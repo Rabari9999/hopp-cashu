@@ -112,6 +112,35 @@ class PlayerControllerTest {
         assertTrue(episodes.item(e1.id)!!.played)
     }
 
+    /** A clip (podcast:soundbite) plays to its end, then the listener is back where they were. */
+    @Test
+    fun aClipPlaysToItsEndAndGoesBack() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(42_000)
+        player.playClip(e1, 120_000, 30_000)
+        until("at the clip") { engine.state.value.positionMs == 120_000L && engine.state.value.isPlaying }
+        at(135_000)
+        assertTrue(engine.state.value.isPlaying, "the clip runs")
+        at(150_000)
+        until("paused and back") { !engine.state.value.isPlaying && engine.state.value.positionMs == 42_000L }
+    }
+
+    /** Moving away during a clip ends the clip: nothing pauses later. */
+    @Test
+    fun aJumpAwayEndsTheClip() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        player.playClip(e1, 120_000, 30_000)
+        until("at the clip") { engine.state.value.positionMs == 120_000L }
+        at(125_000)
+        at(600_000) // the listener seeks elsewhere
+        at(700_000)
+        delay(100)
+        assertTrue(engine.state.value.isPlaying)
+        assertEquals(700_000L, engine.state.value.positionMs)
+    }
+
     @Test
     fun endOfEpisodeStopsInsteadOfGoingOn() = test {
         val (e1, e2, _) = episodes()

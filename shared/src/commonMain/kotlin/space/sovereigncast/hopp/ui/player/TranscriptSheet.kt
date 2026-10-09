@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -56,14 +58,27 @@ import space.sovereigncast.hopp.resources.transcript_search
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
 
-/**
- * The transcript (ADR 0012): it follows playback with the current line
- * marked, a tap jumps there, and the field above searches it. Scrolling by
- * hand stops the following until "Follow along" brings it back.
- */
+/** The player's transcript sheet (ADR 0012) — see [TranscriptView]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranscriptSheet(item: EpisodeItem, positionMs: Long, onSeek: (Long) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 20.dp)) {
+            Text(stringResource(Res.string.sheet_transcript), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+            TranscriptView(item, positionMs, onSeek)
+        }
+    }
+}
+
+/**
+ * A transcript (ADR 0012): it follows playback with the current line
+ * marked — [positionMs] null while the episode is not the one playing — a
+ * tap jumps there, and the field above searches it. Scrolling by hand stops
+ * the following until "Follow along" brings it back. In the player's sheet
+ * and as the episode page's tab (device feedback 2026-10-09).
+ */
+@Composable
+fun TranscriptView(item: EpisodeItem, positionMs: Long?, onSeek: (Long) -> Unit, modifier: Modifier = Modifier) {
     val episodes: EpisodeRepository = koinInject()
     val loaded by produceState<Result<List<Cue>>?>(null, item.id) { value = runCatching { episodes.transcript(item) } }
     val colors = MaterialTheme.colorScheme
@@ -78,57 +93,55 @@ fun TranscriptSheet(item: EpisodeItem, positionMs: Long, onSeek: (Long) -> Unit,
             }
         }
     }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 20.dp)) {
-            Text(stringResource(Res.string.sheet_transcript), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-            val result = loaded
-            val cues = result?.getOrNull()
-            when {
-                result == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                cues.isNullOrEmpty() -> Text(stringResource(Res.string.transcript_failed), color = colors.onSurfaceVariant)
-                else -> {
-                    val timed = cues.first().startMs != null
-                    OutlinedTextField(
-                        query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        placeholder = { Text(stringResource(Res.string.transcript_search)) },
-                    )
-                    val q = query.trim()
-                    val shown = remember(cues, q) {
-                        cues.withIndex().filter { q.isEmpty() || it.value.text.contains(q, ignoreCase = true) }
-                    }
-                    val current = if (timed) cues.indexAt(positionMs) else -1
-                    LaunchedEffect(current, follow, q) {
-                        if (follow && q.isEmpty() && current >= 0) list.animateScrollToItem((current - 1).coerceAtLeast(0))
-                    }
-                    if (timed && !follow && q.isEmpty()) TextButton(onClick = { follow = true }) { Text(stringResource(Res.string.transcript_follow)) }
-                    if (shown.isEmpty()) Text(stringResource(Res.string.transcript_no_match), Modifier.padding(vertical = 16.dp), color = colors.onSurfaceVariant)
-                    LazyColumn(Modifier.fillMaxWidth().nestedScroll(byHand), state = list) {
-                        itemsIndexed(shown, key = { _, c -> c.index }) { pos, (i, cue) ->
-                            val active = i == current
-                            val speakerChanged = cue.speaker != null && cue.speaker != shown.getOrNull(pos - 1)?.value?.speaker
-                            Column(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                                    .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
-                                    .then(if (cue.startMs != null) Modifier.clickable { follow = true; onSeek(cue.startMs) } else Modifier)
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                            ) {
-                                if (speakerChanged || (q.isNotEmpty() && cue.speaker != null)) {
-                                    Text(cue.speaker!!, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurfaceVariant)
-                                }
-                                if (q.isNotEmpty() && cue.startMs != null) {
-                                    Text(formatTime(cue.startMs), style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
-                                }
-                                Text(
-                                    highlight(cue.text, q, Hopp.colors.valueText),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (active || !timed || q.isNotEmpty()) colors.onSurface else colors.onSurfaceVariant,
-                                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                )
+    Column(modifier) {
+        val result = loaded
+        val cues = result?.getOrNull()
+        when {
+            result == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            cues.isNullOrEmpty() -> Text(stringResource(Res.string.transcript_failed), color = colors.onSurfaceVariant)
+            else -> {
+                val timed = cues.first().startMs != null
+                OutlinedTextField(
+                    query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    placeholder = { Text(stringResource(Res.string.transcript_search)) },
+                )
+                val q = query.trim()
+                val shown = remember(cues, q) {
+                    cues.withIndex().filter { q.isEmpty() || it.value.text.contains(q, ignoreCase = true) }
+                }
+                val current = if (timed && positionMs != null) cues.indexAt(positionMs) else -1
+                LaunchedEffect(current, follow, q) {
+                    if (follow && q.isEmpty() && current >= 0) list.animateScrollToItem((current - 1).coerceAtLeast(0))
+                }
+                if (current >= 0 && !follow && q.isEmpty()) TextButton(onClick = { follow = true }) { Text(stringResource(Res.string.transcript_follow)) }
+                if (shown.isEmpty()) Text(stringResource(Res.string.transcript_no_match), Modifier.padding(vertical = 16.dp), color = colors.onSurfaceVariant)
+                LazyColumn(Modifier.fillMaxWidth().weight(1f).nestedScroll(byHand), state = list) {
+                    itemsIndexed(shown, key = { _, c -> c.index }) { pos, (i, cue) ->
+                        val active = i == current
+                        val speakerChanged = cue.speaker != null && cue.speaker != shown.getOrNull(pos - 1)?.value?.speaker
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
+                                .then(if (cue.startMs != null) Modifier.clickable { follow = true; onSeek(cue.startMs) } else Modifier)
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        ) {
+                            if (speakerChanged || (q.isNotEmpty() && cue.speaker != null)) {
+                                Text(cue.speaker!!, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurfaceVariant)
                             }
+                            // Times where it helps to know: while searching, and when not playing along.
+                            if ((q.isNotEmpty() || positionMs == null) && cue.startMs != null) {
+                                Text(formatTime(cue.startMs), style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+                            }
+                            Text(
+                                highlight(cue.text, q, Hopp.colors.valueText),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (active || current < 0 || q.isNotEmpty()) colors.onSurface else colors.onSurfaceVariant,
+                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            )
                         }
                     }
+                    item { Spacer(Modifier.height(24.dp)) }
                 }
             }
         }
