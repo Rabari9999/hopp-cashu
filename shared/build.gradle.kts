@@ -130,15 +130,14 @@ dependencies {
 // before then the schema changes in place; from the beta on, every change is
 // a numbered migration in src/commonMain/sqldelight/migrations.
 sqldelight {
+    // The iOS driver uses the system's libsqlite3. With a static framework
+    // (isStatic = true above) that flag cannot travel with the framework: the
+    // app target links it — OTHER_LDFLAGS = -lsqlite3 in iosApp.xcodeproj.
+    // Without it Xcode fails with "Undefined symbol: _sqlite3_…".
+    linkSqlite.set(true)
     databases {
         create("HoppDatabase") {
             packageName.set("space.sovereigncast.hopp.db")
-            // The iOS driver uses the system's libsqlite3. With a static
-            // framework (isStatic = true above) that flag cannot travel with
-            // the framework: the app target links it — OTHER_LDFLAGS =
-            // -lsqlite3 in iosApp.xcodeproj. Without it Xcode fails with
-            // "Undefined symbol: _sqlite3_…".
-            linkSqlite.set(true)
         }
     }
 }
