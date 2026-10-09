@@ -35,6 +35,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.model.Person
+import space.sovereigncast.hopp.ui.components.PersonRow
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.sc_no_suggestions
 import space.sovereigncast.hopp.resources.sc_suggestions
@@ -56,27 +57,10 @@ import space.sovereigncast.hopp.sovereigncast.Suggestion
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeopleSheet(persons: List<Person>, onDismiss: () -> Unit) {
-    val uri = LocalUriHandler.current
-    val colors = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(stringResource(Res.string.sheet_people), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
-            items(persons) { p ->
-                val href = p.href
-                Row(
-                    Modifier.fillMaxWidth().then(if (href != null) Modifier.clickable { runCatching { uri.openUri(href) } } else Modifier)
-                        .padding(horizontal = 24.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    AsyncImage(p.img, null, Modifier.size(44.dp).clip(CircleShape), contentScale = ContentScale.Crop)
-                    Column {
-                        Text(p.name, style = MaterialTheme.typography.titleSmall)
-                        listOfNotNull(p.role, p.group).filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let {
-                            Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
+            items(persons) { p -> PersonRow(p, Modifier.padding(horizontal = 8.dp)) }
         }
     }
 }

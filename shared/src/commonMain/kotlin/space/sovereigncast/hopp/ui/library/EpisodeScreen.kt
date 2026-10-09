@@ -64,6 +64,7 @@ import space.sovereigncast.hopp.resources.episode_clips
 import space.sovereigncast.hopp.resources.episode_clip_at
 import space.sovereigncast.hopp.resources.episode_play_clip
 import space.sovereigncast.hopp.ui.player.TranscriptView
+import space.sovereigncast.hopp.ui.components.PersonRow
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatTime
@@ -111,7 +112,9 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     // moves between them (2026-10-09).
     // Transcript and clips too (device feedback 2026-10-09) — clips only
     // here: in the player they would interrupt what is playing.
-    val persons = details?.persons.orEmpty()
+    val showPersons by vm.showPersons.collectAsState()
+    // The episode's own people, else the show's (the namespace's fallback).
+    val persons = details?.persons.orEmpty().ifEmpty { showPersons }
     val clips = details?.soundbites.orEmpty().filter { it.duration > 0 }
     val tabs = buildList {
         if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
@@ -217,11 +220,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     }
                 }
                 EpisodeTab.Transcript -> Unit
-                EpisodeTab.People -> item {
-                    FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        persons.forEach { p -> AssistChip(onClick = {}, label = { Text(listOfNotNull(p.name, p.role).joinToString(" · ")) }) }
-                    }
-                }
+                EpisodeTab.People -> items(persons) { p -> PersonRow(p) }
                 null -> Unit
             }
             item { Spacer(Modifier.height(24.dp)) }

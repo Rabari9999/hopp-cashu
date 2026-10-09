@@ -136,6 +136,9 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
     private val _gone = MutableStateFlow(false)
     /** Unsubscribed while this page was open. */
     val gone: StateFlow<Boolean> = _gone.asStateFlow()
+    private val _showPersons = MutableStateFlow<List<space.sovereigncast.hopp.model.Person>>(emptyList())
+    /** The show's people — they stand for an episode that names none. */
+    val showPersons: StateFlow<List<space.sovereigncast.hopp.model.Person>> = _showPersons.asStateFlow()
     private val _hasValue = MutableStateFlow(false)
     /** The episode or its show names recipients — a boost can go out. */
     val hasValue: StateFlow<Boolean> = _hasValue.asStateFlow()
@@ -144,7 +147,9 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
         viewModelScope.launch {
             val e = episodes.item(id) ?: run { _gone.value = true; return@launch }
             _details.value = episodes.details(id)
-            _hasValue.value = _details.value?.value != null || runCatching { podcasts.podcastMeta(e.podcastId)?.value != null }.getOrDefault(false)
+            val meta = runCatching { podcasts.podcastMeta(e.podcastId) }.getOrNull()
+            _hasValue.value = _details.value?.value != null || meta?.value != null
+            _showPersons.value = meta?.persons.orEmpty()
             _chapters.value = runCatching { episodes.chapters(e) }.getOrDefault(emptyList()).filter { it.inToc }
         }
         viewModelScope.launch { episodes.itemFlow(id).collect { if (it == null && _details.value != null) _gone.value = true } }

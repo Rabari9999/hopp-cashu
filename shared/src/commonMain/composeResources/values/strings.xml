@@ -279,6 +279,16 @@
     <string name="episode_clips">Clips</string>
     <string name="episode_clip_at">Clip at %1$s</string>
     <string name="episode_play_clip">Play clip</string>
+    <string name="person_role_host">Host</string>
+    <string name="person_role_cohost">Co-host</string>
+    <string name="person_role_guest">Guest</string>
+    <string name="person_role_producer">Producer</string>
+    <string name="person_role_editor">Editor</string>
+    <string name="person_group_cast">Cast</string>
+    <string name="person_group_writing">Writing</string>
+    <string name="person_group_audio_production">Audio production</string>
+    <string name="person_group_audio_post">Audio post-production</string>
+    <string name="person_group_visuals">Visuals</string>
     <string-array name="months">
         <item>January</item>
         <item>February</item>

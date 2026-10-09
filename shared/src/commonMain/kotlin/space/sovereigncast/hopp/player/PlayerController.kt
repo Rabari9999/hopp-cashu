@@ -183,7 +183,7 @@ class PlayerController(
         val show = podcasts.show(item.podcastId).first()
         val details = episodes.details(item.id)
         val artwork = item.imageUrl ?: meta?.imageUrl
-        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty())
+        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() })
         lastChapter = -1
         if (load) {
             val url = item.playableUrl ?: return

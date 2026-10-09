@@ -53,8 +53,9 @@ import space.sovereigncast.hopp.platform.PlaybackState
 
 private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Test Show</title>
 <podcast:funding url="https://fund.test/">Unterstütze uns</podcast:funding>
+<podcast:person role="host">Thorsten</podcast:person>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
-<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
+<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host" group="cast" href="https://primal.net/p/karsten">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
 </channel></rss>"""
 
@@ -476,9 +477,9 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Show notes")
-        check(has("(12:34) Hauptteil", substring = true) && !has("Karsten · host")) { screen().toString() }
+        check(has("(12:34) Hauptteil", substring = true) && !has("Karsten")) { screen().toString() }
         tap("People")
-        waitFor("Karsten · host")
+        waitFor("Karsten")
         check(!has("(12:34) Hauptteil", substring = true)) { "the notes stay hidden on the People tab" }
     }
 
@@ -646,8 +647,8 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         openEpisode()
         tapTop("People") // the player's chip, over the episode page's tab
-        waitFor("host")
-        check(has("Karsten")) { screen().toString() }
+        waitFor("Host · Cast")
+        check(has("Karsten") && has("primal.net ↗")) { screen().toString() }
     }
 
     /** Who sees what (ADR 0015), behind the settings. */
@@ -697,5 +698,19 @@ class AndroidAppFlowTest {
         until { engine().state.value.positionMs == 754_000L && engine().state.value.isPlaying }
         rule.runOnUiThread { engine().seekTo(784_000) }
         until { !engine().state.value.isPlaying && engine().state.value.positionMs == 0L }
+    }
+
+    /** Everything the feed says about a person; the show's people stand in for an episode without. */
+    @Test
+    fun peopleShowTheirMetadataAndTheShowsStandIn() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        tap("People")
+        waitFor("Host · Cast")
+        check(has("primal.net ↗") && !has("Thorsten")) { "the episode's own people only: ${screen()}" }
+        back()
+        tap("Ep 1"); waitFor("People")
+        waitFor("Thorsten")
     }
 }
