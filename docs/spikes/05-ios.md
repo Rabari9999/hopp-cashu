@@ -3,7 +3,14 @@
 - **Question:** does the shared core compile for iOS, and does an AVPlayer
   engine play an episode behind the same `PlaybackEngine` as Android?
 - **Status:** Kotlin side compiles for `iosArm64` and `iosSimulatorArm64` on
-  the Linux build box (and in CI). Linking and running on a Mac: pending.
+  the Linux build box (and in CI). **Runs on the maintainer's Mac** (iPhone 17
+  simulator, 2026-10-09): app starts and is fully usable. Checklist items below
+  that need background audio or the lock screen still to confirm.
+
+Met on the way: `xcode-select` pointed at the Command Line Tools (Kotlin/Native
+needs full Xcode: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`),
+and the static framework needs `-lsqlite3` in the app target for SQLDelight's
+native driver.
 
 ## Run it on a Mac
 
