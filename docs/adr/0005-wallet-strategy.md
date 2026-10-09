@@ -84,6 +84,17 @@ like any other, with its custom record; if it really is this wallet, the
 wallet refuses and the listener sees its reason. A Lightning address whose
 keysend route fails is paid by LNURL after all.
 
+### Whole sats, fees on top (added 2026-10-09)
+
+A boost is split in **whole sats** (largest remainder), so the recipients
+together receive exactly the amount the listener chose: 21 sats at 80/20 are
+17 + 4. Splitting to the millisat gave 16.8 + 4.2, and custodial accounts that
+credit whole sats only (Alby's) received 16 + 4. **Routing fees are paid by
+the listener's wallet on top**, never taken from the shares; the boost result
+and the history show them apart. This holds for every boost — episode, show,
+lock screen. Streaming splits its accruals to the millisat and pays whole sats
+per recipient, carrying the rest.
+
 ### App split
 
 **Opt-in, off by default.** "Support Hopp" is a voluntary, visible split in the

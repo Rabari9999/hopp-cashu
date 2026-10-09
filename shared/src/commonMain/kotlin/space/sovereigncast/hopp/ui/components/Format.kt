@@ -42,3 +42,10 @@ fun formatSats(sats: Long, language: String = androidx.compose.ui.text.intl.Loca
     val grouped = digits.reversed().chunked(3).joinToString(sep.toString()).reversed()
     return if (sats < 0) "-$grouped" else grouped
 }
+
+/** Millisats as sats with up to three decimals — routing fees are often below one sat. */
+fun formatMsat(msat: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String {
+    val whole = formatSats(msat / 1000, language)
+    val frac = (msat % 1000).toString().padStart(3, '0').trimEnd('0')
+    return if (frac.isEmpty()) whole else whole + (if (language == "de") "," else ".") + frac
+}

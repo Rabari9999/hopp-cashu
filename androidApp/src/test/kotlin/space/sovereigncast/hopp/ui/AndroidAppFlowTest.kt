@@ -43,7 +43,7 @@ import space.sovereigncast.hopp.platform.PlaybackState
 
 private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Test Show</title>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
-<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description></item>
+<item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host">Karsten</podcast:person></item>
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
 </channel></rss>"""
 
@@ -405,5 +405,17 @@ class AndroidAppFlowTest {
         tap("Boost")
         waitFor("For the whole show")
         waitFor("Connect a wallet to boost")
+    }
+
+    /** Device feedback 2026-10-08: show notes, chapters and people as tabs. */
+    @Test
+    fun theEpisodePageHasTabs() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        check(has("(12:34) Hauptteil", substring = true) && !has("Karsten · host")) { screen().toString() }
+        tap("People")
+        waitFor("Karsten · host")
+        check(!has("(12:34) Hauptteil", substring = true)) { "the notes stay hidden on the People tab" }
     }
 }

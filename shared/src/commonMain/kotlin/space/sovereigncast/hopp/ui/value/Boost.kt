@@ -52,6 +52,7 @@ import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.boost_close
 import space.sovereigncast.hopp.resources.boost_custom
 import space.sovereigncast.hopp.resources.boost_done
+import space.sovereigncast.hopp.resources.boost_fees
 import space.sovereigncast.hopp.resources.boost_failed
 import space.sovereigncast.hopp.resources.boost_less
 import space.sovereigncast.hopp.resources.boost_message
@@ -84,6 +85,7 @@ import space.sovereigncast.hopp.resources.stream_invite_on
 import space.sovereigncast.hopp.resources.stream_invite_text
 import space.sovereigncast.hopp.resources.stream_invite_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.formatMsat
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
@@ -333,6 +335,10 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(48.dp))
         Text(stringResource(Res.string.boost_done, formatSats(paid.sumOf { it.share.amountMsat } / 1000)), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        // The recipients get the full amount; routing is paid on top (device feedback 2026-10-08).
+        val fees = paid.sumOf { it.feesMsat ?: 0 }
+        if (fees > 0) Text(stringResource(Res.string.boost_fees, formatMsat(fees)), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (paid.size < results.size) {
             Text(stringResource(Res.string.boost_partial, paid.size, results.size), color = Hopp.colors.valueText)
             // Who was not paid, and why — the wallet's own words when it refused.

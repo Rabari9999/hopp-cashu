@@ -50,6 +50,8 @@ data class PaymentLine(
     val msat: Long,
     /** paid | skipped | failed */
     val status: String,
+    /** Routing fees the wallet paid on top, if it said. */
+    val feesMsat: Long? = null,
     val route: String? = null,
     val reason: String? = null,
 )
@@ -169,7 +171,7 @@ class ValueService(
 
     private suspend fun shares(block: ValueBlock, totalMsat: Long, positionSeconds: Double?): List<Share> {
         val remote = Splits.activeSplit(block, positionSeconds)?.takeIf { it.recipients.isEmpty() }?.remoteItem?.let { remoteBlock(it) }
-        return Splits.divideAt(block, totalMsat, positionSeconds, remote)
+        return Splits.divideAtWholeSats(block, totalMsat, positionSeconds, remote)
     }
 
     /** The show's suggested rate, in sats per minute (`suggested` is BTC). */
@@ -192,7 +194,7 @@ class ValueService(
     suspend fun planShow(podcastId: Long, amountMsat: Long): BoostPlan {
         val block = podcasts.podcastMeta(podcastId)?.value ?: return BoostPlan.NoValue
         val info = wallet.wallet.value?.info
-        val planned = Splits.divide(block.recipients, amountMsat).map { s ->
+        val planned = Splits.divideWholeSats(block.recipients, amountMsat).map { s ->
             PlannedShare(s.recipient, s.amountMsat, info?.let { unpayableReason(s.recipient, it) })
         }
         return BoostPlan.Ready(planned, null)
@@ -268,9 +270,9 @@ class ValueService(
         val lines = results.map { r ->
             val rec = r.share.recipient
             when (r) {
-                is ShareResult.Paid -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "paid", r.route)
+                is ShareResult.Paid -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "paid", feesMsat = r.feesMsat, route = r.route)
                 is ShareResult.Skipped -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "skipped", reason = r.reason)
-                is ShareResult.Failed -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "failed", r.route, r.reason)
+                is ShareResult.Failed -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "failed", route = r.route, reason = r.reason)
             }
         }
         val paid = results.filterIsInstance<ShareResult.Paid>().sumOf { it.share.amountMsat }
@@ -354,7 +356,9 @@ class ValueService(
         for (a in pending) {
             val item = episodes.item(a.episode_id)
             val block = item?.let { blockFor(it) }
-            val parts = if (block != null) shares(block, a.accrued_msat, a.position_seconds) else emptyList()
+            // Accruals split to the msat — settlement pays whole sats and keeps the rest owed.
+            val remote = block?.let { b -> Splits.activeSplit(b, a.position_seconds)?.takeIf { it.recipients.isEmpty() }?.remoteItem?.let { remoteBlock(it) } }
+            val parts = if (block != null) Splits.divideAt(block, a.accrued_msat, a.position_seconds, remote) else emptyList()
             withContext(Dispatchers.IO) {
                 db.transaction {
                     for (p in parts) {

@@ -61,6 +61,19 @@ object Splits {
         return main + Share(placeholder, remoteMsat)
     }
 
+    /**
+     * As [divideAt], but in whole sats (device feedback 2026-10-08): 21 sats at
+     * 80/20 are 17 + 4, not 16.8 + 4.2 — custodial accounts (Alby's, say) credit
+     * whole sats only, so the fractions never arrived and a 21-sat boost showed
+     * up as 20. The largest remainders still decide who gets the odd sat; the
+     * total is exactly what the listener chose, and routing fees come on top.
+     */
+    fun divideAtWholeSats(block: ValueBlock, totalMsat: Long, positionSeconds: Double?, remote: ValueBlock? = null): List<Share> =
+        divideAt(block, totalMsat / 1000, positionSeconds, remote).map { it.copy(amountMsat = it.amountMsat * 1000) }
+
+    fun divideWholeSats(recipients: List<ValueRecipient>, totalMsat: Long): List<Share> =
+        divide(recipients, totalMsat / 1000).map { it.copy(amountMsat = it.amountMsat * 1000) }
+
     /** Recipient type of an unresolved remote item's share. */
     const val REMOTE = "remote"
 

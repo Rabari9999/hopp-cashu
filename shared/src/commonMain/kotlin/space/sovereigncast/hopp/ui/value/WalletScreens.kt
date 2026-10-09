@@ -43,6 +43,7 @@ import space.sovereigncast.hopp.resources.history_boost
 import space.sovereigncast.hopp.resources.history_empty
 import space.sovereigncast.hopp.resources.history_empty_text
 import space.sovereigncast.hopp.resources.history_failed
+import space.sovereigncast.hopp.resources.history_fee
 import space.sovereigncast.hopp.resources.history_paid
 import space.sovereigncast.hopp.resources.history_skipped
 import space.sovereigncast.hopp.resources.history_stream
@@ -204,7 +205,9 @@ private fun PaymentRow(p: Payment) {
                 else -> stringResource(Res.string.history_failed)
             }
             Text(
-                "${l.name ?: l.address.take(16)} · ${formatSats(l.msat / 1000)} sats · $status" + (l.reason?.let { " (${reasonText(it)})" } ?: ""),
+                "${l.name ?: l.address.take(16)} · ${formatSats(l.msat / 1000)} sats · $status" +
+                    (l.feesMsat?.takeIf { it > 0 }?.let { " · " + feeText(it) } ?: "") +
+                    (l.reason?.let { " (${reasonText(it)})" } ?: ""),
                 style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -221,3 +224,6 @@ private fun Capability(label: String, yes: Boolean) {
         )
     }
 }
+
+@Composable
+private fun feeText(msat: Long) = stringResource(Res.string.history_fee, space.sovereigncast.hopp.ui.components.formatMsat(msat))

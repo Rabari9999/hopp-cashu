@@ -181,4 +181,6 @@
     <string name="episode_resume">Weiterhören · noch %1$s</string>
     <string name="episode_shownotes">Shownotes</string>
     <string name="boost_whole_show">Für die ganze Show</string>
+    <string name="boost_fees">+ %1$s sats Routing-Gebühr, von deiner Wallet obendrauf bezahlt</string>
+    <string name="history_fee">Gebühr %1$s sats</string>
 </resources>

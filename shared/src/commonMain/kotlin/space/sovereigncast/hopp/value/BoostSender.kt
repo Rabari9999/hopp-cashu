@@ -48,7 +48,7 @@ class BoostSender(
     private val wallet: WalletInfo,
 ) {
     suspend fun send(block: ValueBlock, totalMsat: Long, ctx: BoostContext, remote: ValueBlock? = null): List<ShareResult> =
-        Splits.divideAt(block, totalMsat, ctx.positionSeconds?.toDouble(), remote).map { share -> payShare(share, totalMsat, ctx) }
+        Splits.divideAtWholeSats(block, totalMsat, ctx.positionSeconds?.toDouble(), remote).map { share -> payShare(share, totalMsat, ctx) }
 
     /** One recipient's share — streaming settles them one by one. */
     suspend fun payShare(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {

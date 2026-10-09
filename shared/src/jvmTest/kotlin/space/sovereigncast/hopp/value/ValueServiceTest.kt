@@ -227,4 +227,17 @@ class ValueServiceTest {
         val tlv = fake.requests.first().second.toString()
         assertTrue("episode_guid" !in tlv || "null" in tlv)
     }
+
+    /** The full amount reaches the recipients; the wallet's routing fee comes
+     *  on top and is logged apart. */
+    @Test
+    fun aBoostArrivesInFullWithTheFeeOnTop() = test {
+        wallet.connect(uri())
+        val ep = episode()
+        value.boost(ep, 30, 21_000, null)
+        assertEquals(listOf(host to 19L, cohost to 2L), keysends(), "21 sats at 90/10: 18.9 + 2.1 rounds to 19 + 2")
+        val lines = value.payments.first().single().lines
+        assertEquals(21_000L, lines.sumOf { it.msat })
+        assertTrue(lines.all { it.feesMsat == 1000L }, "the fake wallet reports a 1-sat fee per payment")
+    }
 }

@@ -45,7 +45,7 @@ fun Cover(url: String?, size: Dp, corner: Dp = 12.dp, modifier: Modifier = Modif
 }
 
 /** One episode in a list: cover, show (optional), title, date · duration or
- *  time left, a thin progress line once started. */
+ *  time left. How far it is heard shows as the ring of its play button. */
 @Composable
 fun EpisodeRow(
     item: EpisodeItem,
@@ -79,13 +79,6 @@ fun EpisodeRow(
                 downloadLabel(item)?.let(::add)
             }.joinToString(" · ")
             Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-            if (!item.played && item.positionMs > 0 && duration != null && duration > 0) {
-                LinearProgressIndicator(
-                    progress = { (item.positionMs.toFloat() / duration).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(3.dp).clip(RoundedCornerShape(2.dp)),
-                    color = colors.onSurface, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
-                )
-            }
         }
         trailing()
     }

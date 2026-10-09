@@ -52,4 +52,17 @@ class SplitsTest {
         assertEquals(mapOf("show" to 10_000L, "guest" to 90_000L), amounts(Splits.divideAt(block, 100_000, 90.0)))
         assertEquals(mapOf("show" to 100_000L), amounts(Splits.divideAt(block, 100_000, 200.0)))
     }
+
+    /** Device feedback 2026-10-08: 21 sats at 80/20 arrived as 16 + 4 — the
+     *  fractions of 16.8 and 4.2 are not credited by custodial accounts. */
+    @Test
+    fun boostsAreSplitInWholeSatsAndAddUp() {
+        val block = space.sovereigncast.hopp.model.ValueBlock("lightning", "keysend", recipients = listOf(
+            space.sovereigncast.hopp.model.ValueRecipient("Nodesignal", "node", "02a", 80),
+            space.sovereigncast.hopp.model.ValueRecipient("Karsten", "lnaddress", "k@a.test", 20),
+        ))
+        val shares = Splits.divideAtWholeSats(block, 21_000, null)
+        assertEquals(listOf(17_000L, 4_000L), shares.map { it.amountMsat })
+        assertEquals(21_000L, shares.sumOf { it.amountMsat })
+    }
 }

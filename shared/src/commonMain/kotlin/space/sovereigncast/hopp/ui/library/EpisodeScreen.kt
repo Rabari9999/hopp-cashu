@@ -1,6 +1,14 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import org.jetbrains.compose.resources.StringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -62,7 +70,11 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  * facts, one button to play or continue, the people, the show notes with
  * tappable links and time marks, the chapters.
  */
-@OptIn(ExperimentalLayoutApi::class)
+private enum class EpisodeTab(val label: StringResource) {
+    Notes(Res.string.episode_shownotes), Chapters(Res.string.sheet_chapters), People(Res.string.sheet_people)
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit) {
     val vm: EpisodeViewModel = koinViewModel(key = "episode-$id") { parametersOf(id) }
@@ -82,6 +94,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit) {
     val duration = (e.durationSeconds ?: 0) * 1000
     val linkStyle = SpanStyle(color = colors.onSurface, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
     val markStyle = SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val notes = remember(details?.description, linkStyle, markStyle) {
         details?.description?.let { showNotes(it, linkStyle, markStyle) { s -> player.playAt(e, s * 1000) } }
     }
@@ -136,35 +149,45 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit) {
                 )
             }
         }
-        details?.persons?.takeIf { it.isNotEmpty() }?.let { persons ->
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(stringResource(Res.string.sheet_people), style = MaterialTheme.typography.titleMedium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        persons.forEach { p -> AssistChip(onClick = {}, label = { Text(listOfNotNull(p.name, p.role).joinToString(" · ")) }) }
-                    }
+        // Show notes, chapters and people as tabs rather than one long column
+        // (device feedback 2026-10-08) — only the ones the episode has.
+        val persons = details?.persons.orEmpty()
+        val tabs = buildList {
+            if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
+            if (chapters.isNotEmpty()) add(EpisodeTab.Chapters)
+            if (persons.isNotEmpty()) add(EpisodeTab.People)
+        }
+        val current = tabs.getOrNull(selectedTab.coerceAtMost(tabs.lastIndex.coerceAtLeast(0)))
+        if (tabs.size > 1) stickyHeader {
+            SecondaryTabRow(selectedTabIndex = tabs.indexOf(current).coerceAtLeast(0), containerColor = colors.background) {
+                tabs.forEachIndexed { i, t ->
+                    Tab(selected = t == current, onClick = { selectedTab = i }, text = { Text(stringResource(t.label)) })
                 }
             }
+        } else if (current != null) item {
+            Text(stringResource(current.label), Modifier.padding(start = 16.dp, top = 12.dp), style = MaterialTheme.typography.titleMedium)
         }
-        notes?.takeIf { it.isNotEmpty() }?.let { text ->
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(Res.string.episode_shownotes), style = MaterialTheme.typography.titleMedium)
-                    SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
+        when (current) {
+            EpisodeTab.Notes -> item {
+                SelectionContainer {
+                    Text(notes!!, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-        }
-        if (chapters.isNotEmpty()) {
-            item { Text(stringResource(Res.string.sheet_chapters), Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.titleMedium) }
-            items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
+            EpisodeTab.Chapters -> items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { player.playAt(e, (ch.startSeconds * 1000).toLong()) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().clickable { player.playAt(e, (ch.startSeconds * 1000).toLong()) }.padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(formatTime((ch.startSeconds * 1000).toLong()), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                     Text(ch.title, style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            EpisodeTab.People -> item {
+                FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    persons.forEach { p -> AssistChip(onClick = {}, label = { Text(listOfNotNull(p.name, p.role).joinToString(" · ")) }) }
+                }
+            }
+            null -> Unit
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
