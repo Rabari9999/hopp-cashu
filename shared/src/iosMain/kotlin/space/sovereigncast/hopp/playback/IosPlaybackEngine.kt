@@ -36,6 +36,8 @@ import platform.MediaPlayer.MPNowPlayingInfoPropertyPlaybackRate
 import platform.MediaPlayer.MPRemoteCommandCenter
 import platform.MediaPlayer.MPRemoteCommandHandlerStatusCommandFailed
 import platform.MediaPlayer.MPRemoteCommandHandlerStatusSuccess
+import platform.UIKit.UIApplication
+import platform.UIKit.beginReceivingRemoteControlEvents
 import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
@@ -61,6 +63,10 @@ class IosPlaybackEngine(private val userAgent: String) : PlaybackEngine {
         val session = AVAudioSession.sharedInstance()
         session.setCategory(AVAudioSessionCategoryPlayback, error = null)
         session.setActive(true, error = null)
+        // Declares the app as a remote-control target. With MPRemoteCommandCenter
+        // this is formally optional, but without it the Now Playing entry on
+        // the lock screen and in Control Center is not reliably shown.
+        UIApplication.sharedApplication.beginReceivingRemoteControlEvents()
         // On the main queue (null) every half second: position for the UI.
         observer = player.addPeriodicTimeObserverForInterval(CMTimeMakeWithSeconds(0.5, 600), null) { _ -> publish() }
         remoteCommands()
