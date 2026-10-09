@@ -25,7 +25,7 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
   - [ ] wallet: connect over NWC (paste and `nostr+walletconnect:` link),
         boost an episode and a show, streaming on/off, history
   - [ ] Sovereigncast show: badge, Release Boosting details and payment,
-        vote, Boosts tab, boosted sats per episode
+        vote, Boosts tab
   - [ ] transcript, people, privacy page
   - [ ] after an update over the previous version: library, positions and
         wallet are still there (database migration)

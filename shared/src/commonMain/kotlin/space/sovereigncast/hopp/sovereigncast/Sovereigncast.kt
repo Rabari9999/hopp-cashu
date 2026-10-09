@@ -99,9 +99,6 @@ class SovereigncastRepository(
     suspend fun boost2unlock(layer: ScLayer) = api.boost2unlock(layer.base, layer.show.podcastGuid)
     suspend fun suggestions(layer: ScLayer) = api.suggestions(layer.base, layer.show.podcastGuid)
     suspend fun leaderboard(layer: ScLayer) = api.leaderboard(layer.base, layer.show.podcastGuid)
-    /** Boosted sats by episode guid (only episodes that have any). */
-    suspend fun episodeSats(layer: ScLayer): Map<String, Long> =
-        api.episodeSats(layer.base, layer.show.podcastGuid).episodes.associate { it.episodeGuid to it.boostedSats }
 
     /** Free, one per listener and suggestion; remembered here to show it. */
     suspend fun vote(layer: ScLayer, suggestionId: Long): VoteResult {

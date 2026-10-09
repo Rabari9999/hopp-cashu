@@ -35,9 +35,6 @@ import space.sovereigncast.hopp.resources.remaining
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
-import space.sovereigncast.hopp.ui.components.HoppIcons
-import space.sovereigncast.hopp.ui.components.formatSats
-import androidx.compose.material3.Icon
 
 @Composable
 fun Cover(url: String?, size: Dp, corner: Dp = 12.dp, modifier: Modifier = Modifier) {
@@ -54,8 +51,6 @@ fun EpisodeRow(
     item: EpisodeItem,
     showPodcast: Boolean,
     onClick: () -> Unit,
-    /** What the community boosted this episode with (Sovereigncast, ADR 0019). */
-    boostedSats: Long? = null,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
@@ -84,10 +79,6 @@ fun EpisodeRow(
                 downloadLabel(item)?.let(::add)
             }.joinToString(" · ")
             Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-            if (boostedSats != null && boostedSats > 0) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                Icon(HoppIcons.Hop, null, tint = Hopp.colors.valueText, modifier = Modifier.size(13.dp))
-                Text(" " + formatSats(boostedSats) + " sats", style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
-            }
         }
         trailing()
     }

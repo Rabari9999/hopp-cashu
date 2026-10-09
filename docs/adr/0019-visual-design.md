@@ -116,7 +116,11 @@ controls (speed, −15 s, play, +30 s, sleep timer) → **value bar** → sheets
 Header (cover, title, cadence, subscribe) → **Sovereigncast card**, only while an
 action runs (Release Boosting or Boost2Unlock: label "via Sovereigncast",
 progress bar, time or amount left, pay button) → tabs **Episodes · Community**.
-Each episode shows its boosted sats.
+~~Each episode shows its boosted sats.~~ *Dropped 2026-10-09:* a total per
+episode is in effect what the episode earned, and Sovereigncast does not
+publish that — its public side shows amounts only for the month's top boosts
+(the all-time ranking and top episodes carry none). The Listener API has no
+such endpoint (ADR 0010).
 
 **Community tab:** the running action as a card; topic suggestions with a vote
 button (filled = voted) and boosted amounts in orange; "suggest" action; top

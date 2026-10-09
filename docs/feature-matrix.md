@@ -49,7 +49,7 @@ implemented in Sovereigncast; ecash and push are not part of it yet.
 | Topic suggestions: open list, free vote | **P1** (slim layer) |
 | Topic suggestions: submit, sats boost | P2 |
 | Paid Q&A | P2 |
-| Top boosts and the all-time boosters (read-only), boosted sats per episode | **P1** (pulled forward 2026-10-09, ADR 0019) |
+| Top boosts and the all-time boosters (read-only) | **P1** (pulled forward 2026-10-09, ADR 0019) |
 | Top episodes | P2 |
 | Ecash (Cashu) redemption, nutzaps | P3 |
 | Ecash streaming over a Spilman channel (`ecash_channel` capability, ADR 0014) | P3 |

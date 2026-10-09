@@ -100,14 +100,13 @@ private var statusCalls = 0
 private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String) = when {
     path == "/api/listener/meta" -> respond("""{"api_versions":["v1"],"instance":{"id":"i","software":"sovereigncast","version":"dev"}}""")
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
-        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true,"episode_sats":true},
+        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
         "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
     path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
     path.endsWith("/leaderboard") -> respond(LEADERBOARD)
-    path.endsWith("/episode-sats") -> respond("""{"episodes":[{"episode_guid":"e296","boosted_sats":2100}],"poll_after_seconds":600}""")
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
         """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
@@ -667,14 +666,5 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         waitFor("♥ Unterstütze uns ›")
-    }
-
-    /** What the community boosted each episode with (Sovereigncast). */
-    @Test
-    fun episodesShowTheirBoostedSats() {
-        rule.setContent { App() }
-        tap("Discover"); subscribe("https://pod.test/sc.xml")
-        waitFor("✓ Sovereigncast")
-        waitFor(" 2,100 sats")
     }
 }

@@ -129,7 +129,6 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val unlocks by community.unlocks.collectAsState()
     val suggestions by community.suggestions.collectAsState()
     val board by community.leaderboard.collectAsState()
-    val episodeSats by community.episodeSats.collectAsState()
     val votes by community.votes.collectAsState()
     var paying by remember { mutableStateOf<Pair<ScTarget, String>?>(null) }
     var details by remember { mutableStateOf<Any?>(null) } // a round, an unlock or a suggestion
@@ -202,7 +201,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
             when (tabs.getOrNull(index)) {
                 ShowTab.Episodes, null -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     items(episodes.orEmpty(), key = { it.id }) { item ->
-                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }, boostedSats = episodeSats[item.guid]) {
+                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
                             PlayButton(item)
                             EpisodeMenu(item)
                         }

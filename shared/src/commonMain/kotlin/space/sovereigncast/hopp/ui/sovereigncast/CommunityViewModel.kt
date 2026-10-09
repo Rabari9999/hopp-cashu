@@ -62,9 +62,6 @@ class CommunityViewModel(
     private val _leaderboard = MutableStateFlow<Leaderboard?>(null)
     /** This month's top boosts, the latest ones and the all-time boosters. */
     val leaderboard: StateFlow<Leaderboard?> = _leaderboard.asStateFlow()
-    private val _episodeSats = MutableStateFlow<Map<String, Long>>(emptyMap())
-    /** Boosted sats by episode guid, for the episode list. */
-    val episodeSats: StateFlow<Map<String, Long>> = _episodeSats.asStateFlow()
     private val _pay = MutableStateFlow<ScPay>(ScPay.Idle)
     val pay: StateFlow<ScPay> = _pay.asStateFlow()
 
@@ -87,12 +84,10 @@ class CommunityViewModel(
         val b2u = async { if (c.boost2unlock) runCatching { sc.boost2unlock(l).episodes }.getOrDefault(emptyList()) else emptyList() }
         val sug = async { if (c.suggestions) runCatching { sc.suggestions(l).suggestions }.getOrNull() else null }
         val board = async { if (c.leaderboard) runCatching { sc.leaderboard(l) }.getOrNull() else null }
-        val perEpisode = async { if (c.episodeSats) runCatching { sc.episodeSats(l) }.getOrNull() else null }
         _round.value = rb.await()
         _unlocks.value = b2u.await()
         _suggestions.value = sug.await()
         board.await()?.let { _leaderboard.value = it }
-        perEpisode.await()?.let { _episodeSats.value = it }
     }
 
     fun vote(s: Suggestion) {
