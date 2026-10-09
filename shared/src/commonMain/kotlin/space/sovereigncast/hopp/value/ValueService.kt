@@ -29,6 +29,7 @@ import space.sovereigncast.hopp.data.Clock
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.directory.DirectoryRepository
@@ -146,12 +147,23 @@ class ValueService(
 
     // ── value blocks ──────────────────────────────────────────────────────
 
-    /** The episode's own block, else the show's (podcast namespace). */
+    /** The episode's own block, else the show's (podcast namespace) — with
+     *  Hopp's share added when the listener chose to support it. */
     suspend fun blockFor(item: EpisodeItem): ValueBlock? {
-        if (item.id in blocks) return blocks[item.id]
-        val block = episodes.details(item.id)?.value ?: podcasts.podcastMeta(item.podcastId)?.value
-        blocks[item.id] = block
-        return block
+        val block = if (item.id in blocks) blocks[item.id] else
+            (episodes.details(item.id)?.value ?: podcasts.podcastMeta(item.podcastId)?.value).also { blocks[item.id] = it }
+        return block?.let { withSupport(it) }
+    }
+
+    /**
+     * "Support Hopp" (ADR 0005): opt-in, visible, off by default. A fee-style
+     * share — its percent comes off the top — so it shows in the split like
+     * any recipient and never adds to what the listener chose to give.
+     */
+    private suspend fun withSupport(block: ValueBlock): ValueBlock {
+        val percent = settings.current().supportHoppPercent
+        if (percent <= 0) return block
+        return block.copy(recipients = block.recipients + ValueRecipient(SUPPORT_NAME, "lnaddress", Settings.SUPPORT_ADDRESS, percent, fee = true))
     }
 
     /** Another feed's block, for a time split pointing there: the item's own,
@@ -192,7 +204,7 @@ class ValueService(
     /** A boost to the show as a whole (device feedback 2026-10-08): its own
      *  value block, no episode, no time splits. */
     suspend fun planShow(podcastId: Long, amountMsat: Long): BoostPlan {
-        val block = podcasts.podcastMeta(podcastId)?.value ?: return BoostPlan.NoValue
+        val block = podcasts.podcastMeta(podcastId)?.value?.let { withSupport(it) } ?: return BoostPlan.NoValue
         val info = wallet.wallet.value?.info
         val planned = Splits.divideWholeSats(block.recipients, amountMsat).map { s ->
             PlannedShare(s.recipient, s.amountMsat, info?.let { unpayableReason(s.recipient, it) })
@@ -203,7 +215,7 @@ class ValueService(
     suspend fun boostShow(podcastId: Long, amountMsat: Long, message: String?): List<ShareResult> {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
         val info = wallet.wallet.value?.info ?: client.info()
-        val block = podcasts.podcastMeta(podcastId)?.value ?: throw IllegalStateException("no value block")
+        val block = podcasts.podcastMeta(podcastId)?.value?.let { withSupport(it) } ?: throw IllegalStateException("no value block")
         val show = podcasts.show(podcastId).first()
         val ctx = BoostContext(
             action = "boost", appVersion = app.version, podcast = show?.title, episode = null, feedUrl = show?.feedUrl,
@@ -213,6 +225,16 @@ class ValueService(
         val results = BoostSender(client, lnAddress, info).send(block, amountMsat, ctx)
         record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
         return results
+    }
+
+    /** A payment made outside the value split — an instance's invoice for
+     *  Release Boosting or Boost2Unlock — kept in the same history. */
+    suspend fun logInvoicePayment(
+        kind: String, podcastId: Long, podcastTitle: String?, episodeTitle: String?, amountMsat: Long,
+        message: String?, recipientName: String?, recipientAddress: String, feesMsat: Long?,
+    ) = withContext(Dispatchers.IO) {
+        val line = PaymentLine(recipientName, recipientAddress, amountMsat, "paid", feesMsat = feesMsat, route = "invoice")
+        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, amountMsat, message, json.encodeToString(lineList, listOf(line)))
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -377,8 +399,11 @@ class ValueService(
     companion object {
         const val KIND_BOOST = "boost"
         const val KIND_STREAM = "stream"
+        const val KIND_RELEASE_BOOSTING = "release_boosting"
+        const val KIND_BOOST2UNLOCK = "boost2unlock"
         const val RAIL_LIGHTNING = "lightning"
         /** When neither the listener nor the show sets a rate. */
         const val DEFAULT_RATE = 10
+        const val SUPPORT_NAME = "Hopp"
     }
 }

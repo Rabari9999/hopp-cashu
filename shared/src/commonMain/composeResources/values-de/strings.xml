@@ -183,4 +183,6 @@
     <string name="boost_whole_show">Für die ganze Show</string>
     <string name="boost_fees">+ %1$s sats Routing-Gebühr, von deiner Wallet obendrauf bezahlt</string>
     <string name="history_fee">Gebühr %1$s sats</string>
+    <string name="wallet_support">Hopp unterstützen</string>
+    <string name="wallet_support_note">Freiwillig: Dieser Anteil jedes Boosts und des Streamings geht an die Entwicklung von Hopp (%1$s) – in jeder Aufteilung sichtbar, aus dem Betrag genommen, nie obendrauf.</string>
 </resources>

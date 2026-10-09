@@ -33,6 +33,14 @@ data class Settings(
     /** The boost button on the lock screen and in the notification sends this
      *  at once, without a dialog; 0 = no button. */
     val quickBoostSats: Int = 100,
+    /** "Support Hopp" (ADR 0005): a visible share of boosts and streaming,
+     *  in percent; 0 = off, which is the default. */
+    val supportHoppPercent: Int = 0,
+    /** Hopp's anonymous id for free votes (Listener API voter_id) — random,
+     *  made once, nothing to do with anything else the listener does. */
+    val voterId: String = "",
+    /** Suggestions this listener voted for: "<podcast guid>/<id>". */
+    val votes: Set<String> = emptySet(),
     /** The last search terms, newest first (at most [RECENT_SEARCHES]). */
     val recentSearches: List<String> = emptyList(),
 ) {
@@ -43,6 +51,9 @@ data class Settings(
         val budgetChoicesSats = listOf(1_000, 5_000, 10_000, 21_000, 50_000)
         val streamRateChoicesSats = listOf(0, 1, 5, 10, 21, 50)
         const val RECENT_SEARCHES = 4
+        val supportChoices = listOf(0, 1, 2, 5)
+        /** Where "Support Hopp" goes — the project's Lightning address. */
+        const val SUPPORT_ADDRESS = "sovereigncast@getalby.com"
         val quickBoostChoicesSats = listOf(0, 21, 100, 500, 1_000)
 
         internal fun from(values: Map<String, String>): Settings {
@@ -59,6 +70,9 @@ data class Settings(
                 streamRateSats = values["stream_rate_sats"]?.toIntOrNull() ?: d.streamRateSats,
                 senderName = values["sender_name"] ?: d.senderName,
                 quickBoostSats = values["quick_boost_sats"]?.toIntOrNull() ?: d.quickBoostSats,
+                supportHoppPercent = values["support_hopp_percent"]?.toIntOrNull() ?: d.supportHoppPercent,
+                voterId = values["voter_id"] ?: d.voterId,
+                votes = values["votes"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.votes,
                 recentSearches = values["recent_searches"]?.split('\n')?.filter { it.isNotBlank() } ?: d.recentSearches,
             )
         }
@@ -76,6 +90,9 @@ data class Settings(
         "stream_rate_sats" to streamRateSats.toString(),
         "sender_name" to senderName,
         "quick_boost_sats" to quickBoostSats.toString(),
+        "support_hopp_percent" to supportHoppPercent.toString(),
+        "voter_id" to voterId,
+        "votes" to votes.joinToString("\n"),
         "recent_searches" to recentSearches.joinToString("\n"),
     )
 }

@@ -25,6 +25,8 @@ import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.sovereigncast.ListenerApi
+import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import space.sovereigncast.hopp.value.LnAddressClient
 import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
@@ -73,6 +75,8 @@ fun sharedModule(platform: Platform) = module {
     single { WalletRepository(get(), get(), get()) }
     single { LnAddressClient(get()) }
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single { ListenerApi(get()) }
+    single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
     viewModel { HomeViewModel(get(), get(), get()) }

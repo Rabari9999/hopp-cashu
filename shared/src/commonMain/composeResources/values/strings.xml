@@ -183,4 +183,6 @@
     <string name="boost_whole_show">For the whole show</string>
     <string name="boost_fees">+ %1$s sats routing fee, paid by your wallet on top</string>
     <string name="history_fee">fee %1$s sats</string>
+    <string name="wallet_support">Support Hopp</string>
+    <string name="wallet_support_note">Optional: this share of every boost and of streaming goes to Hopp's development (%1$s) — shown in each split, taken from the amount, never added to it.</string>
 </resources>

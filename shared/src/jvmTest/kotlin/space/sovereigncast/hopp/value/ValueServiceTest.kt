@@ -240,4 +240,18 @@ class ValueServiceTest {
         assertEquals(21_000L, lines.sumOf { it.msat })
         assertTrue(lines.all { it.feesMsat == 1000L }, "the fake wallet reports a 1-sat fee per payment")
     }
+
+    /** "Support Hopp" (ADR 0005): off by default; when chosen, a visible share
+     *  taken from the boost, not added to it. */
+    @Test
+    fun supportingHoppIsAVisibleShareOfTheSameAmount() = test {
+        wallet.connect(uri())
+        val ep = episode()
+        val off = value.plan(ep, 30, 100_000) as BoostPlan.Ready
+        assertTrue(off.shares.none { it.recipient.name == ValueService.SUPPORT_NAME })
+        settings.update { it.copy(supportHoppPercent = 5) }
+        val on = value.plan(ep, 30, 100_000) as BoostPlan.Ready
+        assertEquals(5_000L, on.shares.single { it.recipient.name == ValueService.SUPPORT_NAME }.amountMsat)
+        assertEquals(100_000L, on.shares.sumOf { it.amountMsat }, "still exactly the chosen amount")
+    }
 }
