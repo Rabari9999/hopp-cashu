@@ -23,7 +23,7 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:season`, `podcast:episode` | ✅ | ✅ | P1 | Fall back to `itunes:season`/`itunes:episode`. |
 | `podcast:image` | ✅ | ✅ | P1 | Responsive artwork. |
 | `podcast:funding` | ✅ | ✅ | P1 | |
-| `podcast:updateFrequency` | ✅ derived from the publishing gaps | ✅ | P1 | Drives refresh scheduling. |
+| `podcast:updateFrequency` | ✅ derived from the publishing gaps | ✅ | P1 | Read and shown; not used for refresh scheduling (the listener sets the interval, ADR 0013). |
 | `podcast:trailer` | ✅ | ✅ | P2 | |
 | `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
 | `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |

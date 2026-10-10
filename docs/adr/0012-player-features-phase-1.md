@@ -15,7 +15,8 @@ every day in the first release.
 
 - **Playback:** speed 0.5×–3×, remembered per show; skip intervals configurable
   (default 10 s back, 30 s forward); every episode keeps its position; an episode
-  counts as played from 95 %.
+  counts as played when it ends. *(Amended 2026-10-10: "played from 95 %"
+  dropped by the maintainer — it makes no sense for how Hopp is used.)*
 - **Lock screen, notification, headset and Bluetooth controls:** chapter title
   and chapter image in the now-playing view; previous/next jump between chapters
   when the episode has them.
