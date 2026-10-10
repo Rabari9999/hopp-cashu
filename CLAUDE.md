@@ -39,12 +39,13 @@ file needs the matching `migrations/<n>.sqm` too, and installed apps run it
 on update; `DownloadsAndQueueTest.aVersionOneDatabaseIsMigrated` shows how to
 check it against the old schema.
 
-Search needs the Podcast Index key (ADR 0008), which is compiled in but not in
-git: `podcastindex.key` / `podcastindex.secret` in `~/.gradle/gradle.properties`
-on the build box, `PODCASTINDEX_KEY` / `PODCASTINDEX_SECRET` as masked CI
-variables. Without them the app builds and Discover says search is
-unavailable. `HOPP_LIVE_DIRECTORY=1 ./gradlew :shared:jvmTest --tests
-'*DirectoryLiveTest*'` checks the real directories with it. Never print it.
+Search needs the Podcast Index key (ADR 0008). Key and secret are public in
+`shared/build.gradle.kts` since 2026-10-10 (open question 17: F-Droid builds
+from source and must produce our APK; AntennaPod and Kasts do the same). A
+Gradle property (`podcastindex.key` / `podcastindex.secret`) or the CI
+variables `PODCASTINDEX_KEY` / `_SECRET` override them — keep those equal to
+the public values, or release builds stop matching F-Droid's. `HOPP_LIVE_DIRECTORY=1 ./gradlew :shared:jvmTest --tests
+'*DirectoryLiveTest*'` checks the real directories with it.
 
 Judge how Hopp *feels* only on the `beta` build (`assembleFossBeta`: release
 code, debug key, installs over a debug build). A debug build is debuggable,

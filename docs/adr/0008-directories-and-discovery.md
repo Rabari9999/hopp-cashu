@@ -34,6 +34,11 @@ settles it.
 - Key and secret **ship in the app** (common practice; the Podcast Index hands
   out free keys to apps). No server of ours sees what listeners search.
 - If the key is abused, it is rotated with the next release.
+- **Public in the repository** (decided 2026-10-10, open question 17): the
+  F-Droid build from source uses the same key as our signed APK, so the
+  builds match. AntennaPod and KDE Kasts publish theirs the same way;
+  Podverse instead proxies the index through its own server, which ADR 0015
+  rules out for Hopp.
 - ~~Listeners may enter **their own key** in the settings.~~ Withdrawn
   2026-10-08, after the field was on the device: it confused far more people
   than it would ever help, and a key abused or rate-limited is rotated with a

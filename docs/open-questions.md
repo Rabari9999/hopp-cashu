@@ -62,7 +62,12 @@ navigation, now playing, show page with community tab, boost dialog.
 
 All other topics of the specification phase are decided. New questions go here.
 
-## 17. The Podcast Index key and F-Droid
+## 17. The Podcast Index key and F-Droid — decided 2026-10-10
+
+Key and secret are public in `shared/build.gradle.kts` (the proposal below),
+as AntennaPod (`net/discovery/build.gradle`) and KDE Kasts (in its search
+code) do. A Gradle property or CI variable still overrides them; F-Droid's
+build from source and our signed APK use the same values. ADR 0008 amended.
 
 ADR 0008 ships the key in the app; since package 3 it comes from a Gradle
 property or the CI variables `PODCASTINDEX_KEY` / `PODCASTINDEX_SECRET`, not
