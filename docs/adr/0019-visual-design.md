@@ -192,3 +192,11 @@ the reference once the screens exist.
   and download notifications stay — Android needs them for background work.
 - **First start:** a five-page tour (Hopp, subscribing, library, value for
   value, wallet), skippable, again from *About Hopp*.
+- **Later the same day:** the tour leaves out its wallet page when a wallet is
+  connected; the payment history is only in the settings overview (not on the
+  wallet page too); leaving the settings for a tab closes them, so a tab never
+  comes back showing the settings (tab stacks are kept for shows and episodes,
+  which belong to a tab — the settings belong to none); the Sovereigncast badge
+  explains itself on a tap, everywhere, and search marks and filters
+  Sovereigncast shows by the curated list on sovereigncast.space (ADR 0008).
+

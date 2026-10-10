@@ -120,6 +120,11 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object InboxRoute
 @Serializable object LibraryRoute
 @Serializable object DiscoverRoute
+/** The settings and what hangs off them — closed when the listener leaves for a tab. */
+private val SETTINGS_ROUTES = listOf(
+    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class,
+)
+
 @Serializable object SettingsRoute
 @Serializable data class SettingsPageRoute(val page: String)
 @Serializable data class ShowRoute(val id: Long)
@@ -166,6 +171,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // pushed onto New came back when New was tapped and looked like a New
     // tab full of episodes). Tapping the tab you are on goes back to its root.
     val selectTab = { tab: Tab ->
+        // The settings belong to no tab (device feedback 2026-10-10): leaving
+        // them for a tab closes them, so the tab they were opened from comes
+        // back where it was, not in the settings.
+        val settingsAt = backStack.indexOfFirst { e -> SETTINGS_ROUTES.any { e.destination.hasRoute(it) } }
+        if (settingsAt > 0) nav.popBackStack(backStack[settingsAt - 1].destination.id, inclusive = false)
         if (tab == currentTab) nav.popBackStack(tab.route, inclusive = false)
         else nav.navigate(tab.route) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -206,6 +216,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val settingsRepo: SettingsRepository = koinInject()
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
+    val connectedWallet by koinInject<space.sovereigncast.hopp.value.WalletRepository>().wallet.collectAsState()
     val tourScope = rememberCoroutineScope()
     // A crash last time: offer the report, once per start (ADR 0015).
     val crashes: CrashReports = koinInject()
@@ -321,7 +332,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 })
                             }
                             composable<WalletRoute> { e ->
-                                WalletScreen(onHistory = { nav.navigate(HistoryRoute) }, incomingUri = e.toRoute<WalletRoute>().uri)
+                                WalletScreen(incomingUri = e.toRoute<WalletRoute>().uri)
                             }
                             composable<HistoryRoute> { HistoryScreen() }
                             composable<ShowRoute> { e ->
@@ -348,7 +359,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) {
                         NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute()) })
                     }
-                    if (tour || appSettings?.onboardingDone == false) OnboardingScreen { connectWallet ->
+                    if (tour || appSettings?.onboardingDone == false) OnboardingScreen(hasWallet = connectedWallet != null) { connectWallet ->
                         tour = false
                         tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
                         if (connectWallet) nav.navigate(WalletRoute())

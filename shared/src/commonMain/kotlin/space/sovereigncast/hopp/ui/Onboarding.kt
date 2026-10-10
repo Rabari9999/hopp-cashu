@@ -44,6 +44,7 @@ import space.sovereigncast.hopp.resources.onboarding_library_text
 import space.sovereigncast.hopp.resources.onboarding_library_title
 import space.sovereigncast.hopp.resources.onboarding_next
 import space.sovereigncast.hopp.resources.onboarding_skip
+import space.sovereigncast.hopp.resources.onboarding_start
 import space.sovereigncast.hopp.resources.onboarding_subscribe_text
 import space.sovereigncast.hopp.resources.onboarding_subscribe_title
 import space.sovereigncast.hopp.resources.onboarding_v4v_text
@@ -58,7 +59,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 
 private class TourPage(val icon: ImageVector, val value: Boolean, val title: StringResource, val text: StringResource)
 
-private val PAGES = listOf(
+private val ALL_PAGES = listOf(
     TourPage(HoppIcons.Hop, false, Res.string.onboarding_welcome_title, Res.string.onboarding_welcome_text),
     TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text),
     TourPage(Icons.AutoMirrored.Rounded.List, false, Res.string.onboarding_library_title, Res.string.onboarding_library_text),
@@ -70,10 +71,13 @@ private val PAGES = listOf(
  * The first start (device feedback 2026-10-10): five short pages — what Hopp
  * is, subscribing, the library, value for value, the wallet — swiped or
  * stepped through, skippable at any time. The last page offers to connect a
- * wallet right away; [onDone] says whether the listener took it.
+ * wallet right away — left out when one is connected (device feedback
+ * 2026-10-10); [onDone] says whether the listener took it.
  */
 @Composable
-fun OnboardingScreen(onDone: (connectWallet: Boolean) -> Unit) {
+fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean) -> Unit) {
+    // A wallet already connected (tour again, or after an update): no page asking for one.
+    val PAGES = if (hasWallet) ALL_PAGES.dropLast(1) else ALL_PAGES
     val pager = rememberPagerState { PAGES.size }
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
@@ -109,7 +113,10 @@ fun OnboardingScreen(onDone: (connectWallet: Boolean) -> Unit) {
             }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (last) {
+            if (last && hasWallet) {
+                Button(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_start)) }
+                TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
+            } else if (last) {
                 Button(
                     onClick = { onDone(true) }, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Hopp.colors.value, contentColor = Hopp.colors.onValue),

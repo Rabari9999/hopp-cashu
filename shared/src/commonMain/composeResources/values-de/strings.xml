@@ -348,6 +348,17 @@
     <string name="onboarding_v4v_text">Podcasts leben von ihren Hörern. Mit einem Boost schickst du Sats – Bitcoin über Lightning – direkt an die Menschen hinter einer Show, mit Nachricht, aufgeteilt so, wie die Show es festlegt. Beim Streaming fließen ein paar Sats pro Minute, während du hörst – nur, wenn du es einschaltest. Bei Sovereigncast-Shows holst du außerdem Folgen früher raus und stimmst über Themen ab.</string>
     <string name="onboarding_wallet_title">Wallet verbinden</string>
     <string name="onboarding_wallet_text">Für Boosts verbindest du deine Lightning-Wallet per Nostr Wallet Connect (NWC) – Alby Hub, Primal, Coinos und andere bieten das an. Ein Tagesbudget hält es im Rahmen. Ohne Wallet funktioniert alles andere genauso.</string>
+    <string name="sc_info_title">Was Sovereigncast mitbringt</string>
+    <string name="sc_info_intro">Diese Show läuft mit Sovereigncast – der offenen, selbst gehosteten Plattform, mit der ihre Macher sie produzieren. In Hopp bringt das Extras, die keine andere App zeigt:</string>
+    <string name="sc_info_rb">Release Boosting: Deine Sats holen die nächste Folge früher raus.</string>
+    <string name="sc_info_b2u">Boost2Unlock: Hörer schalten besondere Folgen gemeinsam frei.</string>
+    <string name="sc_info_suggestions">Themenvorschläge: Sieh, was andere hören wollen, und stimme kostenlos ab.</string>
+    <string name="sc_info_boosts">Die Boosts der Community: Top-Boosts des Monats und die ewige Bestenliste.</string>
+    <string name="sc_info_clips">Clips, die auf halbem Weg zum Ziel freigeschaltet werden.</string>
+    <string name="sc_info_trust">Hopp prüft bei der Instanz der Show, dass die Show wirklich dorthin gehört, bevor es etwas davon zeigt.</string>
+    <string name="sc_info_more">Mehr über Sovereigncast</string>
+    <string name="sc_info_url">https://sovereigncast.space/de/</string>
+    <string name="onboarding_start">Los geht's</string>
     <string-array name="months">
         <item>Januar</item>
         <item>Februar</item>

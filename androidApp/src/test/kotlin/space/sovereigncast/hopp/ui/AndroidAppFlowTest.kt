@@ -140,7 +140,11 @@ class TestApp : Application() {
                 req.url.host == "pm.test" -> scInstance(req.url.encodedPath)
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
                 req.url.host == "api.podcastindex.org" ->
-                    respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"}]}""")
+                    respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"},
+                        {"id":2,"title":"Nodesignal","url":"https://pod.test/sc.xml","author":"N","podcastGuid":"$SC_GUID"}]}""")
+                // The curated list of Sovereigncast shows (ScDirectory).
+                req.url.host == "sovereigncast.space" && req.url.encodedPath == "/directory.json" ->
+                    respond("""{"version":1,"shows":[{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml","instance":"https://pm.test"}]}""")
                 req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
                 req.url.encodedPath == "/2.vtt" -> respond(TRANSCRIPT)
                 req.url.encodedPath == "/1.json" -> respond("""{"version":"1.2.0","chapters":[{"startTime":0,"title":"Intro"},
@@ -385,8 +389,7 @@ class AndroidAppFlowTest {
         tap("Connect")
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Could not connect", substring = true).fetchSemanticsNodes().isNotEmpty() }
         check(!has("Daily budget for boosts and streaming")) { "budget without a wallet: ${screen()}" }
-        rule.onNode(hasText("Payment history") and hasClickAction()).performScrollTo().performClick()
-        waitFor("No payments yet")
+        check(!has("Payment history")) { "the history is a row of the settings, not of the wallet page" }
     }
 
     /** A wallet's "connect" link opens the wallet page with the string filled in. */
@@ -839,5 +842,60 @@ class AndroidAppFlowTest {
         waitFor("RELEASE BOOSTING · Nodesignal")
         rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
         waitFor("✓ Sovereigncast")
+    }
+
+    // ── device feedback 2026-10-10 (later) ─────────────────────────────────
+
+    /** With a wallet connected, the tour does not ask for one. */
+    @Test
+    fun theTourSkipsTheWalletPageWhenOneIsConnected() {
+        val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()
+        secrets.put("nwc_uri", "nostr+walletconnect://" + "a".repeat(64) + "?relay=wss://r.test&secret=" + "b".repeat(64))
+        secrets.put("nwc_info", """{"methods":["pay_invoice","pay_keysend"]}""")
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(3) { tap("Next") }
+        waitFor("Value for value")
+        check(!has("Connect a wallet") && !has("Next")) { screen().toString() }
+        tap("Let's go")
+        until { settings().onboardingDone }
+    }
+
+    /** Settings opened from a tab close when the listener goes to another tab. */
+    @Test
+    fun leavingTheSettingsForATabClosesThem() {
+        rule.setContent { App() }
+        tap("Library")
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("Value for value")
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).assertExists()
+        tap("Library")
+        rule.waitUntil(10_000) { !has("Value for value") }
+        rule.onNode(hasContentDescription("Settings")).assertExists() // a tab's top bar, not the settings'
+    }
+
+    /** Search marks Sovereigncast shows from the curated list; the badge explains; the filter lists them. */
+    @Test
+    fun searchMarksAndFiltersSovereigncastShows() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("nodesignal")
+        waitFor("Nodesignal")
+        rule.onAllNodes(hasText("✓ Sovereigncast") and hasClickAction()).onLast().performClick()
+        waitFor("What Sovereigncast brings")
+        check(has("More about Sovereigncast")) { screen().toString() }
+        rule.onNode(hasText("More about Sovereigncast") and hasClickAction()).assertExists()
+    }
+
+    @Test
+    fun theSovereigncastFilterListsTheShows() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("✓ Sovereigncast") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() } // the chip, once the list is in
+        rule.onNode(hasText("✓ Sovereigncast") and hasClickAction()).performClick()
+        waitFor("Nodesignal")
+        check(!has("Test Show")) { screen().toString() }
     }
 }

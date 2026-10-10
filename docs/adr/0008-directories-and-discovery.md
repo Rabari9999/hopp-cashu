@@ -54,7 +54,11 @@ settles it.
   ADR 0002) and marks it as a Sovereigncast show.
 - **Directory, phase 1 of it:** a curated JSON list on sovereigncast.space
   (repo `nodesignal/sovereigncast-space`); an instance is added by merge request.
-  Feeds a "Sovereigncast shows" section in Discover.
+  Feeds a "Sovereigncast shows" section in Discover. *Built 2026-10-10:* `https://sovereigncast.space/directory.json`
+  (`ScDirectory` in Hopp) marks listed shows in search and backs the
+  Sovereigncast filter, which without a term lists them all. No directory —
+  Podcast Index included — exposes `podcast:txt`, and fetching each result's
+  feed for the marker would cost a request per row, hence the list.
 - **Directory, later:** decentralised announcement over Nostr — each instance
   publishes an event signed with the show's key; Hopp queries relays and
   verifies each hit per ADR 0002. Replaces the gatekeeping of the list once

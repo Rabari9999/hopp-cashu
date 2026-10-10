@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.directory.DirectoryShow
+import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
+import space.sovereigncast.hopp.resources.sc_badge
 import space.sovereigncast.hopp.directory.Source
 import space.sovereigncast.hopp.directory.feedKey
 import space.sovereigncast.hopp.net.FeedFetcher
@@ -69,6 +71,8 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
 fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel()) {
     val query by vm.query.collectAsState()
     val valueOnly by vm.valueOnly.collectAsState()
+    val scOnly by vm.scOnly.collectAsState()
+    val scShows by vm.scShows.collectAsState()
     val search by vm.search.collectAsState()
     val podroll by vm.podroll.collectAsState()
     val subscribed by vm.subscribed.collectAsState()
@@ -98,6 +102,9 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
+                    // Only shows on the curated list (device feedback 2026-10-10) — no
+                    // directory knows the feed marker, see ScDirectory.
+                    if (scShows.isNotEmpty()) FilterChip(selected = scOnly, onClick = { vm.setScOnly(!scOnly) }, label = { Text("✓ " + stringResource(Res.string.sc_badge)) })
                     if (address != null) Button(onClick = { onPreview(address, null) }) { Text(stringResource(Res.string.discover_open_feed)) }
                 }
                 settings?.let { s ->
@@ -119,7 +126,9 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 }
                 if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
                 items(r.shows, key = { "r" + it.feedUrl }) { show ->
-                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed) { vm.remember(q); onPreview(show.feedUrl, show) }
+                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows.isNotEmpty() && vm.isSovereigncast(show)) {
+                        vm.remember(q); onPreview(show.feedUrl, show)
+                    }
                 }
             }
             SearchUi.Idle -> if (q.isEmpty()) {
@@ -136,7 +145,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 }
                 if (podroll.isNotEmpty()) {
                     item { Header(stringResource(Res.string.discover_podroll)) }
-                    items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false) { onPreview(show.feedUrl, show) } }
+                    items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false, sovereigncast = vm.isSovereigncast(show)) { onPreview(show.feedUrl, show) } }
                 }
                 item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -163,7 +172,7 @@ private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.on
 private fun Header(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
 
 @Composable
-private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, onClick: () -> Unit) {
+private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, sovereigncast: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -179,6 +188,7 @@ private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, onClick: () -
                 stringResource(Res.string.show_subscribed).takeIf { subscribed },
             ).joinToString(" · ")
             if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (sovereigncast) Row(Modifier.padding(top = 3.dp)) { ScBadge() }
         }
     }
 }

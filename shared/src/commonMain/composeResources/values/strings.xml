@@ -150,7 +150,7 @@
     <string name="boost_failed">Boost failed: %1$s</string>
     <string name="boost_close">Close</string>
     <string name="reason_keysend">wallet cannot send keysend</string>
-    <string name="reason_remote">the song\'s address was not found</string>
+    <string name="reason_remote">the song's address was not found</string>
     <string name="reason_invoice">wallet cannot pay invoices</string>
     <string name="np_streamed_today">today %1$s sats</string>
     <string name="np_over_budget">daily budget used up</string>
@@ -158,7 +158,7 @@
     <string name="stream_invite_text">%1$d sats per minute of listening go to the show — split as its feed says, paid in batches. Boosts and streaming together spend at most %2$s sats a day; change that under Wallet.</string>
     <string name="stream_invite_on">Start streaming</string>
     <string name="stream_notice">Paid what accrued offline: %1$s sats for %2$d episode(s)</string>
-    <string name="reason_self">that\'s you — your own wallet</string>
+    <string name="reason_self">that's you — your own wallet</string>
     <string name="reason_dust">less than 1 sat</string>
     <string name="boost_none_payable">Your wallet cannot reach any recipient of this show.</string>
     <string name="boost_not_paid">%1$s: %2$s</string>
@@ -166,7 +166,7 @@
     <string name="wallet_can_keysend">Keysend (node recipients)</string>
     <string name="wallet_yes">yes</string>
     <string name="wallet_no">no</string>
-    <string name="wallet_cannot_pay">This connection can neither pay invoices nor send keysend — boosts and streaming will not work. Check the connection\'s permissions in your wallet.</string>
+    <string name="wallet_cannot_pay">This connection can neither pay invoices nor send keysend — boosts and streaming will not work. Check the connection's permissions in your wallet.</string>
     <string name="wallet_no_keysend_note">Recipients with a node address are skipped; Lightning addresses are paid by invoice.</string>
     <string name="discover_recent">Recent searches</string>
     <string name="discover_recent_clear">Clear</string>
@@ -259,7 +259,7 @@
     <string name="pv_wallet_sees">every payment you make</string>
     <string name="pv_wallet_when">boosts and streaming</string>
     <string name="pv_recipients_who">Boost recipients</string>
-    <string name="pv_recipients_sees">episode, playback position, message and — if given — your name; Hopp\'s support address only the amount, and only if you switch it on</string>
+    <string name="pv_recipients_sees">episode, playback position, message and — if given — your name; Hopp's support address only the amount, and only if you switch it on</string>
     <string name="pv_recipients_when">with each boost, as Podcasting 2.0 apps send it</string>
     <string name="pv_extra_who">Hosts of images, chapters and transcripts</string>
     <string name="pv_extra_sees">your IP address</string>
@@ -268,9 +268,9 @@
     <string name="pv_backup_sees">your library, positions, settings and payment history</string>
     <string name="pv_backup_when">only if system backups are on for your phone</string>
     <string name="privacy_ua_title">What Hopp says about itself</string>
-    <string name="privacy_ua">Every request carries “%1$s” — app, platform and device class, enough for podcasters\' statistics. No system version, no device model.</string>
+    <string name="privacy_ua">Every request carries “%1$s” — app, platform and device class, enough for podcasters' statistics. No system version, no device model.</string>
     <string name="privacy_backup_title">What never leaves the phone</string>
-    <string name="privacy_backup">The wallet connection is kept in the system\'s key store and is never part of a backup. Downloaded episodes are not backed up either; they can be downloaded again.</string>
+    <string name="privacy_backup">The wallet connection is kept in the system's key store and is never part of a backup. Downloaded episodes are not backed up either; they can be downloaded again.</string>
     <string name="show_support">Support the show</string>
     <string name="transcript_search">Search the transcript</string>
     <string name="transcript_follow">Follow along</string>
@@ -348,6 +348,17 @@
     <string name="onboarding_v4v_text">Podcasts live on their listeners. A boost sends sats — bitcoin over Lightning — straight to the people behind a show, with a message, split the way the show sets it. Streaming sends a few sats per minute while you listen, only if you switch it on. Sovereigncast shows also let you bring episodes out sooner and vote on topics.</string>
     <string name="onboarding_wallet_title">Connect your wallet</string>
     <string name="onboarding_wallet_text">For boosts, connect your Lightning wallet over Nostr Wallet Connect (NWC) — Alby Hub, Primal, Coinos and others offer it. A daily budget keeps it in check. Without a wallet, everything else works just the same.</string>
+    <string name="sc_info_title">What Sovereigncast brings</string>
+    <string name="sc_info_intro">This show runs on Sovereigncast — the open, self-hosted platform its makers produce it with. In Hopp it brings extras no other app shows:</string>
+    <string name="sc_info_rb">Release Boosting: your sats bring the next episode out sooner.</string>
+    <string name="sc_info_b2u">Boost2Unlock: listeners unlock special episodes together.</string>
+    <string name="sc_info_suggestions">Topic suggestions: see what others want to hear, and vote for free.</string>
+    <string name="sc_info_boosts">The community's boosts: this month's top boosts and the all-time ranking.</string>
+    <string name="sc_info_clips">Clips that unlock halfway to the goal.</string>
+    <string name="sc_info_trust">Hopp checks with the show's own instance that the show really belongs there before it shows any of this.</string>
+    <string name="sc_info_more">More about Sovereigncast</string>
+    <string name="sc_info_url">https://sovereigncast.space/</string>
+    <string name="onboarding_start">Let's go</string>
     <string-array name="months">
         <item>January</item>
         <item>February</item>

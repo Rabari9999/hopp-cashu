@@ -253,7 +253,15 @@ class DiscoverViewModel(
     private val podcasts: PodcastRepository,
     private val directory: DirectoryRepository,
     private val settings: SettingsRepository,
+    private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
 ) : ViewModel() {
+    private val _scShows = MutableStateFlow<List<space.sovereigncast.hopp.sovereigncast.ScDirectoryShow>>(emptyList())
+    /** The curated Sovereigncast shows (device feedback 2026-10-10): results get their badge from it. */
+    val scShows: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ScDirectoryShow>> = _scShows.asStateFlow()
+    private val _scOnly = MutableStateFlow(false)
+    val scOnly: StateFlow<Boolean> = _scOnly.asStateFlow()
+    fun setScOnly(on: Boolean) { _scOnly.value = on }
+    fun isSovereigncast(show: DirectoryShow) = scDirectory.matches(_scShows.value, show.podcastGuid, show.feedUrl)
     val recent: StateFlow<List<String>> = state(settings.settings.map { it.recentSearches }, emptyList())
 
     /** A term the listener meant — confirmed or followed to a show — not
@@ -282,16 +290,23 @@ class DiscoverViewModel(
 
     init {
         viewModelScope.launch {
-            combine(_query, _valueOnly) { q, v -> q.trim() to v }
+            combine(_query, _valueOnly, _scOnly, _scShows) { q, v, sc, list -> listOf(q.trim(), v, sc, list) }
                 .debounce(400)
                 .distinctUntilChanged()
-                .collectLatest { (q, v) ->
-                    if (!searchable(q)) { _search.value = SearchUi.Idle; return@collectLatest }
+                .collectLatest { (qa, va, sca) ->
+                    val q = qa as String; val v = va as Boolean; val sc = sca as Boolean
+                    if (!searchable(q)) {
+                        // Without a term, the filter shows the whole list of Sovereigncast shows.
+                        _search.value = if (sc) SearchUi.Done(SearchResult(_scShows.value.map { it.asDirectoryShow() })) else SearchUi.Idle
+                        return@collectLatest
+                    }
                     _search.value = SearchUi.Searching
-                    _search.value = SearchUi.Done(directory.search(q, v))
+                    val r = directory.search(q, v)
+                    _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)
                 }
         }
         viewModelScope.launch { _podroll.value = runCatching { directory.podroll() }.getOrDefault(emptyList()) }
+        viewModelScope.launch { _scShows.value = scDirectory.shows() }
     }
 
     fun setQuery(q: String) { _query.value = q }
@@ -379,3 +394,6 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
 
 /** Episodes per page on the show page and the page before subscribing. */
 const val PAGE = 20
+
+private fun space.sovereigncast.hopp.sovereigncast.ScDirectoryShow.asDirectoryShow() =
+    DirectoryShow(title, feedUrl, author, imageUrl, podcastGuid)

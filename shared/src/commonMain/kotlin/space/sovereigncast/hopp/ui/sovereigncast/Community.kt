@@ -51,6 +51,16 @@ import space.sovereigncast.hopp.resources.boost_close
 import space.sovereigncast.hopp.resources.np_boost
 import space.sovereigncast.hopp.resources.sc_b2u_label
 import space.sovereigncast.hopp.resources.sc_badge
+import space.sovereigncast.hopp.resources.sc_info_b2u
+import space.sovereigncast.hopp.resources.sc_info_boosts
+import space.sovereigncast.hopp.resources.sc_info_clips
+import space.sovereigncast.hopp.resources.sc_info_intro
+import space.sovereigncast.hopp.resources.sc_info_more
+import space.sovereigncast.hopp.resources.sc_info_rb
+import space.sovereigncast.hopp.resources.sc_info_suggestions
+import space.sovereigncast.hopp.resources.sc_info_title
+import space.sovereigncast.hopp.resources.sc_info_trust
+import space.sovereigncast.hopp.resources.sc_info_url
 import space.sovereigncast.hopp.resources.sc_confirming
 import space.sovereigncast.hopp.resources.sc_done
 import space.sovereigncast.hopp.resources.sc_external
@@ -106,14 +116,43 @@ import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
 
-/** "✓ Sovereigncast" — the show was verified with its instance (ADR 0002). */
+/** "✓ Sovereigncast" — the show runs on an instance (ADR 0002). A tap says
+ *  what that brings (device feedback 2026-10-10), wherever the badge is. */
 @Composable
 fun ScBadge() {
+    var open by remember { mutableStateOf(false) }
     Text(
         "✓ " + stringResource(Res.string.sc_badge),
-        Modifier.clip(RoundedCornerShape(50)).border(1.dp, Hopp.colors.value, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 1.dp),
+        Modifier.clip(RoundedCornerShape(50)).clickable(onClickLabel = stringResource(Res.string.sc_info_title)) { open = true }
+            .border(1.dp, Hopp.colors.value, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 1.dp),
         style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
     )
+    if (open) ScInfoSheet { open = false }
+}
+
+/** What Sovereigncast adds to a show in Hopp, briefly, and where to read more. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScInfoSheet(onDismiss: () -> Unit) {
+    val uri = LocalUriHandler.current
+    val colors = MaterialTheme.colorScheme
+    val website = stringResource(Res.string.sc_info_url)
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(Res.string.sc_info_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.sc_info_intro), style = MaterialTheme.typography.bodyMedium)
+            listOf(Res.string.sc_info_rb, Res.string.sc_info_b2u, Res.string.sc_info_suggestions, Res.string.sc_info_boosts, Res.string.sc_info_clips).forEach { r ->
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(HoppIcons.Hop, null, tint = Hopp.colors.valueText, modifier = Modifier.padding(top = 3.dp).size(14.dp))
+                    Spacer(Modifier.size(10.dp))
+                    Text(stringResource(r), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Text(stringResource(Res.string.sc_info_trust), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            TextButton(onClick = { runCatching { uri.openUri(website) } }) { Text(stringResource(Res.string.sc_info_more)) }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
 }
 
 /** The small orange action pill of a card. */
