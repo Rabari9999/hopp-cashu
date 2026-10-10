@@ -36,7 +36,8 @@ class BoostSenderTest {
         val json = headersOf(HttpHeaders.ContentType, "application/json")
         when (req.url.encodedPath) {
             "/.well-known/keysend/withroute" -> respond("""{"status":"OK","tag":"keysend","pubkey":"03route","customData":[{"customKey":"696969","customValue":"7"}]}""", headers = json)
-            "/.well-known/lnurlp/noroute", "/.well-known/lnurlp/withroute" -> respond("""{"tag":"payRequest","callback":"https://w.test/cb","minSendable":1000,"maxSendable":1000000000,"metadata":${JsonPrimitive(metadata)},"commentAllowed":100}""", headers = json)
+            "/.well-known/keysend/sovereigncast" -> respond("""{"status":"OK","tag":"keysend","pubkey":"03hopp","customData":[{"customKey":"696969","customValue":"9"}]}""", headers = json)
+            "/.well-known/lnurlp/noroute", "/.well-known/lnurlp/withroute", "/.well-known/lnurlp/sovereigncast" -> respond("""{"tag":"payRequest","callback":"https://w.test/cb","minSendable":1000,"maxSendable":1000000000,"metadata":${JsonPrimitive(metadata)},"commentAllowed":100}""", headers = json)
             "/cb" -> { comments += req.url.parameters["comment"]; respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), Sha256.digest(metadata.encodeToByteArray()))}"}""", headers = json) }
             else -> respond("", HttpStatusCode.NotFound)
         }
@@ -139,5 +140,42 @@ class BoostSenderTest {
         assertIs<ShareResult.Paid>(sender.send(block, 10_000, noUrl).single())
         assertEquals(listOf(10_000L), stored)
         assertEquals("rss::payment::boost https://pm.test/api/listener/v1/payment-metadata/abcdefghijklmnop Danke!", comments.last())
+    }
+
+    private val support = ValueRecipient("Hopp", "lnaddress", space.sovereigncast.hopp.data.Settings.SUPPORT_ADDRESS, 2, fee = true)
+
+    /** "Support Hopp" learns the amount, not the listener: no comment, no
+     *  stored metadata (ADR 0015, the privacy page). */
+    @Test
+    fun theSupportShareByInvoiceCarriesNothingAboutTheListener() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Karsten", "lnaddress", "noroute@w.test", 100), support))
+        val stored = mutableListOf<String?>()
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_invoice"), setOf("nip44_v2"))) { share, _, _ ->
+            stored += share.recipient.name; "rss::payment::boost https://pm.test/m/x"
+        }
+        val results = sender.send(block, 100_000, ctx.copy(rssPaymentUrl = null))
+        assertTrue(results.all { it is ShareResult.Paid }, results.describe())
+        assertEquals(listOf<String?>("Karsten"), stored, "metadata only for the show's own recipient")
+        // Fee shares go first (taken off the top); one comment each.
+        assertEquals(setOf<String?>("rss::payment::boost https://pm.test/m/x Danke!", null), comments.toSet())
+        assertEquals(2, comments.size)
+    }
+
+    @Test
+    fun theSupportShareByKeysendCarriesNoShowNameOrMessage() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("node", "node", "02node", 100), support))
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_keysend"), setOf("nip44_v2")))
+        val results = sender.send(block, 100_000, ctx)
+        assertTrue(results.all { it is ShareResult.Paid }, results.describe())
+        val sent = wallet.requests.map { it.second.toString() }
+        val toShow = sent.single { "02node" in it }
+        val toHopp = sent.single { "03hopp" in it }
+        assertTrue("Danke" in decoded(toShow) && "Satoshi" in decoded(toShow), "the show gets the boostagram")
+        listOf("Danke", "Satoshi", "Show", "ep-guid", "pm.example").forEach { assertTrue(it !in decoded(toHopp), "$it went to Hopp") }
+    }
+
+    /** The request's TLV values, hex-decoded where they are hex. */
+    private fun decoded(request: String): String = Regex("[0-9a-f]{16,}").replace(request) { m ->
+        runCatching { m.value.chunked(2).map { it.toInt(16).toByte() }.toByteArray().decodeToString() }.getOrDefault(m.value)
     }
 }

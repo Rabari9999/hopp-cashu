@@ -1,6 +1,8 @@
 package space.sovereigncast.hopp.value
 
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.model.ValueBlock
+import space.sovereigncast.hopp.model.ValueRecipient
 import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.WalletInfo
 
@@ -54,10 +56,14 @@ class BoostSender(
         Splits.divideAtWholeSats(block, totalMsat, ctx.positionSeconds?.toDouble(), remote).map { share -> payShare(share, totalMsat, ctx) }
 
     /** One recipient's share — streaming settles them one by one. */
-    suspend fun payShare(share: Share, totalMsat: Long, ctx: BoostContext): ShareResult {
+    suspend fun payShare(share: Share, totalMsat: Long, given: BoostContext): ShareResult {
         if (share.amountMsat < 1000) return ShareResult.Skipped(share, SkipReason.DUST)
         val r = share.recipient
         if (isSelf(r, wallet)) return ShareResult.Skipped(share, SkipReason.SELF)
+        // "Support Hopp" gets the amount and nothing about the listener: no
+        // show, episode, position, name or message, and no metadata stored
+        // at an instance for it — as the privacy page says (ADR 0015).
+        val ctx = if (isSupport(r)) given.anonymous() else given
         return when (r.type.lowercase()) {
             Splits.REMOTE -> ShareResult.Skipped(share, SkipReason.REMOTE)
             "node" -> if (wallet.canKeysend) keysend(share, r.address, r.customKey, r.customValue, totalMsat, ctx, "keysend")
@@ -92,7 +98,7 @@ class BoostSender(
             val request = lnAddress.payRequest(address)
             // The instance keeps the full boostagram behind a URL; the comment
             // only has to carry that and the message.
-            val prefix = if (ctx.rssPaymentUrl == null) runCatching { metadata?.invoke(share, totalMsat, ctx) }.getOrNull() else null
+            val prefix = if (ctx.rssPaymentUrl == null && !isSupport(share.recipient)) runCatching { metadata?.invoke(share, totalMsat, ctx) }.getOrNull() else null
             val invoice = lnAddress.invoice(request, msat, comment(ctx, prefix))
             val paid = nwc.payInvoice(invoice)
             ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
@@ -101,6 +107,11 @@ class BoostSender(
             ShareResult.Failed(share, route, keysendFailure?.let { "$reason (keysend: $it)" } ?: reason)
         }
     }
+
+    private fun isSupport(r: ValueRecipient) =
+        r.fee && r.type.equals("lnaddress", ignoreCase = true) && r.address.equals(Settings.SUPPORT_ADDRESS, ignoreCase = true)
+
+    private fun BoostContext.anonymous() = BoostContext(action, appVersion, null, null, null, null, null, null, null, null, null)
 
     private suspend fun keysend(
         share: Share, pubkey: String, customKey: String?, customValue: String?,
