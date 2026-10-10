@@ -22,6 +22,14 @@ decides where they are published, how they are signed and how releases are paced
 Not at launch: IzzyOnDroid, direct APK downloads / Obtainium (GitLab releases
 carry the APKs anyway, so this costs nothing to add later).
 
+**Amended 2026-10-10:** the first Android release goes to **Zapstore and
+F-Droid only**. Google Play follows later — its requirements (closed test with
+12 testers over 14 days, data-safety form, privacy policy, developer
+verification) are too much for the first step. Nothing in the build changes:
+the `play` flavor and one-key signing stay, so Play can be added without
+breaking updates. The privacy policy prepared for Play waits on branch
+`privacy-policy` of `nodesignal/hopp.sovereigncast.space`.
+
 ### Signing: one key everywhere
 
 All Android builds are signed with **one key we hold**. For Google Play the same
@@ -59,5 +67,6 @@ platforms does not affect compatibility with instances.
 - Phase 3 wallets (Breez Spark, CDK) ship prebuilt native libraries; for the
   F-Droid main repository they must either build from source in F-Droid's
   build server or stay out of the `foss` flavor. Decided when phase 3 starts.
-- The Google Play closed-test period sits on the critical path to the first
-  public Android release.
+- ~~The Google Play closed-test period sits on the critical path to the first
+  public Android release.~~ Not any more (amendment above): F-Droid's
+  inclusion review and open question 17 do.

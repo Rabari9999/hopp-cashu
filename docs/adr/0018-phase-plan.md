@@ -40,9 +40,9 @@
   (NWC or `lightning:` link, amount checked per ADR 0005); list open
   suggestions and vote for free.
 - Privacy page (ADR 0015), English and German (ADR 0016).
-- **Release path:** a closed beta with the Nodesignal community first — it also
-  covers Google Play's mandatory closed test (12 testers, 14 days) — then public
-  on Google Play, F-Droid and Zapstore (ADR 0011).
+- **Release path:** a closed beta with the Nodesignal community first, then
+  public on Zapstore and F-Droid; Google Play later (ADR 0011, amended
+  2026-10-10).
 
 ### Phase 2
 

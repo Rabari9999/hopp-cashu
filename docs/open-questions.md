@@ -74,5 +74,6 @@ different APK, so the reproducible-build check against ours (ADR 0011) fails.
 public (the secret is extractable from any APK anyway, ADR 0008 accepts that),
 and rotate them if they are abused. Alternative: an F-Droid build without
 search, as its own unsigned variant — loses reproducibility for that variant.
-To be decided before the F-Droid submission.
+To be decided before the F-Droid submission — **now on the critical path**:
+since 2026-10-10 F-Droid and Zapstore are the first release channels (ADR 0011).
 
