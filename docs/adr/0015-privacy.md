@@ -10,7 +10,7 @@
 No analytics, no tracking SDKs, no server of ours that sees usage. The only
 service run for Hopp, the push gateway (ADR 0007), stores device token ↔
 endpoint and nothing else. Store declarations: Google Play gets a privacy policy
-(on sovereigncast.space), the App Store's privacy labels say "Data Not Collected".
+(https://hopp.sovereigncast.space/privacy/ — Hopp's own site, repo `nodesignal/hopp.sovereigncast.space`, amended 2026-10-10), the App Store's privacy labels say "Data Not Collected".
 
 ### Who sees what — shown in the app
 

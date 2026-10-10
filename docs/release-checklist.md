@@ -45,7 +45,7 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
 
 - [ ] **Google Play:** upload the AAB to the closed test track first; the
       first release needs 12 testers for 14 days before production. Privacy
-      policy URL (sovereigncast.space) and the data-safety form ("no data
+      policy URL https://hopp.sovereigncast.space/privacy/ and the data-safety form ("no data
       collected", ADR 0015).
 - [ ] **GitLab release** with the signed foss APK (`hopp-X.Y.Z-foss.apk`, the
       name F-Droid's `Binaries` expects).
