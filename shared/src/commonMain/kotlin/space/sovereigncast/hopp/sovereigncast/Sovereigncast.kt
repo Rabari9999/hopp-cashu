@@ -1,7 +1,11 @@
 package space.sovereigncast.hopp.sovereigncast
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
@@ -38,6 +42,21 @@ sealed interface ScTarget {
 }
 
 /** An invoice that did not ask for what the listener chose (ADR 0005: never paid). */
+/** A running action at one of the listener's shows, as Home lists it. */
+data class ShowAction(
+    val podcastId: Long,
+    val showTitle: String,
+    val showImage: String?,
+    val kind: Kind,
+    val episodeTitle: String,
+    val raisedSats: Long,
+    val goalSats: Long,
+    /** Release Boosting only: when the episode comes out as things stand. */
+    val publishAt: String?,
+) {
+    enum class Kind { ReleaseBoosting, Boost2Unlock }
+}
+
 class InvoiceMismatch(message: String) : Exception(message)
 
 /**
@@ -91,6 +110,36 @@ class SovereigncastRepository(
         } catch (e: Exception) {
             // Offline or the instance is down: keep what we knew.
         }
+    }
+
+    /** Which shows are verified, and with what — changes when one is (un)verified. */
+    fun verifiedShows(): Flow<List<Pair<Long, String?>>> =
+        q.selectAllSovereigncast().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.id to it.sc_capabilities_json } }
+
+    /** Every subscribed show checked against its instance (each at most once per
+     *  [REVERIFY_SECONDS]) — so Home knows them without each page being opened. */
+    suspend fun verifyAll() {
+        podcasts.shows.first().forEach { runCatching { verify(it.id) } }
+    }
+
+    /**
+     * What runs at the listener's Sovereigncast shows right now (device feedback
+     * 2026-10-10): Release Boosting rounds and episodes waiting to be unlocked,
+     * for Home. A show whose instance does not answer is left out, not an error.
+     */
+    suspend fun activeActions(): List<ShowAction> = coroutineScope {
+        val rows = withContext(Dispatchers.IO) { q.selectAllSovereigncast().executeAsList() }
+        rows.map { r ->
+            async {
+                val show = r.sc_capabilities_json?.let { runCatching { json.decodeFromString(ScShow.serializer(), it) }.getOrNull() } ?: return@async emptyList()
+                val layer = ScLayer(r.sc_base_url!!, show)
+                val c = show.capabilities
+                val rb = if (c.releaseBoosting) runCatching { releaseBoosting(layer).round }.getOrNull() else null
+                val b2u = if (c.boost2unlock) runCatching { boost2unlock(layer).episodes }.getOrDefault(emptyList()) else emptyList()
+                listOfNotNull(rb?.let { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.ReleaseBoosting, it.episode.title, it.raisedSats, it.goalSats, it.publishAt) }) +
+                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null) }
+            }
+        }.awaitAll().flatten()
     }
 
     private suspend fun clear(podcastId: Long) = withContext(Dispatchers.IO) { q.clearSovereigncast(podcastId) }

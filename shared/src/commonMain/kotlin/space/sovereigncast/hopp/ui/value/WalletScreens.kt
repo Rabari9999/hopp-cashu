@@ -1,6 +1,10 @@
 package space.sovereigncast.hopp.ui.value
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import space.sovereigncast.hopp.resources.settings_history_note
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -101,6 +105,19 @@ fun WalletScreen(onHistory: () -> Unit, incomingUri: String? = null, vm: WalletV
     LaunchedEffect(incomingUri) { if (!incomingUri.isNullOrBlank()) uri = incomingUri }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // The history first, where it is seen (device feedback 2026-10-10: at the
+        // bottom of a long page it was easily missed).
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp))
+                .clickable(onClick = onHistory).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.wallet_history), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.settings_history_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
+            Text("›", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+        }
         val w = wallet
         if (w == null) {
             Text(stringResource(Res.string.wallet_intro))
@@ -177,7 +194,6 @@ fun WalletScreen(onHistory: () -> Unit, incomingUri: String? = null, vm: WalletV
                 label = { Text(stringResource(Res.string.wallet_name)) }, singleLine = true,
             )
         }
-        OutlinedButton(onClick = onHistory) { Text(stringResource(Res.string.wallet_history)) }
     }
 }
 

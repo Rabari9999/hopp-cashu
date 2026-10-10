@@ -85,7 +85,7 @@ fun sharedModule(platform: Platform) = module {
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
-    viewModel { HomeViewModel(get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get()) }
@@ -99,7 +99,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
-    viewModel { SettingsViewModel(get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
     viewModel { ValueBarViewModel(get(), get(), get()) }

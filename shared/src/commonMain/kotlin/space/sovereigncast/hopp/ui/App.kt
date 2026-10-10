@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -74,6 +74,11 @@ import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.privacy_title
+import space.sovereigncast.hopp.ui.library.SettingsPage
+import space.sovereigncast.hopp.ui.library.SettingsPageScreen
+import space.sovereigncast.hopp.data.SettingsRepository
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.resources.crash_title
 import space.sovereigncast.hopp.resources.crash_ask
 import space.sovereigncast.hopp.resources.crash_view
@@ -116,6 +121,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object LibraryRoute
 @Serializable object DiscoverRoute
 @Serializable object SettingsRoute
+@Serializable data class SettingsPageRoute(val page: String)
 @Serializable data class ShowRoute(val id: Long)
 @Serializable data class EpisodeRoute(val id: Long)
 /** What the directory already knows rides along, so the page shows it at once. */
@@ -171,6 +177,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val title = when {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
+        destination?.hasRoute(SettingsPageRoute::class) == true ->
+            entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let { stringResource(it.title) } ?: ""
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
@@ -194,6 +202,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
     }
+    // The first start's tour (device feedback 2026-10-10), or again from "About".
+    val settingsRepo: SettingsRepository = koinInject()
+    val appSettings by settingsRepo.settings.collectAsState(null)
+    var tour by rememberSaveable { mutableStateOf(false) }
+    val tourScope = rememberCoroutineScope()
     // A crash last time: offer the report, once per start (ADR 0015).
     val crashes: CrashReports = koinInject()
     var crashReport by remember { mutableStateOf(crashes.pending()) }
@@ -222,7 +235,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 },
                                 actions = {
                                     if (onTab != null) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
-                                        Icon(Icons.Rounded.AccountCircle, stringResource(Res.string.settings))
+                                        // A cogwheel: Hopp has no account (device feedback 2026-10-10).
+                                        Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
                                     }
                                 },
                                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -254,7 +268,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             popExitTransition = { sharedAxisOut(forward = false) },
                         ) {
                             composable<HomeRoute> {
-                                HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) })
+                                HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute)
                             }
                             composable<InboxRoute> { InboxScreen(onDiscover = { selectTab(tabs[2]) }) }
                             composable<LibraryRoute> {
@@ -290,9 +304,14 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<SettingsRoute> {
                                 SettingsScreen(
-                                    onWallet = { nav.navigate(WalletRoute()) }, onPrivacy = { nav.navigate(PrivacyRoute) },
+                                    onWallet = { nav.navigate(WalletRoute()) }, onHistory = { nav.navigate(HistoryRoute) },
+                                    onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
+                            }
+                            composable<SettingsPageRoute> { e ->
+                                val page = SettingsPage.entries.firstOrNull { it.name == e.toRoute<SettingsPageRoute>().page } ?: SettingsPage.About
+                                SettingsPageScreen(page, onTour = { tour = true })
                             }
                             composable<PrivacyRoute> { PrivacyScreen() }
                             composable<CrashRoute> {
@@ -328,6 +347,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
                     ) {
                         NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute()) })
+                    }
+                    if (tour || appSettings?.onboardingDone == false) OnboardingScreen { connectWallet ->
+                        tour = false
+                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        if (connectWallet) nav.navigate(WalletRoute())
                     }
                 }
             }

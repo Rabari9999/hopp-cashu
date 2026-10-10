@@ -175,3 +175,20 @@ the reference once the screens exist.
   chapter, boundaries) shared by the label, the swipe and the long-press.
 - Further screens (onboarding, wallet connection, search, settings) follow the
   same rules and are designed when they are built.
+
+### Amendments 2026-10-10 (device feedback)
+
+- **Settings** are an overview of their parts with icon and one-line summary,
+  grouped *Value for value* (wallet, payment history — each a row of its own),
+  *App* (playback, downloads & updates, notifications, directories,
+  subscriptions) and *Hopp* (privacy, crash report, about). The top bar's
+  entry is a cogwheel, not an account icon — Hopp has no account.
+- **Home** gains *At your shows*: one quiet line per running Release Boosting
+  round or Boost2Unlock episode at a subscribed Sovereigncast show (cover,
+  label, episode, thin progress, sats and release time); a tap opens the show.
+  Order: New, Continue, At your shows, Recently boosted, Recently played.
+- **Notifications:** the quick boost's result reports nothing, only failures
+  (default) or everything; a success disappears after a few seconds. Playback
+  and download notifications stay — Android needs them for background work.
+- **First start:** a five-page tour (Hopp, subscribing, library, value for
+  value, wallet), skippable, again from *About Hopp*.

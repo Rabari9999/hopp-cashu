@@ -49,6 +49,10 @@ data class Settings(
     val refreshWifiOnly: Boolean = false,
     /** Home's sections the listener folded away: "new", "continue", "recent", "boosted". */
     val homeCollapsed: Set<String> = emptySet(),
+    /** What a quick boost from the lock screen reports (device feedback 2026-10-10). */
+    val boostFeedback: String = FEEDBACK_ERRORS,
+    /** The first-start tour has been shown (or skipped). */
+    val onboardingDone: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -62,6 +66,10 @@ data class Settings(
         const val SUPPORT_ADDRESS = "sovereigncast@getalby.com"
         val quickBoostChoicesSats = listOf(0, 21, 100, 500, 1_000)
         val refreshChoicesHours = listOf(0, 1, 3, 6, 12, 24)
+        const val FEEDBACK_OFF = "off"
+        const val FEEDBACK_ERRORS = "errors"
+        const val FEEDBACK_ALWAYS = "always"
+        val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -84,8 +92,17 @@ data class Settings(
                 refreshHours = values["refresh_hours"]?.toIntOrNull() ?: d.refreshHours,
                 refreshWifiOnly = values["refresh_wifi_only"]?.toBooleanStrictOrNull() ?: d.refreshWifiOnly,
                 homeCollapsed = values["home_collapsed"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeCollapsed,
+                boostFeedback = values["boost_feedback"]?.takeIf { it in feedbackChoices } ?: d.boostFeedback,
+                onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
             )
         }
+    }
+
+    /** Whether a quick boost's result is worth a notification ([boostFeedback]). */
+    fun reportsQuickBoost(ok: Boolean): Boolean = when (boostFeedback) {
+        FEEDBACK_OFF -> false
+        FEEDBACK_ERRORS -> !ok
+        else -> true
     }
 
     internal fun toMap() = mapOf(
@@ -107,6 +124,8 @@ data class Settings(
         "refresh_hours" to refreshHours.toString(),
         "refresh_wifi_only" to refreshWifiOnly.toString(),
         "home_collapsed" to homeCollapsed.joinToString("\n"),
+        "boost_feedback" to boostFeedback,
+        "onboarding_done" to onboardingDone.toString(),
     )
 }
 

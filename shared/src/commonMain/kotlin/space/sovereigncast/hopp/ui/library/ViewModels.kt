@@ -48,8 +48,10 @@ abstract class RefreshingViewModel(private val podcasts: PodcastRepository) : Vi
     fun refresh() {
         if (_refreshing.value) return
         _refreshing.value = true
-        viewModelScope.launch { try { podcasts.refreshAll() } finally { _refreshing.value = false } }
+        viewModelScope.launch { try { podcasts.refreshAll(); afterRefresh() } finally { _refreshing.value = false } }
     }
+    /** Whatever else a pull to refresh should bring up to date. */
+    protected open suspend fun afterRefresh() = Unit
 }
 
 class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository) : RefreshingViewModel(podcasts) {
@@ -66,7 +68,22 @@ class HomeViewModel(
     private val podcasts: PodcastRepository,
     value: space.sovereigncast.hopp.value.ValueService,
     private val settings: SettingsRepository,
+    private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository,
 ) : RefreshingViewModel(podcasts) {
+    private val _actions = MutableStateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>>(emptyList())
+    /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
+    val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = _actions.asStateFlow()
+
+    init {
+        // New subscriptions get checked against their instance; whenever the set
+        // of verified shows changes — here or on a show page — the list follows.
+        viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().collectLatest { sc.verifyAll() } }
+        viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().collectLatest { loadActions() } }
+    }
+
+    private suspend fun loadActions() { runCatching { sc.activeActions() }.onSuccess { _actions.value = it } }
+    override suspend fun afterRefresh() { sc.verifyAll(); loadActions() }
+
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
     fun toggle(section: String) = viewModelScope.launch {
@@ -166,8 +183,14 @@ class EpisodeViewModel(private val id: Long, private val episodes: EpisodeReposi
     }
 }
 
-class SettingsViewModel(private val settings: SettingsRepository, private val podcasts: PodcastRepository) : ViewModel() {
+class SettingsViewModel(
+    private val settings: SettingsRepository,
+    private val podcasts: PodcastRepository,
+    wallet: space.sovereigncast.hopp.value.WalletRepository,
+) : ViewModel() {
     val current: StateFlow<Settings?> = state(settings.settings, null)
+    /** The connected wallet's name, for the settings overview; null = none. */
+    val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
 }

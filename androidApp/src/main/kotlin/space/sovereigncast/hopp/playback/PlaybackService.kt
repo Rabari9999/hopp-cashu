@@ -105,7 +105,12 @@ class PlaybackService : MediaLibraryService() {
         val now = controller.current.value?.item ?: return
         val position = controller.state.value.positionMs / 1000
         scope.launch {
-            val text = when (val r = koin.get<ValueService>().quickBoost(now, position)) {
+            val r = koin.get<ValueService>().quickBoost(now, position)
+            // What to report is the listener's choice (device feedback 2026-10-10):
+            // nothing, only what went wrong (default), or everything.
+            val ok = r is QuickBoost.Sent && r.paidSats == r.amountSats
+            if (!koin.get<SettingsRepository>().current().reportsQuickBoost(ok)) return@launch
+            val text = when (r) {
                 is QuickBoost.Sent -> if (r.paidSats == r.amountSats) getString(R.string.quick_boost_sent, r.paidSats.toString(), r.show)
                     else getString(R.string.quick_boost_partial, r.paidSats.toString(), r.amountSats.toString(), r.show)
                 QuickBoost.OverBudget -> getString(R.string.quick_boost_budget)
@@ -114,11 +119,11 @@ class PlaybackService : MediaLibraryService() {
                 is QuickBoost.Failed -> getString(R.string.quick_boost_failed, r.reason)
                 QuickBoost.Off -> return@launch
             }
-            notifyBoost(text)
+            notifyBoost(text, ok)
         }
     }
 
-    private fun notifyBoost(text: String) {
+    private fun notifyBoost(text: String, ok: Boolean) {
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(BOOST_CHANNEL, getString(R.string.boosts_channel), NotificationManager.IMPORTANCE_DEFAULT))
@@ -129,6 +134,8 @@ class PlaybackService : MediaLibraryService() {
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
+            // A success needs no keeping: it goes by itself after a few seconds.
+            .apply { if (ok) setTimeoutAfter(6_000) }
             .build()
         runCatching { manager.notify(BOOST_NOTIFICATION, n) }
     }

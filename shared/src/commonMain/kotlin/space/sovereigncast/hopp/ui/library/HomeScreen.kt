@@ -2,6 +2,20 @@ package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import space.sovereigncast.hopp.sovereigncast.ShowAction
+import space.sovereigncast.hopp.ui.components.formatIsoShort
+import space.sovereigncast.hopp.resources.home_at_your_shows
+import space.sovereigncast.hopp.resources.sc_b2u_label
+import space.sovereigncast.hopp.resources.sc_rb_label
+import space.sovereigncast.hopp.resources.sc_progress
+import space.sovereigncast.hopp.resources.sc_publish_at
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import space.sovereigncast.hopp.ui.components.HoppIcons
@@ -54,13 +68,14 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = koinViewModel()) {
+fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, vm: HomeViewModel = koinViewModel()) {
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
     val inProgress by vm.inProgress.collectAsState()
     val played by vm.recentlyPlayed.collectAsState()
     val boosted by vm.recentlyBoosted.collectAsState()
+    val actions by vm.actions.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val continueTitle = stringResource(Res.string.library_continue)
     val recentTitle = stringResource(Res.string.home_recent)
@@ -73,7 +88,7 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = 
             }
             return@PullToRefreshBox
         }
-        if (newest.isEmpty() && inProgress.isEmpty() && played.isEmpty() && boosted.isEmpty()) {
+        if (newest.isEmpty() && inProgress.isEmpty() && played.isEmpty() && boosted.isEmpty() && actions.isEmpty()) {
             EmptyState(stringResource(Res.string.inbox_empty_title), stringResource(Res.string.inbox_empty_text))
             return@PullToRefreshBox
         }
@@ -92,7 +107,15 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = 
                 }
             }
             section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
-            section("recent", recentTitle, played, collapsed, vm::toggle, nav)
+            // Release Boosting and Boost2Unlock at the listener's shows — quiet,
+            // one line each, the details on the show page (device feedback 2026-10-10).
+            if (actions.isNotEmpty()) {
+                val open = "shows" !in collapsed
+                item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_at_your_shows), open, actions.size, { vm.toggle("shows") }) }
+                if (open) items(actions, key = { "a${it.podcastId}${it.kind}${it.episodeTitle}" }) { a ->
+                    ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
+                }
+            }
             if (boosted.isNotEmpty()) {
                 val open = "boosted" !in collapsed
                 item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }) }
@@ -103,6 +126,8 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, vm: HomeViewModel = 
                     }
                 }
             }
+            // Last: what was heard is the least likely next step (device feedback 2026-10-10).
+            section("recent", recentTitle, played, collapsed, vm::toggle, nav)
         }
     }
 }
@@ -134,5 +159,34 @@ private fun SectionHeader(title: String, open: Boolean, count: Int, onToggle: ()
             "$action ›", Modifier.clickable(onClick = onAction).padding(8.dp),
             style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
         )
+    }
+}
+
+/** One running action at a show: its cover, what and where, how far — a tap opens the show. */
+@Composable
+private fun ShowActionRow(a: ShowAction, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Cover(a.showImage, 44.dp, corner = 10.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                stringResource(if (a.kind == ShowAction.Kind.ReleaseBoosting) Res.string.sc_rb_label else Res.string.sc_b2u_label) + " · " + a.showTitle,
+                style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(a.episodeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            LinearProgressIndicator(
+                progress = { if (a.goalSats > 0) (a.raisedSats.toFloat() / a.goalSats).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
+                color = Hopp.colors.value, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
+            )
+            Text(
+                stringResource(Res.string.sc_progress, formatSats(a.raisedSats), formatSats(a.goalSats)) +
+                    (a.publishAt?.let { " · " + stringResource(Res.string.sc_publish_at, formatIsoShort(it)) } ?: ""),
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

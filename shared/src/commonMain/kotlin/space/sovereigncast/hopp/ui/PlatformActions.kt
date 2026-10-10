@@ -10,6 +10,8 @@ interface PlatformActions {
     fun exportOpml(text: String)
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
+    /** Opens the system's notification settings for Hopp. */
+    fun openNotificationSettings() = Unit
 }
 
 object NoPlatformActions : PlatformActions {

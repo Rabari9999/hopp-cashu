@@ -63,6 +63,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
         saveOpml.launch("hopp-subscriptions.opml")
     }
 
+    override fun openNotificationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= 26) Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+            else Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null))
+        runCatching { startActivity(intent) }
+    }
+
     override fun shareText(text: String, subject: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))

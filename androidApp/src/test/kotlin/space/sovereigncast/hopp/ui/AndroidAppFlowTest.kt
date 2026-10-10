@@ -156,6 +156,10 @@ class TestApp : Application() {
                 single { DirectoryRepository(get(), get(), get(), get(), get(), PodcastIndexCredentials("test-key", "test-secret")) }
             })
         }
+        // The first-start tour has its own test; every other one starts past it.
+        kotlinx.coroutines.runBlocking {
+            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(onboardingDone = true) }
+        }
     }
 }
 
@@ -306,6 +310,7 @@ class AndroidAppFlowTest {
     fun skipIntervalsFollowTheSettings() {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Playback")
         waitFor("Skip back")
         rule.onAllNodes(hasText("15 s") and hasClickAction()).onFirst().performClick()
         rule.onNode(hasContentDescription("Back")).performClick()
@@ -375,7 +380,7 @@ class AndroidAppFlowTest {
     fun aBrokenConnectionStringIsRefusedVisibly() {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
-        tap("Wallet & payments  ›")
+        tap("Wallet & payments")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("nostr+walletconnect://nonsense")
         tap("Connect")
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Could not connect", substring = true).fetchSemanticsNodes().isNotEmpty() }
@@ -659,7 +664,7 @@ class AndroidAppFlowTest {
     fun thePrivacyPageSaysWhoSeesWhat() {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
-        rule.onNode(hasText("Privacy · who sees what", substring = true) and hasClickAction()).performScrollTo().performClick()
+        rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
         rule.waitUntil(10_000) { has("Hopp collects nothing itself", substring = true) }
         check(has("Podcast Index")) { screen().toString() }
         check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
@@ -763,10 +768,76 @@ class AndroidAppFlowTest {
     fun theBackgroundRefreshIsSet() {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Downloads & updates")
         tap("Every 3 h")
         until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current() }.refreshHours == 3 }
         tap("Off")
         rule.waitUntil(10_000) { has("Pulling down on a list always looks right away.", substring = true) }
         rule.waitUntil(10_000) { !has("Only on Wi-Fi") } // no Wi-Fi switch without a refresh
+    }
+
+    // ── device feedback 2026-10-10 ─────────────────────────────────────────
+
+    private fun settings() = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current() }
+    private fun tourNotDone() = kotlinx.coroutines.runBlocking {
+        koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(onboardingDone = false) }
+    }
+
+    /** The first start walks through Hopp; its last page connects a wallet. */
+    @Test
+    fun theFirstStartShowsTheTour() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(3) { tap("Next") }
+        waitFor("Value for value")
+        tap("Next")
+        waitFor("Connect your wallet")
+        tap("Connect a wallet")
+        waitFor("Connection string (nostr+walletconnect://…)")
+        until { settings().onboardingDone }
+    }
+
+    @Test
+    fun theTourCanBeSkippedAndShownAgain() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        tap("Skip")
+        rule.waitUntil(10_000) { !has("Welcome to Hopp") }
+        until { settings().onboardingDone }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("About Hopp")
+        tap("Show the tour again")
+        waitFor("Welcome to Hopp")
+    }
+
+    /** The settings as an overview: the wallet and its history are rows of their own. */
+    @Test
+    fun theSettingsOverviewLeadsToEveryPart() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("No wallet connected — needed for boosts")
+        tap("Payment history")
+        waitFor("No payments yet")
+        back()
+        tap("Notifications")
+        waitFor("After a quick boost from the lock screen")
+        check(settings().boostFeedback == "errors") { "only failures by default" }
+        tap("Always")
+        until { settings().boostFeedback == "always" }
+    }
+
+    /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show. */
+    @Test
+    fun homeShowsWhatRunsAtYourShows() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Home")
+        waitFor("At your shows")
+        waitFor("RELEASE BOOSTING · Nodesignal")
+        rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+        waitFor("✓ Sovereigncast")
     }
 }

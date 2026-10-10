@@ -34,3 +34,21 @@ class FormatTest {
         assertNull(isoToEpochSeconds(""))
     }
 }
+
+/** What a quick boost from the lock screen reports (device feedback 2026-10-10). */
+class QuickBoostFeedbackTest {
+    private fun s(f: String) = space.sovereigncast.hopp.data.Settings(boostFeedback = f)
+
+    @Test
+    fun onlyFailuresByDefault() {
+        val d = space.sovereigncast.hopp.data.Settings()
+        kotlin.test.assertFalse(d.reportsQuickBoost(ok = true))
+        kotlin.test.assertTrue(d.reportsQuickBoost(ok = false))
+    }
+
+    @Test
+    fun nothingOrEverything() {
+        kotlin.test.assertFalse(s("off").reportsQuickBoost(ok = false))
+        kotlin.test.assertTrue(s("always").reportsQuickBoost(ok = true))
+    }
+}
