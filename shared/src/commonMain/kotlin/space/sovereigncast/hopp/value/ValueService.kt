@@ -390,8 +390,8 @@ class ValueService(
     }
 
     private var nextSettleAt: Long? = null
-    /** The player's settlement loop says when it pays the next batch. */
-    fun settleDueIn(seconds: Long) { nextSettleAt = clock.now() + seconds }
+    /** The player says when it pays the next batch; null = none until listening resumes. */
+    fun settleDueIn(seconds: Long?) { nextSettleAt = seconds?.let { clock.now() + it } }
     /** Seconds until the next batch is paid; null before the loop runs. */
     fun secondsToNextSettle(): Long? = nextSettleAt?.let { (it - clock.now()).coerceAtLeast(0) }
 

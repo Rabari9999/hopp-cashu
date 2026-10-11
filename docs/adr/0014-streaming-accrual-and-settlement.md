@@ -54,13 +54,18 @@ rate, accrued msats) and a `settlement` table (rail, target — recipient or
 channel —, amount, state, attempts), replacing ADR 0013's single `stream_ledger`.
 
 **Amended 2026-10-11 (device feedback: payments looked random):** the
-Lightning batch runs every 5 minutes on a timer of the app, not of the
+Lightning batch ran every 5 minutes on a timer of the app, not of the
 listening, and pays each recipient only whole sats — parts of one stay owed
-until a whole sat has come together, so a 2 % share at 10 sats/min goes out
-about every 5 minutes, a 90 % one every batch. The value bar now says what was
-sent today and what is set aside; a tap opens a sheet with the next batch's
-time, the rule in plain words, what this episode has set aside per recipient
-(owed, or heard and not yet split) and a button that pays the whole sats now.
+until a whole sat has come together, so a small share goes out less often than
+a large one. Now a batch covers **3 minutes of listening, counted from when
+listening starts** (user decision): the first goes 3 minutes in, then every 3
+minutes while playing; after a pause the round under way still goes out, then
+the timer rests until listening resumes. What is owed from before (offline, or
+the app closed mid-round) is caught up 30 s after the app starts. The value bar
+says what was sent today and what is set aside; a tap opens a sheet with the
+next batch's time, the rule in plain words, what this episode has set aside per
+recipient (owed, or heard and not yet split) and a button that pays the whole
+sats now.
 
 ### Paying what accrued offline
 

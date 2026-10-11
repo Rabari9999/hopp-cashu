@@ -21,6 +21,7 @@ import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import space.sovereigncast.hopp.value.ValueService
 
@@ -59,6 +60,8 @@ class PlayerController(
     private val scope: CoroutineScope,
     /** Streaming sats (ADR 0014); null in tests that do not pay. */
     private val value: ValueService? = null,
+    /** How much listening one streaming batch covers; shorter in tests. */
+    private val settleEvery: kotlin.time.Duration = SETTLE_EVERY,
     private val nowMs: () -> Long = { monotonic.elapsedNow().inWholeMilliseconds },
 ) {
     private val _current = MutableStateFlow<NowPlaying?>(null)
@@ -87,10 +90,9 @@ class PlayerController(
 
     init {
         scope.launch { settingsRepository.settings.collect { _settings.value = it } }
-        // Streaming is paid in batches; offline debt is caught up here too.
-        if (value != null) scope.launch {
-            while (true) { value.settleDueIn(SETTLE_EVERY.inWholeSeconds); delay(SETTLE_EVERY); runCatching { value.settle() } }
-        }
+        // What is still owed from before — offline, or the app closed mid-batch —
+        // is caught up soon after the start; from then on batches follow listening.
+        if (value != null) scope.launch { delay(CATCH_UP_AFTER); runCatching { value.settle() } }
         scope.launch {
             var wasPlaying = false
             engine.state.collect { s ->
@@ -102,6 +104,7 @@ class PlayerController(
                 tickSleep(s)
                 tickClip(id, s)
                 hear(id, s)
+                if (s.isPlaying) startBatch()
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
                     ended && wasPlaying -> { episodes.setPlayed(id, true); lastSaved = 0; onEnded() }
@@ -111,6 +114,27 @@ class PlayerController(
                 }
                 wasPlaying = s.isPlaying
             }
+        }
+    }
+
+    private var batch: kotlinx.coroutines.Job? = null
+
+    /**
+     * Streaming is paid every [settleEvery] of listening, counted from when
+     * listening starts (device feedback 2026-10-11) — not at whatever point an
+     * app-wide timer had reached. After a pause the batch already running
+     * still goes out; then the timer rests until listening resumes.
+     */
+    private fun startBatch() {
+        val value = value ?: return
+        if (batch?.isActive == true) return
+        batch = scope.launch {
+            do {
+                value.settleDueIn(settleEvery.inWholeSeconds)
+                delay(settleEvery)
+                runCatching { value.settle() }
+            } while (engine.state.value.isPlaying)
+            value.settleDueIn(null)
         }
     }
 
@@ -285,7 +309,8 @@ class PlayerController(
     companion object {
         /** Longer than any engine report gap while playing — a bigger jump is a seek. */
         const val MAX_TICK_MS = 5_000L
-        val SETTLE_EVERY = 5.minutes
+        val SETTLE_EVERY = 3.minutes
+        val CATCH_UP_AFTER = 30.seconds
         val SPEEDS = listOf(1f, 1.2f, 1.5f, 1.8f, 2f, 0.8f)
         val SPEED_CHOICES = listOf(0.8f, 1f, 1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f)
     }

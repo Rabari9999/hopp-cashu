@@ -158,8 +158,9 @@
     <string name="stream_pending">Set aside, not sent yet</string>
     <string name="stream_next">Next payment</string>
     <string name="stream_next_soon">in a moment</string>
+    <string name="stream_next_idle">3 min after you start listening</string>
     <string name="stream_next_minutes">in about %1$d min</string>
-    <string name="stream_how">How Hopp pays: what you hear is collected and paid every 5 minutes. Each recipient only ever gets whole sats; parts of a sat stay set aside until a whole one has come together, so small shares go out less often. Nothing is lost.</string>
+    <string name="stream_how">How Hopp pays: every 3 minutes of listening, counted from when you start; when you stop, the round under way still goes out. Each recipient only ever gets whole sats; parts of a sat stay set aside until a whole one has come together, so small shares go out less often. Nothing is lost.</string>
     <string name="stream_recipients">Set aside in this episode</string>
     <string name="stream_nothing">Nothing set aside right now.</string>
     <string name="stream_other">From other episodes: %1$s sats</string>

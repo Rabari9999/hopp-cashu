@@ -187,8 +187,13 @@ private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Lon
             Text(stringResource(Res.string.np_streaming, rate), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             StreamFigure(stringResource(Res.string.stream_sent_today), formatSats(todayMsat / 1000) + " sats")
             StreamFigure(stringResource(Res.string.stream_pending), formatMsat(pendingMsat) + " sats")
-            detail?.takeIf { it.episodeId == item.id }?.nextSettleSeconds?.let { s ->
-                StreamFigure(stringResource(Res.string.stream_next), if (s < 60) stringResource(Res.string.stream_next_soon) else stringResource(Res.string.stream_next_minutes, ((s + 59) / 60).toInt()))
+            detail?.takeIf { it.episodeId == item.id }?.let { d ->
+                val s = d.nextSettleSeconds
+                StreamFigure(stringResource(Res.string.stream_next), when {
+                    s == null -> stringResource(Res.string.stream_next_idle)
+                    s < 60 -> stringResource(Res.string.stream_next_soon)
+                    else -> stringResource(Res.string.stream_next_minutes, ((s + 59) / 60).toInt())
+                })
             }
             Text(stringResource(Res.string.stream_how), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
 

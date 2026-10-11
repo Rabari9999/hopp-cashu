@@ -158,8 +158,9 @@
     <string name="stream_pending">Vorgemerkt, noch nicht gesendet</string>
     <string name="stream_next">Nächste Zahlung</string>
     <string name="stream_next_soon">gleich</string>
+    <string name="stream_next_idle">3 Min. nach Hörbeginn</string>
     <string name="stream_next_minutes">in ca. %1$d Min.</string>
-    <string name="stream_how">So zahlt Hopp: Was du hörst, wird gesammelt und alle 5 Minuten bezahlt. Jeder Empfänger bekommt dabei nur ganze Sats; Bruchteile bleiben vorgemerkt, bis ein ganzer Sat beisammen ist – kleine Anteile gehen deshalb seltener raus. Verloren geht nichts.</string>
+    <string name="stream_how">So zahlt Hopp: alle 3 Minuten Hörzeit, gezählt ab dem Hörbeginn; hörst du auf, geht die laufende Runde noch raus. Jeder Empfänger bekommt dabei nur ganze Sats; Bruchteile bleiben vorgemerkt, bis ein ganzer Sat beisammen ist – kleine Anteile gehen deshalb seltener raus. Verloren geht nichts.</string>
     <string name="stream_recipients">In dieser Folge vorgemerkt</string>
     <string name="stream_nothing">Gerade ist nichts vorgemerkt.</string>
     <string name="stream_other">Aus anderen Folgen: %1$s sats</string>

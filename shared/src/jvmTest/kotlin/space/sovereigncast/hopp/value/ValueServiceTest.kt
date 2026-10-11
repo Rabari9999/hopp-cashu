@@ -33,6 +33,7 @@ import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.player.RecordingEngine
 import kotlin.test.AfterTest
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -193,6 +194,30 @@ class ValueServiceTest {
         withTimeout(5_000) { while (value.pendingMsat.first() < 20_000) delay(20) }
         delay(200)
         assertEquals(20_000L, value.pendingMsat.first(), "20 s of content at one sat a second")
+    }
+
+    /** Batches follow listening (user decision 2026-10-11): none before it
+     *  starts, one per round while playing, the round under way still paid
+     *  after a pause — then the timer rests. Here a round is 400 ms, not 3 min. */
+    @Test
+    fun streamingBatchesFollowListening() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
+        val ep = episode()
+        val engine = RecordingEngine()
+        val player = PlayerController(engine, episodes, podcasts, QueueRepository(db), settings, scope, value, settleEvery = 400.milliseconds) { 0 }
+        assertNull(value.secondsToNextSettle(), "no round before listening")
+        player.play(ep)
+        withTimeout(5_000) { while (engine.loaded.isEmpty() || player.current.value == null) delay(10) }
+        suspend fun at(ms: Long, playing: Boolean = true) { engine.s.value = engine.s.value.copy(positionMs = ms, isPlaying = playing); delay(40) }
+        for (t in 1..5) at(t * 1_000L) // 5 s heard, the round started with it
+        assertTrue(value.secondsToNextSettle() != null, "a round runs while listening")
+        at(5_000, playing = false)      // paused within the round
+        withTimeout(5_000) { while (keysends().isEmpty()) delay(20) }
+        assertEquals(listOf(host to 4L), keysends(), "4.5 sats to the host: the whole ones went out after the pause")
+        delay(800)
+        assertNull(value.secondsToNextSettle(), "paused: the timer rests")
+        assertEquals(1, keysends().size, "and pays nothing more")
     }
 
     /** The lock-screen button: the set amount at once, never past the budget. */
