@@ -113,6 +113,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
     val episodes by vm.episodeList.collectAsState()
+    val query by vm.query.collectAsState()
+    val found by vm.found.collectAsState()
     val count by vm.episodeCount.collectAsState()
     val listState = rememberLazyListState()
     OnNearEnd(listState) { vm.loadMore() }
@@ -200,7 +202,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         ) { index ->
             when (tabs.getOrNull(index)) {
                 ShowTab.Episodes, null -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                    items(episodes.orEmpty(), key = { it.id }) { item ->
+                    item(key = "search") { EpisodeSearchField(query, vm::search, found?.size) }
+                    items(found ?: episodes.orEmpty(), key = { it.id }) { item ->
                         EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
                             PlayButton(item)
                             EpisodeMenu(item)

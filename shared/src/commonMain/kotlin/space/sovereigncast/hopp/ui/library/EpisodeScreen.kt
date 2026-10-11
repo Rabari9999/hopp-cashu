@@ -66,6 +66,12 @@ import space.sovereigncast.hopp.resources.episode_play_clip
 import space.sovereigncast.hopp.ui.player.TranscriptView
 import space.sovereigncast.hopp.ui.components.PersonRow
 import space.sovereigncast.hopp.ui.components.ChapterRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material3.IconButton
+import space.sovereigncast.hopp.resources.favorite_add
+import space.sovereigncast.hopp.resources.favorite_remove
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.CircularProgressIndicator
 import space.sovereigncast.hopp.ui.components.HoppIcons
@@ -174,6 +180,15 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     }
                     // Boost this episode right here (device feedback 2026-10-09).
                     if (hasValue) BoostPill { boosting = true }
+                    // A favourite, found again on Home (device feedback 2026-10-11).
+                    val actions: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()
+                    IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); actions.setFavorite(e, !e.favorite) }) {
+                        Icon(
+                            if (e.favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            stringResource(if (e.favorite) Res.string.favorite_remove else Res.string.favorite_add),
+                            tint = if (e.favorite) colors.onSurface else colors.onSurfaceVariant,
+                        )
+                    }
                     EpisodeMenu(e)
                 }
                 if (!e.played && e.positionMs > 0 && duration > 0) {

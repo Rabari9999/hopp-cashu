@@ -93,7 +93,7 @@ class DownloadRepository(
     val downloads: Flow<List<EpisodeItem>> = eq.selectDownloads().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
-                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
         }
     }
 

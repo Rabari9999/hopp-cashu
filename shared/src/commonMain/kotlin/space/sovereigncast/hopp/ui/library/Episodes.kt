@@ -55,6 +55,8 @@ import space.sovereigncast.hopp.resources.dl_progress
 import space.sovereigncast.hopp.resources.dl_waiting
 import space.sovereigncast.hopp.resources.mark_played
 import space.sovereigncast.hopp.resources.mark_unplayed
+import space.sovereigncast.hopp.resources.favorite_add
+import space.sovereigncast.hopp.resources.favorite_remove
 import space.sovereigncast.hopp.resources.menu_cancel_download
 import space.sovereigncast.hopp.resources.menu_download
 import space.sovereigncast.hopp.resources.menu_more
@@ -145,6 +147,10 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
             DropdownMenuItem(
                 text = { Text(stringResource(if (item.played) Res.string.mark_unplayed else Res.string.mark_played)) },
                 onClick = { pick { vm.setPlayed(item, !item.played) } },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(if (item.favorite) Res.string.favorite_remove else Res.string.favorite_add)) },
+                onClick = { pick { vm.setFavorite(item, !item.favorite) } },
             )
         }
     }

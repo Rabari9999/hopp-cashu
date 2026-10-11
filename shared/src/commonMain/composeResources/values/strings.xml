@@ -359,6 +359,16 @@
     <string name="sc_info_more">More about Sovereigncast</string>
     <string name="sc_info_url">https://sovereigncast.space/</string>
     <string name="onboarding_start">Let's go</string>
+    <string name="nwc_explainer_url">https://nwc.ereignishorizont.xyz/en/</string>
+    <string name="onboarding_nwc_more">What NWC is and how to set it up:</string>
+    <string name="episode_search">Search episodes</string>
+    <string name="episode_search_found">%1$d episodes found</string>
+    <string name="episode_search_none">No episode found</string>
+    <string name="favorite_add">Add to favourites</string>
+    <string name="favorite_remove">Remove from favourites</string>
+    <string name="favorites_title">Favourites</string>
+    <string name="favorites_empty">No favourites yet</string>
+    <string name="favorites_empty_text">Mark an episode with the heart on its page or in its menu.</string>
     <string-array name="months">
         <item>January</item>
         <item>February</item>

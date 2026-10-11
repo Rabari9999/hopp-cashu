@@ -1,5 +1,9 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import space.sovereigncast.hopp.data.episodeMatches
+import space.sovereigncast.hopp.data.searchWords
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +61,11 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
     val p = loaded?.feed?.podcast
     val all = remember(loaded) { loaded?.feed?.episodes.orEmpty().sortedByDescending { it.publishedAt ?: 0 } }
     var shown by remember(loaded) { mutableIntStateOf(PAGE) }
-    val episodes = all.take(shown)
+    // Searching before subscribing too (device feedback 2026-10-11) — in the feed already loaded.
+    var query by rememberSaveable { mutableStateOf("") }
+    val words = remember(query) { searchWords(query).takeIf { query.trim().length >= 2 } }
+    val found = remember(all, words) { words?.let { w -> all.filter { episodeMatches(it.title, it.description, w) } } }
+    val episodes = found ?: all.take(shown)
     val listState = rememberLazyListState()
     OnNearEnd(listState) { if (shown < all.size) shown += PAGE }
     val count = loaded?.feed?.episodes?.size ?: 0
@@ -98,6 +106,7 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             }
         }
+        if (all.isNotEmpty()) item(key = "search") { EpisodeSearchField(query, { query = it }, found?.size) }
         items(episodes, key = { it.guid }) { e ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Text(e.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)

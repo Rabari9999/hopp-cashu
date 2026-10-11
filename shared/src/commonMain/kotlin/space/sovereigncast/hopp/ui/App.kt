@@ -74,6 +74,7 @@ import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.privacy_title
+import space.sovereigncast.hopp.resources.favorites_title
 import space.sovereigncast.hopp.ui.library.SettingsPage
 import space.sovereigncast.hopp.ui.library.SettingsPageScreen
 import space.sovereigncast.hopp.data.SettingsRepository
@@ -136,6 +137,7 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
+@Serializable object FavoritesRoute
 @Serializable object DownloadsRoute
 
 private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
@@ -190,6 +192,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(SettingsPageRoute::class) == true ->
             entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let { stringResource(it.title) } ?: ""
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
+        destination?.hasRoute(FavoritesRoute::class) == true -> stringResource(Res.string.favorites_title)
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
@@ -279,7 +282,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             popExitTransition = { sharedAxisOut(forward = false) },
                         ) {
                             composable<HomeRoute> {
-                                HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute)
+                                HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) })
                             }
                             composable<InboxRoute> { InboxScreen(onDiscover = { selectTab(tabs[2]) }) }
                             composable<LibraryRoute> {
@@ -289,6 +292,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 )
                             }
                             composable<QueueRoute> { QueueScreen() }
+                            composable<FavoritesRoute> { space.sovereigncast.hopp.ui.library.FavoritesScreen() }
                             composable<DownloadsRoute> { DownloadsScreen() }
                             composable<EpisodeRoute> { e ->
                                 EpisodeScreen(

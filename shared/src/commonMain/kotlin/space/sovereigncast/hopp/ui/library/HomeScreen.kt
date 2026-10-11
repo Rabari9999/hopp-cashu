@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import space.sovereigncast.hopp.sovereigncast.ShowAction
 import space.sovereigncast.hopp.ui.components.formatIsoShort
 import space.sovereigncast.hopp.resources.home_at_your_shows
+import space.sovereigncast.hopp.resources.favorites_title
 import space.sovereigncast.hopp.resources.sc_b2u_label
 import space.sovereigncast.hopp.resources.sc_rb_label
 import space.sovereigncast.hopp.resources.sc_progress
@@ -68,7 +69,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, vm: HomeViewModel = koinViewModel()) {
+fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {}, vm: HomeViewModel = koinViewModel()) {
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
@@ -76,6 +77,7 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Un
     val played by vm.recentlyPlayed.collectAsState()
     val boosted by vm.recentlyBoosted.collectAsState()
     val actions by vm.actions.collectAsState()
+    val favorites by vm.favorites.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val continueTitle = stringResource(Res.string.library_continue)
     val recentTitle = stringResource(Res.string.home_recent)
@@ -88,7 +90,7 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Un
             }
             return@PullToRefreshBox
         }
-        if (newest.isEmpty() && inProgress.isEmpty() && played.isEmpty() && boosted.isEmpty() && actions.isEmpty()) {
+        if (newest.isEmpty() && inProgress.isEmpty() && played.isEmpty() && boosted.isEmpty() && actions.isEmpty() && favorites.isEmpty()) {
             EmptyState(stringResource(Res.string.inbox_empty_title), stringResource(Res.string.inbox_empty_text))
             return@PullToRefreshBox
         }
@@ -107,6 +109,17 @@ fun HomeScreen(onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Un
                 }
             }
             section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
+            // Favourites (device feedback 2026-10-11): only once there are any.
+            if (favorites.isNotEmpty()) {
+                val open = "favorites" !in collapsed
+                item(key = "h-favorites") {
+                    SectionHeader(stringResource(Res.string.favorites_title), open, favorites.size, { vm.toggle("favorites") },
+                        stringResource(Res.string.home_all, favorites.size), onFavorites)
+                }
+                if (open) items(favorites.take(HomeViewModel.HOME_ROWS), key = { "f${it.id}" }) { item ->
+                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
+                }
+            }
             // Release Boosting and Boost2Unlock at the listener's shows — quiet,
             // one line each, the details on the show page (device feedback 2026-10-10).
             if (actions.isNotEmpty()) {

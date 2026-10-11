@@ -78,6 +78,8 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+/** The NWC explainer the tour links to is down (device feedback 2026-10-11). */
+private var nwcDown = false
 private const val TRANSCRIPT = "WEBVTT\n\n00:00:01.000 --> 00:00:05.000\n<v Karsten>Willkommen zur zweiten Folge.\n\n00:12:34.000 --> 00:12:40.000\n<v Karsten>Jetzt kommt der Hauptteil.\n"
 
 /** A month with ten top boosts and a long all-time list — longer than the screen. */
@@ -147,6 +149,7 @@ class TestApp : Application() {
                     respond("""{"version":1,"shows":[{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml","instance":"https://pm.test"}]}""")
                 req.url.encodedPath == "/nodesignal.xml" -> respond(nodesignal)
                 req.url.encodedPath == "/2.vtt" -> respond(TRANSCRIPT)
+                req.url.host == "nwc.ereignishorizont.xyz" -> if (nwcDown) respond("", io.ktor.http.HttpStatusCode.ServiceUnavailable) else respond("<html>wtf is nwc?</html>")
                 req.url.encodedPath == "/1.json" -> respond("""{"version":"1.2.0","chapters":[{"startTime":0,"title":"Intro"},
                     {"startTime":90,"title":"Die Node","img":"https://cdn.test/node.jpg","url":"https://github.com/nodesignal"}]}""")
                 else -> respond(FEED)
@@ -415,13 +418,13 @@ class AndroidAppFlowTest {
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
         tap("Open as feed"); waitFor("Subscribe")
         rule.waitUntil(10_000) { has("325 episodes", substring = true) }
-        check(rows() <= 1 + 20) { "the preview shows ${rows()} rows at once" }
+        check(rows() <= 2 + 20) { "the preview shows ${rows()} rows at once" } // header, search field, a page
         tap("Subscribe"); waitFor("✓ Subscribed")
-        // The header sits above the list now, which holds only episodes.
-        rule.waitUntil(10_000) { rows() == 20 }
+        // The header sits above the list; the list holds the search field and the episodes.
+        rule.waitUntil(10_000) { rows() == 1 + 20 }
         check(has("325 episodes")) { "the count is the show's, not the page's" }
-        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToIndex(19)
-        rule.waitUntil(10_000) { rows() == 40 }
+        rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToIndex(20)
+        rule.waitUntil(10_000) { rows() == 1 + 40 }
     }
 
     @Test
@@ -627,7 +630,7 @@ class AndroidAppFlowTest {
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
         tap("Open as feed"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
-        rule.waitUntil(10_000) { rows() == 20 }
+        rule.waitUntil(10_000) { rows() == 1 + 20 }
         rule.onNodeWithText("325 episodes").assertIsDisplayed()
         rule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performTouchInput { swipeUp() }
         rule.waitForIdle()
@@ -897,5 +900,75 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("✓ Sovereigncast") and hasClickAction()).performClick()
         waitFor("Nodesignal")
         check(!has("Test Show")) { screen().toString() }
+    }
+
+    // ── device feedback 2026-10-11 ─────────────────────────────────────────
+
+    /** A subscribed show's episodes can be searched by topic, all of them. */
+    @Test
+    fun aShowsEpisodesCanBeSearched() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        rule.onNode(hasText("Search episodes") and hasSetTextAction()).performTextInput("meshtastic")
+        rule.waitUntil(10_000) { has("episodes found", substring = true) }
+        rule.waitUntil(10_000) { has("E246 - Selbstsouveräne Kommunikation mit Meshtastic", substring = true) }
+    }
+
+    /** Before subscribing too, in the feed already loaded. */
+    @Test
+    fun thePreviewSearchesItsEpisodes() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/nodesignal.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        rule.waitUntil(10_000) { has("325 episodes", substring = true) }
+        rule.onNode(hasText("Search episodes") and hasSetTextAction()).performTextInput("xyzzy-nothing")
+        waitFor("No episode found")
+    }
+
+    /** A favourite is found again on Home; without any there is no such section. */
+    @Test
+    fun favouritesAreOnHome() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Home"); waitFor("Ep 2")
+        check(!has("Favourites")) { "no favourites, no section" }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Add to favourites")).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Remove from favourites")).fetchSemanticsNodes().isNotEmpty() }
+        tap("Home")
+        waitFor("Favourites")
+        tapTop("All 1 ›") // the favourites', below "New"'s
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Ep 2") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() && !has("New") }
+    }
+
+    /** The tour links the NWC explainer — only when the page is there. */
+    @Test
+    fun theTourLinksTheNwcExplainer() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(4) { tap("Next") }
+        waitFor("Connect your wallet")
+        waitFor("nwc.ereignishorizont.xyz ↗")
+    }
+
+    @Test
+    fun aDeadNwcExplainerIsNotLinked() {
+        nwcDown = true
+        try {
+            tourNotDone()
+            rule.setContent { App() }
+            waitFor("Welcome to Hopp")
+            repeat(4) { tap("Next") }
+            waitFor("Connect your wallet")
+            rule.waitForIdle()
+            Thread.sleep(2_000)
+            rule.waitForIdle()
+            check(!has("nwc.ereignishorizont.xyz ↗") && !has("What NWC is and how to set it up:")) { screen().toString() }
+        } finally { nwcDown = false }
     }
 }

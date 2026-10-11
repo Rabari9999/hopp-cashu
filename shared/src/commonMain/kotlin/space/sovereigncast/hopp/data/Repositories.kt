@@ -63,6 +63,8 @@ data class EpisodeItem(
     val podcastImageUrl: String? = null,
     val downloadState: Int = DownloadState.NONE,
     val downloadPath: String? = null,
+    /** A favourite of the listener's (device feedback 2026-10-11). */
+    val favorite: Boolean = false,
 ) {
     /** What the player opens: the file once it is complete, else the stream. */
     val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let { "file://$it" } ?: enclosureUrl
@@ -73,10 +75,10 @@ data class EpisodeItem(
 internal fun episodeItem(
     id: Long, podcastId: Long, guid: String, title: String?, publishedAt: Long?, durationSeconds: Long?, imageUrl: String?,
     enclosureUrl: String?, chaptersUrl: String?, positionMs: Long, played: Long, inInbox: Long, downloadState: Long,
-    downloadPath: String?, podcastTitle: String? = null, podcastImageUrl: String? = null,
+    downloadPath: String?, podcastTitle: String? = null, podcastImageUrl: String? = null, favoriteAt: Long? = null,
 ) = EpisodeItem(
     id, podcastId, guid, title ?: "", publishedAt, durationSeconds, imageUrl, enclosureUrl, chaptersUrl, positionMs,
-    played == 1L, inInbox == 1L, podcastTitle, podcastImageUrl, downloadState.toInt(), downloadPath,
+    played == 1L, inInbox == 1L, podcastTitle, podcastImageUrl, downloadState.toInt(), downloadPath, favoriteAt != null,
 )
 
 internal val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
@@ -253,21 +255,21 @@ class EpisodeRepository(
     val inbox: Flow<List<EpisodeItem>> = eq.selectInbox().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
-                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
         }
     }
 
     val inProgress: Flow<List<EpisodeItem>> = eq.selectInProgress().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
-                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
         }
     }
 
     fun recentlyPlayed(limit: Long): Flow<List<EpisodeItem>> = eq.selectRecentlyPlayed(limit).asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
-                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url)
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
         }
     }
 
@@ -310,6 +312,32 @@ class EpisodeRepository(
         return chapters
     }
 
+    /** The favourites, newest first (device feedback 2026-10-11). */
+    val favorites: Flow<List<EpisodeItem>> = eq.selectFavorites().asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.map { r ->
+            episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
+        }
+    }
+
+    suspend fun setFavorite(id: Long, on: Boolean) = withContext(Dispatchers.IO) { eq.setFavorite(if (on) clock.now() else null, id) }
+
+    /**
+     * Episodes of a show whose title or description has every word of [query]
+     * (device feedback 2026-10-11: looking for a topic), newest first — all of
+     * them, not a page. Case does not count, nor "ue" against "ü".
+     */
+    suspend fun search(podcastId: Long, query: String): List<EpisodeItem> = withContext(Dispatchers.Default) {
+        val words = searchWords(query)
+        if (words.isEmpty()) return@withContext emptyList()
+        val rows = withContext(Dispatchers.IO) { eq.selectSearchable(podcastId).executeAsList() }
+        val hits = rows.filter { r ->
+            episodeMatches(r.title, runCatching { json.decodeFromString(Episode.serializer(), r.meta_json).description }.getOrNull(), words)
+        }.map { it.id }.toSet()
+        if (hits.isEmpty()) return@withContext emptyList()
+        withContext(Dispatchers.IO) { eq.selectByPodcast(podcastId).executeAsList() }.filter { it.id in hits }.map { it.toItem() }
+    }
+
     private val transcripts = mutableMapOf<Long, List<space.sovereigncast.hopp.feed.Cue>>()
 
     /** Whether the episode names a transcript at all — the player's chip. */
@@ -331,6 +359,6 @@ class EpisodeRepository(
 
     private fun space.sovereigncast.hopp.db.Episode.toItem() = episodeItem(
         id, podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url,
-        position_ms, played, in_inbox, download_state, download_path,
+        position_ms, played, in_inbox, download_state, download_path, favoriteAt = favorite_at,
     )
 }

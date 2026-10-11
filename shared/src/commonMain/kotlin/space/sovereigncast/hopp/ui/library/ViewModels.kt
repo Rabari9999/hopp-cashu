@@ -92,6 +92,7 @@ class HomeViewModel(
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(podcasts.shows.map { it.isNotEmpty() }, null)
     val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress.map { it.take(HOME_ROWS) }, emptyList())
+    val favorites: StateFlow<List<EpisodeItem>> = state(episodes.favorites, emptyList())
     val recentlyPlayed: StateFlow<List<EpisodeItem>> = state(episodes.recentlyPlayed(HOME_ROWS.toLong()), emptyList())
     /** Boosted episodes that still exist, with the sats sent to each. */
     val recentlyBoosted: StateFlow<List<Pair<EpisodeItem, Long>>> = state(
@@ -144,6 +145,12 @@ class EpisodeActionsViewModel(
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
     fun setPlayed(item: EpisodeItem, played: Boolean) = viewModelScope.launch { episodes.setPlayed(item.id, played) }
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
+    fun setFavorite(item: EpisodeItem, on: Boolean) = viewModelScope.launch { episodes.setFavorite(item.id, on) }
+}
+
+/** All favourites, newest first (device feedback 2026-10-11). */
+class FavoritesViewModel(episodes: EpisodeRepository) : ViewModel() {
+    val items: StateFlow<List<EpisodeItem>?> = state(episodes.favorites, null)
 }
 
 /** An episode's own page (device feedback 2026-10-08, as in Pocket Casts):
@@ -195,6 +202,7 @@ class SettingsViewModel(
     suspend fun exportOpml(): String = podcasts.exportOpml()
 }
 
+@OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ShowViewModel(
     private val podcastId: Long,
     private val podcasts: PodcastRepository,
@@ -227,6 +235,23 @@ class ShowViewModel(
     }
 
     fun togglePlayed(item: EpisodeItem) = viewModelScope.launch { episodes.setPlayed(item.id, !item.played) }
+
+    private val _query = MutableStateFlow("")
+    /** Searching the show's episodes (device feedback 2026-10-11). */
+    val query: StateFlow<String> = _query.asStateFlow()
+    private val _found = MutableStateFlow<List<EpisodeItem>?>(null)
+    /** The matches; null while there is no search. */
+    val found: StateFlow<List<EpisodeItem>?> = _found.asStateFlow()
+    fun search(q: String) { _query.value = q }
+
+    init {
+        viewModelScope.launch {
+            // Again whenever the episodes change while searching (a refresh, played, a favourite).
+            _query.debounce(250).map { it.trim() }.distinctUntilChanged().flatMapLatest { q ->
+                if (q.length < 2) kotlinx.coroutines.flow.flowOf(null) else episodes.ofPodcast(podcastId).map { episodes.search(podcastId, q) }
+            }.collect { _found.value = it }
+        }
+    }
     fun setAutoDownload(on: Boolean) = viewModelScope.launch { podcasts.setAutoDownload(podcastId, on) }
     fun unsubscribe() = viewModelScope.launch { podcasts.unsubscribe(podcastId) }
 }

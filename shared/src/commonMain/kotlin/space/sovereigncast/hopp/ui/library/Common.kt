@@ -1,5 +1,13 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.episode_search
+import space.sovereigncast.hopp.resources.episode_search_found
+import space.sovereigncast.hopp.resources.episode_search_none
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -106,4 +114,29 @@ fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: 
         }
     }
     androidx.compose.runtime.LaunchedEffect(near) { if (near) onNearEnd() }
+}
+
+/** Searching a show's episodes by topic (device feedback 2026-10-11): the
+ *  field above the list, and how many it found. */
+@Composable
+fun EpisodeSearchField(query: String, onChange: (String) -> Unit, found: Int?) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        androidx.compose.material3.OutlinedTextField(
+            query, onChange, Modifier.fillMaxWidth(), singleLine = true,
+            placeholder = { Text(stringResource(Res.string.episode_search)) },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { onChange("") }) {
+                    Icon(Icons.Rounded.Clear,
+                        stringResource(Res.string.cancel))
+                }
+            },
+        )
+        if (found != null) Text(
+            if (found == 0) stringResource(Res.string.episode_search_none)
+            else stringResource(Res.string.episode_search_found, found),
+            Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+        )
+    }
 }

@@ -84,6 +84,9 @@ class DownloadsAndQueueTest {
         // Version 3: the payment log and streaming tables are there too.
         assertEquals(0L, migrated.paymentQueries.spentSince(0).executeAsOne())
         assertEquals(0L, migrated.streamingQueries.owedTotal().executeAsOne())
+        // Version 4: favourites.
+        EpisodeRepository(migrated, http, clock).setFavorite(1, true)
+        assertEquals(listOf(1L), EpisodeRepository(migrated, http, clock).favorites.first().map { it.id })
         SettingsRepository(migrated).update { it.copy(skipBackSeconds = 15) }
         assertEquals(15, SettingsRepository(migrated).current().skipBackSeconds)
     }
