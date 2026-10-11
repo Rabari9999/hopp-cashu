@@ -83,6 +83,7 @@ class ValueBarViewModel(
     private val value: ValueService,
     wallet: WalletRepository,
     private val settings: SettingsRepository,
+    private val reports: space.sovereigncast.hopp.value.BoostReports,
 ) : ViewModel() {
     val connected: StateFlow<ConnectedWallet?> = wallet.wallet
     val current: StateFlow<Settings?> = state(settings.settings, null)
@@ -106,31 +107,32 @@ class ValueBarViewModel(
         _plan.value = value.plan(item, positionSeconds, amountSats * 1000)
     }
 
-    fun send(item: EpisodeItem, positionSeconds: Long, amountSats: Long, message: String, name: String) {
-        _boost.value = BoostState.Sending
-        viewModelScope.launch {
-            settings.update { it.copy(senderName = name.trim()) }
-            _boost.value = try {
-                BoostState.Done(value.boost(item, positionSeconds, amountSats * 1000, message))
-            } catch (e: Exception) {
-                BoostState.Failed(e.message ?: "error")
-            }
-        }
-    }
+    fun send(item: EpisodeItem, positionSeconds: Long, amountSats: Long, message: String, name: String) =
+        run(item.podcastId, amountSats, name) { value.boost(item, positionSeconds, amountSats * 1000, message) }
 
     fun planShow(podcastId: Long, amountSats: Long) = viewModelScope.launch {
         _plan.value = value.planShow(podcastId, amountSats * 1000)
     }
 
-    fun sendShow(podcastId: Long, amountSats: Long, message: String, name: String) {
+    fun sendShow(podcastId: Long, amountSats: Long, message: String, name: String) =
+        run(podcastId, amountSats, name) { value.boostShow(podcastId, amountSats * 1000, message) }
+
+    /** In the app's scope, not the screen's: a boost on its way is finished
+     *  and reported even when the sheet or the player closes (BoostReports). */
+    private fun run(podcastId: Long, amountSats: Long, name: String, pay: suspend () -> List<space.sovereigncast.hopp.value.ShareResult>) {
         _boost.value = BoostState.Sending
-        viewModelScope.launch {
+        reports.scope.launch {
             settings.update { it.copy(senderName = name.trim()) }
-            _boost.value = try {
-                BoostState.Done(value.boostShow(podcastId, amountSats * 1000, message))
+            val outcome = try {
+                val results = pay()
+                _boost.value = BoostState.Done(results)
+                value.outcome(podcastId, amountSats, results)
             } catch (e: Exception) {
-                BoostState.Failed(e.message ?: "error")
+                val reason = e.message ?: "error"
+                _boost.value = BoostState.Failed(reason)
+                space.sovereigncast.hopp.value.QuickBoost.Failed(reason)
             }
+            reports.report(outcome)
         }
     }
 

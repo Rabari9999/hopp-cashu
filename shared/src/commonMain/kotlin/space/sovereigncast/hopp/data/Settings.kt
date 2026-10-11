@@ -98,8 +98,8 @@ data class Settings(
         }
     }
 
-    /** Whether a quick boost's result is worth a notification ([boostFeedback]). */
-    fun reportsQuickBoost(ok: Boolean): Boolean = when (boostFeedback) {
+    /** Whether a boost's result is worth a notification ([boostFeedback]). */
+    fun reportsBoost(ok: Boolean): Boolean = when (boostFeedback) {
         FEEDBACK_OFF -> false
         FEEDBACK_ERRORS -> !ok
         else -> true

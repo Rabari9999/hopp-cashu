@@ -342,7 +342,7 @@
     <string name="settings_downloads_refresh">Downloads &amp; Aktualisierung</string>
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
     <string name="settings_notifications">Benachrichtigungen</string>
-    <string name="settings_notifications_note">Was ein Schnell-Boost meldet</string>
+    <string name="settings_notifications_note">Was ein Boost meldet</string>
     <string name="settings_language">Sprache</string>
     <string name="settings_language_current">Deutsch</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
@@ -352,11 +352,11 @@
     <string name="settings_about_title">Über Hopp</string>
     <string name="settings_about_note">Version, Tour, Quellcode</string>
     <string name="settings_skip_silence_note">Kürzt Pausen im Ton</string>
-    <string name="settings_boost_feedback">Nach einem Schnell-Boost vom Sperrbildschirm</string>
+    <string name="settings_boost_feedback">Nach einem Boost</string>
     <string name="feedback_off">Nichts</string>
     <string name="feedback_errors">Nur wenn es scheitert</string>
     <string name="feedback_always">Immer</string>
-    <string name="settings_boost_feedback_note">Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
+    <string name="settings_boost_feedback_note">Für den Schnell-Boost vom Sperrbildschirm und für Boosts in der App. Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
     <string name="settings_notifications_system">Wiedergabe- und Download-Benachrichtigung braucht Android, damit beides im Hintergrund weiterläuft; Aussehen und Ton stellst du in den Systemeinstellungen ein.</string>
     <string name="settings_notifications_open">System-Benachrichtigungen öffnen</string>
     <string name="settings_opml_note">Deine Abos als OPML-Datei – als Sicherung oder für eine andere Podcast-App. Importieren geht unter Entdecken.</string>

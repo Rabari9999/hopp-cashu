@@ -8,7 +8,9 @@ import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.download.WorkDownloadScheduler
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.platform.AppInfo
+import space.sovereigncast.hopp.platform.AndroidBoostNotifier
 import space.sovereigncast.hopp.platform.AndroidNetworkPrivacy
+import space.sovereigncast.hopp.value.BoostNotifier
 import space.sovereigncast.hopp.platform.KeystoreSecretStore
 import space.sovereigncast.hopp.platform.NetworkPrivacySource
 import space.sovereigncast.hopp.platform.PlaybackEngine
@@ -33,4 +35,5 @@ class AndroidPlatform(private val context: Context) : Platform {
     // Outside Auto Backup too: a report is the listener's to share (ADR 0015).
     override fun crashDir(): String = java.io.File(context.noBackupFilesDir, "crash").absolutePath
     override fun networkPrivacy(): NetworkPrivacySource = AndroidNetworkPrivacy(context)
+    override fun boostNotifier(): BoostNotifier = AndroidBoostNotifier(context)
 }

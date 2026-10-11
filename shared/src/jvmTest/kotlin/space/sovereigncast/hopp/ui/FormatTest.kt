@@ -35,20 +35,20 @@ class FormatTest {
     }
 }
 
-/** What a quick boost from the lock screen reports (device feedback 2026-10-10). */
+/** What a boost reports — quick boost (device feedback 2026-10-10) and the boost sheet (2026-10-11). */
 class QuickBoostFeedbackTest {
     private fun s(f: String) = space.sovereigncast.hopp.data.Settings(boostFeedback = f)
 
     @Test
     fun onlyFailuresByDefault() {
         val d = space.sovereigncast.hopp.data.Settings()
-        kotlin.test.assertFalse(d.reportsQuickBoost(ok = true))
-        kotlin.test.assertTrue(d.reportsQuickBoost(ok = false))
+        kotlin.test.assertFalse(d.reportsBoost(ok = true))
+        kotlin.test.assertTrue(d.reportsBoost(ok = false))
     }
 
     @Test
     fun nothingOrEverything() {
-        kotlin.test.assertFalse(s("off").reportsQuickBoost(ok = false))
-        kotlin.test.assertTrue(s("always").reportsQuickBoost(ok = true))
+        kotlin.test.assertFalse(s("off").reportsBoost(ok = false))
+        kotlin.test.assertTrue(s("always").reportsBoost(ok = true))
     }
 }

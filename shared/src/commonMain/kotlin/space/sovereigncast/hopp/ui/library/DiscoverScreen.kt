@@ -72,6 +72,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     val query by vm.query.collectAsState()
     val valueOnly by vm.valueOnly.collectAsState()
     val scOnly by vm.scOnly.collectAsState()
+    // Read so the badges below follow the list once it arrives.
     val scShows by vm.scShows.collectAsState()
     val search by vm.search.collectAsState()
     val podroll by vm.podroll.collectAsState()
@@ -103,8 +104,9 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
                     // Only shows on the curated list (device feedback 2026-10-10) — no
-                    // directory knows the feed marker, see ScDirectory.
-                    if (scShows.isNotEmpty()) FilterChip(selected = scOnly, onClick = { vm.setScOnly(!scOnly) }, label = { Text("✓ " + stringResource(Res.string.sc_badge)) })
+                    // directory knows the feed marker, see ScDirectory. Always there,
+                    // not only once the list has arrived (device feedback 2026-10-11).
+                    FilterChip(selected = scOnly, onClick = { vm.setScOnly(!scOnly) }, label = { Text("✓ " + stringResource(Res.string.sc_badge)) })
                     if (address != null) Button(onClick = { onPreview(address, null) }) { Text(stringResource(Res.string.discover_open_feed)) }
                 }
                 settings?.let { s ->
@@ -126,7 +128,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 }
                 if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
                 items(r.shows, key = { "r" + it.feedUrl }) { show ->
-                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows.isNotEmpty() && vm.isSovereigncast(show)) {
+                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
                         vm.remember(q); onPreview(show.feedUrl, show)
                     }
                 }

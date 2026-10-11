@@ -60,6 +60,8 @@ interface Platform {
     fun crashDir(): String? = null
     /** VPN and private DNS, for the privacy page; unknown where it cannot tell. */
     fun networkPrivacy(): space.sovereigncast.hopp.platform.NetworkPrivacySource = space.sovereigncast.hopp.platform.NetworkPrivacySource.Unknown
+    /** Where a boost's result goes when the listener wants to hear of it. */
+    fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -108,5 +110,6 @@ fun sharedModule(platform: Platform) = module {
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
-    viewModel { ValueBarViewModel(get(), get(), get()) }
+    single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
+    viewModel { ValueBarViewModel(get(), get(), get(), get()) }
 }

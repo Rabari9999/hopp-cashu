@@ -215,6 +215,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
     }
+    // The Sovereigncast list fetched ahead, so Discover marks and filters at
+    // once instead of a moment after opening (device feedback 2026-10-11).
+    val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory = koinInject()
+    LaunchedEffect(Unit) { scDirectory.shows() }
     // The first start's tour (device feedback 2026-10-10), or again from "About".
     val settingsRepo: SettingsRepository = koinInject()
     val appSettings by settingsRepo.settings.collectAsState(null)

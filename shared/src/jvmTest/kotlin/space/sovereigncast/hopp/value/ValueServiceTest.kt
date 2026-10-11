@@ -13,6 +13,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -207,6 +209,39 @@ class ValueServiceTest {
         assertEquals(QuickBoost.OverBudget, value.quickBoost(ep, 30), "100 more would make 200 of 150")
         settings.update { it.copy(quickBoostSats = 0) }
         assertEquals(QuickBoost.Off, value.quickBoost(ep, 30))
+    }
+
+    /** A boost from the sheet — player, episode, show — is reported like the
+     *  quick boost (device feedback 2026-10-11): by default only when it goes wrong. */
+    @Test
+    fun aBoostFromTheSheetIsReportedAsTheListenerChose() = test {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            val shown = java.util.concurrent.CopyOnWriteArrayList<QuickBoost>()
+            val vm = space.sovereigncast.hopp.ui.value.ValueBarViewModel(value, wallet, settings, BoostReports(settings, { shown += it }, scope))
+            val ep = episode()
+            suspend fun until(check: () -> Boolean) = withTimeout(10_000) { while (!check()) delay(20) }
+
+            // No wallet: nobody gets anything — worth a notification.
+            vm.send(ep, 30, 100, "", "")
+            until { shown.isNotEmpty() }
+            assertTrue(!shown.single().ok, shown.toString())
+
+            // Paid in full: by default, nothing to say.
+            wallet.connect(uri())
+            vm.resetBoost(); vm.send(ep, 30, 100, "", "")
+            until { vm.boost.value is space.sovereigncast.hopp.ui.value.BoostState.Done }
+            delay(300)
+            assertEquals(1, shown.size, shown.toString())
+
+            // "Always": the success too.
+            settings.update { it.copy(boostFeedback = space.sovereigncast.hopp.data.Settings.FEEDBACK_ALWAYS) }
+            vm.resetBoost(); vm.send(ep, 30, 100, "", "")
+            until { shown.size == 2 }
+            assertTrue(shown[1].ok && (shown[1] as QuickBoost.Sent).show == "Show", shown.toString())
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     /** Device feedback 2026-10-08: a boost to the whole show — its block, no

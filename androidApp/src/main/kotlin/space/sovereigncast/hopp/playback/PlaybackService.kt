@@ -1,10 +1,6 @@
 package space.sovereigncast.hopp.playback
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.os.Build
 import android.os.Bundle
-import androidx.core.app.NotificationCompat
 import androidx.media3.session.CommandButton
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
@@ -12,7 +8,7 @@ import com.google.common.util.concurrent.Futures
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import space.sovereigncast.hopp.R
-import space.sovereigncast.hopp.value.QuickBoost
+import space.sovereigncast.hopp.value.BoostReports
 import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
 import androidx.media3.common.AudioAttributes
@@ -100,44 +96,12 @@ class PlaybackService : MediaLibraryService() {
     )
 
     /** One tap, the set amount, no dialog (device feedback 2026-10-08) — and
-     *  a notification that says what happened. */
+     *  a notification that says what happened, as the listener chose
+     *  (device feedback 2026-10-10: nothing, only failures, or everything). */
     private fun quickBoost() {
         val now = controller.current.value?.item ?: return
         val position = controller.state.value.positionMs / 1000
-        scope.launch {
-            val r = koin.get<ValueService>().quickBoost(now, position)
-            // What to report is the listener's choice (device feedback 2026-10-10):
-            // nothing, only what went wrong (default), or everything.
-            val ok = r is QuickBoost.Sent && r.paidSats == r.amountSats
-            if (!koin.get<SettingsRepository>().current().reportsQuickBoost(ok)) return@launch
-            val text = when (r) {
-                is QuickBoost.Sent -> if (r.paidSats == r.amountSats) getString(R.string.quick_boost_sent, r.paidSats.toString(), r.show)
-                    else getString(R.string.quick_boost_partial, r.paidSats.toString(), r.amountSats.toString(), r.show)
-                QuickBoost.OverBudget -> getString(R.string.quick_boost_budget)
-                QuickBoost.NoValue -> getString(R.string.quick_boost_no_value)
-                QuickBoost.NoWallet -> getString(R.string.quick_boost_no_wallet)
-                is QuickBoost.Failed -> getString(R.string.quick_boost_failed, r.reason)
-                QuickBoost.Off -> return@launch
-            }
-            notifyBoost(text, ok)
-        }
-    }
-
-    private fun notifyBoost(text: String, ok: Boolean) {
-        val manager = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(BOOST_CHANNEL, getString(R.string.boosts_channel), NotificationManager.IMPORTANCE_DEFAULT))
-        }
-        val n = NotificationCompat.Builder(this, BOOST_CHANNEL)
-            .setSmallIcon(R.drawable.ic_boost)
-            .setContentTitle(getString(R.string.quick_boost))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setAutoCancel(true)
-            // A success needs no keeping: it goes by itself after a few seconds.
-            .apply { if (ok) setTimeoutAfter(6_000) }
-            .build()
-        runCatching { manager.notify(BOOST_NOTIFICATION, n) }
+        scope.launch { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position)) }
     }
 
     /** Next/previous on headsets, the notification and in the car jump by
@@ -212,8 +176,6 @@ class PlaybackService : MediaLibraryService() {
 
     private companion object {
         const val ACTION_BOOST = "space.sovereigncast.hopp.BOOST"
-        const val BOOST_CHANNEL = "boosts"
-        const val BOOST_NOTIFICATION = 3
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session

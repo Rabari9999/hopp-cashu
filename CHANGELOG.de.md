@@ -9,7 +9,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ### 🆕 New Features
 - **Ein Podcast-Player ohne Konto** — Bibliothek, Home mit Neuem und dem, was du gerade hörst, Warteschlange, Downloads im WLAN, Sleep-Timer (auch zum Kapitelende), Tempo je Show, Stille überspringen, Android Auto. Auf Englisch und Deutsch, ab Android 13 auch abweichend von der Sprache des Telefons.
 - **Shows finden** im Podcast Index (wahlweise auch fyyd und Apple), per Feed-Adresse oder OPML; eine Show ansehen, bevor du sie abonnierst.
-- **Value for Value** — verbinde deine Lightning-Wallet per NWC, booste eine Folge oder die ganze Show, streame Sats beim Hören. Aufteilungen kommen in ganzen Sats an; Routing-Gebühren stehen extra.
+- **Value for Value** — verbinde deine Lightning-Wallet per NWC, booste eine Folge oder die ganze Show, streame Sats beim Hören; schlägt ein Boost fehl, sagt es dir eine Benachrichtigung. Aufteilungen kommen in ganzen Sats an; Routing-Gebühren stehen extra.
 - **Sovereigncast-Shows** — Release Boosting und Boost2Unlock mit allen Details, über Themenvorschläge abstimmen, die Top-Boosts der Community.
 - **Folgen einer Show durchsuchen** nach Themen, und **Favoriten** auf Home sammeln.
 - **Folgenseiten** mit Shownotes, Kapiteln, Personen und Boost-Button; ein Transkript, das im Player mitläuft.

@@ -264,13 +264,17 @@ class ValueService(
         if (amount > budgetLeftMsat.first()) return QuickBoost.OverBudget
         if (blockFor(item) == null) return QuickBoost.NoValue
         return try {
-            val results = boost(item, positionSeconds, amount, null)
-            val paid = results.filterIsInstance<ShareResult.Paid>()
-            QuickBoost.Sent(paid.sumOf { it.share.amountMsat } / 1000, s.quickBoostSats.toLong(), paid.size, results.size,
-                podcasts.show(item.podcastId).first()?.title ?: item.podcastTitle.orEmpty())
+            outcome(item.podcastId, s.quickBoostSats.toLong(), boost(item, positionSeconds, amount, null), item.podcastTitle)
         } catch (e: Exception) {
             QuickBoost.Failed(e.message ?: "error")
         }
+    }
+
+    /** What a boost came to, to report it (BoostReports). */
+    suspend fun outcome(podcastId: Long, amountSats: Long, results: List<ShareResult>, fallbackTitle: String? = null): QuickBoost.Sent {
+        val paid = results.filterIsInstance<ShareResult.Paid>()
+        return QuickBoost.Sent(paid.sumOf { it.share.amountMsat } / 1000, amountSats, paid.size, results.size,
+            podcasts.show(podcastId).first()?.title ?: fallbackTitle.orEmpty())
     }
 
     private suspend fun context(item: EpisodeItem, action: String, positionSeconds: Long?, message: String?): BoostContext {

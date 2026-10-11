@@ -156,6 +156,7 @@ fun PrivacyScreen(onPage: (SettingsPage) -> Unit = {}, onWallet: () -> Unit = {}
 /** What Hopp can tell about one card's tip, if anything. */
 @Composable
 private fun PartyCheck(p: Party, s: PrivacyState, onPage: (SettingsPage) -> Unit, onWallet: () -> Unit) {
+    val actions = LocalPlatformActions.current
     when (p.who) {
         Res.string.pv_hosts_who -> CheckLine(Check.Info, when (val h = s.settings.refreshHours) {
             0 -> stringResource(Res.string.privacy_refresh_off)
@@ -173,6 +174,12 @@ private fun PartyCheck(p: Party, s: PrivacyState, onPage: (SettingsPage) -> Unit
             if (s.anonymous) CheckLine(Check.Done, stringResource(Res.string.privacy_name_empty))
             else CheckLine(Check.Open, stringResource(Res.string.privacy_name_set, s.settings.senderName)) { onWallet() }
         Res.string.pv_wallet_who -> s.relay?.let { CheckLine(Check.Info, stringResource(Res.string.privacy_relay, it)) }
+        // The tip there is a VPN (device feedback 2026-10-11).
+        Res.string.pv_extra_who -> when (s.vpn) {
+            true -> CheckLine(Check.Done, stringResource(Res.string.privacy_vpn_on))
+            false -> CheckLine(Check.Open, stringResource(Res.string.privacy_vpn_off)) { actions.openVpnSettings() }
+            null -> Unit
+        }
         else -> Unit
     }
 }

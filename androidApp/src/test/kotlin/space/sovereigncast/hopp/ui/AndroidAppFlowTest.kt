@@ -695,12 +695,14 @@ class AndroidAppFlowTest {
         waitFor("No VPN active · set one up")
         check(has("2 of 4 points Hopp can check are optimised")) { screen().toString() }
         check(has("Both switched off") && has("Background refresh every hour")) { screen().toString() }
-        tap("No VPN active · set one up")
+        // Up top, and again on the card of images, chapters and transcripts, whose tip it is.
+        check(rule.onAllNodes(hasText("No VPN active · set one up") and hasClickAction()).fetchSemanticsNodes().size == 2) { screen().toString() }
+        rule.onAllNodes(hasText("No VPN active · set one up") and hasClickAction()).onFirst().performClick()
         check(vpnOpened == 1) { "VPN settings opened $vpnOpened times" }
 
         // Back from the system's settings with a VPN on: VPN and DNS turn green.
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
-        waitFor("VPN active")
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("VPN active").fetchSemanticsNodes().size == 2 }
         check(has("DNS goes through your VPN") && has("✓  4 of 4 points Hopp can check are optimised")) { screen().toString() }
 
         // A name goes along with boosts: said so, and a tap leads to where it is set.
@@ -863,7 +865,7 @@ class AndroidAppFlowTest {
         waitFor("No payments yet")
         back()
         tap("Notifications")
-        waitFor("After a quick boost from the lock screen")
+        waitFor("After a boost")
         check(settings().boostFeedback == "errors") { "only failures by default" }
         tap("Always")
         until { settings().boostFeedback == "always" }
@@ -951,6 +953,18 @@ class AndroidAppFlowTest {
         check(has("English")) { screen().toString() }
         tap("Language")
         check(opened == 1) { "opened $opened times" }
+    }
+
+    /** The Sovereigncast filter is there at once, not when the list has
+     *  arrived (device feedback 2026-10-11) — on, it waits for the list. */
+    @Test
+    fun theSovereigncastFilterIsAlwaysThere() {
+        rule.setContent { App() }
+        tap("Discover")
+        // The directory answers after 1.5 s (the mock's delay); the chip does not wait.
+        check(rule.onAllNodes(hasText("✓ Sovereigncast") and hasClickAction()).fetchSemanticsNodes().isNotEmpty()) { screen().toString() }
+        rule.onAllNodes(hasText("✓ Sovereigncast") and hasClickAction()).onFirst().performClick()
+        rule.waitUntil(10_000) { has("Nodesignal", substring = true) }
     }
 
     /** Search → the badge → the sheet → its link; what the link opened. */

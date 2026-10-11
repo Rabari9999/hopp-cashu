@@ -70,7 +70,9 @@ The media controls on the lock screen and in the notification carry a **Boost**
 button (Android; iOS offers no such slot). One tap sends a fixed amount —
 100 sats by default, adjustable, or off — without a dialog and without a
 message, never past the daily budget; a notification says what arrived. It
-appears only with a wallet connected.
+appears only with a wallet connected. (Amended 2026-10-11: the notification
+setting — nothing, failures only, everything — applies to every boost, also
+those sent from the boost sheet inside the app.)
 
 ### Paying oneself (added 2026-10-08, corrected the same day)
 

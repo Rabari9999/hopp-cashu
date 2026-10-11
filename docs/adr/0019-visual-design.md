@@ -188,7 +188,10 @@ the reference once the screens exist.
   label, episode, thin progress, sats and release time); a tap opens the show.
   Order: New, Continue, At your shows, Recently boosted, Recently played.
 - **Notifications:** the quick boost's result reports nothing, only failures
-  (default) or everything; a success disappears after a few seconds. Playback
+  (default) or everything; a success disappears after a few seconds. Amended
+  2026-10-11: the same choice covers boosts from the sheet (player, episode,
+  show), which now run in the app's scope (`BoostReports`), so one on its way
+  is finished and reported even when its screen closes. Playback
   and download notifications stay — Android needs them for background work.
 - **First start:** a five-page tour (Hopp, subscribing, library, value for
   value, wallet), skippable, again from *About Hopp*.

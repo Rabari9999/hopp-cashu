@@ -39,6 +39,9 @@ class ScDirectory(private val http: HttpClient, private val clock: Clock, privat
     private var cached: List<ScDirectoryShow>? = null
     private var fetchedAt = 0L
 
+    /** The list as last fetched, without waiting; null before the first answer. */
+    val known: List<ScDirectoryShow>? get() = cached
+
     /** The list, kept for a day; empty when it cannot be had (offline, not there yet). */
     suspend fun shows(): List<ScDirectoryShow> = lock.withLock {
         val c = cached

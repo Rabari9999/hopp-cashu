@@ -342,7 +342,7 @@
     <string name="settings_downloads_refresh">Downloads &amp; updates</string>
     <string name="settings_downloads_note">Storage, looking for new episodes</string>
     <string name="settings_notifications">Notifications</string>
-    <string name="settings_notifications_note">What a quick boost reports</string>
+    <string name="settings_notifications_note">What a boost reports</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_current">English</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
@@ -352,11 +352,11 @@
     <string name="settings_about_title">About Hopp</string>
     <string name="settings_about_note">Version, tour, source code</string>
     <string name="settings_skip_silence_note">Shortens pauses in the audio</string>
-    <string name="settings_boost_feedback">After a quick boost from the lock screen</string>
+    <string name="settings_boost_feedback">After a boost</string>
     <string name="feedback_off">Nothing</string>
     <string name="feedback_errors">Only when it fails</string>
     <string name="feedback_always">Always</string>
-    <string name="settings_boost_feedback_note">A success goes by itself after a few seconds. The payment history always has the details.</string>
+    <string name="settings_boost_feedback_note">For the quick boost from the lock screen and for boosts in the app. A success goes by itself after a few seconds. The payment history always has the details.</string>
     <string name="settings_notifications_system">Playback and download notifications are what Android needs to keep them running; their look and sound are set in the system settings.</string>
     <string name="settings_notifications_open">Open system notification settings</string>
     <string name="settings_opml_note">Your subscriptions as an OPML file — for a backup or another podcast app. Importing works under Discover.</string>
