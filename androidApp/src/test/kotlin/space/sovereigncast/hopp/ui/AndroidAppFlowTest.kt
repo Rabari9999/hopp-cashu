@@ -80,6 +80,8 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 private var votes = 12
 /** The NWC explainer the tour links to is down (device feedback 2026-10-11). */
 private var nwcDown = false
+/** What the phone says about VPN and private DNS, settable per test. */
+private val testNetwork = MutableStateFlow(space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = false, privateDns = false))
 private const val TRANSCRIPT = "WEBVTT\n\n00:00:01.000 --> 00:00:05.000\n<v Karsten>Willkommen zur zweiten Folge.\n\n00:12:34.000 --> 00:12:40.000\n<v Karsten>Jetzt kommt der Hauptteil.\n"
 
 /** A month with ten top boosts and a long all-time list — longer than the screen. */
@@ -133,7 +135,9 @@ class TestApp : Application() {
             override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
             override fun secretStore() = space.sovereigncast.hopp.platform.MemorySecretStore()
             override fun crashDir(): String = java.io.File(app.cacheDir, "crash").absolutePath
+            override fun networkPrivacy() = space.sovereigncast.hopp.platform.NetworkPrivacySource { testNetwork }
         }
+        testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = false, privateDns = false)
         val nodesignal = java.io.File("../shared/src/jvmTest/resources/feeds/nodesignal-podhome.xml").readBytes()
         // As slow as a phone on the road: the listener moves on while it loads.
         val http = HttpClient(MockEngine { req ->
@@ -674,6 +678,37 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { has("Hopp collects nothing itself", substring = true) }
         check(has("Podcast Index")) { screen().toString() }
         check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
+    }
+
+    /** A tip on every card; green where Hopp sees it followed, a tap to where it is set. */
+    @Test
+    fun thePrivacyPageChecksWhatItCan() {
+        var vpnOpened = 0
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun openVpnSettings() { vpnOpened++ }
+        }
+        rule.setContent { App(actions) }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
+        waitFor("No VPN active · set one up")
+        check(has("2 of 4 points Hopp can check are optimised")) { screen().toString() }
+        check(has("Both switched off") && has("Background refresh every hour")) { screen().toString() }
+        tap("No VPN active · set one up")
+        check(vpnOpened == 1) { "VPN settings opened $vpnOpened times" }
+
+        // Back from the system's settings with a VPN on: VPN and DNS turn green.
+        testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
+        waitFor("VPN active")
+        check(has("DNS goes through your VPN") && has("✓  4 of 4 points Hopp can check are optimised")) { screen().toString() }
+
+        // A name goes along with boosts: said so, and a tap leads to where it is set.
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(senderName = "Satoshi") } }
+        waitFor("Your name “Satoshi” is sent along")
+        check(has("3 of 4 points Hopp can check are optimised")) { screen().toString() }
+        rule.onAllNodes(hasText("Your name “Satoshi” is sent along") and hasClickAction()).onFirst().performScrollTo().performClick()
+        waitFor("Wallet")
     }
 
     /** podcast:funding on the show page. */

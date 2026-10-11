@@ -14,6 +14,6 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Folgen einer Show durchsuchen** nach Themen, und **Favoriten** auf Home sammeln.
 - **Folgenseiten** mit Shownotes, Kapiteln, Personen und Boost-Button; ein Transkript, das im Player mitläuft.
 - **Eine kurze Tour beim ersten Start** — Abonnieren, Bibliothek, Value for Value und Wallet verbinden.
-- **Seite zur Privatsphäre** — wer was sieht, in klaren Worten. Hopp selbst sammelt nichts; nach einem Absturz zeigt es den Bericht, den du selbst teilen kannst.
+- **Seite zur Privatsphäre** — wer was sieht, in klaren Worten, mit einem Tipp zu jedem Punkt; was Hopp prüfen kann (VPN, privates DNS, deine Einstellungen), wird grün markiert. Hopp selbst sammelt nichts; nach einem Absturz zeigt es den Bericht, den du selbst teilen kannst.
 
 ### 🐛 Fixes

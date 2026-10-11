@@ -328,7 +328,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 val page = SettingsPage.entries.firstOrNull { it.name == e.toRoute<SettingsPageRoute>().page } ?: SettingsPage.About
                                 SettingsPageScreen(page, onTour = { tour = true })
                             }
-                            composable<PrivacyRoute> { PrivacyScreen() }
+                            composable<PrivacyRoute> { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute()) }) }
                             composable<CrashRoute> {
                                 CrashReportScreen(crashReport, onDelete = {
                                     crashes.clear(); crashReport = null

@@ -14,6 +14,6 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Search a show's episodes** by topic, and keep **favourites** on Home.
 - **Episode pages** with show notes, chapters, people and a boost button; a transcript that reads along in the player.
 - **A short tour on first start** — subscribing, the library, value for value and connecting a wallet.
-- **Privacy page** — who sees what, in plain words. Hopp itself collects nothing; after a crash it shows the report for you to share yourself.
+- **Privacy page** — who sees what, in plain words, with a tip for each; Hopp checks what it can (VPN, private DNS, your settings) and marks it green. Hopp itself collects nothing; after a crash it shows the report for you to share yourself.
 
 ### 🐛 Fixes

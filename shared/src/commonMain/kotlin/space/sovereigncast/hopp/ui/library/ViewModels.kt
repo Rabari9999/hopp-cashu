@@ -202,6 +202,32 @@ class SettingsViewModel(
     suspend fun exportOpml(): String = podcasts.exportOpml()
 }
 
+/**
+ * What the privacy page can check for itself (device feedback 2026-10-11):
+ * a check is only ever "done" when Hopp can see it is — an active VPN says
+ * the IP is hidden from the servers, not whom the listener trusts with it.
+ */
+data class PrivacyState(val settings: Settings, val relay: String?, val net: space.sovereigncast.hopp.platform.NetworkPrivacy) {
+    val vpn: Boolean? get() = net.vpn
+    /** Through the VPN's tunnel the network sees no DNS either. */
+    val dns: Boolean? get() = if (net.vpn == true) true else net.privateDns
+    val directoriesOff: Boolean get() = !settings.fyydSearch && !settings.appleSearch
+    val anonymous: Boolean get() = settings.senderName.isBlank()
+    /** The checks there are on this phone, done or not. */
+    val checks: List<Boolean> get() = listOfNotNull(vpn, dns, directoriesOff, anonymous)
+}
+
+class PrivacyViewModel(
+    settings: SettingsRepository,
+    wallet: space.sovereigncast.hopp.value.WalletRepository,
+    network: space.sovereigncast.hopp.platform.NetworkPrivacySource,
+) : ViewModel() {
+    val state: StateFlow<PrivacyState?> = state(
+        combine(settings.settings, wallet.wallet, network.observe()) { s, w, n -> PrivacyState(s, w?.relay?.substringAfter("://")?.substringBefore('/'), n) },
+        null,
+    )
+}
+
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ShowViewModel(
     private val podcastId: Long,

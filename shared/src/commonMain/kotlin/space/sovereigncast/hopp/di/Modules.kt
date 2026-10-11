@@ -58,6 +58,8 @@ interface Platform {
     fun secretStore(): SecretStore
     /** Where the crash handler leaves its report, outside the OS backup (ADR 0015); null = none. */
     fun crashDir(): String? = null
+    /** VPN and private DNS, for the privacy page; unknown where it cannot tell. */
+    fun networkPrivacy(): space.sovereigncast.hopp.platform.NetworkPrivacySource = space.sovereigncast.hopp.platform.NetworkPrivacySource.Unknown
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -78,6 +80,7 @@ fun sharedModule(platform: Platform) = module {
     single { EpisodeRepository(get(), get(), get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
+    single { platform.networkPrivacy() }
     single { WalletRepository(get(), get(), get()) }
     single { LnAddressClient(get()) }
     single { PaymentMetadataSource(get(), get()) }
@@ -102,6 +105,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.FavoritesViewModel(get()) }
     viewModel { SettingsViewModel(get(), get(), get()) }
+    viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
     viewModel { ValueBarViewModel(get(), get(), get()) }

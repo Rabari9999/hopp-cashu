@@ -28,6 +28,18 @@ A settings page lists it plainly:
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |
 | Google / Apple | the app's data in the OS cloud backup (see below) | if the listener has OS backups on |
 
+**Amended 2026-10-11 (device feedback): every card carries a tip, and Hopp
+checks what it can see.** VPN active and private DNS (Android:
+`NetworkCapabilities.TRANSPORT_VPN` and `LinkProperties.isPrivateDnsActive` of
+the default network; DNS counts as covered while a VPN runs), the optional
+directories off, no sender name set — those four are counted at the top ("3 of
+4 points Hopp can check are optimised"); the refresh interval and the NWC relay
+are shown, not judged. A check is only green when Hopp can see it — a VPN says
+the IP is hidden from the servers, not whom the listener trusts with it — and
+nothing is red: the page helps, it does not scold. A tap leads to where the
+point is set (system VPN or network settings, Hopp's own settings, the wallet
+page). The OS backup cannot be read by an app, so that card stays a tip.
+
 ### User-Agent
 
 `Hopp/<version> (<Android|iOS>; <Phone|Tablet>)`, e.g. `Hopp/1.2.0 (Android; Phone)`

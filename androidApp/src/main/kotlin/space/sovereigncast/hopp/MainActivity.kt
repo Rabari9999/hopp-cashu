@@ -76,6 +76,14 @@ class MainActivity : ComponentActivity(), PlatformActions {
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, android.net.Uri.fromParts("package", packageName, null))) }
     }
 
+    override fun openVpnSettings() {
+        runCatching { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
+    }
+
+    override fun openNetworkSettings() {
+        runCatching { startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)) }
+    }
+
     override fun shareText(text: String, subject: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))

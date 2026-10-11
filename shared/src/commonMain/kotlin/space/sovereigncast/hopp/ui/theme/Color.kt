@@ -72,9 +72,11 @@ data class HoppColors(
     /** Unplayed part of the progress bar: ≥ 3:1 against the background
      *  (WCAG non-text contrast) and clearly apart from the played part. */
     val progressTrack: Color,
+    /** "Done" on the privacy page's checks — green, ≥ 4.5:1 as text. */
+    val ok: Color,
 )
 
-internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984))
-internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68))
+internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32))
+internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784))
 
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }

@@ -16,6 +16,10 @@ interface PlatformActions {
     val canPickLanguage: Boolean get() = false
     /** Opens the system's language choice for Hopp. */
     fun openLanguageSettings() = Unit
+    /** Opens the system's VPN settings. */
+    fun openVpnSettings() = Unit
+    /** Opens the system's network settings, where private DNS is. */
+    fun openNetworkSettings() = Unit
 }
 
 object NoPlatformActions : PlatformActions {
