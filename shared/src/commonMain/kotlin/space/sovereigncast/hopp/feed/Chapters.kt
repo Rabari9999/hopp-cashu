@@ -55,10 +55,17 @@ class ChapterIndex(chapters: List<Chapter>) {
 
     fun current(positionMs: Long): Chapter? = stops.getOrNull(currentIndex(positionMs))
 
-    /** The image to show: the latest chapter (including non-toc ones) that has one. */
+    /**
+     * The image to show, null = the episode's cover: the current chapter's
+     * own image, or one a `toc: false` entry inside it changed to. A chapter
+     * without an image shows the cover again — not the image of the chapter
+     * before (device feedback 2026-10-11, Nodesignal E297: only chapters 2
+     * and 5 have one).
+     */
     fun imageAt(positionMs: Long): String? {
         val s = positionMs / 1000.0
-        return all.lastOrNull { it.startSeconds <= s + 0.001 && it.imageUrl != null }?.imageUrl
+        val chapterStart = current(positionMs)?.startSeconds ?: 0.0
+        return all.lastOrNull { it.startSeconds <= s + 0.001 && it.startSeconds >= chapterStart && it.imageUrl != null }?.imageUrl
     }
 
     fun nextStartMs(positionMs: Long): Long? =

@@ -30,6 +30,27 @@ class ChaptersTest {
         assertNull(index.imageAt(30_000))
     }
 
+    /** Device feedback 2026-10-11, as in Nodesignal E297: images only in
+     *  chapters 2 and 5 — chapters 3 and 4 show the episode's cover again. */
+    @Test
+    fun aChapterWithoutAnImageShowsTheCoverAgain() {
+        val e297 = ChapterIndex(listOf(
+            Chapter(22.0, "Intro und Hacking"),
+            Chapter(1689.0, "Axel Hamburg Hardware Show", imageUrl = "https://example.test/axel.jpg"),
+            Chapter(2584.0, "Die Hackday Jury"),
+            Chapter(3850.0, "Casa Münzweg"),
+            Chapter(4668.0, "Finale und Auswertung", imageUrl = "https://example.test/finale.jpg"),
+        ))
+        assertNull(e297.imageAt(600_000))
+        assertEquals("https://example.test/axel.jpg", e297.imageAt(2_000_000))
+        assertNull(e297.imageAt(2_600_000))
+        assertNull(e297.imageAt(4_000_000))
+        assertEquals("https://example.test/finale.jpg", e297.imageAt(4_700_000))
+        // The same for a chapter after an image-only entry: Outro follows Topic's b.jpg.
+        assertNull(index.imageAt(700_000))
+        assertEquals("https://example.test/b.jpg", index.imageAt(200_000))
+    }
+
     @Test
     fun nextAndPrevious() {
         assertEquals(120_000L, index.nextStartMs(30_000))
