@@ -73,6 +73,13 @@ object HoppIcons {
         path(fill = SolidColor(Color.Black)) { moveTo(14f, 13.5f); lineTo(20f, 17f); lineTo(14f, 20.5f); close() }
     }
     /** Crescent: sleep timer. */
+    val Globe = icon("globe") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(12f, 3.5f); arcTo(8.5f, 8.5f, 0f, true, true, 11.99f, 3.5f)
+            moveTo(12f, 3.5f); arcTo(4f, 8.5f, 0f, true, true, 11.99f, 3.5f)
+            moveTo(3.5f, 12f); lineTo(20.5f, 12f)
+        }
+    }
     val Moon = icon("moon") {
         path(fill = SolidColor(Color.Black)) {
             moveTo(14.5f, 3.5f); arcTo(8.5f, 8.5f, 0f, true, false, 20.5f, 15.5f); arcTo(7f, 7f, 0f, false, true, 14.5f, 3.5f); close()

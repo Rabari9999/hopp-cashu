@@ -882,14 +882,54 @@ class AndroidAppFlowTest {
     /** Search marks Sovereigncast shows from the curated list; the badge explains; the filter lists them. */
     @Test
     fun searchMarksAndFiltersSovereigncastShows() {
-        rule.setContent { App() }
-        tap("Discover")
+        check(scWebsiteOpened("Discover", "What Sovereigncast brings", "More about Sovereigncast") == "https://sovereigncast.space/")
+    }
+
+    /** The badge's sheet sends a listener to the website in Hopp's own
+     *  language (device feedback 2026-10-11) … */
+    @Test @Config(qualifiers = "de-w411dp-h891dp")
+    fun scWebsiteFollowsHoppsLanguage() {
+        check(scWebsiteOpened("Entdecken", "Was Sovereigncast mitbringt", "Mehr über Sovereigncast") == "https://sovereigncast.space/de/")
+    }
+
+    /** … and in English where Hopp has no translation — Spanish here, which
+     *  the website has, but Hopp would show English around the link. */
+    @Test @Config(qualifiers = "es-w411dp-h891dp")
+    fun scWebsiteFallsBackToEnglish() {
+        check(scWebsiteOpened("Discover", "What Sovereigncast brings", "More about Sovereigncast") == "https://sovereigncast.space/")
+    }
+
+    /** Hopp's language apart from the phone's: an entry where the system
+     *  offers it (Android 13+), opening the system's page. */
+    @Test
+    fun languageEntryOpensTheSystemChoice() {
+        var opened = 0
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override val canPickLanguage get() = true
+            override fun openLanguageSettings() { opened++ }
+        }
+        rule.setContent { App(actions) }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("Language")
+        check(has("English")) { screen().toString() }
+        tap("Language")
+        check(opened == 1) { "opened $opened times" }
+    }
+
+    /** Search → the badge → the sheet → its link; what the link opened. */
+    private fun scWebsiteOpened(discover: String, title: String, more: String): String? {
+        var opened: String? = null
+        val uris = object : androidx.compose.ui.platform.UriHandler { override fun openUri(uri: String) { opened = uri } }
+        rule.setContent { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides uris) { App() } }
+        tap(discover)
         rule.onNode(hasSetTextAction()).performTextInput("nodesignal")
         waitFor("Nodesignal")
         rule.onAllNodes(hasText("✓ Sovereigncast") and hasClickAction()).onLast().performClick()
-        waitFor("What Sovereigncast brings")
-        check(has("More about Sovereigncast")) { screen().toString() }
-        rule.onNode(hasText("More about Sovereigncast") and hasClickAction()).assertExists()
+        waitFor(title)
+        tap(more)
+        return opened
     }
 
     @Test

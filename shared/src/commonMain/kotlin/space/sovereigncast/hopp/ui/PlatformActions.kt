@@ -12,6 +12,10 @@ interface PlatformActions {
     fun shareText(text: String, subject: String) = Unit
     /** Opens the system's notification settings for Hopp. */
     fun openNotificationSettings() = Unit
+    /** Whether the system lets Hopp's language differ from its own (Android 13+). */
+    val canPickLanguage: Boolean get() = false
+    /** Opens the system's language choice for Hopp. */
+    fun openLanguageSettings() = Unit
 }
 
 object NoPlatformActions : PlatformActions {

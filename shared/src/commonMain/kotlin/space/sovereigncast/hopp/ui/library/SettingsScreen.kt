@@ -89,6 +89,9 @@ fun SettingsScreen(
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
         Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
         Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
+        val actions = LocalPlatformActions.current
+        if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
         Entry(Icons.Rounded.Search, stringResource(Res.string.settings_directories), stringResource(Res.string.settings_directories_note)) { onPage(SettingsPage.Directories) }
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 

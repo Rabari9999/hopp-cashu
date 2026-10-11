@@ -69,6 +69,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         runCatching { startActivity(intent) }
     }
 
+    override val canPickLanguage: Boolean get() = Build.VERSION.SDK_INT >= 33
+
+    override fun openLanguageSettings() {
+        if (Build.VERSION.SDK_INT < 33) return
+        runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, android.net.Uri.fromParts("package", packageName, null))) }
+    }
+
     override fun shareText(text: String, subject: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))

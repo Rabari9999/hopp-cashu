@@ -316,6 +316,8 @@
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
     <string name="settings_notifications">Benachrichtigungen</string>
     <string name="settings_notifications_note">Was ein Schnell-Boost meldet</string>
+    <string name="settings_language">Sprache</string>
+    <string name="settings_language_current">Deutsch</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Als OPML exportieren</string>
     <string name="settings_privacy_note">Wer sieht was</string>

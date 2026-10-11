@@ -316,6 +316,8 @@
     <string name="settings_downloads_note">Storage, looking for new episodes</string>
     <string name="settings_notifications">Notifications</string>
     <string name="settings_notifications_note">What a quick boost reports</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_current">English</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Export as OPML</string>
     <string name="settings_privacy_note">Who sees what</string>
