@@ -199,4 +199,11 @@ the reference once the screens exist.
   which belong to a tab — the settings belong to none); the Sovereigncast badge
   explains itself on a tap, everywhere, and search marks and filters
   Sovereigncast shows by the curated list on sovereigncast.space (ADR 0008).
+- **2026-10-11:** a show's episodes can be searched by topic — title and
+  description, every word, "ue" finding "ü" — on the show page (all
+  episodes, not just the loaded page) and before subscribing (in the loaded
+  feed). Episodes can be favourites (heart on the episode page, entry in the
+  episode menu); Home shows a *Favourites* section with the newest five and
+  "All ›" — only once there are any. The tour's wallet page links the NWC
+  explainer (nwc.ereignishorizont.xyz) only when the page answers.
 

@@ -11,6 +11,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Shows finden** im Podcast Index (wahlweise auch fyyd und Apple), per Feed-Adresse oder OPML; eine Show ansehen, bevor du sie abonnierst.
 - **Value for Value** — verbinde deine Lightning-Wallet per NWC, booste eine Folge oder die ganze Show, streame Sats beim Hören. Aufteilungen kommen in ganzen Sats an; Routing-Gebühren stehen extra.
 - **Sovereigncast-Shows** — Release Boosting und Boost2Unlock mit allen Details, über Themenvorschläge abstimmen, die Top-Boosts der Community.
+- **Folgen einer Show durchsuchen** nach Themen, und **Favoriten** auf Home sammeln.
 - **Folgenseiten** mit Shownotes, Kapiteln, Personen und Boost-Button; ein Transkript, das im Player mitläuft.
 - **Eine kurze Tour beim ersten Start** — Abonnieren, Bibliothek, Value for Value und Wallet verbinden.
 - **Seite zur Privatsphäre** — wer was sieht, in klaren Worten. Hopp selbst sammelt nichts; nach einem Absturz zeigt es den Bericht, den du selbst teilen kannst.
