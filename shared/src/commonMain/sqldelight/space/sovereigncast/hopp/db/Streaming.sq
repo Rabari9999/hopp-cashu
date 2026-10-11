@@ -64,3 +64,9 @@ SELECT CAST(coalesce(sum(owed_msat), 0) AS INTEGER) FROM settlement;
 
 accruedTotal:
 SELECT CAST(coalesce(sum(accrued_msat), 0) AS INTEGER) FROM accrual;
+
+owedOf:
+SELECT * FROM settlement WHERE episode_id = ? AND rail = ? AND owed_msat > 0;
+
+accrualsOf:
+SELECT * FROM accrual WHERE episode_id = ? AND accrued_msat > 0;

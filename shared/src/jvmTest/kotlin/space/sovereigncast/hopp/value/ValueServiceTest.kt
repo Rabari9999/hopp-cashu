@@ -211,6 +211,27 @@ class ValueServiceTest {
         assertEquals(QuickBoost.Off, value.quickBoost(ep, 30))
     }
 
+    /** The streaming sheet (device feedback 2026-10-11): what waits for whom,
+     *  heard and not yet split as well as owed, and when the next batch goes. */
+    @Test
+    fun whatStreamingSetAsideIsShownPerRecipient() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
+        val ep = episode()
+        value.accrue(ep, 30_000, 2_500) // 2.5 sats: 2.25 to the host, 0.25 to the cohost
+        assertEquals(listOf(PendingShare("Host", 2_250), PendingShare("Cohost", 250)), value.pendingFor(ep.id))
+        value.settle()
+        // Whole sats went out; the parts of one wait.
+        assertEquals(listOf(host to 2L), keysends())
+        assertEquals(listOf(PendingShare("Host", 250), PendingShare("Cohost", 250)), value.pendingFor(ep.id))
+        assertEquals(500L, value.pendingMsat.first())
+        assertNull(value.secondsToNextSettle())
+        value.settleDueIn(300)
+        assertEquals(300L, value.secondsToNextSettle())
+        now += 120
+        assertEquals(180L, value.secondsToNextSettle())
+    }
+
     /** A boost from the sheet — player, episode, show — is reported like the
      *  quick boost (device feedback 2026-10-11): by default only when it goes wrong. */
     @Test

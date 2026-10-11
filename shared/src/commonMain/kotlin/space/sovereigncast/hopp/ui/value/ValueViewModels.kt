@@ -71,6 +71,8 @@ class HistoryViewModel(value: ValueService) : ViewModel() {
     val payments: StateFlow<List<Payment>?> = state(value.payments, null)
 }
 
+data class StreamDetail(val episodeId: Long, val shares: List<space.sovereigncast.hopp.value.PendingShare>, val nextSettleSeconds: Long?)
+
 sealed interface BoostState {
     data object Editing : BoostState
     data object Sending : BoostState
@@ -88,6 +90,20 @@ class ValueBarViewModel(
     val connected: StateFlow<ConnectedWallet?> = wallet.wallet
     val current: StateFlow<Settings?> = state(settings.settings, null)
     val streamedToday: StateFlow<Long> = state(value.streamedTodayMsat, 0L)
+    /** Heard, not yet sent — over all episodes, in msat. */
+    val pending: StateFlow<Long> = state(value.pendingMsat, 0L)
+    private val _detail = MutableStateFlow<StreamDetail?>(null)
+    /** The streaming sheet: what waits for whom in this episode, and when it goes. */
+    val detail: StateFlow<StreamDetail?> = _detail.asStateFlow()
+
+    fun refreshDetail(episodeId: Long) = viewModelScope.launch {
+        _detail.value = StreamDetail(episodeId, value.pendingFor(episodeId), value.secondsToNextSettle())
+    }
+
+    /** Pays every whole sat now, instead of at the next batch — in the app's scope, like a boost. */
+    fun settleNow(episodeId: Long) {
+        reports.scope.launch { runCatching { value.settle() }; refreshDetail(episodeId) }
+    }
     val budgetLeft: StateFlow<Long> = state(value.budgetLeftMsat, 0L)
     val overBudget: StateFlow<Boolean> = value.overBudget
     private val _plan = MutableStateFlow<BoostPlan?>(null)

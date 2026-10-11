@@ -88,6 +88,9 @@ sealed interface QuickBoost {
     data class Failed(val reason: String) : QuickBoost
 }
 
+/** Streamed sats waiting for one recipient: owed, or heard and not yet split. */
+data class PendingShare(val name: String, val msat: Long)
+
 /** A streaming catch-up after time offline: paid within the budget (ADR 0014). */
 data class StreamNotice(val paidSats: Long, val episodes: Int)
 
@@ -379,14 +382,41 @@ class ValueService(
         if (caughtUp > 0) _notices.tryEmit(StreamNotice(caughtUp / 1000, caughtUpEpisodes.size))
     }
 
+    /** An accrual split to the msat among its recipients — settlement pays whole sats and keeps the rest owed. */
+    private suspend fun parts(a: space.sovereigncast.hopp.db.Accrual): List<Share> {
+        val block = episodes.item(a.episode_id)?.let { blockFor(it) } ?: return emptyList()
+        val remote = Splits.activeSplit(block, a.position_seconds)?.takeIf { it.recipients.isEmpty() }?.remoteItem?.let { remoteBlock(it) }
+        return Splits.divideAt(block, a.accrued_msat, a.position_seconds, remote)
+    }
+
+    private var nextSettleAt: Long? = null
+    /** The player's settlement loop says when it pays the next batch. */
+    fun settleDueIn(seconds: Long) { nextSettleAt = clock.now() + seconds }
+    /** Seconds until the next batch is paid; null before the loop runs. */
+    fun secondsToNextSettle(): Long? = nextSettleAt?.let { (it - clock.now()).coerceAtLeast(0) }
+
+    /**
+     * What is set aside for [episodeId] and not yet sent, per recipient — owed
+     * and not yet split alike (device feedback 2026-10-11: the value bar
+     * showed what was sent, not what waits, nor why).
+     */
+    suspend fun pendingFor(episodeId: Long): List<PendingShare> {
+        val owed = withContext(Dispatchers.IO) { sq.owedOf(episodeId, RAIL_LIGHTNING).executeAsList() }
+        val accrued = withContext(Dispatchers.IO) { sq.accrualsOf(episodeId).executeAsList() }
+        val byKey = linkedMapOf<String, PendingShare>()
+        fun add(key: String, name: String?, msat: Long) {
+            val p = byKey[key]
+            byKey[key] = PendingShare(p?.name ?: name ?: key.substringAfter(':').take(12), (p?.msat ?: 0) + msat)
+        }
+        for (o in owed) add(o.recipient_key, json.decodeFromString(ValueRecipient.serializer(), o.recipient_json).name, o.owed_msat)
+        for (a in accrued) for (p in parts(a)) add("${p.recipient.type}:${p.recipient.address}", p.recipient.name, p.amountMsat)
+        return byKey.values.filter { it.msat > 0 }.sortedByDescending { it.msat }
+    }
+
     private suspend fun distribute() {
         val pending = withContext(Dispatchers.IO) { sq.pendingAccruals().executeAsList() }
         for (a in pending) {
-            val item = episodes.item(a.episode_id)
-            val block = item?.let { blockFor(it) }
-            // Accruals split to the msat — settlement pays whole sats and keeps the rest owed.
-            val remote = block?.let { b -> Splits.activeSplit(b, a.position_seconds)?.takeIf { it.recipients.isEmpty() }?.remoteItem?.let { remoteBlock(it) } }
-            val parts = if (block != null) Splits.divideAt(block, a.accrued_msat, a.position_seconds, remote) else emptyList()
+            val parts = parts(a)
             withContext(Dispatchers.IO) {
                 db.transaction {
                     for (p in parts) {

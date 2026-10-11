@@ -387,6 +387,29 @@ class AndroidAppFlowTest {
         waitFor("Connection string (nostr+walletconnect://…)")
     }
 
+    /** Streaming says what it sent and what is set aside; a tap says when
+     *  and why, per recipient (device feedback 2026-10-11). */
+    @Test
+    fun streamingShowsWhatIsSetAside() {
+        val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()
+        secrets.put("nwc_uri", "nostr+walletconnect://" + "a".repeat(64) + "?relay=wss://r.test&secret=" + "b".repeat(64))
+        secrets.put("nwc_info", """{"methods":["pay_invoice","pay_keysend"]}""")
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(streaming = true, streamRateSats = 10) } }
+        rule.setContent { App() }
+        openEpisode()
+        val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
+        // A minute and a half heard at 10 sats a minute.
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(item, 90_000, 90_000) }
+        waitFor("0 sats today · 15 set aside ›")
+        tap("0 sats today · 15 set aside ›")
+        waitFor("Set aside in this episode")
+        // All of it is this episode's, and all of it the host's.
+        waitFor("Host")
+        check(has("Set aside, not sent yet") && has("Send the whole sats now") && has("Next payment")) { screen().toString() }
+        check(!has("From other episodes", substring = true)) { screen().toString() }
+        check(has("How Hopp pays", substring = true)) { screen().toString() }
+    }
+
     @Test
     fun aBrokenConnectionStringIsRefusedVisibly() {
         rule.setContent { App() }

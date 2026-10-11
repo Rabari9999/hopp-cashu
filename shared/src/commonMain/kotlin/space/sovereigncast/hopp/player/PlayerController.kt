@@ -89,7 +89,7 @@ class PlayerController(
         scope.launch { settingsRepository.settings.collect { _settings.value = it } }
         // Streaming is paid in batches; offline debt is caught up here too.
         if (value != null) scope.launch {
-            while (true) { delay(SETTLE_EVERY); runCatching { value.settle() } }
+            while (true) { value.settleDueIn(SETTLE_EVERY.inWholeSeconds); delay(SETTLE_EVERY); runCatching { value.settle() } }
         }
         scope.launch {
             var wasPlaying = false

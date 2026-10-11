@@ -72,7 +72,7 @@ import space.sovereigncast.hopp.resources.boost_whole_show
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.np_boost
 import space.sovereigncast.hopp.resources.np_over_budget
-import space.sovereigncast.hopp.resources.np_streamed_today
+import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.resources.np_streaming
 import space.sovereigncast.hopp.resources.reason_invoice
 import space.sovereigncast.hopp.resources.reason_keysend
@@ -106,8 +106,10 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     val wallet by vm.connected.collectAsState()
     val rate by vm.rate.collectAsState()
     val today by vm.streamedToday.collectAsState()
+    val pending by vm.pending.collectAsState()
     val over by vm.overBudget.collectAsState()
     var invite by remember { mutableStateOf(false) }
+    var details by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
     LaunchedEffect(item.id, settings?.streamRateSats) { vm.forEpisode(item) }
     val streaming = settings?.streaming == true && wallet != null
@@ -125,10 +127,16 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
             Spacer(Modifier.size(6.dp))
             Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
         }
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+        // Sent and set aside, and a tap says when and why (device feedback 2026-10-11).
+        Column(
+            Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                .then(if (streaming) Modifier.clickable(onClickLabel = stringResource(Res.string.stream_sheet_title)) { details = true } else Modifier)
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+        ) {
             Text(stringResource(Res.string.np_streaming, rate ?: 0), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             if (streaming) Text(
-                if (over) stringResource(Res.string.np_over_budget) else stringResource(Res.string.np_streamed_today, formatSats(today / 1000)),
+                if (over) stringResource(Res.string.np_over_budget)
+                else stringResource(Res.string.np_streamed_pending, formatSats(today / 1000), pendingSats(pending)) + " ›",
                 style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText,
             )
         }
@@ -145,6 +153,8 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         )
     }
 
+    if (details) StreamSheet(vm, item, today, pending, rate ?: 0) { details = false }
+
     if (invite) AlertDialog(
         onDismissRequest = { invite = false },
         title = { Text(stringResource(Res.string.np_streaming, rate ?: 0)) },
@@ -152,6 +162,60 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         confirmButton = { TextButton(onClick = { invite = false; vm.setStreaming(true) }) { Text(stringResource(Res.string.stream_invite_on)) } },
         dismissButton = { TextButton(onClick = { invite = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/** Whole sats, and "<1" for a part of one — the bar has no room for decimals. */
+@Composable
+private fun pendingSats(msat: Long): String = if (msat in 1..999) "<1" else formatSats(msat / 1000)
+
+/**
+ * What streaming has sent and what waits (device feedback 2026-10-11:
+ * payments looked random): today's total, what is set aside, when the next
+ * batch goes, the rule behind it, and per recipient what this episode has
+ * set aside — with a button to send the whole sats now.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Long, pendingMsat: Long, rate: Int, onDismiss: () -> Unit) {
+    val detail by vm.detail.collectAsState()
+    val colors = MaterialTheme.colorScheme
+    // Accruals grow every few seconds while playing; the countdown with them.
+    LaunchedEffect(item.id) { while (true) { vm.refreshDetail(item.id); kotlinx.coroutines.delay(3_000) } }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(Res.string.stream_sheet_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.np_streaming, rate), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            StreamFigure(stringResource(Res.string.stream_sent_today), formatSats(todayMsat / 1000) + " sats")
+            StreamFigure(stringResource(Res.string.stream_pending), formatMsat(pendingMsat) + " sats")
+            detail?.takeIf { it.episodeId == item.id }?.nextSettleSeconds?.let { s ->
+                StreamFigure(stringResource(Res.string.stream_next), if (s < 60) stringResource(Res.string.stream_next_soon) else stringResource(Res.string.stream_next_minutes, ((s + 59) / 60).toInt()))
+            }
+            Text(stringResource(Res.string.stream_how), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+
+            Text(stringResource(Res.string.stream_recipients), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+            val d = detail
+            // Until the first look at this episode, nothing — not "nothing set aside".
+            if (d == null || d.episodeId != item.id) CircularProgressIndicator(Modifier.size(24.dp)) else {
+                if (d.shares.isEmpty()) Text(stringResource(Res.string.stream_nothing), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                d.shares.forEach { s ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Text(formatMsat(s.msat) + " sats", style = MaterialTheme.typography.bodyMedium, color = if (s.msat >= 1000) Hopp.colors.valueText else colors.onSurfaceVariant)
+                    }
+                }
+                val elsewhere = pendingMsat - d.shares.sumOf { it.msat }
+                if (elsewhere >= 1) Text(stringResource(Res.string.stream_other, formatMsat(elsewhere)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                if (d.shares.any { it.msat >= 1000 }) TextButton(onClick = { vm.settleNow(item.id) }) { Text(stringResource(Res.string.stream_send_now), fontWeight = FontWeight.Bold) }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun StreamFigure(label: String, value: String) = Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 }
 
 private val PRESETS = listOf(100L, 500L, 1_000L, 2_100L)
