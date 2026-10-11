@@ -67,7 +67,7 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
     val found = remember(all, words) { words?.let { w -> all.filter { episodeMatches(it.title, it.description, w) } } }
     val episodes = found ?: all.take(shown)
     val listState = rememberLazyListState()
-    OnNearEnd(listState) { if (shown < all.size) shown += PAGE }
+    OnNearEnd(listState) { seen -> if (seen > shown && shown < all.size) shown += PAGE }
     val count = loaded?.feed?.episodes?.size ?: 0
     val failed = state as? PreviewState.Failed
     // What the directory already said shows at once; the feed fills in the rest.

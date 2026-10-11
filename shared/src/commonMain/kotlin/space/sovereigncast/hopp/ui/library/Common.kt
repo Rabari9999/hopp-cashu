@@ -104,16 +104,24 @@ fun EmptyState(title: String, text: String, action: (@Composable () -> Unit)? = 
     }
 }
 
-/** Calls [onNearEnd] when the list is scrolled to within a few items of its end. */
+/**
+ * Calls [onNearEnd] when the list is scrolled to within a few items of its
+ * end, with the number of items that layout had. The caller compares it with
+ * what it has loaded since: a near end seen while the list was still empty
+ * must not load the next page once the first has arrived meanwhile — which
+ * it did, now and then, on a show page just opened (40 episodes, not 20).
+ */
 @Composable
-fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: () -> Unit) {
+fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: (seenItems: Int) -> Unit) {
+    // The item count while near the end, -1 otherwise — so a longer list that
+    // is still near its end (all of it on screen) asks again.
     val near by androidx.compose.runtime.remember(state) {
         androidx.compose.runtime.derivedStateOf {
             val info = state.layoutInfo
-            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
+            if (info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4) info.totalItemsCount else -1
         }
     }
-    androidx.compose.runtime.LaunchedEffect(near) { if (near) onNearEnd() }
+    androidx.compose.runtime.LaunchedEffect(near) { if (near > 0) onNearEnd(near) }
 }
 
 /** Searching a show's episodes by topic (device feedback 2026-10-11): the

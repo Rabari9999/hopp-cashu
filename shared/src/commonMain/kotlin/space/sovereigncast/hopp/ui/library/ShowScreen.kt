@@ -117,7 +117,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val found by vm.found.collectAsState()
     val count by vm.episodeCount.collectAsState()
     val listState = rememberLazyListState()
-    OnNearEnd(listState) { vm.loadMore() }
+    OnNearEnd(listState) { seen -> vm.loadMore(seen) }
     val meta by vm.meta.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val gone by vm.gone.collectAsState()

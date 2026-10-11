@@ -243,7 +243,12 @@ class ShowViewModel(
     val episodeList: StateFlow<List<EpisodeItem>?> = state(limit.flatMapLatest { episodes.ofPodcastPage(podcastId, it.toLong()) }, null)
     val episodeCount: StateFlow<Long> = state(episodes.countOfPodcast(podcastId), 0L)
 
-    fun loadMore() { if ((episodeList.value?.size ?: 0) >= limit.value) limit.value += PAGE }
+    /** The next page — when a full one is loaded and the list showing it
+     *  ([seenItems], the search field included) has been seen at its end. */
+    fun loadMore(seenItems: Int) {
+        val loaded = episodeList.value?.size ?: 0
+        if (loaded >= limit.value && seenItems > limit.value) limit.value += PAGE
+    }
     private val _meta = MutableStateFlow<Podcast?>(null)
     val meta: StateFlow<Podcast?> = _meta.asStateFlow()
     private val _refreshing = MutableStateFlow(false)
