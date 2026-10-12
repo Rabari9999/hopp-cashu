@@ -39,6 +39,25 @@
                 <data android:scheme="nostr+walletconnect" />
                 <data android:scheme="nostrwalletconnect" />
             </intent-filter>
+            <!-- "Open in Hopp" from a Sovereigncast show page (ADR 0002 §4): an App
+                 Link, verified through www.sovereigncast.space/.well-known/assetlinks.json.
+                 www, not the bare domain: that one redirects, and Android does not
+                 follow a redirect when it verifies. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="www.sovereigncast.space" />
+                <data android:pathPrefix="/open" />
+            </intent-filter>
+            <!-- The same without verification: hopp://subscribe?feed=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hopp" android:host="subscribe" />
+            </intent-filter>
         </activity>
 
         <service

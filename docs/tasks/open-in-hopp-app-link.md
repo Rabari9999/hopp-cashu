@@ -1,6 +1,6 @@
 # Task — Open Hopp from the "Open in Hopp" link
 
-- **Status:** open
+- **Status:** implemented 2026-10-12 — device check and the Sovereigncast hint left (see "Left to do")
 - **Opened:** 2026-10-11
 - **Relates to:** ADR 0002 §4 (deep links), ADR 0018 phase 1 (Sovereigncast layer)
 
@@ -77,3 +77,18 @@ yet …") — remove it there once a release with this task is out.
   show.
 - Sovereigncast's interim hint is removed (podcasting_tools,
   `templates/show_detail.html`, search for `open-in-hopp-app-link`).
+
+## Left to do (2026-10-12)
+
+Built and tested in Robolectric (`OpenInHoppTest`: both link forms, cold start
+and running app, subscribed show, links without a usable feed). What a test
+cannot do:
+
+- **Device check with a release build** — `adb shell pm get-app-links
+  space.sovereigncast.hopp` should list `www.sovereigncast.space` as
+  `verified`. Beta builds are signed with the public debug key, which is not
+  in `assetlinks.json`: on a beta the link stays unverified (add it by hand
+  under Settings → Apps → Hopp → Open by default, or test with `hopp://`).
+- **Remove Sovereigncast's interim hint** once a release with this is out
+  (podcasting_tools, `templates/show_detail.html`, search for
+  `open-in-hopp-app-link`) — then delete this file.

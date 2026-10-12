@@ -62,7 +62,7 @@ Two mechanisms:
 - **Custom scheme** `hopp://subscribe?feed=<url-encoded feed URL>` — works
   whenever the app is installed. (Schemes are not registered anywhere; another
   app could claim `hopp://` too, which is why it is not the primary link.)
-- **Central fallback domain** `https://sovereigncast.space/open?feed=…`,
+- **Central fallback domain** `https://www.sovereigncast.space/open?feed=…` (www — see the amendment below),
   declared as App Link / Universal Link domain in the app. Opens Hopp when
   installed, otherwise a page with store links. Sovereigncast's community page
   shows this link and its QR code.
@@ -71,6 +71,22 @@ Two mechanisms:
   `/.well-known/apple-app-site-association`.
   *To verify:* GitLab Pages serving the extensionless AASA file with an
   acceptable content type.
+
+**Amended 2026-10-12 (implemented, docs/tasks/open-in-hopp-app-link.md):**
+the fallback domain is **`www.sovereigncast.space`**, not the bare domain.
+`https://sovereigncast.space/…` answers `308` to `www`, and Android does not
+follow a redirect when it verifies `/.well-known/assetlinks.json` — the bare
+domain can never be verified while it redirects; the redirect also drops the
+query string, so `?feed=` is lost even in a browser. `www` serves
+`assetlinks.json` directly with the release certificate (docs/signing.md).
+Hopp's manifest claims `https://www.sovereigncast.space/open…` (`autoVerify`)
+and `hopp://subscribe`; either opens the show's preview on Discover, or its
+page on Library when subscribed, and a link without an http(s) `feed` opens
+Hopp as it is. Beta and debug builds are signed with the checked-in debug key,
+which is not in `assetlinks.json` (and should not be: that key is public) — on
+them the App Link stays unverified and the browser keeps it unless the
+listener adds the link under the app's "Open by default"; `hopp://` works on
+every build.
 
 An opt-in directory of instances is a later phase.
 

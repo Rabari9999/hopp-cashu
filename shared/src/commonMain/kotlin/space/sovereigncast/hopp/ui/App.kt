@@ -80,6 +80,9 @@ import space.sovereigncast.hopp.ui.library.SettingsPageScreen
 import space.sovereigncast.hopp.data.SettingsRepository
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import space.sovereigncast.hopp.resources.crash_title
 import space.sovereigncast.hopp.resources.crash_ask
 import space.sovereigncast.hopp.resources.crash_view
@@ -229,10 +232,37 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val crashes: CrashReports = koinInject()
     var crashReport by remember { mutableStateOf(crashes.pending()) }
     var crashAsked by rememberSaveable { mutableStateOf(false) }
-    // A wallet's "connect" link opens the wallet page, filled in.
-    val incomingWallet by IncomingLinks.walletUri.collectAsState()
-    LaunchedEffect(incomingWallet) {
-        incomingWallet?.let { uri -> IncomingLinks.walletUri.value = null; player.minimize(); nav.navigate(WalletRoute(uri)) }
+    // Links from outside (IncomingLinks): collected, not keyed on — taking a link
+    // clears it, and a keyed effect would cancel itself mid-way. On a cold start
+    // the link is there before the NavHost (inside the Scaffold's content,
+    // composed later) has its graph: wait for its first entry.
+    val podcastRepo: space.sovereigncast.hopp.data.PodcastRepository = koinInject()
+    val selectTabNow by androidx.compose.runtime.rememberUpdatedState(selectTab)
+    LaunchedEffect(Unit) {
+        nav.currentBackStackEntryFlow.first()
+        launch {
+            // A wallet's "connect" link opens the wallet page, filled in.
+            IncomingLinks.walletUri.collect { uri ->
+                if (uri == null) return@collect
+                IncomingLinks.walletUri.value = null
+                player.minimize(); nav.navigate(WalletRoute(uri))
+            }
+        }
+        // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
+        // subscribed under this address — its page on Library; each through its
+        // tab, as a tap would.
+        IncomingLinks.feedUrl.collect { url ->
+            if (url == null) return@collect
+            IncomingLinks.feedUrl.value = null
+            val key = space.sovereigncast.hopp.directory.feedKey(url)
+            val subscribed = podcastRepo.shows.first().firstOrNull { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) == key }
+            // The database answers on its own thread; the NavController wants the main one.
+            withContext(Dispatchers.Main) {
+                player.minimize()
+                if (subscribed != null) { selectTabNow(tabs[1]); nav.navigate(ShowRoute(subscribed.id)) }
+                else { selectTabNow(tabs[2]); nav.navigate(ShowPreviewRoute(url)) }
+            }
+        }
     }
 
     HoppTheme {

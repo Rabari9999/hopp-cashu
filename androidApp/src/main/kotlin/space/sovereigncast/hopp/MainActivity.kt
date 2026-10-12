@@ -43,14 +43,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
         takeLink(intent)
     }
 
-    override fun onNewIntent(intent: Intent) {
+    // Public: the link tests hand the running activity a new intent, as Android does.
+    public override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         takeLink(intent)
     }
 
     private fun takeLink(intent: Intent?) {
-        val uri = intent?.data?.takeIf { it.scheme?.startsWith("nostr") == true } ?: return
-        IncomingLinks.walletUri.value = uri.toString()
+        val uri = intent?.data ?: return
+        if (uri.scheme?.startsWith("nostr") == true) IncomingLinks.walletUri.value = uri.toString()
+        // "Open in Hopp": anything else without a feed opens Hopp as it is.
+        else IncomingLinks.feedFrom(uri.toString())?.let { IncomingLinks.feedUrl.value = it }
     }
 
     override fun pickOpml(onText: (String) -> Unit) {
