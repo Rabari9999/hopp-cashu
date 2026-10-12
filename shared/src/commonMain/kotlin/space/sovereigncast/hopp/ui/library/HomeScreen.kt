@@ -12,7 +12,6 @@ import kotlinx.datetime.toLocalDateTime
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import space.sovereigncast.hopp.ui.components.isoToEpochSeconds
@@ -35,6 +34,7 @@ import space.sovereigncast.hopp.resources.sc_publish_at
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.HoppSymbol
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -269,9 +269,8 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long) {
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Hopp.colors.value), contentAlignment = Alignment.Center) {
-            Icon(HoppIcons.Hop, null, Modifier.size(26.dp), tint = Hopp.colors.onValue)
-        }
+        // The logo, not the hop alone — that means boost (ADR 0019).
+        HoppSymbol(Modifier.size(48.dp))
         Column {
             Text(hello, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
@@ -308,6 +307,7 @@ private fun rhythmText(r: space.sovereigncast.hopp.data.Rhythm): String = when (
 
 /** Wide enough for "every 2 wks" and a countdown under the cover. */
 private val STRIP_TILE = 92.dp
+private val STRIP_TILE_SHAPE = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
 
 private val WEEKDAYS = listOf(Res.string.wd_1, Res.string.wd_2, Res.string.wd_3, Res.string.wd_4, Res.string.wd_5, Res.string.wd_6, Res.string.wd_7)
 
@@ -327,7 +327,12 @@ private fun ShowsStrip(
     val ordered = shows.sortedBy { if (it.id in releases) 0 else 1 }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(ordered, key = { "s${it.id}" }) { show ->
-            Column(Modifier.width(STRIP_TILE).clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = show.title) { onShow(show.id) }) {
+            // Only the top corners echo the cover's: rounded at the bottom too, the
+            // tile cut the ends off the rhythm line under it.
+            Column(
+                Modifier.width(STRIP_TILE).clip(STRIP_TILE_SHAPE)
+                    .clickable(onClickLabel = show.title) { onShow(show.id) }.padding(bottom = 4.dp),
+            ) {
                 Cover(show.imageUrl, STRIP_TILE, corner = 14.dp)
                 Text(show.title, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val release = releases[show.id]
