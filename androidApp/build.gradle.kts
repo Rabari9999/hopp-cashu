@@ -50,6 +50,7 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         listOfNotNull(stamp, sha).joinToString("-")
     }
 val appVersion = "0.0.1"
+val betaKeystore: File? = System.getenv("HOPP_BETA_KEYSTORE")?.let(::File)?.takeIf { it.isFile && System.getenv("HOPP_BETA_KEYSTORE_PASSWORD") != null }
 
 // hopp-0.0.1-20261008-1012-fd61d90-foss-debug.apk; on a release tag the
 // version alone says it: hopp-0.1.0-foss-release-unsigned.apk.
@@ -97,6 +98,19 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // A beta key of its own (security review 2026-10-10, M-07): the debug key
+        // above is public, so anyone can sign an APK that installs over a beta
+        // signed with it. Given HOPP_BETA_KEYSTORE (a CI file variable, protected)
+        // and its password, betas are signed with that key; without, with the
+        // debug key as before (docs/signing.md).
+        betaKeystore?.let { store ->
+            create("beta") {
+                storeFile = store
+                storePassword = System.getenv("HOPP_BETA_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("HOPP_BETA_KEY_ALIAS") ?: "hopp-beta"
+                keyPassword = System.getenv("HOPP_BETA_KEY_PASSWORD") ?: System.getenv("HOPP_BETA_KEYSTORE_PASSWORD")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -118,7 +132,7 @@ android {
         }
         create("beta") {
             initWith(getByName("release"))
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("beta") ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             revision?.let { versionNameSuffix = "-beta.$it" }
         }

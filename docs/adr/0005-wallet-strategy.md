@@ -179,4 +179,38 @@ four held and are fixed, each with a regression test:
   as "outcome unknown" in the history. Clearing it up through NIP-47
   `lookup_invoice` (with a preimage Hopp chooses for keysends) is a later step.
 
-The report's medium and low findings are still open.
+The medium findings, 2026-10-12:
+
+- **M-01** — the NWC connection string travelled as a navigation argument and in
+  `rememberSaveable`, i.e. in the activity's saved state. It now goes from a
+  wallet link to the wallet page in memory only (`IncomingLinks.handOverWallet`),
+  the field is plain `remember`, masked with a "show" toggle, cleared once
+  connected, and the wallet page sets `FLAG_SECURE`.
+- **M-02** — feeds, OPML files, chapters, transcripts, directory answers, the
+  Listener API and LNURL were read whole, whatever their size. All go through
+  `getLimited` (`net/Http.kt`, `Limits`): refused when Content-Length says more,
+  stopped when a stream goes past it — 32 MiB for a feed down to 512 KiB for
+  LNURL. Chapters and transcripts that answer with an error are not cached.
+- **M-03** — downloads stop at 4 GiB or the storage limit, whichever is
+  smaller, announced or not; a web page (`text/html`, JSON) is refused; a
+  refused download leaves no `.part`. HTTPS→HTTP redirects stay allowed: podcast
+  trackers do that, and an audio file changed in transit pays no one.
+- **M-04** — kept as it is, on purpose: an LNURL invoice without a description
+  hash is still accepted (npub.cash, a recipient of Nodesignal's splits, sends
+  none, and an empty description). The metadata and the invoice come from the
+  same server over the same TLS connection, so the hash binds the invoice to
+  what that server itself chose; the amount check is what protects the payment.
+- **M-05** — streaming settlement rows are keyed by type, address *and* custom
+  record, so sub-wallets on one node are no longer merged and paid to one of
+  them. Older rows keep their key and pay out to the recipient they stored.
+- **M-06** — a Sovereigncast invoice is refused unless its BOLT11 payment hash
+  is the one the instance names, which Hopp then waits on.
+- **M-07** — betas show as "Hopp β" and sign with a key of their own once CI
+  has one (docs/signing.md); until then, the public debug key.
+- **M-08** — "run fork pipelines in the parent project" is off for hopp,
+  sovereigncast-space and hopp.sovereigncast.space, so no maintainer click
+  can put a fork's code on the self-hosted runner. Making the runner protected
+  (main and tags only) is left to decide: pipelines of other branches would then
+  wait for a runner.
+
+The low findings are still open.

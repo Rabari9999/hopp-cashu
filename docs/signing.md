@@ -31,3 +31,19 @@ Debug builds are a different matter: they are signed with
 SHA-256 `5F:A6:6E:42:…:B8:68`). It only lets one debug APK replace the
 previous one; it is worth nothing to anyone, and an APK signed with it can
 never update a release install.
+
+## Beta builds (added 2026-10-12)
+
+Betas carry release code and, until a beta key exists, the public debug key —
+anyone can build an APK that installs over such a beta (security review
+2026-10-10, M-07). They show as **"Hopp β"** on the home screen and never claim
+to be the release. To give them a key of their own:
+
+1. Create it once, off CI: `keytool -genkeypair -keystore hopp-beta.jks -alias hopp-beta -keyalg EC -groupname secp256r1 -validity 10000`.
+2. In GitLab → Settings → CI/CD → Variables, add (protected, masked where possible):
+   `HOPP_BETA_KEYSTORE` as a **File** variable with the keystore, and
+   `HOPP_BETA_KEYSTORE_PASSWORD` (plus `HOPP_BETA_KEY_PASSWORD` if it differs,
+   `HOPP_BETA_KEY_ALIAS` if not `hopp-beta`).
+3. The next pipeline on `main` signs the beta with it. Testers install that beta
+   once by hand (another signature cannot update the old one); from then on it
+   updates as before. Without the variables the build falls back to the debug key.
