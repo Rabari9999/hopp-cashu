@@ -70,3 +70,17 @@ SELECT * FROM settlement WHERE episode_id = ? AND rail = ? AND owed_msat > 0;
 
 accrualsOf:
 SELECT * FROM accrual WHERE episode_id = ? AND accrued_msat > 0;
+
+-- Everything owed, with when its episode was last heard: a part of a sat is
+-- rounded up once the episode is done (heard to its end, or not for 24 h).
+owedWithHeard:
+SELECT s.*, e.last_played_at FROM settlement s LEFT JOIN episode e ON e.id = s.episode_id
+WHERE s.rail = ? AND s.owed_msat > 0
+ORDER BY s.episode_id, s.recipient_key;
+
+owedByEpisode:
+SELECT episode_id, CAST(sum(owed_msat) AS INTEGER) AS owed, CAST(max(attempts) AS INTEGER) AS attempts, CAST(max(owed_msat) AS INTEGER) AS largest
+FROM settlement WHERE rail = ? AND owed_msat > 0 GROUP BY episode_id;
+
+accruedByEpisode:
+SELECT episode_id, CAST(sum(accrued_msat) AS INTEGER) AS accrued FROM accrual WHERE accrued_msat > 0 GROUP BY episode_id;

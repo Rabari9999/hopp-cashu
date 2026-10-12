@@ -107,7 +107,12 @@ class PlayerController(
                 if (s.isPlaying) startBatch()
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
-                    ended && wasPlaying -> { episodes.setPlayed(id, true); lastSaved = 0; onEnded() }
+                    ended && wasPlaying -> {
+                        episodes.setPlayed(id, true); lastSaved = 0
+                        // Heard to its end: its streamed parts of a sat go out now, rounded up.
+                        value?.let { v -> scope.launch { delay(ROUND_UP_DELAY); runCatching { v.settle(roundUp = setOf(id)) } } }
+                        onEnded()
+                    }
                     (s.isPlaying && abs(s.positionMs - lastSaved) >= 5_000) || (wasPlaying && !s.isPlaying) -> {
                         episodes.savePosition(id, s.positionMs); lastSaved = s.positionMs
                     }
@@ -311,6 +316,8 @@ class PlayerController(
         const val MAX_TICK_MS = 5_000L
         val SETTLE_EVERY = 3.minutes
         val CATCH_UP_AFTER = 30.seconds
+        /** After an episode's end, so its last ticks have accrued first. */
+        val ROUND_UP_DELAY = 2.seconds
         val SPEEDS = listOf(1f, 1.2f, 1.5f, 1.8f, 2f, 0.8f)
         val SPEED_CHOICES = listOf(0.8f, 1f, 1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f)
     }

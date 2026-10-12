@@ -196,6 +196,45 @@ class ValueServiceTest {
         assertEquals(20_000L, value.pendingMsat.first(), "20 s of content at one sat a second")
     }
 
+    /** Parts of a sat wait while the episode is being heard, and are rounded
+     *  up once it is done — heard to its end, or not for 24 h (user decision
+     *  2026-10-12); the sheet says which episode owes and why. */
+    @Test
+    fun partsOfASatAreRoundedUpOnceTheEpisodeIsDone() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
+        val ep = episode()
+        episodes.savePosition(ep.id, 2_500) // heard just now
+        value.accrue(ep, 2_500, 2_500)      // 2.25 to the host, 0.25 to the cohost
+        assertEquals(PendingReason.NextRound, value.pendingByEpisode().single().reason)
+        value.settle()
+        assertEquals(listOf(host to 2L), keysends(), "whole sats only while it is being heard")
+        val left = value.pendingByEpisode().single()
+        assertEquals(500L, left.msat)
+        assertEquals(PendingReason.PartsOfASat, left.reason)
+        assertEquals("Ep", left.item?.title)
+
+        // Not heard for a day: rounded up — one sat each, never more.
+        now += 25 * 3600
+        value.settle()
+        assertEquals(listOf(host to 2L, host to 1L, cohost to 1L), keysends())
+        assertTrue(value.pendingByEpisode().isEmpty())
+        assertEquals(0L, value.pendingMsat.first())
+    }
+
+    @Test
+    fun anEpisodeHeardToItsEndPaysItsPartsAtOnce() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        episodes.savePosition(ep.id, 500)
+        value.accrue(ep, 500, 500) // 0.45 + 0.05
+        value.settle()
+        assertTrue(keysends().isEmpty())
+        value.settle(roundUp = setOf(ep.id)) // what the player does at the end
+        assertEquals(listOf(host to 1L, cohost to 1L), keysends())
+    }
+
     /** Batches follow listening (user decision 2026-10-11): none before it
      *  starts, one per round while playing, the round under way still paid
      *  after a pause — then the timer rests. Here a round is 400 ms, not 3 min. */

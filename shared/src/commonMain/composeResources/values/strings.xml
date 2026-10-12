@@ -144,6 +144,7 @@
     <string name="boost_send_over">Over budget — boost %1$s sats anyway</string>
     <string name="boost_via">via %1$s (NWC) · budget left today: %2$s sats</string>
     <string name="boost_no_wallet">Connect a wallet to boost</string>
+    <string name="boost_why_nwc">A boost is split the way the podcast sets it — often among several recipients, some reachable only by keysend. That takes a connected wallet (NWC); a wallet app only ever gets one invoice. Release Boosting and Boost2Unlock at Sovereigncast shows you can also pay with any wallet app.</string>
     <string name="boost_no_value">This show has no value block — it cannot receive boosts.</string>
     <string name="boost_done">%1$s sats boosted</string>
     <string name="boost_partial">%1$d of %2$d recipients paid</string>
@@ -160,10 +161,14 @@
     <string name="stream_next_soon">in a moment</string>
     <string name="stream_next_idle">3 min after you start listening</string>
     <string name="stream_next_minutes">in about %1$d min</string>
-    <string name="stream_how">How Hopp pays: every 3 minutes of listening, counted from when you start; when you stop, the round under way still goes out. Each recipient only ever gets whole sats; parts of a sat stay set aside until a whole one has come together, so small shares go out less often. Nothing is lost.</string>
+    <string name="stream_how">How Hopp pays: every 3 minutes of listening, counted from when you start; when you stop, the round under way still goes out. Each recipient gets whole sats; what is left of one is rounded up and sent once you have heard the episode to its end or not for a day — at most one sat more per recipient.</string>
     <string name="stream_recipients">Set aside in this episode</string>
     <string name="stream_nothing">Nothing set aside right now.</string>
-    <string name="stream_other">From other episodes: %1$s sats</string>
+    <string name="stream_other_title">From other episodes</string>
+    <string name="stream_reason_failed">failed, tried again</string>
+    <string name="stream_reason_budget">over today’s budget, goes out tomorrow</string>
+    <string name="stream_reason_next">goes out with the next round</string>
+    <string name="stream_reason_parts">parts of a sat, rounded up once you finish it or leave it for a day</string>
     <string name="stream_send_now">Send the whole sats now</string>
     <string name="np_over_budget">daily budget used up</string>
     <string name="stream_invite_title">Stream sats while you listen?</string>

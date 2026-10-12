@@ -101,7 +101,7 @@ import space.sovereigncast.hopp.value.SkipReason
  * costs (ADR 0005).
  */
 @Composable
-fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit) {
+fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}) {
     val settings by vm.current.collectAsState()
     val wallet by vm.connected.collectAsState()
     val rate by vm.rate.collectAsState()
@@ -153,7 +153,7 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         )
     }
 
-    if (details) StreamSheet(vm, item, today, pending, rate ?: 0) { details = false }
+    if (details) StreamSheet(vm, item, today, pending, rate ?: 0, onOpenEpisode = { details = false; onOpenEpisode(it) }) { details = false }
 
     if (invite) AlertDialog(
         onDismissRequest = { invite = false },
@@ -176,7 +176,7 @@ private fun pendingSats(msat: Long): String = if (msat in 1..999) "<1" else form
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Long, pendingMsat: Long, rate: Int, onDismiss: () -> Unit) {
+private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Long, pendingMsat: Long, rate: Int, onOpenEpisode: (EpisodeItem) -> Unit, onDismiss: () -> Unit) {
     val detail by vm.detail.collectAsState()
     val colors = MaterialTheme.colorScheme
     // Accruals grow every few seconds while playing; the countdown with them.
@@ -208,12 +208,39 @@ private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Lon
                         Text(formatMsat(s.msat) + " sats", style = MaterialTheme.typography.bodyMedium, color = if (s.msat >= 1000) Hopp.colors.valueText else colors.onSurfaceVariant)
                     }
                 }
-                val elsewhere = pendingMsat - d.shares.sumOf { it.msat }
-                if (elsewhere >= 1) Text(stringResource(Res.string.stream_other, formatMsat(elsewhere)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 if (d.shares.any { it.msat >= 1000 }) TextButton(onClick = { vm.settleNow(item.id) }) { Text(stringResource(Res.string.stream_send_now), fontWeight = FontWeight.Bold) }
+                // Which other episodes still owe, and why (device feedback 2026-10-12).
+                if (d.others.isNotEmpty()) {
+                    Text(stringResource(Res.string.stream_other_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                    d.others.forEach { o -> PendingEpisodeRow(o) { o.item?.let(onOpenEpisode) } }
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+/** Another episode's sats still to send: which, how much, why — a tap opens it. */
+@Composable
+private fun PendingEpisodeRow(p: space.sovereigncast.hopp.value.PendingEpisode, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(enabled = p.item != null, onClick = onOpen).padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(p.item?.title ?: "—", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            val why = stringResource(when (p.reason) {
+                space.sovereigncast.hopp.value.PendingReason.Failed -> Res.string.stream_reason_failed
+                space.sovereigncast.hopp.value.PendingReason.OverBudget -> Res.string.stream_reason_budget
+                space.sovereigncast.hopp.value.PendingReason.NextRound -> Res.string.stream_reason_next
+                space.sovereigncast.hopp.value.PendingReason.PartsOfASat -> Res.string.stream_reason_parts
+            })
+            Text(listOfNotNull(p.podcastTitle, why).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        Spacer(Modifier.size(8.dp))
+        Text(formatMsat(p.msat) + " sats", style = MaterialTheme.typography.bodyMedium, color = Hopp.colors.valueText)
+        if (p.item != null) Text(" ›", style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
     }
 }
 
@@ -303,6 +330,9 @@ fun BoostSheet(
             val over = amount * 1000 > left
             val w = wallet
             if (w == null) {
+                // Why a connection, not just any wallet app (device feedback 2026-10-12).
+                Text(stringResource(Res.string.boost_why_nwc), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                space.sovereigncast.hopp.ui.components.NwcExplainerLink()
                 BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
             } else {
                 BigButton(

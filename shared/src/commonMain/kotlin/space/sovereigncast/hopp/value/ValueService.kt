@@ -88,6 +88,12 @@ sealed interface QuickBoost {
     data class Failed(val reason: String) : QuickBoost
 }
 
+/** Why streamed sats of an episode have not gone out yet. */
+enum class PendingReason { Failed, OverBudget, NextRound, PartsOfASat }
+
+/** Streamed sats of one episode not yet sent. */
+data class PendingEpisode(val episodeId: Long, val item: EpisodeItem?, val podcastTitle: String?, val msat: Long, val reason: PendingReason)
+
 /** Streamed sats waiting for one recipient: owed, or heard and not yet split. */
 data class PendingShare(val name: String, val msat: Long)
 
@@ -343,7 +349,7 @@ class ValueService(
      * first, as long as today's budget lasts. Failed payments stay owed for the
      * next run; a share no wallet could pay is dropped and logged as skipped.
      */
-    suspend fun settle() = settling.withLock {
+    suspend fun settle(roundUp: Set<Long> = emptySet()) = settling.withLock {
         distribute()
         val client = wallet.client() ?: return@withLock
         val info = wallet.wallet.value?.info ?: return@withLock
@@ -351,14 +357,20 @@ class ValueService(
         var left = budget - withContext(Dispatchers.IO) { pq.spentSince(startOfToday()).executeAsOne() }
         var over = false
         val sender = BoostSender(client, lnAddress, info)
-        val rows = withContext(Dispatchers.IO) { sq.payable(RAIL_LIGHTNING, 1000).executeAsList() }
+        // Whole sats, and — once an episode is done (heard to its end, or not for
+        // 24 h) — its parts of a sat rounded up, at most one sat more per
+        // recipient (user decision 2026-10-11): otherwise they would wait for good.
+        val stale = clock.now() - ROUND_UP_AFTER_SECONDS
+        val rows = withContext(Dispatchers.IO) { sq.owedWithHeard(RAIL_LIGHTNING).executeAsList() }
+            .map { r -> r to (r.episode_id in roundUp || (r.last_played_at ?: Long.MAX_VALUE) < stale) }
+            .filter { (r, done) -> r.owed_msat >= 1000 || done }
         var caughtUp = 0L
         val caughtUpEpisodes = mutableSetOf<Long>()
-        for ((episodeId, group) in rows.groupBy { it.episode_id }) {
+        for ((episodeId, group) in rows.groupBy { it.first.episode_id }) {
             val item = episodes.item(episodeId)
             val results = mutableListOf<ShareResult>()
-            for (row in group) {
-                val amount = row.owed_msat / 1000 * 1000
+            for ((row, done) in group) {
+                val amount = if (done) (row.owed_msat + 999) / 1000 * 1000 else row.owed_msat / 1000 * 1000
                 if (amount > left) { over = true; continue }
                 val recipient = json.decodeFromString(ValueRecipient.serializer(), row.recipient_json)
                 val share = Share(recipient, amount)
@@ -368,7 +380,8 @@ class ValueService(
                 withContext(Dispatchers.IO) {
                     when (result) {
                         is ShareResult.Paid -> {
-                            sq.paid(amount, episodeId, row.recipient_key, RAIL_LIGHTNING); left -= amount
+                            // Rounded up: what was owed is settled, the extra is a gift.
+                            sq.paid(minOf(amount, row.owed_msat), episodeId, row.recipient_key, RAIL_LIGHTNING); left -= amount
                             if (row.attempts > 0) { caughtUp += amount; caughtUpEpisodes += episodeId }
                         }
                         is ShareResult.Skipped -> sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)
@@ -413,6 +426,28 @@ class ValueService(
         return byKey.values.filter { it.msat > 0 }.sortedByDescending { it.msat }
     }
 
+    /**
+     * Every episode with streamed sats not yet sent, most first, and why they
+     * wait (device feedback 2026-10-12: "from other episodes" said how much,
+     * not from which).
+     */
+    suspend fun pendingByEpisode(): List<PendingEpisode> {
+        val owed = withContext(Dispatchers.IO) { sq.owedByEpisode(RAIL_LIGHTNING).executeAsList() }.associateBy { it.episode_id }
+        val accrued = withContext(Dispatchers.IO) { sq.accruedByEpisode().executeAsList() }.associate { it.episode_id to it.accrued }
+        return (owed.keys + accrued.keys).map { id ->
+            val o = owed[id]
+            val reason = when {
+                (o?.attempts ?: 0) > 0 -> PendingReason.Failed
+                _overBudget.value && (o?.largest ?: 0) >= 1000 -> PendingReason.OverBudget
+                (accrued[id] ?: 0) > 0 || (o?.largest ?: 0) >= 1000 -> PendingReason.NextRound
+                else -> PendingReason.PartsOfASat
+            }
+            val item = episodes.item(id)
+            val show = item?.let { podcasts.show(it.podcastId).first()?.title ?: it.podcastTitle }
+            PendingEpisode(id, item, show, (o?.owed ?: 0) + (accrued[id] ?: 0), reason)
+        }.filter { it.msat > 0 }.sortedByDescending { it.msat }
+    }
+
     private suspend fun distribute() {
         val pending = withContext(Dispatchers.IO) { sq.pendingAccruals().executeAsList() }
         for (a in pending) {
@@ -440,6 +475,8 @@ class ValueService(
         const val RAIL_LIGHTNING = "lightning"
         /** When neither the listener nor the show sets a rate. */
         const val DEFAULT_RATE = 10
+        /** Not heard for this long, an episode's parts of a sat are rounded up and paid. */
+        const val ROUND_UP_AFTER_SECONDS = 24 * 3600L
         const val SUPPORT_NAME = "Hopp"
     }
 }

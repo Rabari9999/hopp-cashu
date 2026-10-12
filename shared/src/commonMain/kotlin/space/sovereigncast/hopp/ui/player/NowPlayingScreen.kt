@@ -265,7 +265,8 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
             }
 
             // Value bar (ADR 0019): boost and streaming.
-            ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet)
+            val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
+            ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
 
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

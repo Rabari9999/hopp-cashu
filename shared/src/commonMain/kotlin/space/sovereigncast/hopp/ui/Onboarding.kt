@@ -55,16 +55,6 @@ import space.sovereigncast.hopp.resources.onboarding_wallet_title
 import space.sovereigncast.hopp.resources.onboarding_welcome_text
 import space.sovereigncast.hopp.resources.onboarding_welcome_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.http.isSuccess
-import kotlinx.coroutines.withTimeoutOrNull
-import org.koin.compose.koinInject
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.platform.LocalUriHandler
-import space.sovereigncast.hopp.resources.nwc_explainer_url
-import space.sovereigncast.hopp.resources.onboarding_nwc_more
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 private class TourPage(val icon: ImageVector, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false)
@@ -92,14 +82,6 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val last = pager.currentPage == PAGES.lastIndex
-    // The NWC explainer (device feedback 2026-10-11) — sentence and link only
-    // when the page answers; a dead link on a first start is worse than none.
-    val http: HttpClient = koinInject()
-    val nwcUrl = stringResource(Res.string.nwc_explainer_url)
-    val nwcUp by produceState(false, nwcUrl) {
-        value = withTimeoutOrNull(5_000) { runCatching { http.get(nwcUrl).status.isSuccess() }.getOrDefault(false) } ?: false
-    }
-    val uri = LocalUriHandler.current
     Column(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
             if (!last) TextButton(onClick = { onDone(false) }) { Text(stringResource(Res.string.onboarding_skip)) }
@@ -121,11 +103,8 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
                 Text(stringResource(p.title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(p.text), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
-                if (p.nwcLink && nwcUp) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(stringResource(Res.string.onboarding_nwc_more), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
-                    TextButton(onClick = { runCatching { uri.openUri(nwcUrl) } }) { Text("nwc.ereignishorizont.xyz ↗", fontWeight = FontWeight.Bold) }
-                }
+                // The NWC explainer (device feedback 2026-10-11), only when it answers.
+                if (p.nwcLink) space.sovereigncast.hopp.ui.components.NwcExplainerLink(Modifier.padding(top = 16.dp), centered = true)
             }
         }
         // Where you are: one dot per page.

@@ -144,6 +144,7 @@
     <string name="boost_send_over">Über dem Budget – trotzdem %1$s sats boosten</string>
     <string name="boost_via">über %1$s (NWC) · Budget heute: %2$s sats übrig</string>
     <string name="boost_no_wallet">Wallet verbinden, um zu boosten</string>
+    <string name="boost_why_nwc">Ein Boost wird so aufgeteilt, wie der Podcast es festlegt – oft auf mehrere Empfänger, manche nur per Keysend erreichbar. Das geht nur mit einer verbundenen Wallet (NWC); eine Wallet-App bekommt immer nur eine Rechnung. Release Boosting und Boost2Unlock bei Sovereigncast-Shows bezahlst du auch mit jeder Wallet-App.</string>
     <string name="boost_no_value">Diese Show hat keinen Value-Block – sie kann keine Boosts empfangen.</string>
     <string name="boost_done">%1$s sats geboostet</string>
     <string name="boost_partial">%1$d von %2$d Empfängern bezahlt</string>
@@ -160,10 +161,14 @@
     <string name="stream_next_soon">gleich</string>
     <string name="stream_next_idle">3 Min. nach Hörbeginn</string>
     <string name="stream_next_minutes">in ca. %1$d Min.</string>
-    <string name="stream_how">So zahlt Hopp: alle 3 Minuten Hörzeit, gezählt ab dem Hörbeginn; hörst du auf, geht die laufende Runde noch raus. Jeder Empfänger bekommt dabei nur ganze Sats; Bruchteile bleiben vorgemerkt, bis ein ganzer Sat beisammen ist – kleine Anteile gehen deshalb seltener raus. Verloren geht nichts.</string>
+    <string name="stream_how">So zahlt Hopp: alle 3 Minuten Hörzeit, gezählt ab dem Hörbeginn; hörst du auf, geht die laufende Runde noch raus. Jeder Empfänger bekommt ganze Sats; was von einem übrig bleibt, rundet Hopp auf und sendet es, sobald du die Folge zu Ende oder einen Tag nicht gehört hast – höchstens 1 Sat mehr pro Empfänger.</string>
     <string name="stream_recipients">In dieser Folge vorgemerkt</string>
     <string name="stream_nothing">Gerade ist nichts vorgemerkt.</string>
-    <string name="stream_other">Aus anderen Folgen: %1$s sats</string>
+    <string name="stream_other_title">Aus anderen Folgen</string>
+    <string name="stream_reason_failed">fehlgeschlagen, wird wieder versucht</string>
+    <string name="stream_reason_budget">über dem Tagesbudget, geht morgen raus</string>
+    <string name="stream_reason_next">geht mit der nächsten Runde raus</string>
+    <string name="stream_reason_parts">Reste unter 1 Sat, aufgerundet gesendet, sobald du sie zu Ende hörst oder einen Tag nicht</string>
     <string name="stream_send_now">Ganze Sats jetzt senden</string>
     <string name="np_over_budget">Tagesbudget aufgebraucht</string>
     <string name="stream_invite_title">Sats streamen, während du hörst?</string>

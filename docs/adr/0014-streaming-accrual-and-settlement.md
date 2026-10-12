@@ -67,6 +67,15 @@ next batch's time, the rule in plain words, what this episode has set aside per
 recipient (owed, or heard and not yet split) and a button that pays the whole
 sats now.
 
+**Amended 2026-10-12 (user decision):** parts of a sat no longer wait for
+good. Once an episode is done — heard to its end (the player settles it with
+`roundUp` two seconds after the end) or not heard for 24 h (`last_played_at`)
+— its remaining parts are rounded up to whole sats and paid, at most one sat
+more per recipient, within the daily budget. The sheet lists the other
+episodes with sats still to send, each with why they wait (failed and retried,
+over today's budget, with the next round, parts of a sat) and a tap to the
+episode.
+
 ### Paying what accrued offline
 
 **Automatically, within the budget**, once the network is back — followed by a

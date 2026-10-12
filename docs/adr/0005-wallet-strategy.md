@@ -140,3 +140,14 @@ are paid once they reach a whole sat; payments are batched.
   recipients as a percentage off the top, as the value spec (and Hopp) does.
 - **Phase 3:** Apple requires developers offering wallet functionality to be
   enrolled as an organisation (to be verified before Phase 3).
+
+### Without NWC (added 2026-10-12)
+
+Boosts and streaming need a connected wallet: a boost is split among the feed's
+recipients, some reachable only by keysend, and a wallet app reached through
+`lightning:` only ever takes one invoice. Release Boosting and Boost2Unlock at
+Sovereigncast shows are single invoices from the instance and work with any
+wallet app. The boost sheet without a wallet says so in one paragraph, with the
+NWC explainer link when it answers; the website (hopp.sovereigncast.space)
+says the same since 2026-10-12 — it had promised boosts "with an external
+wallet".

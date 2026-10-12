@@ -71,7 +71,13 @@ class HistoryViewModel(value: ValueService) : ViewModel() {
     val payments: StateFlow<List<Payment>?> = state(value.payments, null)
 }
 
-data class StreamDetail(val episodeId: Long, val shares: List<space.sovereigncast.hopp.value.PendingShare>, val nextSettleSeconds: Long?)
+data class StreamDetail(
+    val episodeId: Long,
+    val shares: List<space.sovereigncast.hopp.value.PendingShare>,
+    val nextSettleSeconds: Long?,
+    /** The other episodes with sats still to send. */
+    val others: List<space.sovereigncast.hopp.value.PendingEpisode> = emptyList(),
+)
 
 sealed interface BoostState {
     data object Editing : BoostState
@@ -97,7 +103,7 @@ class ValueBarViewModel(
     val detail: StateFlow<StreamDetail?> = _detail.asStateFlow()
 
     fun refreshDetail(episodeId: Long) = viewModelScope.launch {
-        _detail.value = StreamDetail(episodeId, value.pendingFor(episodeId), value.secondsToNextSettle())
+        _detail.value = StreamDetail(episodeId, value.pendingFor(episodeId), value.secondsToNextSettle(), value.pendingByEpisode().filter { it.episodeId != episodeId })
     }
 
     /** Pays every whole sat now, instead of at the next batch — in the app's scope, like a boost. */

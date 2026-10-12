@@ -32,6 +32,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Rule
 import org.junit.Test
@@ -373,6 +374,9 @@ class AndroidAppFlowTest {
         openEpisode()
         tapTop("Boost")
         waitFor("Connect a wallet to boost")
+        // Why a connection and not any wallet app, and where NWC is explained (device feedback 2026-10-12).
+        check(has("a wallet app only ever gets one invoice", substring = true)) { screen().toString() }
+        waitFor("nwc.ereignishorizont.xyz ↗")
         tap("Connect a wallet to boost")
         waitFor("Connection string (nostr+walletconnect://…)")
     }
@@ -398,16 +402,27 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         openEpisode()
         val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
-        // A minute and a half heard at 10 sats a minute.
-        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(item, 90_000, 90_000) }
+        // A minute and a half heard at 10 sats a minute — and a bit of Ep 1 from before.
+        val ep1 = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().ofPodcast(item.podcastId).first().first { it.title == "Ep 1" } }
+        kotlinx.coroutines.runBlocking {
+            koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(item, 90_000, 90_000)
+            koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(ep1, 3_000, 3_000)
+        }
         waitFor("0 sats today · 15 set aside ›")
         tap("0 sats today · 15 set aside ›")
         waitFor("Set aside in this episode")
         // All of it is this episode's, and all of it the host's.
         waitFor("Host")
         check(has("Set aside, not sent yet") && has("Send the whole sats now") && has("Next payment")) { screen().toString() }
-        check(!has("From other episodes", substring = true)) { screen().toString() }
+        // Ep 1's half sat: which episode, and why it waits; a tap opens it.
+        waitFor("From other episodes")
+        check(has("Ep 1") && has("Test Show · goes out with the next round")) { screen().toString() }
         check(has("How Hopp pays", substring = true)) { screen().toString() }
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performClick()
+        // Now playing steps aside for Ep 1's page.
+        until { !koin.get<space.sovereigncast.hopp.player.PlayerController>().expanded.value }
+        waitFor("01.06.2026") // Ep 1's page: its date, its own Play
+        check(has("Ep 1") && has("Play")) { screen().toString() }
     }
 
     @Test
