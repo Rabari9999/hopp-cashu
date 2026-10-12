@@ -105,7 +105,19 @@ class HomeViewModel(
     )
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
 
-    companion object { const val HOME_ROWS = 5 }
+    // A quiet day on Home (device feedback 2026-10-12): the shows themselves,
+    // when they come out next, and what of them is still unheard.
+    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
+    val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
+    val unheard: StateFlow<List<EpisodeItem>> = state(episodes.unheardPerShow, emptyList())
+    val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
+
+    companion object { const val HOME_ROWS = 5; const val QUIET_ROWS = 3; const val TAKE_PART_ROWS = 2 }
+}
+
+/** Every subscribed show's newest unheard episode — Home's "From your shows", in full. */
+class UnheardViewModel(episodes: EpisodeRepository) : ViewModel() {
+    val items: StateFlow<List<EpisodeItem>?> = state(episodes.unheardPerShow, null)
 }
 
 class LibraryViewModel(

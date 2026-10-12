@@ -53,8 +53,10 @@ data class ShowAction(
     val goalSats: Long,
     /** Release Boosting only: when the episode comes out as things stand. */
     val publishAt: String?,
+    /** Suggestions only: how many the listener has not voted for yet. */
+    val waiting: Int = 0,
 ) {
-    enum class Kind { ReleaseBoosting, Boost2Unlock }
+    enum class Kind { ReleaseBoosting, Boost2Unlock, Suggestions }
 }
 
 class InvoiceMismatch(message: String) : Exception(message)
@@ -136,8 +138,13 @@ class SovereigncastRepository(
                 val c = show.capabilities
                 val rb = if (c.releaseBoosting) runCatching { releaseBoosting(layer).round }.getOrNull() else null
                 val b2u = if (c.boost2unlock) runCatching { boost2unlock(layer).episodes }.getOrDefault(emptyList()) else emptyList()
+                // Open suggestions this listener has not voted for (device feedback 2026-10-12: Home's "Take part").
+                val votes = settings.current().votes
+                val waiting = if (c.suggestions) runCatching { suggestions(layer).suggestions }.getOrDefault(emptyList())
+                    .count { "${show.podcastGuid}/${it.id}" !in votes } else 0
                 listOfNotNull(rb?.let { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.ReleaseBoosting, it.episode.title, it.raisedSats, it.goalSats, it.publishAt) }) +
-                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null) }
+                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null) } +
+                    listOfNotNull(ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Suggestions, "", 0, 0, null, waiting).takeIf { waiting > 0 })
             }
         }.awaitAll().flatten()
     }

@@ -200,6 +200,13 @@ class AndroidAppFlowTest {
     private fun tapTop(text: String) = rule.onAllNodes(hasText(text) and hasClickAction()).onLast().performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
 
+    /** Home shows the back catalogue on a quiet day — under "From your shows",
+     *  never in New (device feedback 2026-10-12). */
+    private fun onlyUnderFromYourShows(title: String): Boolean = screen().let { s ->
+        val at = s.indexOf(title)
+        at < 0 || (s.indexOf("From your shows") in 0 until at)
+    }
+
     /** What is on screen, for failure messages. */
     private fun screen(): List<String> = rule.onAllNodes(isRoot()).fetchSemanticsNodes().flatMap { root ->
         fun walk(n: SemanticsNode): List<String> =
@@ -221,7 +228,7 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe()
         tap("Library"); waitFor("Test Show")
         tap("Home"); waitFor("Ep 2")
-        check(!has("Ep 1")) { "the back catalogue landed in New: ${screen()}" }
+        check(onlyUnderFromYourShows("Ep 1")) { "the back catalogue landed in New: ${screen()}" }
         tap("Library"); waitFor("Test Show")
         tap("Test Show"); waitFor("✓ Subscribed")
         tap("✓ Subscribed"); tap("Unsubscribe")
@@ -237,7 +244,7 @@ class AndroidAppFlowTest {
         subscribe()
         back()
         tap("Home"); waitFor("Ep 2")
-        check(!has("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
+        check(onlyUnderFromYourShows("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
     }
 
     /** A show page waiting in another tab's stack closes once the show is gone. */
@@ -990,8 +997,11 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe("https://pod.test/sc.xml")
         waitFor("✓ Sovereigncast")
         tap("Home")
-        waitFor("At your shows")
+        waitFor("Take part")
         waitFor("RELEASE BOOSTING · Nodesignal")
+        // The open suggestion this listener has not voted for (device feedback 2026-10-12).
+        waitFor("Topics awaiting your vote: 1")
+        check(has("Your shows")) { screen().toString() }
         rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
         waitFor("✓ Sovereigncast")
     }

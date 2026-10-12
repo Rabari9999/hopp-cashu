@@ -192,6 +192,21 @@ class DownloadsAndQueueTest {
         assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
     }
 
+    /** Home's "From your shows" (device feedback 2026-10-12): per show the newest
+     *  episode not heard, not started and not new. */
+    @Test
+    fun eachShowsNewestUnheardIsFromYourShows() = test {
+        items = 3
+        val id = subscribe() // Ep 3 is new
+        assertEquals(listOf("Ep 2"), episodes.unheardPerShow.first().map { it.title })
+        episodes.setPlayed(byTitle(id, "Ep 2").id, true)
+        assertEquals(listOf("Ep 1"), episodes.unheardPerShow.first().map { it.title })
+        episodes.savePosition(byTitle(id, "Ep 1").id, 30_000) // started: Continue, not here
+        assertEquals(emptyList(), episodes.unheardPerShow.first().map { it.title })
+        episodes.dismiss(byTitle(id, "Ep 3").id) // no longer new
+        assertEquals(listOf("Ep 3"), episodes.unheardPerShow.first().map { it.title })
+    }
+
     @Test
     fun playedFilesGoAfterADayAndTheLimitTakesTheOldestUnplayed() = test {
         items = 3

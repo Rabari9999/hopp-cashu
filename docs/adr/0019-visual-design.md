@@ -187,6 +187,16 @@ the reference once the screens exist.
   round or Boost2Unlock episode at a subscribed Sovereigncast show (cover,
   label, episode, thin progress, sats and release time); a tap opens the show.
   Order: New, Continue, At your shows, Recently boosted, Recently played.
+  Amended 2026-10-12 (device feedback: an empty Home looked bare): a greeting
+  by the time of day with what the last refresh brought; *Your shows* as a
+  row of covers, Release Boosting rounds first with their countdown in orange,
+  the others with when they usually come out (`Rhythm`, from the last episodes'
+  dates); *At your shows* becomes *Take part*, adds open suggestions not yet
+  voted for, shows two lines unless asked; *From your shows* — per show the
+  newest episode not heard, not started and not new, three of them — comes
+  before the rest on a quiet day and after it when there is news. Order: New,
+  Continue, Your shows, Take part, (From your shows), Favourites, Recently
+  boosted, (From your shows), Recently played.
 - **Notifications:** the quick boost's result reports nothing, only failures
   (default) or everything; a success disappears after a few seconds. Amended
   2026-10-11: the same choice covers boosts from the sheet (player, episode,

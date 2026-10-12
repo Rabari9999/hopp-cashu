@@ -104,6 +104,9 @@ class PodcastRepository(
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
 
+    /** When any show was last refreshed, epoch seconds; null before the first. */
+    val lastChecked: Flow<Long?> = q.lastChecked().asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.last }
+
     val shows: Flow<List<Show>> = q.selectAll().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat(), it.podcast_guid) }
     }
@@ -323,6 +326,19 @@ class EpisodeRepository(
     }
 
     /** The favourites, newest first (device feedback 2026-10-11). */
+    /** Per show the newest episode not heard, not started and not new (Home, device feedback 2026-10-12). */
+    val unheardPerShow: Flow<List<EpisodeItem>> = eq.selectUnheardPerShow().asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.distinctBy { it.podcast_id }.map { r ->
+            episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
+                r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
+        }
+    }
+
+    /** How often each show publishes, from its last episodes' dates. */
+    val rhythms: Flow<Map<Long, Rhythm>> = eq.selectPublished().asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.groupBy { it.podcast_id }.mapNotNull { (id, r) -> rhythmOf(r.mapNotNull { it.published_at })?.let { id to it } }.toMap()
+    }
+
     val favorites: Flow<List<EpisodeItem>> = eq.selectFavorites().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
