@@ -27,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -55,6 +56,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.months
 import space.sovereigncast.hopp.resources.sc_alltime
@@ -123,6 +125,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
     LaunchedEffect(gone) { if (gone) onGone() }
     // The Sovereigncast layer (ADR 0018, phase 1) — only once the instance confirmed the show.
     val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
@@ -172,6 +175,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         // The whole show, not one episode (device feedback 2026-10-08).
                         if (meta?.value != null) BoostPill { boosting = true }
                         Spacer(Modifier.weight(1f))
+                        IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }) }
                     }
                     show?.lastError?.let {
@@ -257,6 +261,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         ScPaySheet(community, target, title, satsPerMinute = round?.satsPerMinute?.takeIf { target is ScTarget.ReleaseBoosting }) { paying = null }
     }
 
+    if (sharing) space.sovereigncast.hopp.ui.components.ShareSheet(space.sovereigncast.hopp.ui.components.ShareTarget.Show(podcastId)) { sharing = false }
     if (boosting) {
         val valueVm: ValueBarViewModel = koinViewModel()
         BoostSheet(

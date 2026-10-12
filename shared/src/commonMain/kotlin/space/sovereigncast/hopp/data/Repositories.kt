@@ -290,6 +290,10 @@ class EpisodeRepository(
 
     suspend fun item(id: Long): EpisodeItem? = withContext(Dispatchers.IO) { eq.selectById(id).executeAsOneOrNull()?.toItem() }
 
+    /** An episode of a show by its GUID — what a shared link names. */
+    suspend fun byGuid(podcastId: Long, guid: String): EpisodeItem? =
+        withContext(Dispatchers.IO) { eq.selectByGuid(podcastId, guid).executeAsOneOrNull()?.id }?.let { item(it) }
+
     suspend fun details(id: Long): Episode? = withContext(Dispatchers.IO) {
         eq.selectById(id).executeAsOneOrNull()?.let { json.decodeFromString(Episode.serializer(), it.meta_json) }
     }

@@ -88,6 +88,17 @@ them the App Link stays unverified and the browser keeps it unless the
 listener adds the link under the app's "Open by default"; `hopp://` works on
 every build.
 
+**Amended 2026-10-12 (sharing, device feedback):** Hopp shares shows,
+episodes, chapters and transcript lines with the same link —
+`https://www.sovereigncast.space/open?feed=…&episode=<GUID>&t=<seconds>`, for
+any show, Sovereigncast or not. It carries the feed, the episode's GUID and a
+start, nothing else: no tracking, no Hopp server. Opened in Hopp, a subscribed
+show's episode page opens (with "play from" when a start is given); an
+unsubscribed show's preview shows the episode on top, "subscribe and listen"
+leading to it. The `/open` page passes `episode` and `t` on to `hopp://`. In the
+share sheet "from here" is a switch, off by default (user decision); a chapter
+or a transcript line is shared from its start.
+
 An opt-in directory of instances is a later phase.
 
 ## Consequences

@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -78,7 +79,7 @@ fun TranscriptSheet(item: EpisodeItem, positionMs: Long, onSeek: (Long) -> Unit,
  * and as the episode page's tab (device feedback 2026-10-09).
  */
 @Composable
-fun TranscriptView(item: EpisodeItem, positionMs: Long?, onSeek: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun TranscriptView(item: EpisodeItem, positionMs: Long?, onSeek: (Long) -> Unit, modifier: Modifier = Modifier, onShare: ((Cue) -> Unit)? = null) {
     val episodes: EpisodeRepository = koinInject()
     val loaded by produceState<Result<List<Cue>>?>(null, item.id) { value = runCatching { episodes.transcript(item) } }
     val colors = MaterialTheme.colorScheme
@@ -123,7 +124,8 @@ fun TranscriptView(item: EpisodeItem, positionMs: Long?, onSeek: (Long) -> Unit,
                         Column(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                                 .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
-                                .then(if (cue.startMs != null) Modifier.clickable { follow = true; onSeek(cue.startMs) } else Modifier)
+                                // A tap plays from the line, a long press shares it as a quote (device feedback 2026-10-12).
+                                .then(if (cue.startMs != null) Modifier.combinedClickable(onClick = { follow = true; onSeek(cue.startMs) }, onLongClick = onShare?.let { { it(cue) } }) else Modifier)
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         ) {
                             if (speakerChanged || (q.isNotEmpty() && cue.speaker != null)) {

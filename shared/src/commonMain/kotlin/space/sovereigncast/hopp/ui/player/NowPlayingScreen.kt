@@ -73,6 +73,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +99,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.np_back15
 import space.sovereigncast.hopp.resources.np_chapter_of
 import space.sovereigncast.hopp.resources.np_close
@@ -134,6 +136,7 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var showChapters by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
     val sleep by model.sleep.collectAsState()
@@ -175,6 +178,7 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
                 Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+                IconButton(onClick = { sharing = true }) { Icon(androidx.compose.material.icons.Icons.Rounded.Share, stringResource(Res.string.share_title)) }
                 IconButton(onClick = { showQueue = true }) { Icon(HoppIcons.Queue, stringResource(Res.string.queue_title)) }
             }
 
@@ -287,6 +291,10 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     if (showTranscript) TranscriptSheet(episode, position, onSeek = model::seekTo) { showTranscript = false }
     if (showPeople) PeopleSheet(playing.persons) { showPeople = false }
     if (showCommunity) CommunitySheet(episode.podcastId) { showCommunity = false }
+
+    // The episode playing, "from here" a switch away (device feedback 2026-10-12).
+
+    if (sharing) space.sovereigncast.hopp.ui.components.ShareSheet(space.sovereigncast.hopp.ui.components.ShareTarget.Episode(episode, position)) { sharing = false }
 
     if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {

@@ -318,6 +318,10 @@
     <string name="pv_wallet_tip">With your own node or your own relay, your payments stay with you.</string>
     <string name="pv_recipients_tip">Leave your name empty and you boost anonymously.</string>
     <string name="pv_extra_tip">A VPN helps here too (see above).</string>
+    <string name="pv_share_who">Whoever opens a link you share</string>
+    <string name="pv_share_sees">the show, the episode and the time in the link — nothing about you; www.sovereigncast.space sees their IP address if they open it in a browser</string>
+    <string name="pv_share_when">only when you share something</string>
+    <string name="pv_share_tip">Share without “from here” if the time should not tell anything.</string>
     <string name="pv_backup_tip">If you do not want that, switch off the backup of app data in your phone's Google settings.</string>
     <string name="show_support">Support the show</string>
     <string name="transcript_search">Search the transcript</string>
@@ -433,4 +437,19 @@
         <item>November</item>
         <item>December</item>
     </string-array>
+    <string name="share_title">Share</string>
+    <string name="share_send">Share…</string>
+    <string name="share_from">From %1$s</string>
+    <string name="share_note">The link opens Hopp where it is installed; elsewhere it shows the feed address for any other podcast app. It carries the show, the episode and the time — nothing about you.</string>
+    <string name="share_text_show">%1$s — a podcast</string>
+    <string name="share_text_episode">“%1$s” — %2$s</string>
+    <string name="share_text_episode_at">“%1$s” from %3$s — %2$s</string>
+    <string name="share_text_chapter">Chapter “%1$s” of “%2$s” — %3$s</string>
+    <string name="share_text_quote">“%1$s”
+— %2$s, %3$s, at %4$s</string>
+    <string name="share_shared_episode">Shared with you</string>
+    <string name="share_open_episode">Open the episode</string>
+    <string name="share_subscribe_listen">Subscribe and listen</string>
+    <string name="share_play_from">Play from %1$s</string>
+    <string name="share_long_press">Long-press to share</string>
 </resources>

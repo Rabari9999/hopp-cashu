@@ -26,6 +26,7 @@ A settings page lists it plainly:
 | Nostr relays | signed public events | only with public boosts or comments on (ADR 0006) |
 | Push gateway (sovereigncast.space) | device token ↔ endpoint, no content | only with push (ADR 0007) |
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |
+| Whoever opens a shared link (and www.sovereigncast.space, in a browser) | show, episode and time in the link; the page sees the opener's IP | only when the listener shares (added 2026-10-12) |
 | Google / Apple | the app's data in the OS cloud backup (see below) | if the listener has OS backups on |
 
 **Amended 2026-10-11 (device feedback): every card carries a tip, and Hopp

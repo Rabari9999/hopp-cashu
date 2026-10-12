@@ -53,6 +53,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.resources.episode_play
 import space.sovereigncast.hopp.resources.episode_resume
 import space.sovereigncast.hopp.resources.episode_shownotes
@@ -68,6 +69,10 @@ import space.sovereigncast.hopp.ui.components.PersonRow
 import space.sovereigncast.hopp.ui.components.ChapterRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
+import space.sovereigncast.hopp.ui.components.ShareTarget
+import space.sovereigncast.hopp.ui.components.ShareSheet
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.IconButton
 import space.sovereigncast.hopp.resources.favorite_add
@@ -93,7 +98,7 @@ private enum class EpisodeTab(val label: StringResource) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWallet: () -> Unit = {}) {
+fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, startSeconds: Long? = null) {
     val vm: EpisodeViewModel = koinViewModel(key = "episode-$id") { parametersOf(id) }
     val item by vm.item.collectAsState()
     val show by vm.show.collectAsState()
@@ -108,6 +113,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     val haptics = LocalHapticFeedback.current
     val colors = MaterialTheme.colorScheme
     var boosting by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf<ShareTarget?>(null) }
     val e = item ?: return
     val playingId by remember(player) { player.state.map { if (it.isPlaying) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
     val playing = playingId == e.id.toString()
@@ -189,8 +195,17 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                             tint = if (e.favorite) colors.onSurface else colors.onSurfaceVariant,
                         )
                     }
+                    // To others (device feedback 2026-10-12): "from here" only where it was left.
+                    IconButton(onClick = { sharing = ShareTarget.Episode(e, e.positionMs.takeIf { it > 0 && !e.played }) }) {
+                        Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant)
+                    }
                     EpisodeMenu(e)
                 }
+                // Opened from a shared link that names a time: start there, if wanted.
+                if (startSeconds != null) FilledTonalButton(
+                    onClick = { player.playAt(e, startSeconds * 1000) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                ) { Text(stringResource(Res.string.share_play_from, formatTime(startSeconds * 1000))) }
                 if (!e.played && e.positionMs > 0 && duration > 0) {
                     LinearProgressIndicator(
                         progress = { (e.positionMs.toFloat() / duration).coerceIn(0f, 1f) },
@@ -206,7 +221,8 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
             val position by remember(player, e.id) {
                 player.state.map { s -> s.positionMs.takeIf { s.itemId == e.id.toString() } }.distinctUntilChanged()
             }.collectAsState(null)
-            TranscriptView(e, position, onSeek = { ms -> player.playAt(e, ms) }, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).padding(top = 8.dp))
+            TranscriptView(e, position, onSeek = { ms -> player.playAt(e, ms) }, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).padding(top = 8.dp),
+                onShare = { cue -> sharing = ShareTarget.Quote(e, cue) })
             return@TabbedPage
         }
         LazyColumn(Modifier.fillMaxSize()) {
@@ -218,8 +234,12 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                 }
                 EpisodeTab.Chapters -> if (!chaptersLoaded) item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                } else items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
-                    ChapterRow(ch, active = false, onSeek = { player.playAt(e, (ch.startSeconds * 1000).toLong()) }, withImages = chapters.any { it.imageUrl != null })
+                } else {
+                    item { Text(stringResource(Res.string.share_long_press), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant) }
+                    items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
+                        ChapterRow(ch, active = false, onSeek = { player.playAt(e, (ch.startSeconds * 1000).toLong()) }, withImages = chapters.any { it.imageUrl != null },
+                            onShare = { sharing = ShareTarget.AtChapter(e, ch) })
+                    }
                 }
                 EpisodeTab.Clips -> items(clips, key = { "clip${it.startTime}" }) { c ->
                     val start = (c.startTime * 1000).toLong()
@@ -244,6 +264,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
         }
     }
 
+    sharing?.let { t -> ShareSheet(t) { sharing = null } }
     if (boosting) {
         val valueVm: ValueBarViewModel = koinViewModel()
         // Where the listener is: the player's position while this episode is loaded.

@@ -95,6 +95,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import space.sovereigncast.hopp.ui.library.PrivacyScreen
+import space.sovereigncast.hopp.ui.library.SharedEpisode
 import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.value.HistoryScreen
@@ -132,9 +133,14 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object SettingsRoute
 @Serializable data class SettingsPageRoute(val page: String)
 @Serializable data class ShowRoute(val id: Long)
-@Serializable data class EpisodeRoute(val id: Long)
+/** An episode's page; [startSeconds] from a shared link offers playing from there. */
+@Serializable data class EpisodeRoute(val id: Long, val startSeconds: Long? = null)
 /** What the directory already knows rides along, so the page shows it at once. */
-@Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
+@Serializable data class ShowPreviewRoute(
+    val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null,
+    /** A shared link's episode and start: shown on top of the preview. */
+    val episodeGuid: String? = null, val startSeconds: Long? = null,
+)
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
 @Serializable object PrivacyRoute
@@ -237,6 +243,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // the link is there before the NavHost (inside the Scaffold's content,
     // composed later) has its graph: wait for its first entry.
     val podcastRepo: space.sovereigncast.hopp.data.PodcastRepository = koinInject()
+    val episodeRepo: space.sovereigncast.hopp.data.EpisodeRepository = koinInject()
     val selectTabNow by androidx.compose.runtime.rememberUpdatedState(selectTab)
     LaunchedEffect(Unit) {
         nav.currentBackStackEntryFlow.first()
@@ -251,16 +258,22 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
         // subscribed under this address — its page on Library; each through its
         // tab, as a tap would.
-        IncomingLinks.feedUrl.collect { url ->
-            if (url == null) return@collect
-            IncomingLinks.feedUrl.value = null
-            val key = space.sovereigncast.hopp.directory.feedKey(url)
+        IncomingLinks.show.collect { link ->
+            if (link == null) return@collect
+            IncomingLinks.show.value = null
+            val key = space.sovereigncast.hopp.directory.feedKey(link.feed)
             val subscribed = podcastRepo.shows.first().firstOrNull { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) == key }
+            val episode = if (subscribed != null) link.episode?.let { episodeRepo.byGuid(subscribed.id, it) } else null
             // The database answers on its own thread; the NavController wants the main one.
             withContext(Dispatchers.Main) {
                 player.minimize()
-                if (subscribed != null) { selectTabNow(tabs[1]); nav.navigate(ShowRoute(subscribed.id)) }
-                else { selectTabNow(tabs[2]); nav.navigate(ShowPreviewRoute(url)) }
+                if (subscribed != null) {
+                    // The show's page, and on it the episode's, when the link names one.
+                    selectTabNow(tabs[1]); nav.navigate(ShowRoute(subscribed.id))
+                    episode?.let { nav.navigate(EpisodeRoute(it.id, link.startSeconds)) }
+                } else {
+                    selectTabNow(tabs[2]); nav.navigate(ShowPreviewRoute(link.feed, episodeGuid = link.episode, startSeconds = link.startSeconds))
+                }
             }
         }
     }
@@ -329,8 +342,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<FavoritesRoute> { space.sovereigncast.hopp.ui.library.FavoritesScreen() }
                             composable<DownloadsRoute> { DownloadsScreen() }
                             composable<EpisodeRoute> { e ->
+                                val route = e.toRoute<EpisodeRoute>()
                                 EpisodeScreen(
-                                    e.toRoute<EpisodeRoute>().id,
+                                    route.id, startSeconds = route.startSeconds,
                                     onShow = { nav.navigate(ShowRoute(it)) },
                                     onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
                                     onOpenWallet = { nav.navigate(WalletRoute) },
@@ -348,6 +362,18 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     known = route.title?.let { DirectoryShow(it, route.feedUrl, route.author, route.imageUrl) },
                                     onOpen = { id ->
                                         if (nav.currentBackStackEntry?.id == e.id) nav.navigate(ShowRoute(id)) { popUpTo<ShowPreviewRoute> { inclusive = true } }
+                                    },
+                                    shared = route.episodeGuid?.let { SharedEpisode(it, route.startSeconds) },
+                                    // Subscribed from a shared episode: the show's page, and the episode's on top.
+                                    onOpenShared = { id, guid, start ->
+                                        tourScope.launch {
+                                            val ep = episodeRepo.byGuid(id, guid)
+                                            withContext(Dispatchers.Main) {
+                                                if (nav.currentBackStackEntry?.id != e.id) return@withContext
+                                                nav.navigate(ShowRoute(id)) { popUpTo<ShowPreviewRoute> { inclusive = true } }
+                                                ep?.let { nav.navigate(EpisodeRoute(it.id, start)) }
+                                            }
+                                        }
                                     },
                                 )
                             }

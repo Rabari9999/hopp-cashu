@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeDown
@@ -187,7 +188,7 @@ class TestApp : Application() {
 class AndroidAppFlowTest {
     @get:Rule val rule = createComposeRule()
 
-    private fun waitFor(text: String) = rule.waitUntil(10_000) { has(text) }
+    private fun waitFor(text: String, substring: Boolean = false) = rule.waitUntil(10_000) { has(text, substring) }
     private val koin get() = org.koin.mp.KoinPlatform.getKoin()
     private fun engine() = koin.get<space.sovereigncast.hopp.platform.PlaybackEngine>()
     /** Waits for app state that no node shows — idling the UI each round, or
@@ -365,6 +366,60 @@ class AndroidAppFlowTest {
         until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
         org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.player.PlayerController>().expand()
         waitFor("Boost")
+    }
+
+    /** Sharing (device feedback 2026-10-12): the text and link shown first;
+     *  "from here" a switch, off unless turned on. */
+    @Test
+    fun anEpisodeIsSharedWithItsLinkAndFromHereOnRequest() {
+        val shared = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun shareText(text: String, subject: String) { shared += text }
+        }
+        rule.setContent { App(actions) }
+        tap("Discover"); subscribe()
+        waitFor("Ep 2")
+        kotlinx.coroutines.runBlocking {
+            val ep = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().ofPodcast(1).first().first { it.title == "Ep 2" }
+            koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().savePosition(ep.id, 754_000)
+        }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("From 12:34")
+        tap("Share…")
+        until { shared.size == 1 }
+        val feed = java.net.URLEncoder.encode("https://pod.test/feed.xml", "UTF-8")
+        check(shared[0] == "“Ep 2” — Test Show\nhttps://www.sovereigncast.space/open?feed=$feed&episode=ep-2") { shared[0] }
+
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("From 12:34")
+        rule.onAllNodes(androidx.compose.ui.test.isToggleable()).onLast().performClick()
+        waitFor("“Ep 2” from 12:34 — Test Show", substring = true)
+        tap("Share…")
+        until { shared.size == 2 }
+        check(shared[1].endsWith("&episode=ep-2&t=754") && shared[1].startsWith("“Ep 2” from 12:34 — Test Show")) { shared[1] }
+    }
+
+    /** A chapter shared by a long press: from its start, always. */
+    @Test
+    fun aChapterIsSharedByALongPress() {
+        val shared = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun shareText(text: String, subject: String) { shared += text }
+        }
+        rule.setContent { App(actions) }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1"); tap("Ep 1")
+        waitFor("Long-press to share")
+        rule.onAllNodes(hasText("Die Node", substring = true) and hasClickAction()).onFirst().performTouchInput { longClick() }
+        waitFor("Share…")
+        tap("Share…")
+        until { shared.size == 1 }
+        check(shared[0].startsWith("Chapter “Die Node” of “Ep 1” — Test Show") && shared[0].endsWith("&episode=ep-1&t=90")) { shared[0] }
     }
 
     /** No wallet yet: the boost dialog leads to the wallet page. */

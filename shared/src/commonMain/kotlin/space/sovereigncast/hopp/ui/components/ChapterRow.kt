@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,11 +31,15 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  * 2026-10-09) opens on its own — "github.com ↗" under the title.
  */
 @Composable
-fun ChapterRow(ch: Chapter, active: Boolean, onSeek: () -> Unit, modifier: Modifier = Modifier, withImages: Boolean = ch.imageUrl != null) {
+fun ChapterRow(
+    ch: Chapter, active: Boolean, onSeek: () -> Unit, modifier: Modifier = Modifier, withImages: Boolean = ch.imageUrl != null,
+    /** A long press shares the chapter (device feedback 2026-10-12). */
+    onShare: (() -> Unit)? = null,
+) {
     val colors = MaterialTheme.colorScheme
     val uri = LocalUriHandler.current
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onSeek)
+        modifier.fillMaxWidth().combinedClickable(onClick = onSeek, onLongClick = onShare)
             .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -32,4 +32,23 @@ class IncomingLinksTest {
             "not a link",
         ).forEach { assertNull(IncomingLinks.feedFrom(it), it) }
     }
+
+    /** Sharing (device feedback 2026-10-12): what Hopp shares, Hopp reads back. */
+    @Test fun aSharedLinkCarriesEpisodeAndStart() {
+        val link = IncomingLinks.shareLink(feed, "ep guid/1?&", 754)
+        assertEquals("https://www.sovereigncast.space/open?feed=$encoded&episode=ep+guid%2F1%3F%26&t=754", link)
+        assertEquals(ShowLink(feed, "ep guid/1?&", 754), IncomingLinks.linkFrom(link))
+        assertEquals(ShowLink(feed, "g", null), IncomingLinks.linkFrom("hopp://subscribe?feed=$encoded&episode=g"))
+    }
+
+    @Test fun aShowLinkHasNeitherEpisodeNorStart() {
+        assertEquals("https://www.sovereigncast.space/open?feed=$encoded", IncomingLinks.shareLink(feed))
+        assertEquals(ShowLink(feed), IncomingLinks.linkFrom(IncomingLinks.shareLink(feed, startSeconds = 0)))
+    }
+
+    @Test fun aBadStartOrEpisodeIsLeftOut() {
+        listOf("t=-5", "t=abc", "t=999999999", "t=", "episode=" + "x".repeat(600)).forEach { extra ->
+            assertEquals(ShowLink(feed), IncomingLinks.linkFrom("https://www.sovereigncast.space/open?feed=$encoded&$extra"), extra)
+        }
+    }
 }

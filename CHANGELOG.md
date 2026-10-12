@@ -12,6 +12,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Value for value** — connect your Lightning wallet over NWC, boost an episode or a whole show, stream sats while you listen and see what is sent and what is set aside, per episode — parts of a sat are rounded up once you are done with an episode; a notification tells you if a boost fails. Splits arrive in whole sats; routing fees are shown on top.
 - **Sovereigncast shows** — Release Boosting and Boost2Unlock with all details, vote on topic suggestions, the community's top boosts.
 - **Search a show's episodes** by topic, and keep **favourites** on Home.
+- **Share** a show, an episode — from a point if you like — a chapter or a line of the transcript; the link opens Hopp, or offers the feed to any other app.
 - **Episode pages** with show notes, chapters, people and a boost button; a transcript that reads along in the player.
 - **A short tour on first start** — subscribing, the library, value for value and connecting a wallet.
 - **Privacy page** — who sees what, in plain words, with a tip for each; Hopp checks what it can (VPN, private DNS, your settings) and marks it green. Hopp itself collects nothing; after a crash it shows the report for you to share yourself.

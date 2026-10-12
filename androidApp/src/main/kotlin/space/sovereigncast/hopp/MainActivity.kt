@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         val uri = intent?.data ?: return
         if (uri.scheme?.startsWith("nostr") == true) IncomingLinks.walletUri.value = uri.toString()
         // "Open in Hopp": anything else without a feed opens Hopp as it is.
-        else IncomingLinks.feedFrom(uri.toString())?.let { IncomingLinks.feedUrl.value = it }
+        else IncomingLinks.linkFrom(uri.toString())?.let { IncomingLinks.show.value = it }
     }
 
     /** Up to [max] bytes of [input] (InputStream.readNBytes needs Android 13). */

@@ -318,6 +318,10 @@
     <string name="pv_wallet_tip">Mit eigenem Knoten oder eigenem Relay bleiben deine Zahlungen bei dir.</string>
     <string name="pv_recipients_tip">Lass deinen Namen leer, dann boostest du anonym.</string>
     <string name="pv_extra_tip">Auch hier hilft ein VPN (siehe oben).</string>
+    <string name="pv_share_who">Wer einen geteilten Link öffnet</string>
+    <string name="pv_share_sees">Show, Folge und Zeitpunkt aus dem Link – nichts über dich; www.sovereigncast.space sieht dessen IP-Adresse, wenn er den Link im Browser öffnet</string>
+    <string name="pv_share_when">nur, wenn du etwas teilst</string>
+    <string name="pv_share_tip">Teile ohne „ab hier“, wenn der Zeitpunkt nichts verraten soll.</string>
     <string name="pv_backup_tip">Willst du das nicht, schalte die Sicherung von App-Daten in den Google-Einstellungen deines Telefons aus.</string>
     <string name="show_support">Show unterstützen</string>
     <string name="transcript_search">Im Transkript suchen</string>
@@ -433,4 +437,19 @@
         <item>November</item>
         <item>Dezember</item>
     </string-array>
+    <string name="share_title">Teilen</string>
+    <string name="share_send">Teilen…</string>
+    <string name="share_from">Ab %1$s</string>
+    <string name="share_note">Der Link öffnet Hopp, wo es installiert ist; sonst zeigt er die Feed-Adresse für jede andere Podcast-App. Er enthält Show, Folge und Zeitpunkt – nichts über dich.</string>
+    <string name="share_text_show">%1$s – ein Podcast</string>
+    <string name="share_text_episode">„%1$s“ – %2$s</string>
+    <string name="share_text_episode_at">„%1$s“ ab %3$s – %2$s</string>
+    <string name="share_text_chapter">Kapitel „%1$s“ aus „%2$s“ – %3$s</string>
+    <string name="share_text_quote">„%1$s“
+— %2$s, %3$s, bei %4$s</string>
+    <string name="share_shared_episode">Mit dir geteilt</string>
+    <string name="share_open_episode">Folge öffnen</string>
+    <string name="share_subscribe_listen">Abonnieren und anhören</string>
+    <string name="share_play_from">Ab %1$s abspielen</string>
+    <string name="share_long_press">Lange drücken zum Teilen</string>
 </resources>

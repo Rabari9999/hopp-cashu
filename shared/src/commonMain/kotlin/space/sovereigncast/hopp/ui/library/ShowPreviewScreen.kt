@@ -7,6 +7,9 @@ import space.sovereigncast.hopp.data.searchWords
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +38,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.directory.DirectoryShow
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.resources.discover_add_button
 import space.sovereigncast.hopp.resources.preview_failed
 import space.sovereigncast.hopp.resources.result_failed
@@ -48,8 +52,14 @@ import space.sovereigncast.hopp.ui.components.formatTime
  * what the show publishes now — value block included. Subscribing leads on
  * to the show's page; an already subscribed show opens it.
  */
+/** An episode a shared link names, and where to start it. */
+data class SharedEpisode(val guid: String, val startSeconds: Long? = null)
+
 @Composable
-fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryShow? = null) {
+fun ShowPreviewScreen(
+    feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryShow? = null,
+    shared: SharedEpisode? = null, onOpenShared: (podcastId: Long, guid: String, startSeconds: Long?) -> Unit = { _, _, _ -> },
+) {
     val vm: ShowPreviewViewModel = koinViewModel(key = "preview-$feedUrl") { parametersOf(feedUrl) }
     val state by vm.state.collectAsState()
     val subscribedId by vm.subscribedId.collectAsState()
@@ -104,6 +114,25 @@ fun ShowPreviewScreen(feedUrl: String, onOpen: (Long) -> Unit, known: DirectoryS
             }
             if (state == PreviewState.Loading) {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            }
+        }
+        // The episode someone shared (device feedback 2026-10-12): on top, a tap
+        // from listening — subscribing on the way when need be.
+        val sharedEpisode = shared?.let { s -> all.firstOrNull { it.guid == s.guid } }
+        if (shared != null && sharedEpisode != null) item(key = "shared") {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(16.dp))
+                    .background(colors.surfaceVariant).padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(stringResource(Res.string.share_shared_episode), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                Text(sharedEpisode.title ?: "", style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                shared.startSeconds?.let { Text(stringResource(Res.string.share_from, formatTime(it * 1000)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                val id = subscribedId
+                if (id != null) Button(onClick = { onOpenShared(id, shared.guid, shared.startSeconds) }) { Text(stringResource(Res.string.share_open_episode)) }
+                else Button(onClick = { vm.subscribe { pid -> onOpenShared(pid, shared.guid, shared.startSeconds) } }, enabled = !working) {
+                    Text(stringResource(Res.string.share_subscribe_listen))
+                }
             }
         }
         if (all.isNotEmpty()) item(key = "search") { EpisodeSearchField(query, { query = it }, found?.size) }

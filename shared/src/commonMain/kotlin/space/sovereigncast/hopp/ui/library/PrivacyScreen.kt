@@ -82,6 +82,7 @@ private val PARTIES = listOf(
     Party(Res.string.pv_wallet_who, Res.string.pv_wallet_sees, Res.string.pv_wallet_when, Res.string.pv_wallet_tip),
     Party(Res.string.pv_recipients_who, Res.string.pv_recipients_sees, Res.string.pv_recipients_when, Res.string.pv_recipients_tip),
     Party(Res.string.pv_extra_who, Res.string.pv_extra_sees, Res.string.pv_extra_when, Res.string.pv_extra_tip),
+    Party(Res.string.pv_share_who, Res.string.pv_share_sees, Res.string.pv_share_when, Res.string.pv_share_tip),
     Party(Res.string.pv_backup_who, Res.string.pv_backup_sees, Res.string.pv_backup_when, Res.string.pv_backup_tip),
 )
 

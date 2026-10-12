@@ -40,7 +40,7 @@ class OpenInHoppTest {
     }
     private fun deliver(link: String) { activity!!.onActivity { it.onNewIntent(view(link)) }; rule.waitForIdle() }
 
-    private fun has(text: String) = rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    private fun has(text: String, substring: Boolean = false) = rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(text: String) = try { rule.waitUntil(10_000) { has(text) } } catch (e: Throwable) {
         error("no \"$text\" on ${rule.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes().flatMap { root -> texts(root) }}")
     }
@@ -91,5 +91,35 @@ class OpenInHoppTest {
         ).forEach { deliver(it) }
         rule.waitForIdle()
         check(!has("Subscribe") && !has("Test Show") && has("Home"))
+    }
+
+    /** A shared episode (device feedback 2026-10-12), show not subscribed: the
+     *  preview with the episode on top; subscribing on the way opens it, with
+     *  "play from" the shared time. */
+    @Test
+    fun aSharedEpisodeOpensOnThePreviewAndAfterSubscribing() {
+        start(view(IncomingLinks.shareLink(feed, "ep-2", 754)))
+        waitFor("Shared with you")
+        check(has("Ep 2") && has("From 12:34"))
+        tap("Subscribe and listen")
+        waitFor("Play from 12:34")
+        tap("Play from 12:34")
+        rule.waitUntil(10_000) {
+            rule.waitForIdle()
+            val s = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.platform.PlaybackEngine>().state.value
+            s.itemId != null && s.positionMs == 754_000L
+        }
+    }
+
+    /** Subscribed: the show's page, and the episode's on top of it. */
+    @Test
+    fun aSharedEpisodeOfASubscribedShowOpensItsPage() {
+        start(view(appLink()))
+        waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        deliver(IncomingLinks.shareLink(feed, "ep-1"))
+        waitFor("Ep 1")
+        waitFor("Chapters")      // Ep 1's page: its chapters tab
+        check(!has("Play from", substring = true)) { "no start was shared" }
     }
 }
