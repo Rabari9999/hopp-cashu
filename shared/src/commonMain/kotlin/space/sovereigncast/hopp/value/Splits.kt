@@ -30,10 +30,20 @@ object Splits {
         val fees = payable.filter { it.fee }
         val shares = payable.filterNot { it.fee }
 
-        val feeAmounts = fees.map { r -> r to totalMsat * r.split.coerceAtMost(100) / 100 }
-        val feeTotal = feeAmounts.sumOf { it.second }.coerceAtMost(totalMsat)
-        val rest = largestRemainder(shares, totalMsat - feeTotal)
-        return (feeAmounts + rest).filter { it.second > 0 }.map { Share(it.first, it.second) }
+        // Fees that claim 100 % or more together leave nothing for the others,
+        // and must not take more than the total either (security report
+        // 2026-10-10, H-02: two fees of 80 % paid out 160 %) — they share the
+        // total by weight, as an all-fee block does.
+        val feePercent = fees.sumOf { it.split.coerceAtMost(100).toLong() }
+        val result = if (feePercent >= 100) largestRemainder(fees, totalMsat)
+        else {
+            val feeAmounts = fees.map { r -> r to totalMsat * r.split.coerceAtMost(100) / 100 }
+            feeAmounts + largestRemainder(shares, totalMsat - feeAmounts.sumOf { it.second })
+        }
+        val out = result.filter { it.second > 0 }.map { Share(it.first, it.second) }
+        // Whatever a feed says: never more than the listener chose.
+        check(out.sumOf { it.amountMsat } <= totalMsat) { "split of $totalMsat msat came to ${out.sumOf { it.amountMsat }}" }
+        return out
     }
 
     /** The value time split that applies at [positionSeconds], if any. */
@@ -77,11 +87,16 @@ object Splits {
     /** Recipient type of an unresolved remote item's share. */
     const val REMOTE = "remote"
 
+    private const val MAX_WEIGHT = 1_000_000L
+
     private fun largestRemainder(recipients: List<ValueRecipient>, amount: Long): List<Pair<ValueRecipient, Long>> {
-        val totalWeight = recipients.sumOf { it.split.toLong() }
+        // A feed may write any split; capped, amount × split stays inside a Long
+        // for any amount up to 9 × 10¹² msat (9 000 BTC).
+        val weights = recipients.map { it.split.toLong().coerceIn(0, MAX_WEIGHT) }
+        val totalWeight = weights.sum()
         if (totalWeight <= 0 || amount <= 0) return emptyList()
-        val floors = recipients.map { amount * it.split / totalWeight }.toLongArray()
-        val remainders = recipients.map { amount * it.split % totalWeight }
+        val floors = weights.map { amount * it / totalWeight }.toLongArray()
+        val remainders = weights.map { amount * it % totalWeight }
         var left = amount - floors.sum()
         val order = recipients.indices.sortedByDescending { remainders[it] }
         var k = 0

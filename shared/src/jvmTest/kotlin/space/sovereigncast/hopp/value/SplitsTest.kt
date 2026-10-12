@@ -65,4 +65,37 @@ class SplitsTest {
         assertEquals(listOf(17_000L, 4_000L), shares.map { it.amountMsat })
         assertEquals(21_000L, shares.sumOf { it.amountMsat })
     }
+
+    /** Security report 2026-10-10, H-02: fees above 100 % together paid out more than the boost. */
+    @Test
+    fun feesTogetherNeverTakeMoreThanTheTotal() {
+        assertEquals(mapOf("f1" to 500L, "f2" to 500L), amounts(Splits.divide(listOf(r("f1", 80, fee = true), r("f2", 80, fee = true), r("host", 50)), 1_000)))
+        assertEquals(1_000L, Splits.divide(listOf(r("a", 100, true), r("b", 100, true), r("c", 100, true), r("host", 1)), 1_000).sumOf { it.amountMsat })
+        // Below 100 % nothing changes: each fee its percentage, the rest by split.
+        assertEquals(mapOf("f1" to 300L, "f2" to 200L, "host" to 500L), amounts(Splits.divide(listOf(r("f1", 30, true), r("f2", 20, true), r("host", 7)), 1_000)))
+    }
+
+    @Test
+    fun hugeSplitsDoNotOverflow() {
+        val shares = Splits.divide(listOf(r("a", Int.MAX_VALUE), r("b", Int.MAX_VALUE - 1), r("fee", Int.MAX_VALUE, true)), 100_000_000_000)
+        assertEquals(100_000_000_000L, shares.sumOf { it.amountMsat })
+        assertEquals(true, shares.all { it.amountMsat > 0 })
+    }
+
+    /** Any block a feed can write: the shares add up to the total, never more. */
+    @Test
+    fun noBlockPaysMoreThanTheTotal() {
+        val rnd = kotlin.random.Random(20261010)
+        repeat(5_000) {
+            val recipients = List(rnd.nextInt(0, 8)) { i ->
+                val split = when (rnd.nextInt(5)) { 0 -> rnd.nextInt(Int.MIN_VALUE, 0); 1 -> rnd.nextInt(); 2 -> 100; else -> rnd.nextInt(0, 120) }
+                r("r$i", split, fee = rnd.nextBoolean())
+            }
+            val total = when (rnd.nextInt(3)) { 0 -> rnd.nextLong(0, 1_000); 1 -> rnd.nextLong(0, 100_000_000); else -> rnd.nextLong(0, 1_000_000_000_000) }
+            val shares = Splits.divide(recipients, total)
+            val sum = shares.sumOf { it.amountMsat }
+            assertEquals(true, sum <= total && shares.all { it.amountMsat > 0 }, "$recipients / $total -> $shares")
+            if (total > 0 && recipients.any { it.split > 0 }) assertEquals(total, sum, "$recipients / $total")
+        }
+    }
 }
