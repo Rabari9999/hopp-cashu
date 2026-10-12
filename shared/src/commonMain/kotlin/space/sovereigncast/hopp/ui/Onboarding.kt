@@ -55,12 +55,14 @@ import space.sovereigncast.hopp.resources.onboarding_wallet_title
 import space.sovereigncast.hopp.resources.onboarding_welcome_text
 import space.sovereigncast.hopp.resources.onboarding_welcome_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.HoppSymbol
 import space.sovereigncast.hopp.ui.theme.Hopp
 
-private class TourPage(val icon: ImageVector, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false)
+/** [icon] null: Hopp's logo symbol, for the page that says what Hopp is. */
+private class TourPage(val icon: ImageVector?, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false)
 
 private val ALL_PAGES = listOf(
-    TourPage(HoppIcons.Hop, false, Res.string.onboarding_welcome_title, Res.string.onboarding_welcome_text),
+    TourPage(null, false, Res.string.onboarding_welcome_title, Res.string.onboarding_welcome_text),
     TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text),
     TourPage(Icons.AutoMirrored.Rounded.List, false, Res.string.onboarding_library_title, Res.string.onboarding_library_text),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_v4v_title, Res.string.onboarding_v4v_text),
@@ -97,7 +99,9 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
                     Modifier.size(96.dp).clip(CircleShape).background(if (p.value) Hopp.colors.value else colors.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(p.icon, null, Modifier.size(48.dp), tint = if (p.value) Hopp.colors.onValue else colors.onSurface)
+                    // The welcome page shows the logo; the hop alone means boost (ADR 0019).
+                    if (p.icon == null) HoppSymbol(Modifier.size(60.dp))
+                    else Icon(p.icon, null, Modifier.size(48.dp), tint = if (p.value) Hopp.colors.onValue else colors.onSurface)
                 }
                 Spacer(Modifier.height(28.dp))
                 Text(stringResource(p.title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
