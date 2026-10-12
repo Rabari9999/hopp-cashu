@@ -133,7 +133,8 @@ private val SETTINGS_ROUTES = listOf(
 
 @Serializable object SettingsRoute
 @Serializable data class SettingsPageRoute(val page: String)
-@Serializable data class ShowRoute(val id: Long)
+/** A show's page; [community] opens its Community tab (Home's "vote", device feedback 2026-10-12). */
+@Serializable data class ShowRoute(val id: Long, val community: Boolean = false)
 /** An episode's page; [startSeconds] from a shared link offers playing from there. */
 @Serializable data class EpisodeRoute(val id: Long, val startSeconds: Long? = null)
 /** What the directory already knows rides along, so the page shows it at once. */
@@ -333,6 +334,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         ) {
                             composable<HomeRoute> {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
+                                    onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
                                     onLibrary = { selectTab(tabs[1]) }, onUnheard = { nav.navigate(UnheardRoute) })
                             }
                             composable<InboxRoute> { InboxScreen(onDiscover = { selectTab(tabs[2]) }) }
@@ -405,10 +407,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<HistoryRoute> { HistoryScreen() }
                             composable<ShowRoute> { e ->
-                                val id = e.toRoute<ShowRoute>().id
+                                val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
-                                ShowScreen(id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
+                                ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
+                                    openCommunity = route.community)
                             }
                         }
                     }

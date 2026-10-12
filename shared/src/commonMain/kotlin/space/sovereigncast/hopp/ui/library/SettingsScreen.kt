@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -194,8 +195,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
             }
             SettingsPage.About -> {
-                Text(stringResource(Res.string.settings_about), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(Res.string.settings_about), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                } }
                 OutlinedButton(onClick = onTour) {
                     Icon(Icons.Rounded.Star, null, Modifier.size(18.dp))
                     androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))

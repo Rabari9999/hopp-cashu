@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -100,7 +101,8 @@ fun PrivacyScreen(onPage: (SettingsPage) -> Unit = {}, onWallet: () -> Unit = {}
     val actions = LocalPlatformActions.current
     val colors = MaterialTheme.colorScheme
     val st by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // All of it selectable: the User-Agent, a host, a tip (device feedback 2026-10-12).
+    SelectionContainer { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(Res.string.privacy_intro), style = MaterialTheme.typography.bodyLarge)
         val s = st
         if (s != null && s.checks.isNotEmpty()) {
@@ -151,7 +153,7 @@ fun PrivacyScreen(onPage: (SettingsPage) -> Unit = {}, onWallet: () -> Unit = {}
         CheckLine(Check.Done, stringResource(Res.string.privacy_ua_ok))
         Text(stringResource(Res.string.privacy_backup_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
         Text(stringResource(Res.string.privacy_backup), style = MaterialTheme.typography.bodyMedium)
-    }
+    } }
 }
 
 /** What Hopp can tell about one card's tip, if anything. */

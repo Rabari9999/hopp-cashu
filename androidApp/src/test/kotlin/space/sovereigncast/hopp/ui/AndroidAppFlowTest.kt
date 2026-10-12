@@ -409,6 +409,29 @@ class AndroidAppFlowTest {
         check(shared[1].endsWith("&episode=ep-2&t=754") && shared[1].startsWith("“Ep 2” from 12:34 — Test Show")) { shared[1] }
     }
 
+    /** Copying (device feedback 2026-10-12): the share sheet's text, and a show's feed address. */
+    @Test
+    fun textAndTheFeedAddressCanBeCopied() {
+        val copied = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun copyText(text: String, label: String) { copied += text }
+        }
+        rule.setContent { App(actions) }
+        tap("Discover"); subscribe()
+        waitFor("Ep 2"); tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("Copy"); tap("Copy")
+        until { copied.size == 1 }
+        check(copied[0].startsWith("“Ep 2” — Test Show") && copied[0].contains("episode=ep-2")) { copied[0] }
+        back(); waitFor("✓ Subscribed")
+        rule.onNode(hasContentDescription("Show options")).performClick()
+        tap("Copy feed address")
+        until { copied.size == 2 }
+        check(copied[1] == "https://pod.test/feed.xml") { copied[1] }
+    }
+
     /** A chapter shared by a long press: from its start, always. */
     @Test
     fun aChapterIsSharedByALongPress() {
@@ -1002,6 +1025,11 @@ class AndroidAppFlowTest {
         // The open suggestion this listener has not voted for (device feedback 2026-10-12).
         waitFor("Topics awaiting your vote: 1")
         check(has("Your shows")) { screen().toString() }
+        // "Vote" opens the Community tab, not the episodes (device feedback 2026-10-12).
+        tap("Vote ›")
+        waitFor("BIP110")
+        back()
+        waitFor("Take part")
         rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
         waitFor("✓ Sovereigncast")
     }

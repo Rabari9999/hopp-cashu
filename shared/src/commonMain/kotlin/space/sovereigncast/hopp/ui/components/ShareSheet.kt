@@ -95,6 +95,10 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
             }
             Text(stringResource(Res.string.share_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             Button(onClick = { actions.shareText(text, s.title); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.share_send)) }
+            // The same text to paste anywhere — a quote, a chapter, a link (device feedback 2026-10-12).
+            androidx.compose.material3.OutlinedButton(onClick = { actions.copyText(text, s.title); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.share_copy))
+            }
             Spacer(Modifier.height(16.dp))
         }
     }

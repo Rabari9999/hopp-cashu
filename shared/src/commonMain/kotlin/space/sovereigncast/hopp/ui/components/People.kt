@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.components
 
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -77,7 +78,7 @@ fun PersonRow(p: Person, modifier: Modifier = Modifier) {
             Text(p.name.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
             if (p.img != null) AsyncImage(p.img, null, Modifier.size(48.dp).clip(CircleShape), contentScale = ContentScale.Crop)
         }
-        Column(Modifier.weight(1f)) {
+        SelectionContainer(Modifier.weight(1f)) { Column {
             Text(p.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             listOfNotNull(label(p.role, ROLES), label(p.group, GROUPS)).distinct().takeIf { it.isNotEmpty() }?.let {
                 Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
@@ -85,6 +86,6 @@ fun PersonRow(p: Person, modifier: Modifier = Modifier) {
             href?.let { linkHost(it) }?.let { host ->
                 Text("$host ↗", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
             }
-        }
+        } }
     }
 }

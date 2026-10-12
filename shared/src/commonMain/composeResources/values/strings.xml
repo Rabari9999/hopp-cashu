@@ -464,7 +464,7 @@
     <string name="home_days_ago">%1$d days ago</string>
     <string name="home_soon">soon</string>
     <string name="home_in_minutes">%1$d min</string>
-    <string name="home_in_hours">%1$d h %2$d min</string>
+    <string name="home_in_hours">%1$d h</string>
     <string name="home_in_days">%1$d d %2$d h</string>
     <string name="home_daily">daily</string>
     <string name="home_weekly">weekly</string>
@@ -489,4 +489,7 @@
     <string name="home_vote">Vote</string>
     <string name="home_unheard_none">All heard</string>
     <string name="home_unheard_none_text">Every show’s newest episode is heard or under way.</string>
+    <string name="home_several_weekly">several a week</string>
+    <string name="share_copy">Copy</string>
+    <string name="show_copy_feed">Copy feed address</string>
 </resources>

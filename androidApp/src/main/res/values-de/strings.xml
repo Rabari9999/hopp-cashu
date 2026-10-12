@@ -13,4 +13,5 @@
     <string name="quick_boost_no_value">Boost nicht gesendet: Diese Show kann keine Boosts empfangen</string>
     <string name="quick_boost_no_wallet">Boost nicht gesendet: Keine Wallet verbunden</string>
     <string name="quick_boost_failed">Boost fehlgeschlagen: %1$s</string>
+    <string name="copied">Kopiert</string>
 </resources>

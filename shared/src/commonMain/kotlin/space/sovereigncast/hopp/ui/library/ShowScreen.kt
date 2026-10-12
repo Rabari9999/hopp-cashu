@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.show_copy_feed
 import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.months
@@ -110,7 +112,7 @@ private enum class ShowTab { Episodes, Community, Boosts }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}) {
+fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false) {
     val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
@@ -145,6 +147,13 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         if (caps?.leaderboard == true) add(ShowTab.Boosts)
     }
     val pager = rememberPagerState { tabs.size }
+    // Opened to vote (Home's "Take part"): the Community tab, once it is known —
+    // the capabilities arrive after the page — and only the first time.
+    var communityShown by rememberSaveable { mutableStateOf(!openCommunity) }
+    LaunchedEffect(tabs) {
+        val at = tabs.indexOf(ShowTab.Community)
+        if (!communityShown && at >= 0) { pager.scrollToPage(at); communityShown = true }
+    }
     val labels = tabs.map {
         when (it) {
             ShowTab.Episodes -> stringResource(Res.string.sc_tab_episodes)
@@ -162,8 +171,12 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         Cover(show?.imageUrl, 96.dp, corner = 16.dp)
                         Spacer(Modifier.size(14.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(show?.title ?: "", style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            show?.author?.let { Text(it, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            SelectionContainer {
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(show?.title ?: "", style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    show?.author?.let { Text(it, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                }
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (layer != null) ScBadge()
                                 episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
@@ -176,7 +189,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         if (meta?.value != null) BoostPill { boosting = true }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
-                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }) }
+                        val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
+                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) }) }
                     }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
@@ -282,7 +296,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
 /** The show's settings, out of the way: auto-download and unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit) {
+private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -294,6 +308,7 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },
             )
+            DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })
         }
     }
@@ -304,13 +319,14 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
 private fun FoldingText(text: String) {
     var open by rememberSaveable { mutableStateOf(false) }
     var overflows by remember { mutableStateOf(false) }
-    Text(
+    // A tap opens it, a long press selects (device feedback 2026-10-12).
+    SelectionContainer { Text(
         text,
         Modifier.fillMaxWidth().clickable(enabled = overflows || open) { open = !open }.padding(horizontal = 16.dp, vertical = 6.dp),
         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
         maxLines = if (open) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
         onTextLayout = { if (!open) overflows = it.hasVisualOverflow },
-    )
+    ) }
 }
 
 @Composable

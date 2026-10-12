@@ -107,6 +107,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)) }
     }
 
+    override fun copyText(text: String, label: String) {
+        val clipboard = getSystemService(android.content.ClipboardManager::class.java) ?: return
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+        // Android 13+ confirms a copy itself; before, say so.
+        if (Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(this, R.string.copied, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     override fun shareText(text: String, subject: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))

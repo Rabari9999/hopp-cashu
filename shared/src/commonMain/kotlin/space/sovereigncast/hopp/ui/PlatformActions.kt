@@ -10,6 +10,8 @@ interface PlatformActions {
     fun exportOpml(text: String)
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
+    /** Puts text on the clipboard (device feedback 2026-10-12: nothing could be copied). */
+    fun copyText(text: String, label: String) = Unit
     /** Opens the system's notification settings for Hopp. */
     fun openNotificationSettings() = Unit
     /** Whether the system lets Hopp's language differ from its own (Android 13+). */

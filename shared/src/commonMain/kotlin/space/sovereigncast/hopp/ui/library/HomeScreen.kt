@@ -85,7 +85,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 @Composable
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
-    onLibrary: () -> Unit = {}, onUnheard: () -> Unit = {}, vm: HomeViewModel = koinViewModel(),
+    onLibrary: () -> Unit = {}, onUnheard: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
@@ -148,7 +148,8 @@ fun HomeScreen(
                 if (open) {
                     val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
                     items(shown, key = { "a${it.podcastId}${it.kind}${it.episodeTitle}" }) { a ->
-                        if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
+                        // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
+                        if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
                         else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
                     }
                     if (actions.size > shown.size) item(key = "a-more") {
@@ -291,18 +292,22 @@ private fun ago(seconds: Long): String = when {
 private fun countdown(seconds: Long): String = when {
     seconds <= 60 -> stringResource(Res.string.home_soon)
     seconds < 3_600 -> stringResource(Res.string.home_in_minutes, (seconds / 60).toInt())
-    seconds < 86_400 -> stringResource(Res.string.home_in_hours, (seconds / 3_600).toInt(), ((seconds % 3_600) / 60).toInt())
+    seconds < 86_400 -> stringResource(Res.string.home_in_hours, (seconds / 3_600).toInt())
     else -> stringResource(Res.string.home_in_days, (seconds / 86_400).toInt(), ((seconds % 86_400) / 3_600).toInt())
 }
 
 @Composable
 private fun rhythmText(r: space.sovereigncast.hopp.data.Rhythm): String = when (r) {
     space.sovereigncast.hopp.data.Rhythm.Daily -> stringResource(Res.string.home_daily)
+    space.sovereigncast.hopp.data.Rhythm.SeveralWeekly -> stringResource(Res.string.home_several_weekly)
     is space.sovereigncast.hopp.data.Rhythm.Weekly -> r.weekday?.let { stringResource(Res.string.home_usually, stringResource(WEEKDAYS[it - 1])) }
         ?: stringResource(Res.string.home_weekly)
     space.sovereigncast.hopp.data.Rhythm.Biweekly -> stringResource(Res.string.home_biweekly)
     space.sovereigncast.hopp.data.Rhythm.Monthly -> stringResource(Res.string.home_monthly)
 }
+
+/** Wide enough for "every 2 wks" and a countdown under the cover. */
+private val STRIP_TILE = 92.dp
 
 private val WEEKDAYS = listOf(Res.string.wd_1, Res.string.wd_2, Res.string.wd_3, Res.string.wd_4, Res.string.wd_5, Res.string.wd_6, Res.string.wd_7)
 
@@ -322,8 +327,8 @@ private fun ShowsStrip(
     val ordered = shows.sortedBy { if (it.id in releases) 0 else 1 }
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(ordered, key = { "s${it.id}" }) { show ->
-            Column(Modifier.width(84.dp).clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = show.title) { onShow(show.id) }) {
-                Cover(show.imageUrl, 84.dp, corner = 14.dp)
+            Column(Modifier.width(STRIP_TILE).clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = show.title) { onShow(show.id) }) {
+                Cover(show.imageUrl, STRIP_TILE, corner = 14.dp)
                 Text(show.title, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val release = releases[show.id]
                 if (release != null) Row(

@@ -406,12 +406,12 @@ fun CommunityBoostRow(b: CommunityBoost, showRank: Boolean) {
     val colors = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.Top) {
         if (showRank) Text(place(b.rank), Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        SelectionContainer(Modifier.weight(1f)) { Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(b.sender.ifBlank { stringResource(Res.string.sc_anonymous) }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (b.message.isNotBlank()) Text(b.message, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
             if (b.episode.title.isNotBlank()) Text(b.episode.title, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        } }
         Spacer(Modifier.size(8.dp))
         Text("${formatSats(b.amountSats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
     }

@@ -150,7 +150,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Cover(e.imageUrl ?: show?.imageUrl, 120.dp, corner = 18.dp)
                     Spacer(Modifier.size(14.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         show?.let { s ->
                             Text(s.title, Modifier.clip(RoundedCornerShape(6.dp)).clickable { onShow(s.id) },
                                 color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -163,7 +163,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                             downloadLabel(e),
                         )
                         Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                    }
+                    } }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(

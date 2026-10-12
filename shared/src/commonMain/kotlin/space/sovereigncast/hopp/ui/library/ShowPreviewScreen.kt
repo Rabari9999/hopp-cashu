@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import space.sovereigncast.hopp.data.episodeMatches
@@ -92,7 +93,7 @@ fun ShowPreviewScreen(
                 Cover(p?.imageUrl ?: known?.imageUrl, 112.dp, corner = 18.dp)
                 Spacer(Modifier.size(14.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    SelectionContainer { Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
                     if (loaded != null) Text(
                         listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
@@ -109,8 +110,10 @@ fun ShowPreviewScreen(
             error?.let { Text(stringResource(Res.string.result_failed, it), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
             failed?.let { Text(stringResource(Res.string.preview_failed, it.reason), color = colors.error, modifier = Modifier.padding(horizontal = 16.dp)) }
             p?.description?.let { d ->
-                Text(plainText(d), color = colors.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                SelectionContainer {
+                    Text(plainText(d), color = colors.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                }
             }
             if (state == PreviewState.Loading) {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

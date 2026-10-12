@@ -16,4 +16,5 @@
     <string name="quick_boost_no_value">Boost not sent: this show cannot receive boosts</string>
     <string name="quick_boost_no_wallet">Boost not sent: no wallet connected</string>
     <string name="quick_boost_failed">Boost failed: %1$s</string>
+    <string name="copied">Copied</string>
 </resources>
