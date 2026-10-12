@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.data
 
+import io.ktor.http.isSuccess
+import space.sovereigncast.hopp.net.getLimited
+import space.sovereigncast.hopp.net.Limits
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -306,7 +309,10 @@ class EpisodeRepository(
         withContext(Dispatchers.IO) { db.chapterCacheQueries.select(item.id).executeAsOneOrNull() }?.let {
             return runCatching { ChaptersParser.parse(it) }.getOrDefault(emptyList())
         }
-        val text = http.get(url).bodyAsText()
+        val response = http.getLimited(url, Limits.CHAPTERS)
+        // An error page is no chapter file, and nothing to keep.
+        if (!response.status.isSuccess()) throw IllegalStateException("chapters: HTTP ${response.status.value}")
+        val text = response.text()
         val chapters = withContext(Dispatchers.Default) { ChaptersParser.parse(text) }
         withContext(Dispatchers.IO) { db.chapterCacheQueries.upsert(item.id, text, clock.now()) }
         return chapters
@@ -350,7 +356,9 @@ class EpisodeRepository(
     suspend fun transcript(item: EpisodeItem): List<space.sovereigncast.hopp.feed.Cue> {
         transcripts[item.id]?.let { return it }
         val ref = space.sovereigncast.hopp.feed.TranscriptParser.pick(details(item.id)?.transcripts.orEmpty()) ?: return emptyList()
-        val text = http.get(ref.url).bodyAsText()
+        val response = http.getLimited(ref.url, Limits.TRANSCRIPT)
+        if (!response.status.isSuccess()) throw IllegalStateException("transcript: HTTP ${response.status.value}")
+        val text = response.text()
         val cues = withContext(Dispatchers.Default) { space.sovereigncast.hopp.feed.TranscriptParser.parse(text, ref.type, ref.url) }
         if (transcripts.size > 8) transcripts.clear()
         transcripts[item.id] = cues

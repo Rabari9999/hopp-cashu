@@ -28,6 +28,8 @@ class DownloadsAndQueueTest {
     private var items = 2
     private var failAudio: (String) -> Boolean = { false }
     private var audioStatus = HttpStatusCode.OK
+    /** "big": 2 MB announced; "endless": 2 MB without a length; "html": an error page. */
+    private var audioMode = "normal"
     private val ranges = mutableListOf<String?>()
     private var now = 1_000_000L
 
@@ -43,6 +45,11 @@ class DownloadsAndQueueTest {
             req.url.host == "cdn.test" -> {
                 if (failAudio(req.url.encodedPath)) throw IOException("network gone")
                 if (audioStatus != HttpStatusCode.OK) return@MockEngine respondError(audioStatus)
+                when (audioMode) {
+                    "big" -> return@MockEngine respond(ByteArray(2 shl 20), HttpStatusCode.OK, headersOf(HttpHeaders.ContentLength, (2 shl 20).toString()))
+                    "endless" -> return@MockEngine respond(io.ktor.utils.io.ByteReadChannel(ByteArray(2 shl 20)), HttpStatusCode.OK)
+                    "html" -> return@MockEngine respond("<html>Bitte anmelden</html>", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html; charset=utf-8"))
+                }
                 val range = req.headers[HttpHeaders.Range]
                 ranges += range
                 val from = range?.removePrefix("bytes=")?.removeSuffix("-")?.toInt() ?: 0
@@ -163,6 +170,25 @@ class DownloadsAndQueueTest {
         audioStatus = HttpStatusCode.OK
         downloads.request(byTitle(id, "Ep 2").id) // try again by hand
         assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+    }
+
+    /** Security review 2026-10-10, M-03: a download stops at the storage limit —
+     *  announced or not — and a web page is no episode; nothing is left behind. */
+    @Test
+    fun aDownloadTooLargeOrNotAudioIsRefused() = test {
+        val id = subscribe()
+        settings.update { it.copy(storageLimitMb = 1) }
+        for (mode in listOf("big", "endless", "html")) {
+            audioMode = mode
+            downloads.request(byTitle(id, "Ep 2").id)
+            assertTrue(downloads.runPending(includeAuto = true), mode)
+            assertEquals(DownloadState.FAILED, byTitle(id, "Ep 2").downloadState, mode)
+            assertFalse(files.exists(files.partial(byTitle(id, "Ep 2").id).toString()), "$mode left its .part")
+        }
+        audioMode = "normal"
+        downloads.request(byTitle(id, "Ep 2").id)
+        assertTrue(downloads.runPending(includeAuto = true))
         assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
     }
 

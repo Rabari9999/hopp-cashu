@@ -63,8 +63,8 @@ class DownloadFiles(val dir: String) {
     }
 }
 
-/** Thrown for answers that will not get better by retrying (404, 410 …). */
-class DownloadRefused(val status: Int) : Exception("HTTP $status")
+/** Thrown for answers that will not get better by retrying (404, 410 …, too large, not audio). */
+class DownloadRefused(val status: Int, why: String = "HTTP $status") : Exception(why)
 
 /**
  * Downloads (ADR 0012): automatic for new episodes on Wi-Fi, by request on any
@@ -129,7 +129,8 @@ class DownloadRepository(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
-                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
+                // Refused for good: nothing to resume, so no .part left behind either.
+                withContext(Dispatchers.IO) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } catch (e: DownloadCancelled) {
                 // remove() has already cleared it.
             } catch (e: Exception) {
@@ -164,9 +165,18 @@ class DownloadRepository(
                 if (status.value in 400..499 && status.value != 408 && status.value != 429) throw DownloadRefused(status.value)
                 throw IllegalStateException("HTTP ${status.value}")
             }
+            // A web page is no episode — a tracker's error page, a login wall
+            // (security review 2026-10-10, M-03).
+            val type = response.headers[HttpHeaders.ContentType]?.substringBefore(';')?.trim()?.lowercase()
+            if (type in NOT_MEDIA) { files.delete(part.toString()); throw DownloadRefused(status.value, "not an episode: $type") }
             val append = status == HttpStatusCode.PartialContent
             val offset = if (append) have else 0L
             val total = response.contentLength()?.let { it + offset }
+            // At most one episode's worth, and never more than the storage limit
+            // allows: checked against the announced size and again while writing,
+            // so an endless stream cannot fill the phone before cleanup() runs.
+            val cap = maxBytes()
+            if (total != null && total > cap) { files.delete(part.toString()); throw DownloadRefused(status.value, "too large: $total bytes") }
             val channel = response.bodyAsChannel()
             val buffer = ByteArray(64 * 1024)
             var written = offset
@@ -177,6 +187,7 @@ class DownloadRepository(
                         val n = channel.readAvailable(buffer, 0, buffer.size)
                         if (n < 0) break
                         if (id in cancelled.value) throw DownloadCancelled()
+                        if (written + n > cap) throw DownloadRefused(status.value, "too large: over $cap bytes")
                         sink.write(buffer, 0, n)
                         written += n
                         if (total != null && total > 0) {
@@ -193,6 +204,12 @@ class DownloadRepository(
             SystemFileSystem.atomicMove(part, target)
             eq.setDownloaded(target.toString(), files.size(target), id)
         }
+    }
+
+    /** The most one download may take: [MAX_EPISODE_BYTES], or the storage limit if that is smaller. */
+    private suspend fun maxBytes(): Long {
+        val limit = settings.current().storageLimitMb.toLong() * 1024 * 1024
+        return if (limit > 0) minOf(limit, MAX_EPISODE_BYTES) else MAX_EPISODE_BYTES
     }
 
     /** Played a day ago → gone; over the limit → the oldest unplayed go; a
@@ -214,5 +231,11 @@ class DownloadRepository(
                 used -= r.download_size ?: 0
             }
         }
+    }
+
+    private companion object {
+        /** Larger than any audio episode, room for video ones. */
+        const val MAX_EPISODE_BYTES = 4L shl 30
+        val NOT_MEDIA = setOf("text/html", "application/xhtml+xml", "application/json", "text/xml")
     }
 }

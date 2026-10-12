@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.sovereigncast
 
+import space.sovereigncast.hopp.net.getLimited
+import space.sovereigncast.hopp.net.Limits
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -47,8 +49,8 @@ class ScDirectory(private val http: HttpClient, private val clock: Clock, privat
         val c = cached
         if (c != null && clock.now() - fetchedAt < KEEP_SECONDS) return c
         val fresh = runCatching {
-            val r = http.get(url)
-            if (!r.status.isSuccess()) null else json.decodeFromString(ScDirectoryFile.serializer(), r.bodyAsText()).shows
+            val r = http.getLimited(url, Limits.API)
+            if (!r.status.isSuccess()) null else json.decodeFromString(ScDirectoryFile.serializer(), r.text()).shows
         }.getOrNull()
         if (fresh != null) { cached = fresh; fetchedAt = clock.now() }
         fresh ?: c ?: emptyList()

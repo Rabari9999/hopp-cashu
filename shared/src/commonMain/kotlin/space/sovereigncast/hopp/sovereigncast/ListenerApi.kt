@@ -1,5 +1,10 @@
 package space.sovereigncast.hopp.sovereigncast
 
+import io.ktor.client.request.url
+import space.sovereigncast.hopp.net.limited
+import space.sovereigncast.hopp.net.getLimited
+import space.sovereigncast.hopp.net.LimitedResponse
+import space.sovereigncast.hopp.net.Limits
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -195,8 +200,8 @@ class ListenerApi(private val http: HttpClient) {
     private fun url(base: String, path: String) = base.trimEnd('/') + "/api/listener" + path
     private fun seg(s: String) = s.encodeURLPathPart()
 
-    private suspend fun <T> read(response: HttpResponse, serializer: KSerializer<T>): T {
-        val text = response.bodyAsText()
+    private fun <T> read(response: LimitedResponse, serializer: KSerializer<T>): T {
+        val text = response.text()
         if (!response.status.isSuccess()) {
             val err = runCatching { json.decodeFromString(ErrorBody.serializer(), text).error }.getOrNull()
             throw ListenerApiException(err?.code ?: "http_${response.status.value}", err?.message ?: text.take(200), response.status.value)
@@ -204,10 +209,15 @@ class ListenerApi(private val http: HttpClient) {
         return json.decodeFromString(serializer, text)
     }
 
-    private suspend fun <T> get(base: String, path: String, serializer: KSerializer<T>): T = read(http.get(url(base, path)), serializer)
+    private suspend fun <T> get(base: String, path: String, serializer: KSerializer<T>): T = read(http.getLimited(url(base, path), Limits.API), serializer)
 
     private suspend fun <B, T> post(base: String, path: String, body: B, bodySerializer: KSerializer<B>, serializer: KSerializer<T>): T =
-        read(http.post(url(base, path)) { contentType(ContentType.Application.Json); setBody(json.encodeToString(bodySerializer, body)) }, serializer)
+        url(base, path).let { target ->
+            read(http.limited(Limits.API) {
+            url(target); method = io.ktor.http.HttpMethod.Post
+            contentType(ContentType.Application.Json); setBody(json.encodeToString(bodySerializer, body))
+            }, serializer)
+        }
 
     suspend fun meta(base: String) = get(base, "/meta", ApiMeta.serializer())
     suspend fun show(base: String, guid: String) = get(base, "/v1/shows/by-guid/${seg(guid)}", ScShow.serializer())

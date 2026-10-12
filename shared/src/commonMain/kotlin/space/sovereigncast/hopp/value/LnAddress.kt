@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.value
 
+import space.sovereigncast.hopp.net.getLimited
+import space.sovereigncast.hopp.net.Limits
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -66,11 +68,11 @@ class LnAddressClient(private val http: HttpClient) {
      */
     suspend fun invoice(request: PayRequest, amountMsat: Long, comment: String?): String {
         if (amountMsat !in request.minMsat..request.maxMsat) throw LnAddressException("amount outside ${request.minMsat}..${request.maxMsat} msat")
-        val response = http.get(request.callback) {
+        val response = http.getLimited(request.callback, Limits.LNURL) {
             parameter("amount", amountMsat)
             if (!comment.isNullOrBlank() && request.commentAllowed > 0) parameter("comment", comment.take(request.commentAllowed))
         }
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val body = json.parseToJsonElement(response.text()).jsonObject
         if (body["status"]?.jsonPrimitive?.contentOrNull == "ERROR") throw LnAddressException(body["reason"]?.jsonPrimitive?.contentOrNull ?: "error")
         val pr = body["pr"]?.jsonPrimitive?.contentOrNull ?: throw LnAddressException("no invoice in response")
         val decoded = Bolt11.parse(pr)
@@ -83,8 +85,8 @@ class LnAddressClient(private val http: HttpClient) {
     }
 
     private suspend fun getJson(url: String): JsonObject {
-        val response = http.get(url)
+        val response = http.getLimited(url, Limits.LNURL)
         if (!response.status.isSuccess()) throw LnAddressException("HTTP ${response.status.value} from $url")
-        return json.parseToJsonElement(response.bodyAsText()).jsonObject
+        return json.parseToJsonElement(response.text()).jsonObject
     }
 }

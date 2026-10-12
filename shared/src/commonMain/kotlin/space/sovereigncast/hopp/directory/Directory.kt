@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.directory
 
+import space.sovereigncast.hopp.net.getLimited
+import space.sovereigncast.hopp.net.Limits
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -59,14 +61,14 @@ private fun JsonElement?.objects(): List<JsonObject> = (this as? JsonArray)?.map
 class PodcastIndexClient(private val http: HttpClient, private val clock: Clock) {
     private suspend fun get(path: String, credentials: PodcastIndexCredentials, vararg params: Pair<String, String>): JsonObject {
         val now = clock.now().toString()
-        val response = http.get("$BASE/$path") {
+        val response = http.getLimited("$BASE/$path", Limits.DIRECTORY) {
             params.forEach { (k, v) -> parameter(k, v) }
             header("X-Auth-Key", credentials.key)
             header("X-Auth-Date", now)
             header(HttpHeaders.Authorization, Sha1.digest((credentials.key + credentials.secret + now).encodeToByteArray()).toHex())
         }
         if (!response.status.isSuccess()) throw DirectoryException("Podcast Index: HTTP ${response.status.value}")
-        return json.parseToJsonElement(response.bodyAsText()) as? JsonObject ?: throw DirectoryException("Podcast Index: no JSON object")
+        return json.parseToJsonElement(response.text()) as? JsonObject ?: throw DirectoryException("Podcast Index: no JSON object")
     }
 
     suspend fun search(term: String, valueOnly: Boolean, credentials: PodcastIndexCredentials): List<DirectoryShow> {
@@ -109,9 +111,9 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
 /** fyyd — strong for German-language shows; no key. */
 class FyydClient(private val http: HttpClient) {
     suspend fun search(term: String): List<DirectoryShow> {
-        val response = http.get("https://api.fyyd.de/0.2/search/podcast") { parameter("term", term); parameter("count", "20") }
+        val response = http.getLimited("https://api.fyyd.de/0.2/search/podcast", Limits.DIRECTORY) { parameter("term", term); parameter("count", "20") }
         if (!response.status.isSuccess()) throw DirectoryException("fyyd: HTTP ${response.status.value}")
-        val root = json.parseToJsonElement(response.bodyAsText()) as? JsonObject ?: return emptyList()
+        val root = json.parseToJsonElement(response.text()) as? JsonObject ?: return emptyList()
         return root["data"].objects().mapNotNull { o ->
             DirectoryShow(
                 title = o.str("title") ?: return@mapNotNull null,
@@ -127,11 +129,11 @@ class FyydClient(private val http: HttpClient) {
 /** Apple's iTunes Search API — mainstream catalogue, feed URL only. */
 class AppleClient(private val http: HttpClient) {
     suspend fun search(term: String): List<DirectoryShow> {
-        val response = http.get("https://itunes.apple.com/search") {
+        val response = http.getLimited("https://itunes.apple.com/search", Limits.DIRECTORY) {
             parameter("media", "podcast"); parameter("entity", "podcast"); parameter("term", term); parameter("limit", "25")
         }
         if (!response.status.isSuccess()) throw DirectoryException("Apple: HTTP ${response.status.value}")
-        val root = json.parseToJsonElement(response.bodyAsText()) as? JsonObject ?: return emptyList()
+        val root = json.parseToJsonElement(response.text()) as? JsonObject ?: return emptyList()
         return root["results"].objects().mapNotNull { o ->
             DirectoryShow(
                 title = o.str("collectionName") ?: return@mapNotNull null,

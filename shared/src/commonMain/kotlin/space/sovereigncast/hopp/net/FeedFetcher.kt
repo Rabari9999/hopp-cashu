@@ -36,7 +36,7 @@ class FeedFetcher(http: HttpClient) {
         var current = url
         var permanent = true
         repeat(MAX_REDIRECTS + 1) {
-            val response: HttpResponse = client.get(current) {
+            val response = client.getLimited(current, Limits.FEED) {
                 if (current == url) {
                     etag?.let { header(HttpHeaders.IfNoneMatch, it) }
                     lastModified?.let { header(HttpHeaders.IfModifiedSince, it) }
@@ -46,7 +46,7 @@ class FeedFetcher(http: HttpClient) {
             when (response.status.value) {
                 304 -> return FetchResult.NotModified
                 in 200..299 -> return FetchResult.Fetched(
-                    bytes = response.body(),
+                    bytes = response.bytes,
                     etag = response.headers[HttpHeaders.ETag],
                     lastModified = response.headers[HttpHeaders.LastModified],
                     movedTo = current.takeIf { it != url && permanent },
