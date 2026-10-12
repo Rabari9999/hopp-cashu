@@ -434,7 +434,7 @@ class ValueService(
             byKey[key] = PendingShare(p?.name ?: name ?: key.substringAfter(':').take(12), (p?.msat ?: 0) + msat)
         }
         for (o in owed) add(o.recipient_key, json.decodeFromString(ValueRecipient.serializer(), o.recipient_json).name, o.owed_msat)
-        for (a in accrued) for (p in parts(a)) add("${p.recipient.type}:${p.recipient.address}", p.recipient.name, p.amountMsat)
+        for (a in accrued) for (p in parts(a)) add(settlementKey(p.recipient), p.recipient.name, p.amountMsat)
         return byKey.values.filter { it.msat > 0 }.sortedByDescending { it.msat }
     }
 
@@ -460,6 +460,16 @@ class ValueService(
         }.filter { it.msat > 0 }.sortedByDescending { it.msat }
     }
 
+    /**
+     * Who a settlement row pays: type and address — and the custom record,
+     * which tells sub-wallets on one node apart (security review 2026-10-10,
+     * M-05: two of them were merged into one row and paid to whichever custom
+     * record was written last). Rows from before keep their old key and are
+     * paid out to the recipient they stored.
+     */
+    private fun settlementKey(r: ValueRecipient): String =
+        "${r.type}:${r.address}" + (if (r.customKey != null || r.customValue != null) "#${r.customKey.orEmpty()}=${r.customValue.orEmpty()}" else "")
+
     private suspend fun distribute() {
         val pending = withContext(Dispatchers.IO) { sq.pendingAccruals().executeAsList() }
         for (a in pending) {
@@ -467,7 +477,7 @@ class ValueService(
             withContext(Dispatchers.IO) {
                 db.transaction {
                     for (p in parts) {
-                        val key = "${p.recipient.type}:${p.recipient.address}"
+                        val key = settlementKey(p.recipient)
                         val recipient = json.encodeToString(ValueRecipient.serializer(), p.recipient)
                         sq.ensureSettlement(a.episode_id, key, RAIL_LIGHTNING, a.podcast_id, recipient)
                         sq.owe(p.amountMsat, recipient, a.episode_id, key, RAIL_LIGHTNING)

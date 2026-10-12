@@ -17,6 +17,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.long
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -327,6 +329,34 @@ class ValueServiceTest {
         } finally {
             Dispatchers.resetMain()
         }
+    }
+
+    /** Security review 2026-10-10, M-05: two sub-wallets on one node are two
+     *  recipients — streamed, each gets its own share with its own custom record. */
+    @Test
+    fun subWalletsOnOneNodeAreStreamedApart() = test {
+        val subs = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+            <title>Subs</title><podcast:guid>subs-guid</podcast:guid>
+            <podcast:value type="lightning" method="keysend">
+              <podcast:valueRecipient name="Anna" type="node" address="$host" customKey="696969" customValue="anna" split="50"/>
+              <podcast:valueRecipient name="Ben" type="node" address="$host" customKey="696969" customValue="ben" split="50"/>
+            </podcast:value>
+            <item><title>Ep</title><guid>subs-1</guid><enclosure url="https://cdn.test/s.mp3" type="audio/mpeg"/></item>
+            </channel></rss>"""
+        val local = HttpClient(MockEngine { respond(subs) })
+        val pods = PodcastRepository(db, FeedFetcher(local), { now })
+        val id = (pods.subscribe("https://subs.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        val ep = episodes.ofPodcast(id).first().single()
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        value.accrue(ep, 4_000, 4_000) // 4 sats: 2 each
+        assertEquals(listOf(PendingShare("Anna", 2_000), PendingShare("Ben", 2_000)), value.pendingFor(ep.id))
+        value.settle()
+        val sent = fake.requests.filter { it.first == "pay_keysend" }.map { req ->
+            val records = req.second["tlv_records"]!!.jsonArray.associate { it.jsonObject["type"]!!.jsonPrimitive.long to it.jsonObject["value"]!!.jsonPrimitive.content }
+            records[696969L]!!.chunked(2).map { it.toInt(16).toChar() }.joinToString("") to req.second["amount"]!!.jsonPrimitive.long / 1000
+        }
+        assertEquals(setOf("anna" to 2L, "ben" to 2L), sent.toSet())
     }
 
     /** Security report 2026-10-10, H-04: a streamed share whose payment got no
