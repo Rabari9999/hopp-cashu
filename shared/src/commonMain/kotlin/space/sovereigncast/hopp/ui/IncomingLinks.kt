@@ -8,6 +8,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
  *  show to open (ADR 0002 §4). */
 object IncomingLinks {
     val walletUri = MutableStateFlow<String?>(null)
+
+    /** A connection string on its way to the wallet page — in memory only, taken
+     *  once: never a navigation argument or saved state, which Android keeps in
+     *  the activity's saved bundle (security review 2026-10-10, M-01). */
+    private var walletDraft: String? = null
+    fun handOverWallet(uri: String) { walletDraft = uri }
+    fun takeWalletDraft(): String? = walletDraft.also { walletDraft = null }
     /** A feed from "Open in Hopp": its preview opens, or its page when subscribed. */
     val feedUrl = MutableStateFlow<String?>(null)
 

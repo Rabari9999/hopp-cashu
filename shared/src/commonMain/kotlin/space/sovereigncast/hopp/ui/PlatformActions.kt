@@ -16,6 +16,8 @@ interface PlatformActions {
     val canPickLanguage: Boolean get() = false
     /** Opens the system's language choice for Hopp. */
     fun openLanguageSettings() = Unit
+    /** Keeps the screen out of screenshots and the recent-apps preview while on. */
+    fun secureScreen(on: Boolean) = Unit
     /** Opens the system's VPN settings. */
     fun openVpnSettings() = Unit
     /** Opens the system's network settings, where private DNS is. */

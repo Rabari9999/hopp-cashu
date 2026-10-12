@@ -135,7 +135,7 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable data class EpisodeRoute(val id: Long)
 /** What the directory already knows rides along, so the page shows it at once. */
 @Serializable data class ShowPreviewRoute(val feedUrl: String, val title: String? = null, val imageUrl: String? = null, val author: String? = null)
-@Serializable data class WalletRoute(val uri: String? = null)
+@Serializable object WalletRoute
 @Serializable object HistoryRoute
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
@@ -245,7 +245,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             IncomingLinks.walletUri.collect { uri ->
                 if (uri == null) return@collect
                 IncomingLinks.walletUri.value = null
-                player.minimize(); nav.navigate(WalletRoute(uri))
+                player.minimize(); IncomingLinks.handOverWallet(uri); nav.navigate(WalletRoute)
             }
         }
         // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
@@ -333,7 +333,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     e.toRoute<EpisodeRoute>().id,
                                     onShow = { nav.navigate(ShowRoute(it)) },
                                     onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                    onOpenWallet = { nav.navigate(WalletRoute()) },
+                                    onOpenWallet = { nav.navigate(WalletRoute) },
                                 )
                             }
                             composable<DiscoverRoute> {
@@ -353,7 +353,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<SettingsRoute> {
                                 SettingsScreen(
-                                    onWallet = { nav.navigate(WalletRoute()) }, onHistory = { nav.navigate(HistoryRoute) },
+                                    onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
@@ -362,22 +362,22 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 val page = SettingsPage.entries.firstOrNull { it.name == e.toRoute<SettingsPageRoute>().page } ?: SettingsPage.About
                                 SettingsPageScreen(page, onTour = { tour = true })
                             }
-                            composable<PrivacyRoute> { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute()) }) }
+                            composable<PrivacyRoute> { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) }
                             composable<CrashRoute> {
                                 CrashReportScreen(crashReport, onDelete = {
                                     crashes.clear(); crashReport = null
                                     if (nav.currentBackStackEntry?.destination?.hasRoute(CrashRoute::class) == true) nav.popBackStack()
                                 })
                             }
-                            composable<WalletRoute> { e ->
-                                WalletScreen(incomingUri = e.toRoute<WalletRoute>().uri)
+                            composable<WalletRoute> {
+                                WalletScreen()
                             }
                             composable<HistoryRoute> { HistoryScreen() }
                             composable<ShowRoute> { e ->
                                 val id = e.toRoute<ShowRoute>().id
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
-                                ShowScreen(id, onOpenWallet = { nav.navigate(WalletRoute()) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
+                                ShowScreen(id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() })
                             }
                         }
                     }
@@ -395,12 +395,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         enter = slideInVertically(tween(420, easing = EmphasizedDecelerate)) { it } + fadeIn(tween(180)),
                         exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
                     ) {
-                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute()) })
+                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                     }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(hasWallet = connectedWallet != null) { connectWallet ->
                         tour = false
                         tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
-                        if (connectWallet) nav.navigate(WalletRoute())
+                        if (connectWallet) nav.navigate(WalletRoute)
                     }
                 }
             }

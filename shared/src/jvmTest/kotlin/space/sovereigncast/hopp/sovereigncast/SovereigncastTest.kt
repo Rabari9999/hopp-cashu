@@ -49,6 +49,8 @@ class SovereigncastTest {
     private var instanceDown = false
     private var showKnown = true
     private var invoiceAmountMsat: Long? = null
+    /** The hash the instance names for its invoice; the test invoice's own unless a test lies. */
+    private var hashInJson = "0101010101010101010101010101010101010101010101010101010101010101"
     private var statusCalls = 0
     private val bodies = mutableListOf<String>()
 
@@ -75,9 +77,9 @@ class SovereigncastTest {
             path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"","username":"Anonymous","amount_sats":2226,"vote_count":12,"created_at":"2026-07-06T11:39:40Z"}]}""")
             path.endsWith("/votes") -> respond("""{"already_voted":false}""")
             path.endsWith("/release-boosting/invoices") -> respond(
-                """{"payment_hash":"h1","bolt11":"${TestInvoices.make(invoiceAmountMsat ?: 210_000, ByteArray(32))}","amount_sats":210,"expires_at":"2026-10-09T22:00:00Z"}""",
+                """{"payment_hash":"$hashInJson","bolt11":"${TestInvoices.make(invoiceAmountMsat ?: 210_000, ByteArray(32))}","amount_sats":210,"expires_at":"2026-10-09T22:00:00Z"}""",
                 HttpStatusCode.Created)
-            path == "/api/listener/v1/payments/h1" -> respond("""{"payment_hash":"h1","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
+            path == "/api/listener/v1/payments/0101010101010101010101010101010101010101010101010101010101010101" -> respond("""{"payment_hash":"0101010101010101010101010101010101010101010101010101010101010101","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
@@ -177,6 +179,16 @@ class SovereigncastTest {
         val id = subscribe(); sc.verify(id)
         val layer = sc.layer(id).first()!!
         invoiceAmountMsat = 2_100_000 // the instance asks ten times as much
+        assertFailsWith<InvoiceMismatch> { sc.invoice(layer, ScTarget.ReleaseBoosting, 210, null, null) }
+    }
+
+    /** Security review 2026-10-10, M-06: the hash Hopp waits on must be the invoice's own —
+     *  another, already paid one would report a payment that never happened. */
+    @Test
+    fun anInvoiceWithAnotherHashIsRefused() = test {
+        val id = subscribe(); sc.verify(id)
+        val layer = sc.layer(id).first()!!
+        hashInJson = "ff".repeat(32)
         assertFailsWith<InvoiceMismatch> { sc.invoice(layer, ScTarget.ReleaseBoosting, 210, null, null) }
     }
 

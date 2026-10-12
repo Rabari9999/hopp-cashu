@@ -21,7 +21,10 @@ class MainActivity : ComponentActivity(), PlatformActions {
         val callback = onOpml ?: return@registerForActivityResult
         onOpml = null
         uri ?: return@registerForActivityResult
-        val text = contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return@registerForActivityResult
+        // At most Limits.OPML: any file can be picked, and it is read whole (security review 2026-10-10, M-02).
+        val bytes = contentResolver.openInputStream(uri)?.use { readAtMost(it, space.sovereigncast.hopp.net.Limits.OPML + 1) } ?: return@registerForActivityResult
+        if (bytes.size > space.sovereigncast.hopp.net.Limits.OPML) { callback(""); return@registerForActivityResult }
+        val text = bytes.decodeToString()
         callback(text)
     }
 
@@ -56,6 +59,18 @@ class MainActivity : ComponentActivity(), PlatformActions {
         else IncomingLinks.feedFrom(uri.toString())?.let { IncomingLinks.feedUrl.value = it }
     }
 
+    /** Up to [max] bytes of [input] (InputStream.readNBytes needs Android 13). */
+    private fun readAtMost(input: java.io.InputStream, max: Long): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(64 * 1024)
+        while (out.size() < max) {
+            val n = input.read(buf, 0, minOf(buf.size.toLong(), max - out.size()).toInt())
+            if (n < 0) break
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
+
     override fun pickOpml(onText: (String) -> Unit) {
         onOpml = onText
         openOpml.launch(arrayOf("text/x-opml", "text/xml", "application/xml", "application/octet-stream", "*/*"))
@@ -77,6 +92,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun openLanguageSettings() {
         if (Build.VERSION.SDK_INT < 33) return
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, android.net.Uri.fromParts("package", packageName, null))) }
+    }
+
+    override fun secureScreen(on: Boolean) {
+        val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+        if (on) window.addFlags(flag) else window.clearFlags(flag)
     }
 
     override fun openVpnSettings() {

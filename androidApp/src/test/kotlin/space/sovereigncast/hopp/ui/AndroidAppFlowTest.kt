@@ -115,9 +115,9 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
     path.endsWith("/leaderboard") -> respond(LEADERBOARD)
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
-        """{"payment_hash":"h1","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
+        """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}""",
         io.ktor.http.HttpStatusCode.Created)
-    path.endsWith("/payments/h1") -> respond("""{"payment_hash":"h1","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
+    path.endsWith("/payments/596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9") -> respond("""{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
     else -> respond("", io.ktor.http.HttpStatusCode.NotFound)
 }
 
@@ -443,8 +443,27 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         waitFor("Add a show")
         IncomingLinks.walletUri.value = "nostr+walletconnect://abc?relay=wss://r.test&secret=x"
+        // Masked until asked (security review 2026-10-10, M-01).
+        waitFor("Show")
+        val masked = androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Password)
+        rule.onNode(hasSetTextAction() and masked).assertExists()
+        tap("Show")
         rule.waitUntil(10_000) { rule.onAllNodesWithText("nostr+walletconnect://abc", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("Hide")
         check(has("Connect")) { screen().toString() }
+    }
+
+    /** Security review 2026-10-10, M-01: the connection string is in no saved
+     *  state — the wallet page, saved and restored, starts empty. */
+    @Test
+    fun theConnectionStringIsNotKeptInSavedState() {
+        val restore = androidx.compose.ui.test.junit4.StateRestorationTester(rule)
+        IncomingLinks.handOverWallet("nostr+walletconnect://abc?relay=wss://r.test&secret=x")
+        restore.setContent { space.sovereigncast.hopp.ui.value.WalletScreen() }
+        waitFor("Show")
+        restore.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        check(!has("Show")) { "the string came back from saved state: ${screen()}" }
     }
 
     // ── device feedback 2026-10-08 ─────────────────────────────────────────

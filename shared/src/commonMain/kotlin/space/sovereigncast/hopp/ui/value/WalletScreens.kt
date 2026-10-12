@@ -24,13 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +80,8 @@ import space.sovereigncast.hopp.resources.wallet_spent_today
 import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.wallet_support_note
 import space.sovereigncast.hopp.resources.wallet_uri_hint
+import space.sovereigncast.hopp.resources.wallet_uri_hide
+import space.sovereigncast.hopp.resources.wallet_uri_show
 import space.sovereigncast.hopp.ui.library.EmptyState
 import space.sovereigncast.hopp.ui.components.formatDateTime
 import space.sovereigncast.hopp.ui.components.formatSats
@@ -94,22 +96,34 @@ import space.sovereigncast.hopp.value.ValueService
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WalletScreen(incomingUri: String? = null, vm: WalletViewModel = koinViewModel()) {
+fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
     val wallet by vm.connected.collectAsState()
     val settings by vm.current.collectAsState()
     val balance by vm.balanceMsat.collectAsState()
     val connect by vm.connect.collectAsState()
     val spent by vm.spentToday.collectAsState()
     val colors = MaterialTheme.colorScheme
-    var uri by rememberSaveable { mutableStateOf("") }
-    LaunchedEffect(incomingUri) { if (!incomingUri.isNullOrBlank()) uri = incomingUri }
+    // The connection string can spend: plain remember, not saveable — it never
+    // goes into the saved state — masked unless asked, cleared once connected,
+    // and the page kept out of screenshots (security review 2026-10-10, M-01).
+    var uri by remember { mutableStateOf(space.sovereigncast.hopp.ui.IncomingLinks.takeWalletDraft().orEmpty()) }
+    var showUri by remember { mutableStateOf(false) }
+    LaunchedEffect(wallet) { if (wallet != null) uri = "" }
+    val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
+    androidx.compose.runtime.DisposableEffect(Unit) { actions.secureScreen(true); onDispose { actions.secureScreen(false) } }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val w = wallet
         if (w == null) {
             Text(stringResource(Res.string.wallet_intro))
             OutlinedTextField(uri, { uri = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.wallet_uri_hint)) },
-                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = if (showUri) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                trailingIcon = {
+                    if (uri.isNotEmpty()) TextButton(onClick = { showUri = !showUri }) {
+                        Text(stringResource(if (showUri) Res.string.wallet_uri_hide else Res.string.wallet_uri_show))
+                    }
+                })
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = { vm.connect(uri) }, enabled = uri.isNotBlank() && connect != ConnectState.Working) { Text(stringResource(Res.string.wallet_connect)) }
                 if (connect == ConnectState.Working) CircularProgressIndicator(Modifier.padding(4.dp))

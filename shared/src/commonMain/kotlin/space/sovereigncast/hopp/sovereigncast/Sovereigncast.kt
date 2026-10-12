@@ -171,8 +171,15 @@ class SovereigncastRepository(
             ScTarget.ReleaseBoosting -> api.releaseBoostingInvoice(layer.base, layer.show.podcastGuid, request)
             is ScTarget.Boost2Unlock -> api.boost2unlockInvoice(layer.base, layer.show.podcastGuid, target.episodeGuid, request)
         }
-        val asked = runCatching { Bolt11.parse(invoice.bolt11).amountMsat }.getOrNull()
+        val decoded = runCatching { Bolt11.parse(invoice.bolt11) }.getOrNull()
+        val asked = decoded?.amountMsat
         if (asked != amountSats * 1000) throw InvoiceMismatch("invoice asks ${asked ?: "no amount"} msat, not ${amountSats * 1000}")
+        // The status Hopp waits for must be this invoice's (security review
+        // 2026-10-10, M-06): a hash of another, already paid one would report
+        // success for a payment that never happened.
+        if (decoded.paymentHash == null || !decoded.paymentHash.equals(invoice.paymentHash, ignoreCase = true)) {
+            throw InvoiceMismatch("invoice and its payment hash do not match")
+        }
         return invoice
     }
 
