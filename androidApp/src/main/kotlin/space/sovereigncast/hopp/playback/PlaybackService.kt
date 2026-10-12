@@ -70,7 +70,7 @@ class PlaybackService : MediaLibraryService() {
         scope.launch { koin.get<SettingsRepository>().settings.collect { exo.skipSilenceEnabled = it.skipSilence } }
 
         val tree = MediaTree(this, koin.get(), koin.get(), koin.get(), koin.get())
-        session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree)).build()
+        session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree).also { callback = it }).build()
         // The boost button on the lock screen and in the notification — only
         // with a wallet and a quick-boost amount set.
         scope.launch {
@@ -82,6 +82,10 @@ class PlaybackService : MediaLibraryService() {
         // using Hopp and the app's UI never started.
         scope.launch { controller }
     }
+
+    /** The session's callback — for the tests that check who may boost. */
+    internal var callback: Callback? = null
+        private set
 
     private var boostShown = false
     private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
@@ -101,8 +105,27 @@ class PlaybackService : MediaLibraryService() {
     private fun quickBoost() {
         val now = controller.current.value?.item ?: return
         val position = controller.state.value.positionMs / 1000
-        scope.launch { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position)) }
+        // One at a time: a second tap while the first is paying is not a second boost.
+        if (!boosting.compareAndSet(false, true)) return
+        scope.launch {
+            try { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position)) } finally { boosting.set(false) }
+        }
     }
+
+    private val boosting = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Who may send the boost — money leaves the wallet with it (security
+     * report 2026-10-10, H-01: the session is exported, and any app could
+     * connect and send the command): Hopp itself, its media notification,
+     * Android Auto, and controllers the system trusts with media control
+     * (System UI's lock screen and notification controls; an app with an
+     * enabled notification listener, which could press the notification's
+     * boost button anyway). Every other app gets playback controls only.
+     */
+    internal fun mayBoost(session: MediaSession, c: MediaSession.ControllerInfo): Boolean =
+        c.packageName == packageName || c.isTrusted ||
+            session.isMediaNotificationController(c) || session.isAutomotiveController(c) || session.isAutoCompanionController(c)
 
     /** Next/previous on headsets, the notification and in the car jump by
      *  chapter, past the last one to the next episode in the queue (ADR 0012). */
@@ -120,18 +143,25 @@ class PlaybackService : MediaLibraryService() {
         override fun seekToPreviousMediaItem() = controller.previous()
     }
 
-    private inner class Callback(private val tree: MediaTree) : MediaLibrarySession.Callback {
-        /** Every controller — notification, lock screen, car — may send the boost. */
-        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
-            MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(boostCommand).build())
-                .setMediaButtonPreferences(buttons())
+    internal inner class Callback(private val tree: MediaTree) : MediaLibrarySession.Callback {
+        /** The notification, the lock screen and the car get the boost; other apps playback only ([mayBoost]). */
+        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            val allowed = mayBoost(session, controller)
+            val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+            if (allowed) commands.add(boostCommand)
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(commands.build())
+                .setMediaButtonPreferences(if (allowed) buttons() else emptyList())
                 .build()
+        }
 
         override fun onCustomCommand(
             session: MediaSession, controller: MediaSession.ControllerInfo, customCommand: SessionCommand, args: Bundle,
         ): ListenableFuture<SessionResult> {
-            if (customCommand.customAction == ACTION_BOOST) quickBoost()
+            if (customCommand.customAction != ACTION_BOOST) return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
+            // Checked again here, not only when the command was offered.
+            if (!mayBoost(session, controller)) return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+            quickBoost()
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
 
