@@ -329,6 +329,35 @@ class ValueServiceTest {
         }
     }
 
+    /** Security report 2026-10-10, H-04: a streamed share whose payment got no
+     *  answer is not paid again by the next batch; the history says "unknown". */
+    @Test
+    fun aStreamedShareWithoutAnswerIsNotPaidAgain() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        value.accrue(ep, 2_500, 2_500) // 2.25 to the host, 0.25 to the cohost
+        fake.silentMethod = "pay_keysend"
+        value.settle()   // waits out the wallet's timeout (5 s here)
+        value.settle()
+        assertEquals(1, fake.requests.count { it.first == "pay_keysend" }, "paid again: ${fake.requests.map { it.first }}")
+        assertEquals("unknown", value.payments.first().single().lines.single().status)
+        // Only the cohost's quarter sat still waits.
+        assertEquals(listOf(PendingShare("Cohost", 250)), value.pendingFor(ep.id))
+    }
+
+    /** Security report 2026-10-10, H-03: ten quick boosts at once, budget for one — one is paid. */
+    @Test
+    fun parallelQuickBoostsStayWithinTheBudget() = test {
+        val ep = episode()
+        wallet.connect(uri())
+        settings.update { it.copy(quickBoostSats = 100, dailyBudgetSats = 150) }
+        val results = (1..10).map { scope.async { value.quickBoost(ep, 30) } }.map { it.await() }
+        assertEquals(1, results.count { it is QuickBoost.Sent }, results.toString())
+        assertEquals(9, results.count { it == QuickBoost.OverBudget }, results.toString())
+        assertEquals(listOf(host to 90L, cohost to 10L), keysends())
+    }
+
     /** Device feedback 2026-10-08: a boost to the whole show — its block, no
      *  episode, no song from a time split. */
     @Test

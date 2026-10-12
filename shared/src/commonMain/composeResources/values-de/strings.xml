@@ -131,6 +131,8 @@
     <string name="history_paid">bezahlt</string>
     <string name="history_skipped">übersprungen</string>
     <string name="history_failed">fehlgeschlagen</string>
+    <string name="history_unknown">Ausgang unklar</string>
+    <string name="boost_unknown">Ausgang unklar – nicht erneut gesendet; deine Wallet weiß, ob es ankam</string>
     <string name="boost_title">Boost an %1$s</string>
     <string name="boost_where">%1$s · bei %2$s</string>
     <string name="boost_custom">Betrag in Sats</string>

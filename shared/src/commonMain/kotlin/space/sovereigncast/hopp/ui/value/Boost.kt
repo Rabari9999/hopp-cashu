@@ -444,7 +444,7 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
             results.filterNot { it is ShareResult.Paid }.forEach { r ->
                 val why = when (r) {
                     is ShareResult.Skipped -> reasonText(r.reason)
-                    is ShareResult.Failed -> reasonText(r.reason)
+                    is ShareResult.Failed -> if (r.outcomeUnknown) stringResource(Res.string.boost_unknown) else reasonText(r.reason)
                     else -> ""
                 }
                 Text(stringResource(Res.string.boost_not_paid, r.share.recipient.name ?: r.share.recipient.address, why),

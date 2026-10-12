@@ -4,6 +4,7 @@ import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.model.ValueBlock
 import space.sovereigncast.hopp.model.ValueRecipient
 import space.sovereigncast.hopp.value.nwc.NwcClient
+import space.sovereigncast.hopp.value.nwc.NwcException
 import space.sovereigncast.hopp.value.nwc.WalletInfo
 
 /** What happened to one recipient's share. */
@@ -12,7 +13,12 @@ sealed interface ShareResult {
     data class Paid(override val share: Share, val route: String, val preimage: String?, val feesMsat: Long?) : ShareResult
     /** Not attempted — ADR 0005: shown to the listener, neither paid nor redistributed. */
     data class Skipped(override val share: Share, val reason: String) : ShareResult
-    data class Failed(override val share: Share, val route: String, val reason: String) : ShareResult
+    data class Failed(
+        override val share: Share, val route: String, val reason: String,
+        /** Sent, but no answer said whether it was paid: never sent again — not by
+         *  another route, not by a later streaming batch (security report 2026-10-10, H-04). */
+        val outcomeUnknown: Boolean = false,
+    ) : ShareResult
 }
 
 /** The boost-wide fields of the boostagram; the per-recipient ones are filled in. */
@@ -87,7 +93,8 @@ class BoostSender(
             val route = runCatching { lnAddress.keysendInfo(address) }.getOrNull()
             if (route != null) {
                 val result = keysend(share, route.pubkey, route.customKey, route.customValue, totalMsat, ctx, "lnaddress keysend")
-                if (result !is ShareResult.Failed || !wallet.canPayInvoice) return result
+                // A keysend that may have arrived is not followed by an invoice.
+                if (result !is ShareResult.Failed || result.outcomeUnknown || !wallet.canPayInvoice) return result
                 keysendFailure = result.reason
             }
         }
@@ -104,7 +111,7 @@ class BoostSender(
             ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
         } catch (e: Exception) {
             val reason = e.message ?: e::class.simpleName ?: "error"
-            ShareResult.Failed(share, route, keysendFailure?.let { "$reason (keysend: $it)" } ?: reason)
+            ShareResult.Failed(share, route, keysendFailure?.let { "$reason (keysend: $it)" } ?: reason, outcomeUnknown = (e as? NwcException)?.outcomeUnknown == true)
         }
     }
 
@@ -126,7 +133,7 @@ class BoostSender(
         val paid = nwc.payKeysend(share.amountMsat, pubkey, keysendRecords(boostagram, customKey, customValue))
         ShareResult.Paid(share, route, paid.preimage, paid.feesPaidMsat)
     } catch (e: Exception) {
-        ShareResult.Failed(share, route, e.message ?: e::class.simpleName ?: "error")
+        ShareResult.Failed(share, route, e.message ?: e::class.simpleName ?: "error", outcomeUnknown = (e as? NwcException)?.outcomeUnknown == true)
     }
 
     private fun comment(ctx: BoostContext, prefix: String? = null): String? {
@@ -176,7 +183,7 @@ fun List<ShareResult>.describe(): String = joinToString("\n") { r ->
     when (r) {
         is ShareResult.Paid -> "PAID    $who via ${r.route}, fees ${r.feesMsat ?: "?"} msat"
         is ShareResult.Skipped -> "SKIPPED $who: ${r.reason}"
-        is ShareResult.Failed -> "FAILED  $who via ${r.route}: ${r.reason}"
+        is ShareResult.Failed -> (if (r.outcomeUnknown) "UNKNOWN $who via ${r.route}: ${r.reason}" else "FAILED  $who via ${r.route}: ${r.reason}")
     }
 }
 

@@ -151,3 +151,32 @@ wallet app. The boost sheet without a wallet says so in one paragraph, with the
 NWC explainer link when it answers; the website (hopp.sovereigncast.space)
 says the same since 2026-10-12 — it had promised boosts "with an external
 wallet".
+
+### Payment safety (added 2026-10-12, security report of 2026-10-10)
+
+An external review (Zettbot, commit `ca3811b`) rated four findings high; all
+four held and are fixed, each with a regression test:
+
+- **H-01 — the exported media session offered the boost to any app.** The
+  session must stay exported (Android Auto, System UI, Bluetooth), so the boost
+  command is offered — and checked again when it arrives — only for Hopp
+  itself, its media notification, Android Auto and controllers the system
+  trusts with media control; everything else gets playback controls only and a
+  refused command (`PlaybackService.mayBoost`, `PlaybackServiceTest`). A second
+  quick boost while one is paying is ignored.
+- **H-02 — fee recipients could take more than the boost.** Fees claiming
+  100 % or more together now share the total by weight, splits are capped as
+  weights so nothing overflows, and every division checks that the shares never
+  add up to more than the total (`SplitsTest`, 5 000 random blocks).
+- **H-03 — the daily budget was not atomic.** Boosts, quick boosts and
+  streaming batches run one at a time under one lock, from the budget check to
+  the logged payment (`ValueServiceTest.parallelQuickBoostsStayWithinTheBudget`).
+- **H-04 — an unanswered payment counted as failed.** Once a request has gone
+  to the wallet, only the wallet's answer — a result or an error it reports —
+  or the relay's refusal decide; a timeout, a dropped connection or an
+  unreadable answer is `OUTCOME_UNKNOWN`. Such a share is not followed by an
+  invoice after a keysend, not retried by the next streaming batch, and shows
+  as "outcome unknown" in the history. Clearing it up through NIP-47
+  `lookup_invoice` (with a preimage Hopp chooses for keysends) is a later step.
+
+The report's medium and low findings are still open.

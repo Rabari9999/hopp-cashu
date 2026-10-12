@@ -21,6 +21,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class BoostSenderTest {
@@ -90,6 +91,24 @@ class BoostSenderTest {
         assertIs<ShareResult.Paid>(result)
         assertEquals("lnurl after keysend failed", result.route)
         assertEquals(listOf("pay_keysend", "pay_invoice"), wallet.requests.map { it.first })
+    }
+
+    /** Security report 2026-10-10, H-04: the keysend went out and no answer
+     *  came — it may have arrived, so no invoice follows it. */
+    @Test
+    fun aKeysendWithoutAnswerIsNotFollowedByAnInvoice() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Cutting", "lnaddress", "withroute@w.test", 100)))
+        wallet.silentMethod = "pay_keysend"
+        val impatient = NwcClient(
+            NwcConnection.parse("nostr+walletconnect://${wallet.keys.publicKeyHex}?relay=wss://r&secret=${KeyPair.generate().secretKey.toHex()}"),
+            relay, now = { 1 }, timeout = 300.milliseconds,
+        )
+        val sender = BoostSender(impatient, LnAddressClient(http), WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2")))
+        val result = sender.send(block, 10_000, ctx).single()
+        println(listOf(result).describe())
+        assertIs<ShareResult.Failed>(result)
+        assertTrue(result.outcomeUnknown)
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
     }
 
     /** The paying wallet's own Lightning address is not paid — wallets refuse

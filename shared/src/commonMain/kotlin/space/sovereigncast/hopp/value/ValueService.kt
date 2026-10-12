@@ -123,7 +123,13 @@ class ValueService(
     private val lineList = ListSerializer(PaymentLine.serializer())
     private val pq = db.paymentQueries
     private val sq = db.streamingQueries
-    private val settling = Mutex()
+    /**
+     * One payment run at a time — boost, quick boost, streaming batch — so a
+     * budget check and the payment it allows are one step (security report
+     * 2026-10-10, H-03: parallel quick boosts all saw the same budget left and
+     * all paid). Payments are logged before the lock is released.
+     */
+    private val spending = Mutex()
     private val blocks = mutableMapOf<Long, ValueBlock?>()
     private val remotes = mutableMapOf<String, ValueBlock?>()
 
@@ -223,7 +229,7 @@ class ValueService(
         return BoostPlan.Ready(planned, null)
     }
 
-    suspend fun boostShow(podcastId: Long, amountMsat: Long, message: String?): List<ShareResult> {
+    suspend fun boostShow(podcastId: Long, amountMsat: Long, message: String?): List<ShareResult> = spending.withLock {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
         val info = wallet.wallet.value?.info ?: client.info()
         val block = podcasts.podcastMeta(podcastId)?.value?.let { withSupport(it) } ?: throw IllegalStateException("no value block")
@@ -235,7 +241,7 @@ class ValueService(
         )
         val results = BoostSender(client, lnAddress, info, metadata?.forShow(podcastId, app.version)).send(block, amountMsat, ctx)
         record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
-        return results
+        results
     }
 
     /** A payment made outside the value split — an instance's invoice for
@@ -249,7 +255,10 @@ class ValueService(
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
-    suspend fun boost(item: EpisodeItem, positionSeconds: Long?, amountMsat: Long, message: String?): List<ShareResult> {
+    suspend fun boost(item: EpisodeItem, positionSeconds: Long?, amountMsat: Long, message: String?): List<ShareResult> =
+        spending.withLock { boostLocked(item, positionSeconds, amountMsat, message) }
+
+    private suspend fun boostLocked(item: EpisodeItem, positionSeconds: Long?, amountMsat: Long, message: String?): List<ShareResult> {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
         val info = wallet.wallet.value?.info ?: client.info()
         val block = blockFor(item) ?: throw IllegalStateException("no value block")
@@ -265,15 +274,15 @@ class ValueService(
      * feedback 2026-10-08): the configured amount at once, no dialog, no
      * message; never past today's budget.
      */
-    suspend fun quickBoost(item: EpisodeItem, positionSeconds: Long?): QuickBoost {
+    suspend fun quickBoost(item: EpisodeItem, positionSeconds: Long?): QuickBoost = spending.withLock {
         val s = settings.current()
-        if (s.quickBoostSats <= 0) return QuickBoost.Off
-        if (wallet.wallet.value == null) return QuickBoost.NoWallet
+        if (s.quickBoostSats <= 0) return@withLock QuickBoost.Off
+        if (wallet.wallet.value == null) return@withLock QuickBoost.NoWallet
         val amount = s.quickBoostSats * 1000L
-        if (amount > budgetLeftMsat.first()) return QuickBoost.OverBudget
-        if (blockFor(item) == null) return QuickBoost.NoValue
-        return try {
-            outcome(item.podcastId, s.quickBoostSats.toLong(), boost(item, positionSeconds, amount, null), item.podcastTitle)
+        if (amount > budgetLeftMsat.first()) return@withLock QuickBoost.OverBudget
+        if (blockFor(item) == null) return@withLock QuickBoost.NoValue
+        try {
+            outcome(item.podcastId, s.quickBoostSats.toLong(), boostLocked(item, positionSeconds, amount, null), item.podcastTitle)
         } catch (e: Exception) {
             QuickBoost.Failed(e.message ?: "error")
         }
@@ -309,7 +318,7 @@ class ValueService(
             when (r) {
                 is ShareResult.Paid -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "paid", feesMsat = r.feesMsat, route = r.route)
                 is ShareResult.Skipped -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "skipped", reason = r.reason)
-                is ShareResult.Failed -> PaymentLine(rec.name, rec.address, r.share.amountMsat, "failed", route = r.route, reason = r.reason)
+                is ShareResult.Failed -> PaymentLine(rec.name, rec.address, r.share.amountMsat, if (r.outcomeUnknown) "unknown" else "failed", route = r.route, reason = r.reason)
             }
         }
         val paid = results.filterIsInstance<ShareResult.Paid>().sumOf { it.share.amountMsat }
@@ -349,7 +358,7 @@ class ValueService(
      * first, as long as today's budget lasts. Failed payments stay owed for the
      * next run; a share no wallet could pay is dropped and logged as skipped.
      */
-    suspend fun settle(roundUp: Set<Long> = emptySet()) = settling.withLock {
+    suspend fun settle(roundUp: Set<Long> = emptySet()) = spending.withLock {
         distribute()
         val client = wallet.client() ?: return@withLock
         val info = wallet.wallet.value?.info ?: return@withLock
@@ -385,11 +394,14 @@ class ValueService(
                             if (row.attempts > 0) { caughtUp += amount; caughtUpEpisodes += episodeId }
                         }
                         is ShareResult.Skipped -> sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)
-                        is ShareResult.Failed -> sq.failed(result.reason, episodeId, row.recipient_key, RAIL_LIGHTNING)
+                        // May have been paid: settled as it is, never tried again, and in the history as "unknown".
+                        is ShareResult.Failed -> if (result.outcomeUnknown) sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)
+                            else sq.failed(result.reason, episodeId, row.recipient_key, RAIL_LIGHTNING)
                     }
                 }
             }
-            if (item != null && results.any { it !is ShareResult.Failed }) log(KIND_STREAM, item, results.filterNot { it is ShareResult.Failed }, null)
+            val logged = results.filterNot { it is ShareResult.Failed && !it.outcomeUnknown }
+            if (item != null && logged.isNotEmpty()) log(KIND_STREAM, item, logged, null)
         }
         _overBudget.value = over
         if (caughtUp > 0) _notices.tryEmit(StreamNotice(caughtUp / 1000, caughtUpEpisodes.size))

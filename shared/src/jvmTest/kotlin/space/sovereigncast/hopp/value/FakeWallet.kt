@@ -23,6 +23,8 @@ class FakeWallet(
     var failWith: Pair<String, String>? = null
     /** Fail only this method (e.g. pay_keysend) — the others answer. */
     var failMethod: String? = null
+    /** Pays this method but never answers — the answer lost on the relay. */
+    var silentMethod: String? = null
     /** What get_info names as the wallet's node. */
     var nodePubkey: String? = null
     private val json = Json
@@ -41,6 +43,7 @@ class FakeWallet(
         val body = json.parseToJsonElement(Nip44.decrypt(request.content, ck)).jsonObject
         val method = body["method"]!!.jsonPrimitive.content
         requests += method to body["params"]!!.jsonObject
+        if (method == silentMethod) return
         val response = buildJsonObject {
             put("result_type", method)
             val fail = failWith ?: ("PAYMENT_FAILED" to "no route").takeIf { failMethod == method }

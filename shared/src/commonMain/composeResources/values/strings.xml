@@ -131,6 +131,8 @@
     <string name="history_paid">paid</string>
     <string name="history_skipped">skipped</string>
     <string name="history_failed">failed</string>
+    <string name="history_unknown">outcome unknown</string>
+    <string name="boost_unknown">outcome unknown — not sent again; your wallet knows whether it arrived</string>
     <string name="boost_title">Boost to %1$s</string>
     <string name="boost_where">%1$s · at %2$s</string>
     <string name="boost_custom">Amount in sats</string>

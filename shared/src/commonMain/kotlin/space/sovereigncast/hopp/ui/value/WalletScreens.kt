@@ -49,6 +49,7 @@ import space.sovereigncast.hopp.resources.history_failed
 import space.sovereigncast.hopp.resources.history_fee
 import space.sovereigncast.hopp.resources.history_paid
 import space.sovereigncast.hopp.resources.history_skipped
+import space.sovereigncast.hopp.resources.history_unknown
 import space.sovereigncast.hopp.resources.history_stream
 import space.sovereigncast.hopp.resources.sc_b2u_name
 import space.sovereigncast.hopp.resources.sc_rb_name
@@ -225,6 +226,7 @@ private fun PaymentRow(p: Payment) {
             val status = when (l.status) {
                 "paid" -> stringResource(Res.string.history_paid)
                 "skipped" -> stringResource(Res.string.history_skipped)
+                "unknown" -> stringResource(Res.string.history_unknown)
                 else -> stringResource(Res.string.history_failed)
             }
             Text(

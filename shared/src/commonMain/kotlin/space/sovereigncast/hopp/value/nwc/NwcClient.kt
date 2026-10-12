@@ -28,7 +28,15 @@ import space.sovereigncast.hopp.value.TlvRecord
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-class NwcException(val code: String, message: String) : Exception("$code: $message")
+class NwcException(val code: String, message: String) : Exception("$code: $message") {
+    /** The request reached the wallet, but no answer said what became of it —
+     *  it may have paid. Never a reason to pay again (security report 2026-10-10, H-04). */
+    val outcomeUnknown: Boolean get() = code == OUTCOME_UNKNOWN
+
+    companion object {
+        const val OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"
+    }
+}
 
 data class WalletInfo(
     val methods: Set<String>,
@@ -143,15 +151,29 @@ class NwcClient(
             }
             session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); add(filter) }.toString())
             session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), request)) }.toString())
-            val msg = withTimeout(timeout) { response.await() }
+            // From here on the wallet may have the request: only its own answer —
+            // a result, or an error it reports — or the relay's refusal says what
+            // happened. A timeout, a dropped connection or an answer that cannot
+            // be read do not mean "not paid".
+            val msg = try {
+                withTimeout(timeout) { response.await() }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                throw NwcException(NwcException.OUTCOME_UNKNOWN, "no answer from the wallet within $timeout")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                throw NwcException(NwcException.OUTCOME_UNKNOWN, "connection lost after sending: ${e.message ?: e::class.simpleName}")
+            }
             if (msg.type == "OK") throw NwcException("RELAY_REJECTED", msg.message ?: "relay refused the request")
-            val event = msg.event!!
-            if (!event.isValid() || event.pubkey != connection.walletPubkey) throw NwcException("BAD_RESPONSE", "invalid response event")
-            val body = json.parseToJsonElement(Nip44.decrypt(event.content, conversationKey)).jsonObject
+            val body = runCatching {
+                val event = msg.event!!
+                check(event.isValid() && event.pubkey == connection.walletPubkey) { "invalid response event" }
+                json.parseToJsonElement(Nip44.decrypt(event.content, conversationKey)).jsonObject
+            }.getOrElse { throw NwcException(NwcException.OUTCOME_UNKNOWN, "unreadable answer: ${it.message}") }
             body["error"]?.takeIf { it is JsonObject }?.jsonObject?.let { err ->
                 throw NwcException(err["code"]?.jsonPrimitive?.contentOrNull ?: "ERROR", err["message"]?.jsonPrimitive?.contentOrNull ?: "")
             }
-            body["result"]?.jsonObject ?: throw NwcException("BAD_RESPONSE", "response without result")
+            body["result"]?.jsonObject ?: throw NwcException(NwcException.OUTCOME_UNKNOWN, "answer without result")
         }
     }
 
