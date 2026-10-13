@@ -5,7 +5,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], application = TestApp::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LargeScreenTest {
-    @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
     private fun has(text: String) = rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(text: String) = rule.waitUntil(10_000) { has(text) }
@@ -92,12 +92,41 @@ class LargeScreenTest {
     }
 
     /** Step 2: wide enough, now playing stands beside the content — the rail and
-     *  the show stay in reach. */
+     *  the page stay in reach. The episode that was picked on the right moves to
+     *  the left rather than giving way to the show (device feedback 2026-10-13). */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
-    fun nowPlayingStandsBesideTheContentOnATablet() {
+    fun nowPlayingStandsBesideTheEpisodeOnATablet() {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
-        rule.onNode(hasText("Ep 1")).assertIsDisplayed()
+        rule.onNode(hasText("Show notes")).assertIsDisplayed()
+        check(!has("✓ Subscribed")) { "the show took the episode's place" }
+    }
+
+    /** Back from that episode goes to its show, not out of it — the arrow as the system's back. */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun theArrowGoesBackFromThePickedEpisodeToItsShow() {
+        openPlayer()
+        rule.onNode(hasContentDescription("Back")).performClick()
+        waitFor("✓ Subscribed")
+        check(!has("Show notes")) { "the episode is still there" }
+    }
+
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun theSystemBackGoesBackFromThePickedEpisodeToItsShow() {
+        openPlayer()
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        waitFor("✓ Subscribed")
+        check(!has("Show notes")) { "the episode is still there" }
+    }
+
+    /** Now playing's column takes about 40 % of a Pixel Tablet's width (device feedback 2026-10-13). */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun nowPlayingTakesFortyPercentOfATablet() {
+        openPlayer()
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val close = rule.onNode(hasContentDescription("Close player")).fetchSemanticsNode().boundsInRoot
+        val share = (root.right - close.left) / root.width
+        check(share in 0.36f..0.44f) { "now playing starts at ${close.left} of ${root.width}" }
     }
 
     /** Wider than a phone held upright: the tabs sit in a rail on the left, not along the bottom. */

@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -25,8 +29,12 @@ val EXPANDED_WIDTH: Dp = 840.dp
 /** From here the whole window has room for now playing as a column of its own on the right. */
 val PLAYER_PANE_WIDTH: Dp = 1200.dp
 
-/** How wide now playing's column is when it stands beside the content. */
-val PLAYER_PANE: Dp = 400.dp
+/** How much of the window now playing's column takes when it stands beside the content
+ *  (device feedback 2026-10-13: 400 dp, ~30 % on a Pixel Tablet, felt narrow) … */
+const val PLAYER_PANE_SHARE: Float = 0.4f
+
+/** … and at least this much. */
+val PLAYER_PANE_MIN: Dp = 400.dp
 
 /** How wide a list of episodes may get: wider, the play button drifts away from the title. */
 val LIST_WIDTH: Dp = 840.dp
@@ -43,3 +51,16 @@ fun Readable(max: Dp = READABLE_WIDTH, content: @Composable () -> Unit) {
         Box(Modifier.widthIn(max = max).fillMaxHeight()) { content() }
     }
 }
+
+/**
+ * A step back a page keeps for itself, outside the back stack — the show's
+ * page showing a picked episode in one column (ADR 0020). The top bar's back
+ * arrow takes it before leaving the page, as the system's back does through
+ * the page's BackHandler; without it the arrow left the show while the
+ * system's back only went back to it.
+ */
+class PageBack {
+    var step: (() -> Unit)? by mutableStateOf(null)
+}
+
+val LocalPageBack = staticCompositionLocalOf { PageBack() }

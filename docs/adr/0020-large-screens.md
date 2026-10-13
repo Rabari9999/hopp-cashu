@@ -84,13 +84,18 @@ Breakpoints, those of Material 3's window size classes:
   of opening a page over the show — the page swaps `LocalEpisodeNav.open`, so
   every list on it behaves alike. The pick is the page's own state, not a step
   on the back stack: back leaves the show, as it does on a phone. Narrower (a
-  tablet upright, or with now playing beside it) the show's page alone, rows
-  opening the episode as before; the pick survives the switch.
-- **Now playing beside the content** once the window is 1200 dp wide: a 400 dp
-  column on the right instead of a full-screen overlay, the rail and the page
-  still in reach (as Apple Podcasts does on the iPad); the mini player steps
-  aside while it is open. In the column back belongs to the content, the
-  player does not swipe away, and it scrolls if the window is short.
+  tablet upright, or with now playing beside it) one column: the picked
+  episode if there is one — it moves left rather than giving way to the show
+  (device feedback 2026-10-13) — and back, by the system or by the top bar's
+  arrow (`PageBack`), returns to the show; without a pick the show's page, rows
+  opening the episode as before.
+- **Now playing beside the content** once the window is 1200 dp wide: a column
+  on the right taking 40 % of the window, at least 400 dp (400 dp alone, ~30 %
+  on a Pixel Tablet, felt narrow), instead of a full-screen overlay, the rail
+  and the page still in reach (as Apple Podcasts does on the iPad); the mini
+  player steps aside while it is open. In the column back belongs to the
+  content and the player does not swipe away; the controls stay in view and
+  the cover takes the height they leave.
 - **Lists centred, at most 840 dp:** Home, New, Up next, favourites, unheard,
   downloads, Discover and a show's preview — wider, the play button drifts away
   from the title. The library's cover grid keeps the whole width.
@@ -98,8 +103,9 @@ Breakpoints, those of Material 3's window size classes:
   navigator of its own next to the NavHost and the tabs' own stacks; the two
   places that need a second pane do with `BoxWithConstraints`. Revisit when a
   third does, or for predictive back between panes.
-- `LargeScreenTest` adds three tests: show and episode side by side on a tablet
-  on its side, a page per step on one upright, now playing beside the content.
+- `LargeScreenTest` adds tests for show and episode side by side on a tablet
+  on its side, a page per step on one upright, now playing beside the
+  episode, back from it by arrow and by the system, and the column's share.
 
 Moved to step 3, where keyboard and pointer matter most and can be tried on a
 Mac: keyboard shortcuts (space for play/pause, arrows to skip), hover states, a

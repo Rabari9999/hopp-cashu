@@ -308,11 +308,15 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 ) {
                     cover(Modifier.size(coverSide))
                     Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) { details() }
-                } else Column(
-                    Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 560.dp)
-                        // A column beside the content need not be swiped away: it may scroll.
-                        .then(if (inPane) Modifier.verticalScroll(rememberScrollState()) else Modifier),
-                ) {
+                } else if (inPane) Column(Modifier.fillMaxSize().padding(bottom = 16.dp)) {
+                    // A column beside the content: the controls always in view, the
+                    // cover as large as the height they leave allows.
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    details()
+                } else Column(Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 560.dp)) {
                     cover(Modifier.fillMaxWidth().aspectRatio(1f))
                     Spacer(Modifier.height(16.dp))
                     details()

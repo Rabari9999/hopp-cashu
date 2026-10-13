@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -20,12 +21,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.show_pick_episode
 import space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH
+import space.sovereigncast.hopp.ui.components.LocalPageBack
 
 /** How wide the show's own column is beside an episode. */
 private val SHOW_COLUMN = 420.dp
@@ -38,18 +41,36 @@ private val SHOW_COLUMN = 420.dp
  *
  * The pick is the page's own state, not a step on the back stack: back leaves
  * the show, as it does on a phone from the show's page.
+ *
+ * When the page narrows to one column with an episode picked — now playing
+ * opening beside it, the tablet turned upright — that column shows the episode,
+ * not the show (device feedback 2026-10-13: the episode one was looking at
+ * vanished behind the show when its player opened); back then returns to the show.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class) // BackHandler
 @Composable
 fun ShowListDetail(
     podcastId: Long,
     show: @Composable () -> Unit,
     episode: @Composable (id: Long, onGone: () -> Unit) -> Unit,
 ) {
-    // Kept outside the wide branch: opening now playing beside the content narrows
-    // it to the show alone, and closing it again brings the episode back.
+    // Kept outside the wide branch: it outlives the page narrowing and widening again.
     var picked by rememberSaveable(podcastId) { mutableStateOf<Long?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxWidth < EXPANDED_WIDTH) { show(); return@BoxWithConstraints }
+        if (maxWidth < EXPANDED_WIDTH) {
+            val id = picked
+            BackHandler(enabled = id != null) { picked = null }
+            if (id != null) {
+                val pageBack = LocalPageBack.current
+                DisposableEffect(pageBack) {
+                    val step = { picked = null }
+                    pageBack.step = step
+                    onDispose { if (pageBack.step === step) pageBack.step = null }
+                }
+            }
+            if (id == null) show() else key(id) { episode(id) { picked = null } }
+            return@BoxWithConstraints
+        }
         val outer = LocalEpisodeNav.current
         val pick = remember(outer) { EpisodeNav(open = { picked = it.id }, play = outer.play) }
         Row(Modifier.fillMaxSize()) {

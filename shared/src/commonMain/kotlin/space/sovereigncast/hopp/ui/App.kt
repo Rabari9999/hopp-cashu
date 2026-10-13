@@ -107,7 +107,8 @@ import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.components.LIST_WIDTH
 import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
-import space.sovereigncast.hopp.ui.components.PLAYER_PANE
+import space.sovereigncast.hopp.ui.components.PLAYER_PANE_MIN
+import space.sovereigncast.hopp.ui.components.PLAYER_PANE_SHARE
 import space.sovereigncast.hopp.ui.components.PLAYER_PANE_WIDTH
 import space.sovereigncast.hopp.ui.components.Readable
 import space.sovereigncast.hopp.ui.components.keyShortcuts
@@ -227,6 +228,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         else -> ""
     }
     val showRoute = { id: Long -> nav.navigate(ShowRoute(id)) }
+    val pageBack = remember { space.sovereigncast.hopp.ui.components.PageBack() }
 
     val episodeActions: EpisodeActionsViewModel = koinViewModel()
     // A row opens the episode's page; its round button plays without opening
@@ -295,7 +297,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
 
     HoppTheme {
-        androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
+            space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
+        ) {
           ProvideDownloadProgress {
             // Space, ← →, Escape for a keyboard (ADR 0020, step 3) — only with an episode loaded.
             val shortcuts = remember(player) {
@@ -314,6 +319,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   // Wide enough, now playing stands as a column on the right instead of
                   // covering everything (ADR 0020, step 2) — the library stays in reach.
                   val playerPane = maxWidth >= PLAYER_PANE_WIDTH
+                  val paneWidth = maxOf(PLAYER_PANE_MIN, maxWidth * PLAYER_PANE_SHARE)
                   val paneOpen = playerPane && expanded
                   Row(Modifier.fillMaxSize()) {
                     if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
@@ -336,7 +342,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             CenterAlignedTopAppBar(
                                 title = { Text(title, style = MaterialTheme.typography.titleLarge) },
                                 navigationIcon = {
-                                    if (onTab == null) IconButton(onClick = { nav.popBackStack() }) {
+                                    // The page's own step first (a picked episode), then the back stack.
+                                    if (onTab == null) IconButton(onClick = { pageBack.step?.invoke() ?: nav.popBackStack() }) {
                                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(Res.string.back))
                                     }
                                 },
@@ -466,7 +473,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     }
                     if (paneOpen) {
                         androidx.compose.material3.VerticalDivider()
-                        Box(Modifier.width(PLAYER_PANE).fillMaxHeight()) {
+                        Box(Modifier.width(paneWidth).fillMaxHeight()) {
                             NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                         }
                     }
