@@ -384,7 +384,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
-                                    onLibrary = { selectTab(tabs[1]) }, onUnheard = { nav.navigate(UnheardRoute) })
+                                    onLibrary = { selectTab(tabs[1]) }, onUnheard = { nav.navigate(UnheardRoute) },
+                                    onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> {

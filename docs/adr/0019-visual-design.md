@@ -197,6 +197,12 @@ the reference once the screens exist.
   before the rest on a quiet day and after it when there is news. Order: New,
   Continue, Your shows, Take part, (From your shows), Favourites, Recently
   boosted, (From your shows), Recently played.
+  Amended 2026-10-13 (device feedback: with many subscriptions Home grew long
+  and mixed): the listener arranges Home's sections and hides any of them
+  (Settings → Home, or "Customize Home" at its end; `homeOrder`, `homeHidden`).
+  Until they move one, Hopp's order above holds, "From your shows" moving with
+  the day; the greeting stays on top. A show's count of new episodes is red
+  with a ring in the page's colour — black, it vanished on dark covers.
 - **Notifications:** the quick boost's result reports nothing, only failures
   (default) or everything; a success disappears after a few seconds. Amended
   2026-10-11: the same choice covers boosts from the sheet (player, episode,

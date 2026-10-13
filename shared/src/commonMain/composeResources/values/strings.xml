@@ -496,4 +496,10 @@
     <string name="home_several_weekly">several a week</string>
     <string name="share_copy">Copy</string>
     <string name="show_copy_feed">Copy feed address</string>
+    <string name="settings_home">Home</string>
+    <string name="settings_home_note">Arrange its sections, or hide them</string>
+    <string name="home_customize">Customize Home</string>
+    <string name="home_sections_text">Drag a section to move it; switch it off to hide it from Home. As long as you have not moved any, your unheard episodes come first on a quiet day.</string>
+    <string name="home_sections_reset">Back to Hopp's order</string>
+    <string name="home_section_move">Move %1$s</string>
 </resources>

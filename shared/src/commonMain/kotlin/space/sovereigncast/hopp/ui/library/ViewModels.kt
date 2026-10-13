@@ -87,6 +87,9 @@ class HomeViewModel(
 
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
+    /** The listener's order of Home's sections (empty: Hopp's own) and what they hid. */
+    val savedOrder: StateFlow<List<String>> = state(settings.settings.map { it.homeOrder }, emptyList())
+    val hidden: StateFlow<Set<String>> = state(settings.settings.map { it.homeHidden }, emptySet())
     fun toggle(section: String) = viewModelScope.launch {
         settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
     }

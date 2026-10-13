@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.home_customize
 import space.sovereigncast.hopp.resources.*
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -85,7 +86,8 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 @Composable
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
-    onLibrary: () -> Unit = {}, onUnheard: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, vm: HomeViewModel = koinViewModel(),
+    onLibrary: () -> Unit = {}, onUnheard: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
+    vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
@@ -114,77 +116,98 @@ fun HomeScreen(
             return@PullToRefreshBox
         }
         val collapsed by vm.collapsed.collectAsState()
+        val savedOrder by vm.savedOrder.collectAsState()
+        val hidden by vm.hidden.collectAsState()
         var allActions by remember { mutableStateOf(false) }
         LazyColumn {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12):
             // never an empty page while there are shows.
             item(key = "h-hello") { Greeting(newest.size, lastChecked, now) }
-            if (newest.isNotEmpty()) {
-                val open = "new" !in collapsed
-                item(key = "h-new") {
-                    SectionHeader(stringResource(Res.string.nav_new), open, newest.size, { vm.toggle("new") }, stringResource(Res.string.home_all, newest.size), onInbox)
-                }
-                if (open) items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
-                        PlayButton(item)
-                        EpisodeMenu(item)
-                    }
-                }
-            }
-            section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
-            // The shows themselves, when each comes out next — Release Boosting's countdown first.
-            if (shows.isNotEmpty()) {
-                val open = "yourshows" !in collapsed
-                item(key = "h-yourshows") {
-                    SectionHeader(stringResource(Res.string.home_your_shows), open, shows.size, { vm.toggle("yourshows") }, stringResource(Res.string.home_all, shows.size), onLibrary)
-                }
-                if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow) }
-            }
-            // Taking part at Sovereigncast shows: Release Boosting, Boost2Unlock and open
-            // suggestions — only when there is something to do, two lines unless asked.
-            if (actions.isNotEmpty()) {
-                val open = "shows" !in collapsed
-                item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, actions.size, { vm.toggle("shows") }) }
-                if (open) {
-                    val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
-                    items(shown, key = { "a${it.podcastId}${it.kind}${it.episodeTitle}" }) { a ->
-                        // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
-                        if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
-                        else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
-                    }
-                    if (actions.size > shown.size) item(key = "a-more") {
-                        TextButton(onClick = { allActions = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                            Text(stringResource(Res.string.home_show_all, actions.size))
+            // The listener's order, or Hopp's — "From your shows" first on a quiet day, after
+            // the rest with news — without what they hid (device feedback 2026-10-13).
+            HomeSections.order(savedOrder, quiet = newest.isEmpty()).filter { it !in hidden }.forEach { key ->
+                when (key) {
+                    HomeSections.NEW -> {
+                    if (newest.isNotEmpty()) {
+                        val open = "new" !in collapsed
+                        item(key = "h-new") {
+                            SectionHeader(stringResource(Res.string.nav_new), open, newest.size, { vm.toggle("new") }, stringResource(Res.string.home_all, newest.size), onInbox)
+                        }
+                        if (open) items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
+                            EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
+                                PlayButton(item)
+                                EpisodeMenu(item)
+                            }
                         }
                     }
-                }
-            }
-            // On a quiet day the unheard of each show come before the rest; with news, after it.
-            if (newest.isEmpty()) fromShows(unheard, collapsed, vm::toggle, nav, onUnheard)
-            // Favourites (device feedback 2026-10-11): only once there are any.
-            if (favorites.isNotEmpty()) {
-                val open = "favorites" !in collapsed
-                item(key = "h-favorites") {
-                    SectionHeader(stringResource(Res.string.favorites_title), open, favorites.size, { vm.toggle("favorites") },
-                        stringResource(Res.string.home_all, favorites.size), onFavorites)
-                }
-                if (open) items(favorites.take(HomeViewModel.HOME_ROWS), key = { "f${it.id}" }) { item ->
-                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
-                }
-            }
-            if (boosted.isNotEmpty()) {
-                val open = "boosted" !in collapsed
-                item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }) }
-                if (open) items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
-                    EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
-                        Text("${formatSats(sats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium)
                     }
+                    HomeSections.CONTINUE -> section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
+                    HomeSections.YOUR_SHOWS -> {
+                    // The shows themselves, when each comes out next — Release Boosting's countdown first.
+                    if (shows.isNotEmpty()) {
+                        val open = "yourshows" !in collapsed
+                        item(key = "h-yourshows") {
+                            SectionHeader(stringResource(Res.string.home_your_shows), open, shows.size, { vm.toggle("yourshows") }, stringResource(Res.string.home_all, shows.size), onLibrary)
+                        }
+                        if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow) }
+                    }
+                    }
+                    HomeSections.TAKE_PART -> {
+                    // Taking part at Sovereigncast shows: Release Boosting, Boost2Unlock and open
+                    // suggestions — only when there is something to do, two lines unless asked.
+                    if (actions.isNotEmpty()) {
+                        val open = "shows" !in collapsed
+                        item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, actions.size, { vm.toggle("shows") }) }
+                        if (open) {
+                            val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
+                            items(shown, key = { "a${it.podcastId}${it.kind}${it.episodeTitle}" }) { a ->
+                                // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
+                                if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
+                                else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
+                            }
+                            if (actions.size > shown.size) item(key = "a-more") {
+                                TextButton(onClick = { allActions = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                                    Text(stringResource(Res.string.home_show_all, actions.size))
+                                }
+                            }
+                        }
+                    }
+                    }
+                    HomeSections.FROM_SHOWS -> fromShows(unheard, collapsed, vm::toggle, nav, onUnheard)
+                    HomeSections.FAVORITES -> {
+                    // Favourites (device feedback 2026-10-11): only once there are any.
+                    if (favorites.isNotEmpty()) {
+                        val open = "favorites" !in collapsed
+                        item(key = "h-favorites") {
+                            SectionHeader(stringResource(Res.string.favorites_title), open, favorites.size, { vm.toggle("favorites") },
+                                stringResource(Res.string.home_all, favorites.size), onFavorites)
+                        }
+                        if (open) items(favorites.take(HomeViewModel.HOME_ROWS), key = { "f${it.id}" }) { item ->
+                            EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
+                        }
+                    }
+                    }
+                    HomeSections.BOOSTED -> {
+                    if (boosted.isNotEmpty()) {
+                        val open = "boosted" !in collapsed
+                        item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }) }
+                        if (open) items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
+                            EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
+                                Text("${formatSats(sats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                    }
+                    // Last by default: what was heard is the least likely next step (device feedback 2026-10-10).
+                    HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav)
                 }
             }
-            if (newest.isNotEmpty()) fromShows(unheard, collapsed, vm::toggle, nav, onUnheard)
-            // Last: what was heard is the least likely next step (device feedback 2026-10-10).
-            section("recent", recentTitle, played, collapsed, vm::toggle, nav)
+            item(key = "h-customize") {
+                TextButton(onClick = onCustomize, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                    Text(stringResource(Res.string.home_customize))
+                }
+            }
         }
     }
 }

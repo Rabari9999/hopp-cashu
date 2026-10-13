@@ -140,18 +140,29 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit) {
     }
 }
 
-/** New episodes of a show, as a small count in the primary colour; nothing when there are none. */
+/**
+ * New episodes of a show, as a small count; nothing when there are none. Red with
+ * a ring in the page's colour (device feedback 2026-10-13): in the primary colour —
+ * black on a light page — it vanished on a dark cover; the ring keeps it apart
+ * from a red one too. One red in both themes: the dark theme's error colour is a
+ * pale pink that had little more presence than before.
+ */
 @Composable
 private fun NewCount(n: Int) {
     if (n <= 0) return
     val label = stringResource(Res.string.library_new, n)
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(50)
     Text(
         "$n",
-        Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary)
+        Modifier.border(2.dp, colors.background, shape).padding(2.dp).clip(shape).background(BADGE_RED)
             .padding(horizontal = 7.dp, vertical = 1.dp).semantics { contentDescription = label },
-        color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+        color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
     )
 }
+
+/** White on it reads at about 4.6 : 1. */
+private val BADGE_RED = Color(0xFFD93025)
 
 /** A show as a card: the cover fills the cell, new episodes on it, title and author below. */
 @Composable

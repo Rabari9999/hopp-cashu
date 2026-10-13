@@ -496,4 +496,10 @@
     <string name="home_several_weekly">mehrmals/Wo.</string>
     <string name="share_copy">Kopieren</string>
     <string name="show_copy_feed">Feed-Adresse kopieren</string>
+    <string name="settings_home">Home</string>
+    <string name="settings_home_note">Bereiche anordnen oder ausblenden</string>
+    <string name="home_customize">Home anpassen</string>
+    <string name="home_sections_text">Ziehe einen Bereich, um ihn zu verschieben; schalte ihn aus, um ihn auf Home auszublenden. Solange du nichts verschoben hast, kommen an ruhigen Tagen deine ungehörten Folgen zuerst.</string>
+    <string name="home_sections_reset">Zurück zu Hopps Reihenfolge</string>
+    <string name="home_section_move">%1$s verschieben</string>
 </resources>

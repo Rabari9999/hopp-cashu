@@ -55,6 +55,11 @@ data class Settings(
     val onboardingDone: Boolean = false,
     /** The library's shows as a list rather than cards (device feedback 2026-10-13). */
     val libraryAsList: Boolean = false,
+    /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own,
+     *  which moves "From your shows" up on a quiet day (device feedback 2026-10-13). */
+    val homeOrder: List<String> = emptyList(),
+    /** Home's sections the listener does not want at all. */
+    val homeHidden: Set<String> = emptySet(),
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -97,6 +102,8 @@ data class Settings(
                 boostFeedback = values["boost_feedback"]?.takeIf { it in feedbackChoices } ?: d.boostFeedback,
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
+                homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
+                homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
             )
         }
     }
@@ -130,6 +137,8 @@ data class Settings(
         "boost_feedback" to boostFeedback,
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
+        "home_order" to homeOrder.joinToString("\n"),
+        "home_hidden" to homeHidden.joinToString("\n"),
     )
 }
 

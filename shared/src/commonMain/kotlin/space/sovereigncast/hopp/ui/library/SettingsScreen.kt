@@ -1,5 +1,9 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.settings_home_note
+import space.sovereigncast.hopp.resources.settings_home
+import space.sovereigncast.hopp.resources.home_customize
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +61,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 /** The pages behind the settings overview (device feedback 2026-10-10). */
 enum class SettingsPage(val title: StringResource) {
     Playback(Res.string.settings_playback),
+    Home(Res.string.home_customize),
     Downloads(Res.string.settings_downloads_refresh),
     Notifications(Res.string.settings_notifications),
     Directories(Res.string.settings_directories),
@@ -88,6 +93,7 @@ fun SettingsScreen(
 
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
+        Entry(Icons.Rounded.Home, stringResource(Res.string.settings_home), stringResource(Res.string.settings_home_note)) { onPage(SettingsPage.Home) }
         Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
         Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
@@ -137,8 +143,11 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val s = settings ?: return
+    // Home's sections are dragged, which wants a lazy list of its own rather than this column.
+    if (page == SettingsPage.Home) { HomeSectionsEditor(s) { change -> vm.update(change) }; return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
+            SettingsPage.Home -> Unit
             SettingsPage.Playback -> {
                 Label(stringResource(Res.string.settings_skip_back))
                 Choices(Settings.skipBackChoices, s.skipBackSeconds, { stringResource(Res.string.settings_seconds, it) }) { v -> vm.update { it.copy(skipBackSeconds = v) } }
