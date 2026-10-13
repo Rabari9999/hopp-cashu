@@ -200,9 +200,15 @@ the reference once the screens exist.
   Amended 2026-10-13 (device feedback: with many subscriptions Home grew long
   and mixed): the listener arranges Home's sections and hides any of them
   (Settings → Home, or "Customize Home" at its end; `homeOrder`, `homeHidden`).
-  Until they move one, Hopp's order above holds, "From your shows" moving with
-  the day; the greeting stays on top. A show's count of new episodes is red
-  with a ring in the page's colour — black, it vanished on dark covers.
+  The greeting stays on top, by name when the listener gave one for their
+  boosts (a Nostr profile's name is to take its place with Nostr, phase 2).
+  Amended again the same day: *From your shows* is gone, and Hopp's order is
+  Take part, Your shows, Continue, New, Favourites, Recently boosted,
+  Recently played — a saved order loses the dropped section without a gap.
+  Every list on Home shows at most five rows (Take part two), the rest one
+  tap away. A show's count of new episodes is white on a bright red, in a
+  white ring with a small shadow: black, then red in a ring of the page's
+  colour, it had little presence on dark covers.
 - **Notifications:** the quick boost's result reports nothing, only failures
   (default) or everything; a success disappears after a few seconds. Amended
   2026-10-11: the same choice covers boosts from the sheet (player, episode,

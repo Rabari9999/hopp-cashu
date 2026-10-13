@@ -44,4 +44,6 @@ interface PlaybackEngine {
  *  `Hopp/<version> (<Android|iOS>; <Phone|Tablet>)`. */
 data class AppInfo(val version: String, val platform: String, val deviceClass: String) {
     val userAgent: String get() = "Hopp/$version ($platform; $deviceClass)"
+    /** On iOS — where the system's names and settings are Apple's, not Google's. */
+    val isIos: Boolean get() = platform == "iOS"
 }

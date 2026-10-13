@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.draw.shadow
 import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
 import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
@@ -141,28 +143,30 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit) {
 }
 
 /**
- * New episodes of a show, as a small count; nothing when there are none. Red with
- * a ring in the page's colour (device feedback 2026-10-13): in the primary colour —
- * black on a light page — it vanished on a dark cover; the ring keeps it apart
- * from a red one too. One red in both themes: the dark theme's error colour is a
- * pale pink that had little more presence than before.
+ * New episodes of a show, as a count on red; nothing when there are none. Device
+ * feedback 2026-10-13, twice: in the primary colour — black on a light page — it
+ * vanished on dark covers; then red with a ring in the page's colour it still had
+ * little presence in the dark theme, where that ring is black too. Now a brighter
+ * red, a white ring in both themes and a small shadow lift it off any cover — dark,
+ * light or red — and the figure is a size larger.
  */
 @Composable
 private fun NewCount(n: Int) {
     if (n <= 0) return
     val label = stringResource(Res.string.library_new, n)
-    val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(50)
-    Text(
-        "$n",
-        Modifier.border(2.dp, colors.background, shape).padding(2.dp).clip(shape).background(BADGE_RED)
-            .padding(horizontal = 7.dp, vertical = 1.dp).semantics { contentDescription = label },
-        color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
-    )
+    Box(
+        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(BADGE_RED)
+            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp).padding(horizontal = 6.dp)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("$n", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
+    }
 }
 
-/** White on it reads at about 4.6 : 1. */
-private val BADGE_RED = Color(0xFFD93025)
+/** A bright red that white reads on at about 4.5 : 1. */
+private val BADGE_RED = Color(0xFFE5251F)
 
 /** A show as a card: the cover fills the cell, new episodes on it, title and author below. */
 @Composable

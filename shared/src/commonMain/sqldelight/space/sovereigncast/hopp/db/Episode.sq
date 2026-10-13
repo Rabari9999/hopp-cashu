@@ -167,19 +167,6 @@ ORDER BY e.favorite_at DESC;
 selectSearchable:
 SELECT id, title, meta_json FROM episode WHERE podcast_id = ?;
 
--- Home's "From your shows" (device feedback 2026-10-12): per show the newest
--- episode not heard, not started and not new. No window functions — Android 8
--- has SQLite 3.18 — so the newest date per show, joined back.
-selectUnheardPerShow:
-SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
-FROM episode e JOIN podcast p ON p.id = e.podcast_id
-JOIN (
-    SELECT podcast_id, max(published_at) AS newest FROM episode
-    WHERE played = 0 AND position_ms = 0 AND in_inbox = 0 AND published_at IS NOT NULL
-    GROUP BY podcast_id
-) n ON n.podcast_id = e.podcast_id AND n.newest = e.published_at
-WHERE e.played = 0 AND e.position_ms = 0 AND e.in_inbox = 0
-ORDER BY e.published_at DESC;
 
 -- When each show published, newest first — for its rhythm.
 selectPublished:

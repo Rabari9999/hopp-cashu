@@ -36,7 +36,6 @@ import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.favorites_title
 import space.sovereigncast.hopp.resources.home_boosted
-import space.sovereigncast.hopp.resources.home_from_shows
 import space.sovereigncast.hopp.resources.home_recent
 import space.sovereigncast.hopp.resources.home_section_move
 import space.sovereigncast.hopp.resources.home_sections_reset
@@ -58,23 +57,19 @@ object HomeSections {
     const val CONTINUE = "continue"
     const val YOUR_SHOWS = "yourshows"
     const val TAKE_PART = "shows"
-    const val FROM_SHOWS = "fromshows"
     const val FAVORITES = "favorites"
     const val BOOSTED = "boosted"
     const val RECENT = "recent"
 
-    /** Hopp's own order with news: what is new and under way first, what was heard last. */
-    val withNews = listOf(NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED, FROM_SHOWS, RECENT)
-
-    /** On a quiet day the unheard of each show come before the rest. */
-    val quietDay = listOf(NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FROM_SHOWS, FAVORITES, BOOSTED, RECENT)
+    /** Hopp's own order (device feedback 2026-10-13): what to take part in and the shows
+     *  first, then what is under way and new, what was heard last. */
+    val default = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
 
     val titles: Map<String, StringResource> = mapOf(
         NEW to Res.string.nav_new,
         CONTINUE to Res.string.library_continue,
         YOUR_SHOWS to Res.string.home_your_shows,
         TAKE_PART to Res.string.home_take_part,
-        FROM_SHOWS to Res.string.home_from_shows,
         FAVORITES to Res.string.favorites_title,
         BOOSTED to Res.string.home_boosted,
         RECENT to Res.string.home_recent,
@@ -82,11 +77,11 @@ object HomeSections {
 
     /**
      * The order Home shows its sections in: the listener's, once they have moved one —
-     * a section Hopp adds later goes where Hopp's own order puts it among them — and
-     * otherwise Hopp's, which depends on whether anything is new.
+     * a section Hopp adds later goes where Hopp's own order puts it among them, one it
+     * has dropped ("From your shows", 2026-10-13) drops out — and otherwise Hopp's.
      */
-    fun order(saved: List<String>, quiet: Boolean): List<String> {
-        val own = if (quiet) quietDay else withNews
+    fun order(saved: List<String>): List<String> {
+        val own = default
         val known = saved.filter { it in titles }.distinct()
         if (known.isEmpty()) return own
         val result = known.toMutableList()
@@ -102,9 +97,9 @@ object HomeSections {
 /** The settings page: drag to arrange, switch to hide, and back to Hopp's order. */
 @Composable
 fun HomeSectionsEditor(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    val saved = HomeSections.order(settings.homeOrder, quiet = false)
+    val saved = HomeSections.order(settings.homeOrder)
     var order by remember { mutableStateOf(saved) }
-    LaunchedEffect(settings.homeOrder) { order = HomeSections.order(settings.homeOrder, quiet = false) }
+    LaunchedEffect(settings.homeOrder) { order = HomeSections.order(settings.homeOrder) }
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
     // The first item is the explanation; the sections start at index 1.

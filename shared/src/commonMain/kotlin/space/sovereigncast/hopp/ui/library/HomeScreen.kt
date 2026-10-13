@@ -1,5 +1,9 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.home_hello_night_name
+import space.sovereigncast.hopp.resources.home_hello_evening_name
+import space.sovereigncast.hopp.resources.home_hello_day_name
+import space.sovereigncast.hopp.resources.home_hello_morning_name
 import space.sovereigncast.hopp.resources.home_customize
 import space.sovereigncast.hopp.resources.*
 import androidx.compose.runtime.produceState
@@ -86,7 +90,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 @Composable
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
-    onLibrary: () -> Unit = {}, onUnheard: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
+    onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
@@ -100,7 +104,6 @@ fun HomeScreen(
     val refreshing by vm.refreshing.collectAsState()
     val shows by vm.shows.collectAsState()
     val rhythms by vm.rhythms.collectAsState()
-    val unheard by vm.unheard.collectAsState()
     val lastChecked by vm.lastChecked.collectAsState()
     // Greeting, "updated … ago" and countdowns move with the clock.
     val now by produceState(nowSeconds()) { while (true) { delay(30_000); value = nowSeconds() } }
@@ -118,14 +121,14 @@ fun HomeScreen(
         val collapsed by vm.collapsed.collectAsState()
         val savedOrder by vm.savedOrder.collectAsState()
         val hidden by vm.hidden.collectAsState()
+        val greetName by vm.greetName.collectAsState()
         var allActions by remember { mutableStateOf(false) }
         LazyColumn {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12):
             // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now) }
-            // The listener's order, or Hopp's — "From your shows" first on a quiet day, after
-            // the rest with news — without what they hid (device feedback 2026-10-13).
-            HomeSections.order(savedOrder, quiet = newest.isEmpty()).filter { it !in hidden }.forEach { key ->
+            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName) }
+            // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
+            HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
                 when (key) {
                     HomeSections.NEW -> {
                     if (newest.isNotEmpty()) {
@@ -173,7 +176,6 @@ fun HomeScreen(
                         }
                     }
                     }
-                    HomeSections.FROM_SHOWS -> fromShows(unheard, collapsed, vm::toggle, nav, onUnheard)
                     HomeSections.FAVORITES -> {
                     // Favourites (device feedback 2026-10-11): only once there are any.
                     if (favorites.isNotEmpty()) {
@@ -277,15 +279,21 @@ private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
 /** "Good evening" and what the last refresh brought — Home's first line (device feedback 2026-10-12). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
-    val hello = stringResource(when (hour) {
+    // By name when the listener gave one for their boosts (device feedback 2026-10-13).
+    val hello = if (name == null) stringResource(when (hour) {
         in 5..10 -> Res.string.home_hello_morning
         in 11..17 -> Res.string.home_hello_day
         in 18..22 -> Res.string.home_hello_evening
         else -> Res.string.home_hello_night
-    })
+    }) else stringResource(when (hour) {
+        in 5..10 -> Res.string.home_hello_morning_name
+        in 11..17 -> Res.string.home_hello_day_name
+        in 18..22 -> Res.string.home_hello_evening_name
+        else -> Res.string.home_hello_night_name
+    }, name)
     val news = if (newCount > 0) stringResource(Res.string.home_new_count, newCount) else stringResource(Res.string.home_nothing_new)
     val updated = lastChecked?.let { stringResource(Res.string.home_updated, ago(now - it)) }
     Row(
@@ -295,7 +303,7 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long) {
         // The logo, not the hop alone — that means boost (ADR 0019).
         HoppSymbol(Modifier.size(48.dp))
         Column {
-            Text(hello, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(hello, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
     }
@@ -391,19 +399,3 @@ private fun SuggestionsRow(a: ShowAction, modifier: Modifier = Modifier, onClick
     }
 }
 
-/** "From your shows": per show the newest episode not heard yet, three of them. */
-private fun LazyListScope.fromShows(list: List<EpisodeItem>, collapsed: Set<String>, toggle: (String) -> Unit, nav: EpisodeNav, onMore: () -> Unit) {
-    if (list.isEmpty()) return
-    val open = "fromshows" !in collapsed
-    item(key = "h-fromshows") {
-        Column {
-            SectionHeader(stringResource(Res.string.home_from_shows), open, list.size, { toggle("fromshows") },
-                stringResource(Res.string.home_more).takeIf { list.size > HomeViewModel.QUIET_ROWS }, onMore)
-            if (open) Text(stringResource(Res.string.home_unheard), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-    if (open) items(list.take(HomeViewModel.QUIET_ROWS), key = { "u${it.id}" }) { item ->
-        EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
-    }
-}

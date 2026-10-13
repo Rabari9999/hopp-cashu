@@ -208,12 +208,9 @@ class AndroidAppFlowTest {
     private fun tapTop(text: String) = rule.onAllNodes(hasText(text) and hasClickAction()).onLast().performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
 
-    /** Home shows the back catalogue on a quiet day — under "From your shows",
-     *  never in New (device feedback 2026-10-12). */
-    private fun onlyUnderFromYourShows(title: String): Boolean = screen().let { s ->
-        val at = s.indexOf(title)
-        at < 0 || (s.indexOf("From your shows") in 0 until at)
-    }
+    /** The back catalogue never lands in New (device feedback 2026-10-12) — nor, since
+     *  "From your shows" left (2026-10-13), anywhere on Home. */
+    private fun backCatalogueOffHome(title: String): Boolean = title !in screen()
 
     /** What is on screen, for failure messages. */
     private fun screen(): List<String> = rule.onAllNodes(isRoot()).fetchSemanticsNodes().flatMap { root ->
@@ -236,7 +233,7 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe()
         tap("Library"); waitFor("Test Show")
         tap("Home"); waitFor("Ep 2")
-        check(onlyUnderFromYourShows("Ep 1")) { "the back catalogue landed in New: ${screen()}" }
+        check(backCatalogueOffHome("Ep 1")) { "the back catalogue landed in New: ${screen()}" }
         tap("Library"); waitFor("Test Show")
         tap("Test Show"); waitFor("✓ Subscribed")
         tap("✓ Subscribed"); tap("Unsubscribe")
@@ -252,7 +249,7 @@ class AndroidAppFlowTest {
         subscribe()
         back()
         tap("Home"); waitFor("Ep 2")
-        check(onlyUnderFromYourShows("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
+        check(backCatalogueOffHome("Ep 1") && !has("Search or feed address")) { "New is not New: ${screen()}" }
     }
 
     /** A show page waiting in another tab's stack closes once the show is gone. */

@@ -65,7 +65,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.Res
-import space.sovereigncast.hopp.resources.home_from_shows
 import space.sovereigncast.hopp.resources.back
 import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
@@ -162,7 +161,6 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object CrashRoute
 @Serializable object QueueRoute
 @Serializable object FavoritesRoute
-@Serializable object UnheardRoute
 @Serializable object DownloadsRoute
 
 private data class Tab(val route: Any, val label: StringResource, val icon: ImageVector)
@@ -218,7 +216,6 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let { stringResource(it.title) } ?: ""
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
         destination?.hasRoute(FavoritesRoute::class) == true -> stringResource(Res.string.favorites_title)
-        destination?.hasRoute(UnheardRoute::class) == true -> stringResource(Res.string.home_from_shows)
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
@@ -384,7 +381,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
-                                    onLibrary = { selectTab(tabs[1]) }, onUnheard = { nav.navigate(UnheardRoute) },
+                                    onLibrary = { selectTab(tabs[1]) },
                                     onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
@@ -396,7 +393,6 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
                             composable<FavoritesRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.FavoritesScreen() } }
-                            composable<UnheardRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.UnheardScreen() } }
                             composable<DownloadsRoute> { Readable(LIST_WIDTH) { DownloadsScreen() } }
                             composable<EpisodeRoute> { e ->
                                 val route = e.toRoute<EpisodeRoute>()

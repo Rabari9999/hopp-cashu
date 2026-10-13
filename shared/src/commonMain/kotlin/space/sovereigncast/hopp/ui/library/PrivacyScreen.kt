@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.pv_backup_tip_ios
+import space.sovereigncast.hopp.resources.pv_backup_when_ios
+import space.sovereigncast.hopp.resources.pv_backup_who_ios
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -87,6 +90,13 @@ private val PARTIES = listOf(
     Party(Res.string.pv_backup_who, Res.string.pv_backup_sees, Res.string.pv_backup_when, Res.string.pv_backup_tip),
 )
 
+/** The system backup is Apple's iCloud on iOS, not Google's (device feedback 2026-10-13).
+ *  What it takes is the same: the database; the wallet connection is in the keychain,
+ *  this device only, and downloads are in Caches, both outside the backup. */
+private val BACKUP_IOS = Party(Res.string.pv_backup_who_ios, Res.string.pv_backup_sees, Res.string.pv_backup_when_ios, Res.string.pv_backup_tip_ios)
+
+private fun parties(ios: Boolean) = if (!ios) PARTIES else PARTIES.map { if (it.who == Res.string.pv_backup_who) BACKUP_IOS else it }
+
 /**
  * Who sees what (ADR 0015): Hopp itself collects nothing, so the page is
  * about everyone else the app talks to — plainly, one card each, with a
@@ -131,7 +141,7 @@ fun PrivacyScreen(onPage: (SettingsPage) -> Unit = {}, onWallet: () -> Unit = {}
         }
 
         Text(stringResource(Res.string.privacy_who_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        PARTIES.forEach { p ->
+        parties(app.isIos).forEach { p ->
             Column(
                 Modifier.fillMaxWidth().border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),

@@ -55,8 +55,8 @@ data class Settings(
     val onboardingDone: Boolean = false,
     /** The library's shows as a list rather than cards (device feedback 2026-10-13). */
     val libraryAsList: Boolean = false,
-    /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own,
-     *  which moves "From your shows" up on a quiet day (device feedback 2026-10-13). */
+    /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own
+     *  (device feedback 2026-10-13). */
     val homeOrder: List<String> = emptyList(),
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),

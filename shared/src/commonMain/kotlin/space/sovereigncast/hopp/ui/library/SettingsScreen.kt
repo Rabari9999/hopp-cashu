@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.settings_notifications_open_ios
+import space.sovereigncast.hopp.resources.settings_notifications_system_ios
 import space.sovereigncast.hopp.resources.settings_home_note
 import space.sovereigncast.hopp.resources.settings_home
 import space.sovereigncast.hopp.resources.home_customize
@@ -191,8 +193,11 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                     })
                 }) { v -> vm.update { it.copy(boostFeedback = v) } }
                 Note(stringResource(Res.string.settings_boost_feedback_note))
-                Note(stringResource(Res.string.settings_notifications_system))
-                OutlinedButton(onClick = { actions.openNotificationSettings() }) { Text(stringResource(Res.string.settings_notifications_open)) }
+                // Each system in its own words (device feedback 2026-10-13: iOS read of Android).
+                Note(stringResource(if (app.isIos) Res.string.settings_notifications_system_ios else Res.string.settings_notifications_system))
+                OutlinedButton(onClick = { actions.openNotificationSettings() }) {
+                    Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
+                }
             }
             SettingsPage.Directories -> {
                 Note(stringResource(Res.string.settings_pi_note))

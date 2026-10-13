@@ -42,22 +42,31 @@ class HomeLayoutTest {
         walk(root)
     }
 
-    /** Subscribe to the test show: Ep 2 is new, Ep 1 the back catalogue under "From your shows". */
+    /** Subscribe to the test show: Ep 2 is new; Ep 1, the back catalogue, stays off Home. */
     private fun home() {
         rule.setContent { App() }
         tap("Discover")
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
         tap("Open as feed"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
-        tap("Home"); waitFor("From your shows")
+        tap("Home"); waitFor("Your shows"); waitFor("New")
+    }
+
+    /** Hopp's own order: the shows before what is new (device feedback 2026-10-13). */
+    @Test
+    fun theShowsComeBeforeWhatIsNew() {
+        home()
+        val s = screen()
+        check(s.indexOf("Your shows") < s.indexOf("New")) { "not in Hopp's order: $s" }
+        check("From your shows" !in s && "Ep 1" !in s) { "the back catalogue is on Home: $s" }
     }
 
     @Test
     fun theListenersOrderIsHomesOrder() {
-        runBlocking { settings.update { it.copy(homeOrder = listOf(HomeSections.FROM_SHOWS, HomeSections.NEW)) } }
-        home(); waitFor("New")
+        runBlocking { settings.update { it.copy(homeOrder = listOf(HomeSections.NEW, HomeSections.YOUR_SHOWS)) } }
+        home()
         val s = screen()
-        check(s.indexOf("From your shows") < s.indexOf("New")) { "not in the listener's order: $s" }
+        check(s.indexOf("New") < s.indexOf("Your shows")) { "not in the listener's order: $s" }
     }
 
     /** From Home to its settings, a section switched off, and back: it is gone. */
@@ -66,12 +75,20 @@ class HomeLayoutTest {
         home()
         // Home itself, not the row of covers in it.
         rule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Customize Home"))
-        tap("Customize Home"); waitFor("From your shows")
-        rule.onNode(isToggleable() and hasContentDescription("From your shows")).performClick()
-        rule.waitUntil(10_000) { runBlocking { HomeSections.FROM_SHOWS in settings.settings.first().homeHidden } }
+        tap("Customize Home"); waitFor("Your shows")
+        rule.onNode(isToggleable() and hasContentDescription("Your shows")).performClick()
+        rule.waitUntil(10_000) { runBlocking { HomeSections.YOUR_SHOWS in settings.settings.first().homeHidden } }
         rule.onNode(hasContentDescription("Back")).performClick()
         waitFor("New")
-        check(!has("From your shows")) { "the hidden section is still on Home: ${screen()}" }
+        check(!has("Your shows")) { "the hidden section is still on Home: ${screen()}" }
         check(has("Ep 2")) { "New went too" }
+    }
+
+    /** The name the listener boosts with greets them on Home (device feedback 2026-10-13). */
+    @Test
+    fun homeGreetsByTheBoostName() {
+        runBlocking { settings.update { it.copy(senderName = "Satoshi") } }
+        home()
+        rule.waitUntil(10_000) { screen().any { "Satoshi" in it } }
     }
 }

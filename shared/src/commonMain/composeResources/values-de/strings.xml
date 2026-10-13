@@ -291,10 +291,10 @@
     <string name="pv_extra_when">wenn sie geladen werden; die Adressen stehen im Feed</string>
     <string name="pv_backup_who">Google (System-Backup)</string>
     <string name="pv_backup_sees">deine Bibliothek, Positionen, Einstellungen und den Zahlungsverlauf</string>
-    <string name="pv_backup_when">nur, wenn auf deinem Telefon System-Backups eingeschaltet sind</string>
+    <string name="pv_backup_when">nur, wenn auf deinem Gerät System-Backups eingeschaltet sind</string>
     <string name="privacy_ua_title">Was Hopp über sich sagt</string>
     <string name="privacy_ua">Jede Anfrage trägt „%1$s“ – App, Plattform und Geräteklasse, genug für die Statistik der Podcaster. Keine Systemversion, kein Gerätemodell.</string>
-    <string name="privacy_backup_title">Was das Telefon nie verlässt</string>
+    <string name="privacy_backup_title">Was dein Gerät nie verlässt</string>
     <string name="privacy_backup">Die Wallet-Verbindung liegt im Schlüsselspeicher des Systems und ist nie Teil eines Backups. Geladene Folgen werden auch nicht gesichert; sie lassen sich neu laden.</string>
     <string name="privacy_summary">%1$d von %2$d prüfbaren Punkten optimiert</string>
     <string name="privacy_ip_title">Deine IP-Adresse</string>
@@ -326,7 +326,7 @@
     <string name="pv_share_sees">Show, Folge und Zeitpunkt aus dem Link – nichts über dich; www.sovereigncast.space sieht dessen IP-Adresse, wenn er den Link im Browser öffnet</string>
     <string name="pv_share_when">nur, wenn du etwas teilst</string>
     <string name="pv_share_tip">Teile ohne „ab hier“, wenn der Zeitpunkt nichts verraten soll.</string>
-    <string name="pv_backup_tip">Willst du das nicht, schalte die Sicherung von App-Daten in den Google-Einstellungen deines Telefons aus.</string>
+    <string name="pv_backup_tip">Willst du das nicht, schalte die Sicherung von App-Daten in den Google-Einstellungen deines Geräts aus.</string>
     <string name="show_support">Show unterstützen</string>
     <string name="transcript_search">Im Transkript suchen</string>
     <string name="transcript_follow">Mitlesen</string>
@@ -359,7 +359,7 @@
     <string name="crash_delete">Löschen</string>
     <string name="crash_share">Teilen</string>
     <string name="crash_issue">Als GitLab-Issue</string>
-    <string name="crash_intro">Das ist der ganze Bericht, genau so, wie er dein Telefon verlassen würde: Version, System, Zeit und die Stelle, an der Hopp stehen blieb. Adressen und Schlüssel sind geschwärzt – keine Abos, keine Wallet-Daten. Hopp sendet nichts von selbst.</string>
+    <string name="crash_intro">Das ist der ganze Bericht, genau so, wie er dein Gerät verlassen würde: Version, System, Zeit und die Stelle, an der Hopp stehen blieb. Adressen und Schlüssel sind geschwärzt – keine Abos, keine Wallet-Daten. Hopp sendet nichts von selbst.</string>
     <string name="settings_group_value">Value for Value</string>
     <string name="settings_group_app">App</string>
     <string name="settings_group_hopp">Hopp</string>
@@ -396,7 +396,7 @@
     <string name="onboarding_later">Später</string>
     <string name="onboarding_wallet">Wallet verbinden</string>
     <string name="onboarding_welcome_title">Willkommen bei Hopp</string>
-    <string name="onboarding_welcome_text">Ein ehrlicher, offener Podcast-Player: kein Konto, kein Tracking. Deine Abos bleiben auf deinem Telefon.</string>
+    <string name="onboarding_welcome_text">Ein ehrlicher, offener Podcast-Player: kein Konto, kein Tracking. Deine Abos bleiben auf deinem Gerät.</string>
     <string name="onboarding_subscribe_title">Shows abonnieren</string>
     <string name="onboarding_subscribe_text">Unter Entdecken suchst du im Podcast Index, fügst eine Feed-Adresse ein oder holst deine Abos per OPML aus einer anderen App. Jede Show kannst du dir vor dem Abonnieren ansehen.</string>
     <string name="onboarding_library_title">Deine Bibliothek</string>
@@ -485,9 +485,7 @@
     <string name="home_your_shows">Deine Shows</string>
     <string name="home_take_part">Mitmachen</string>
     <string name="home_show_all">Alle %1$d zeigen</string>
-    <string name="home_from_shows">Aus deinen Shows</string>
     <string name="home_unheard">Noch nicht gehört</string>
-    <string name="home_more">Mehr</string>
     <string name="home_suggestions_label">VORSCHLÄGE</string>
     <string name="home_suggestions_waiting">Themen für deine Stimme: %1$d</string>
     <string name="home_vote">Abstimmen</string>
@@ -502,4 +500,13 @@
     <string name="home_sections_text">Ziehe einen Bereich, um ihn zu verschieben; schalte ihn aus, um ihn auf Home auszublenden. Solange du nichts verschoben hast, kommen an ruhigen Tagen deine ungehörten Folgen zuerst.</string>
     <string name="home_sections_reset">Zurück zu Hopps Reihenfolge</string>
     <string name="home_section_move">%1$s verschieben</string>
+    <string name="pv_backup_who_ios">Apple (iCloud-Backup)</string>
+    <string name="pv_backup_when_ios">nur, wenn das iCloud-Backup für dein Gerät eingeschaltet ist</string>
+    <string name="pv_backup_tip_ios">Willst du das nicht, nimm Hopp in den iCloud-Einstellungen aus dem Backup deines Geräts heraus.</string>
+    <string name="settings_notifications_system_ios">Ob und wie sich Hopp meldet – Banner, Töne, Sperrbildschirm –, stellst du in den iOS-Einstellungen unter Mitteilungen ein.</string>
+    <string name="settings_notifications_open_ios">iOS-Einstellungen öffnen</string>
+    <string name="home_hello_morning_name">Guten Morgen, %1$s</string>
+    <string name="home_hello_day_name">Hallo %1$s</string>
+    <string name="home_hello_evening_name">Guten Abend, %1$s</string>
+    <string name="home_hello_night_name">Noch wach, %1$s?</string>
 </resources>

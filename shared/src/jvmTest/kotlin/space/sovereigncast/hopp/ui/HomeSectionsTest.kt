@@ -4,7 +4,6 @@ import space.sovereigncast.hopp.ui.library.HomeSections
 import space.sovereigncast.hopp.ui.library.HomeSections.BOOSTED
 import space.sovereigncast.hopp.ui.library.HomeSections.CONTINUE
 import space.sovereigncast.hopp.ui.library.HomeSections.FAVORITES
-import space.sovereigncast.hopp.ui.library.HomeSections.FROM_SHOWS
 import space.sovereigncast.hopp.ui.library.HomeSections.NEW
 import space.sovereigncast.hopp.ui.library.HomeSections.RECENT
 import space.sovereigncast.hopp.ui.library.HomeSections.TAKE_PART
@@ -15,24 +14,21 @@ import kotlin.test.assertEquals
 /** The order of Home's sections (device feedback 2026-10-13). */
 class HomeSectionsTest {
     @Test
-    fun withoutAnOrderOfTheirOwnHoppsMovesTheUnheardUpOnAQuietDay() {
-        assertEquals(HomeSections.withNews, HomeSections.order(emptyList(), quiet = false))
-        assertEquals(HomeSections.quietDay, HomeSections.order(emptyList(), quiet = true))
-        check(HomeSections.quietDay.indexOf(FROM_SHOWS) < HomeSections.quietDay.indexOf(FAVORITES))
-        check(HomeSections.withNews.indexOf(FROM_SHOWS) > HomeSections.withNews.indexOf(BOOSTED))
+    fun hoppsOwnOrderPutsTakingPartAndTheShowsFirst() {
+        assertEquals(listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT), HomeSections.order(emptyList()))
     }
 
     @Test
-    fun theListenersOrderHoldsWhateverTheDay() {
-        val mine = listOf(RECENT, FROM_SHOWS, NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED)
-        assertEquals(mine, HomeSections.order(mine, quiet = false))
-        assertEquals(mine, HomeSections.order(mine, quiet = true))
+    fun theListenersOrderHolds() {
+        val mine = listOf(RECENT, NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED)
+        assertEquals(mine, HomeSections.order(mine))
     }
 
-    /** A section added in a later version goes where Hopp's own order puts it; unknown keys drop out. */
+    /** A section added later goes where Hopp's order puts it; one dropped — "From your
+     *  shows" — or unknown leaves a saved order without a gap. */
     @Test
-    fun aSectionTheSavedOrderDoesNotKnowFindsItsPlace() {
-        val saved = listOf(RECENT, NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED, "gone")
-        assertEquals(listOf(RECENT, NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED, FROM_SHOWS), HomeSections.order(saved, quiet = false))
+    fun aSavedOrderLosesWhatHoppDroppedAndGainsWhatItAdded() {
+        val saved = listOf(RECENT, "fromshows", NEW, CONTINUE, TAKE_PART, FAVORITES, BOOSTED)
+        assertEquals(listOf(RECENT, NEW, CONTINUE, TAKE_PART, YOUR_SHOWS, FAVORITES, BOOSTED), HomeSections.order(saved))
     }
 }
