@@ -19,15 +19,27 @@ import androidx.compose.ui.unit.dp
 /** From here the window is no phone held upright: a navigation rail instead of the bar. */
 val MEDIUM_WIDTH: Dp = 600.dp
 
+/** From here the content (beside the rail) holds a list and its detail side by side. */
+val EXPANDED_WIDTH: Dp = 840.dp
+
+/** From here the whole window has room for now playing as a column of its own on the right. */
+val PLAYER_PANE_WIDTH: Dp = 1200.dp
+
+/** How wide now playing's column is when it stands beside the content. */
+val PLAYER_PANE: Dp = 400.dp
+
+/** How wide a list of episodes may get: wider, the play button drifts away from the title. */
+val LIST_WIDTH: Dp = 840.dp
+
 /** How wide running text may get: show notes, settings, the wallet — beyond this
  *  a line is too long to read (about 80 characters). */
 val READABLE_WIDTH: Dp = 720.dp
 
-/** A page of mostly text, centred and no wider than [READABLE_WIDTH] on a large screen;
- *  on a phone it fills the width as before. */
+/** A page centred and no wider than [max] on a large screen — [READABLE_WIDTH] for
+ *  running text, [LIST_WIDTH] for lists; on a phone it fills the width as before. */
 @Composable
-fun Readable(content: @Composable () -> Unit) {
+fun Readable(max: Dp = READABLE_WIDTH, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.widthIn(max = READABLE_WIDTH).fillMaxHeight()) { content() }
+        Box(Modifier.widthIn(max = max).fillMaxHeight()) { content() }
     }
 }

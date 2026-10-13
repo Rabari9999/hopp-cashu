@@ -33,6 +33,7 @@
     <string name="library_shows">Shows</string>
     <string name="library_empty">No subscriptions yet.</string>
     <string name="show_subscribed">Subscribed</string>
+    <string name="show_pick_episode">Pick an episode to see it here.</string>
     <string name="show_unsubscribe">Unsubscribe</string>
     <string name="show_unsubscribe_confirm">Unsubscribe from %1$s? Positions of this show are removed.</string>
     <string name="show_episodes">%1$d episodes</string>

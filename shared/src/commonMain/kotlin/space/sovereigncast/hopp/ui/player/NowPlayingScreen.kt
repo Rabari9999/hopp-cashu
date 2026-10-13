@@ -129,7 +129,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  *  title, progress with chapter gaps, controls, value bar, sheets. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
+fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWallet: () -> Unit = {}) {
     val now by model.current.collectAsState()
     val playing = now ?: return
     val episode = playing.item
@@ -161,7 +161,8 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
     val colors = MaterialTheme.colorScheme
 
     // Swipe down (or back) minimises to the mini player, as in every player app.
-    BackHandler(enabled = true) { model.minimize() }
+    // As a column beside the content (ADR 0020) back belongs to the content.
+    BackHandler(enabled = !inPane) { model.minimize() }
     val dragY = remember { Animatable(0f) }
     val dismissPx = with(LocalDensity.current) { 120.dp.toPx() }
     Box(
@@ -169,7 +170,8 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
             .offset { IntOffset(0, dragY.value.roundToInt()) }
             .background(colors.background)
             .safeDrawingPadding()
-            .pointerInput(Unit) {
+            .pointerInput(inPane) {
+                if (inPane) return@pointerInput
                 detectVerticalDragGestures(
                     onDragEnd = {
                         scope.launch {
@@ -304,7 +306,11 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
                 ) {
                     cover(Modifier.size(coverSide))
                     Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) { details() }
-                } else Column(Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 560.dp)) {
+                } else Column(
+                    Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 560.dp)
+                        // A column beside the content need not be swiped away: it may scroll.
+                        .then(if (inPane) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                ) {
                     cover(Modifier.fillMaxWidth().aspectRatio(1f))
                     Spacer(Modifier.height(16.dp))
                     details()

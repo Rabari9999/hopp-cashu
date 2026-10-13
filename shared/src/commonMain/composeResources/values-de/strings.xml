@@ -33,6 +33,7 @@
     <string name="library_shows">Shows</string>
     <string name="library_empty">Noch keine Abos.</string>
     <string name="show_subscribed">Abonniert</string>
+    <string name="show_pick_episode">Wähle eine Folge, um sie hier zu sehen.</string>
     <string name="show_unsubscribe">Abo beenden</string>
     <string name="show_unsubscribe_confirm">%1$s nicht mehr abonnieren? Die Positionen dieser Show werden entfernt.</string>
     <string name="show_episodes">%1$d Folgen</string>

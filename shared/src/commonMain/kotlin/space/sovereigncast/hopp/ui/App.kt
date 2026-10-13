@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -103,7 +105,10 @@ import space.sovereigncast.hopp.ui.library.PrivacyScreen
 import space.sovereigncast.hopp.ui.library.SharedEpisode
 import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.ui.components.LIST_WIDTH
 import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
+import space.sovereigncast.hopp.ui.components.PLAYER_PANE
+import space.sovereigncast.hopp.ui.components.PLAYER_PANE_WIDTH
 import space.sovereigncast.hopp.ui.components.Readable
 import space.sovereigncast.hopp.ui.value.HistoryScreen
 import space.sovereigncast.hopp.ui.value.WalletScreen
@@ -296,6 +301,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   // A rail at the side once the window is wider than a phone held
                   // upright (ADR 0020): a tablet, a phone on its side, a Mac window.
                   val rail = maxWidth >= MEDIUM_WIDTH
+                  // Wide enough, now playing stands as a column on the right instead of
+                  // covering everything (ADR 0020, step 2) — the library stays in reach.
+                  val playerPane = maxWidth >= PLAYER_PANE_WIDTH
+                  val paneOpen = playerPane && expanded
                   Row(Modifier.fillMaxSize()) {
                     if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
@@ -332,7 +341,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         },
                         bottomBar = {
                             Column {
-                                MiniPlayer(player)
+                                if (!paneOpen) MiniPlayer(player)
                                 if (!rail) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                                     tabs.forEach { tab ->
                                         NavigationBarItem(
@@ -355,22 +364,22 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             popEnterTransition = { sharedAxisIn(forward = false) },
                             popExitTransition = { sharedAxisOut(forward = false) },
                         ) {
-                            composable<HomeRoute> {
+                            composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
                                     onLibrary = { selectTab(tabs[1]) }, onUnheard = { nav.navigate(UnheardRoute) })
-                            }
-                            composable<InboxRoute> { InboxScreen(onDiscover = { selectTab(tabs[2]) }) }
+                            } }
+                            composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> {
                                 LibraryScreen(
                                     onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
                                 )
                             }
-                            composable<QueueRoute> { QueueScreen() }
-                            composable<FavoritesRoute> { space.sovereigncast.hopp.ui.library.FavoritesScreen() }
-                            composable<UnheardRoute> { space.sovereigncast.hopp.ui.library.UnheardScreen() }
-                            composable<DownloadsRoute> { DownloadsScreen() }
+                            composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
+                            composable<FavoritesRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.FavoritesScreen() } }
+                            composable<UnheardRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.UnheardScreen() } }
+                            composable<DownloadsRoute> { Readable(LIST_WIDTH) { DownloadsScreen() } }
                             composable<EpisodeRoute> { e ->
                                 val route = e.toRoute<EpisodeRoute>()
                                 Readable { EpisodeScreen(
@@ -380,14 +389,14 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onOpenWallet = { nav.navigate(WalletRoute) },
                                 ) }
                             }
-                            composable<DiscoverRoute> {
+                            composable<DiscoverRoute> { Readable(LIST_WIDTH) {
                                 DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
-                            }
+                            } }
                             composable<ShowPreviewRoute> { e ->
                                 // Subscribed: the show's own page takes the preview's place —
                                 // unless the listener has moved on while it loaded.
                                 val route = e.toRoute<ShowPreviewRoute>()
-                                ShowPreviewScreen(
+                                Readable(LIST_WIDTH) { ShowPreviewScreen(
                                     route.feedUrl,
                                     known = route.title?.let { DirectoryShow(it, route.feedUrl, route.author, route.imageUrl) },
                                     onOpen = { id ->
@@ -405,7 +414,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                             }
                                         }
                                     },
-                                )
+                                ) }
                             }
                             composable<SettingsRoute> { Readable {
                                 SettingsScreen(
@@ -431,9 +440,24 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
-                                ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                    openCommunity = route.community)
+                                // Wide: the show and an episode side by side (ADR 0020, step 2).
+                                space.sovereigncast.hopp.ui.library.ShowListDetail(
+                                    route.id,
+                                    show = {
+                                        ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
+                                            openCommunity = route.community)
+                                    },
+                                    episode = { id, onGone ->
+                                        Readable { EpisodeScreen(id, onShow = {}, onGone = onGone, onOpenWallet = { nav.navigate(WalletRoute) }) }
+                                    },
+                                )
                             }
+                        }
+                    }
+                    if (paneOpen) {
+                        androidx.compose.material3.VerticalDivider()
+                        Box(Modifier.width(PLAYER_PANE).fillMaxHeight()) {
+                            NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                         }
                     }
                   }
@@ -447,7 +471,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     // Up with a decelerating curve, down with an accelerating one — the
                     // linear default felt like the device could not keep up.
                     AnimatedVisibility(
-                        expanded,
+                        expanded && !playerPane,
                         enter = slideInVertically(tween(420, easing = EmphasizedDecelerate)) { it } + fadeIn(tween(180)),
                         exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
                     ) {

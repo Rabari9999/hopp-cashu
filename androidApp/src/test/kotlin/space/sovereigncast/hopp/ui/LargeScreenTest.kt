@@ -64,6 +64,42 @@ class LargeScreenTest {
     @Test @Config(qualifiers = "en-w800dp-h1280dp-port")
     fun nowPlayingFitsATabletUpright() { openPlayer(); controlsOnScreen() }
 
+    /** Step 2: on a tablet on its side a row of the show's page picks the episode
+     *  beside it — the list stays, the page is not covered. */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun showAndEpisodeSideBySideOnATablet() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        waitFor("Pick an episode to see it here.")
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasText("Ep 1")).assertIsDisplayed()
+        rule.onNode(hasText("✓ Subscribed")).assertIsDisplayed()
+    }
+
+    /** Upright, the same tablet keeps a page per step, as a phone does. */
+    @Test @Config(qualifiers = "en-w800dp-h1280dp-port")
+    fun anUprightTabletOpensTheEpisodeAsAPage() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        tap("Ep 2"); waitFor("Show notes")
+        check(!has("✓ Subscribed")) { "the show's page is still there" }
+    }
+
+    /** Step 2: wide enough, now playing stands beside the content — the rail and
+     *  the show stay in reach. */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun nowPlayingStandsBesideTheContentOnATablet() {
+        openPlayer(); controlsOnScreen()
+        rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
+        rule.onNode(hasText("Ep 1")).assertIsDisplayed()
+    }
+
     /** Wider than a phone held upright: the tabs sit in a rail on the left, not along the bottom. */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
     fun tabsMoveToARailOnATablet() {

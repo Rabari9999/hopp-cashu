@@ -76,26 +76,41 @@ Breakpoints, those of Material 3's window size classes:
   controls are on screen and where the tabs are. Three of its five tests fail
   on the layout before step 1.
 
-### Step 2 — use the space
+### Step 2 — use the space (done 2026-10-13)
 
-With JetBrains' multiplatform Material 3 Adaptive
-(`org.jetbrains.compose.material3.adaptive`, 1.3.0 is built on Compose 1.10):
+- **A show and an episode side by side** once the content beside the rail is
+  840 dp wide: the show's page in a 420 dp column on the left, unchanged, and
+  the episode on the right (`ShowListDetail`). A row picks the episode instead
+  of opening a page over the show — the page swaps `LocalEpisodeNav.open`, so
+  every list on it behaves alike. The pick is the page's own state, not a step
+  on the back stack: back leaves the show, as it does on a phone. Narrower (a
+  tablet upright, or with now playing beside it) the show's page alone, rows
+  opening the episode as before; the pick survives the switch.
+- **Now playing beside the content** once the window is 1200 dp wide: a 400 dp
+  column on the right instead of a full-screen overlay, the rail and the page
+  still in reach (as Apple Podcasts does on the iPad); the mini player steps
+  aside while it is open. In the column back belongs to the content, the
+  player does not swipe away, and it scrolls if the window is short.
+- **Lists centred, at most 840 dp:** Home, New, Up next, favourites, unheard,
+  downloads, Discover and a show's preview — wider, the play button drifts away
+  from the title. The library's cover grid keeps the whole width.
+- **Built without Material 3 Adaptive.** Its `ListDetailPaneScaffold` brings a
+  navigator of its own next to the NavHost and the tabs' own stacks; the two
+  places that need a second pane do with `BoxWithConstraints`. Revisit when a
+  third does, or for predictive back between panes.
+- `LargeScreenTest` adds three tests: show and episode side by side on a tablet
+  on its side, a page per step on one upright, now playing beside the content.
 
-- `ListDetailPaneScaffold` for library → show and show → episode: list on the
-  left, detail on the right from *expanded*;
-- now playing as a supporting pane on the right from *expanded*, instead of a
-  full-screen overlay (as Apple Podcasts does on the iPad);
-- Home in two columns (New, Continue | Your shows, Take part) or centred;
-  episode lists no wider than is useful;
-- bottom sheets as dialogs or side sheets from *expanded*;
-- keyboard and pointer for iPad and Mac: space for play/pause, arrows to skip,
-  hover states, a context menu on right-click where a long press acts on
-  phones.
+Moved to step 3, where keyboard and pointer matter most and can be tried on a
+Mac: keyboard shortcuts (space for play/pause, arrows to skip), hover states, a
+context menu on right-click where a long press acts on phones. Bottom sheets
+stay sheets — Material 3 already caps them at 640 dp and centres them.
 
 ### Step 3 — the Mac
 
-Enable the iPad app on Apple-Silicon Macs in App Store Connect, check it as a
-Mac window (resizing, media keys, Now Playing, the menu bar's standard items).
+Keyboard and pointer (above). Enable the iPad app on Apple-Silicon Macs in App
+Store Connect, check it as a Mac window (resizing, media keys, Now Playing, the
+menu bar's standard items).
 Compose Desktop only if listeners ask for a native Mac app.
 
 ## Consequences
@@ -106,6 +121,6 @@ Compose Desktop only if listeners ask for a native Mac app.
   in both orientations and in Split View, and add iPad screenshots.
 - New screens are checked at the four sizes of `LargeScreenTest`
   (Robolectric `qualifiers`), not only at the phone's.
-- The large-screen layout is one more code path in now playing and the frame;
-  it lives in `ui/components/Adaptive.kt` (breakpoints, `Readable`) and in the
-  two places that switch on the window's size.
+- The large-screen layout is one more code path in the frame, now playing and
+  the show's page; breakpoints and `Readable` live in `ui/components/Adaptive.kt`,
+  the show's two panes in `ui/library/ShowListDetail.kt`.
