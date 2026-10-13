@@ -27,6 +27,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextClearance
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import io.ktor.client.HttpClient
@@ -72,6 +73,8 @@ private class FakeEngine : PlaybackEngine {
     override fun release() = Unit
 }
 
+/** A show in Nodesignal's podcast:podroll (the test feed nodesignal-podhome.xml). */
+private const val ROLLED_GUID = "537e4d76-e51c-5a01-a88d-83450d7cf7e8"
 private const val SC_GUID = "e8df0b13-47de-544a-99b7-ec7cbd960a16"
 private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
 <title>Nodesignal</title><podcast:guid>e8df0b13-47de-544a-99b7-ec7cbd960a16</podcast:guid>
@@ -147,6 +150,11 @@ class TestApp : Application() {
             when {
                 req.url.host == "pm.test" -> scInstance(req.url.encodedPath)
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
+                // One of Nodesignal's podroll, as the Podcast Index resolves it; the others it does not know.
+                req.url.host == "api.podcastindex.org" && req.url.encodedPath.endsWith("podcasts/byguid") ->
+                    if (req.url.parameters["guid"] == ROLLED_GUID)
+                        respond("""{"status":"true","feed":{"id":3,"title":"Münzweg 21","url":"https://feed.podbean.com/muenzweg21/feed.xml","author":"M","podcastGuid":"$ROLLED_GUID"}}""")
+                    else respond("""{"status":"true","feed":[]}""")
                 req.url.host == "api.podcastindex.org" ->
                     respond("""{"status":"true","feeds":[{"id":1,"title":"Test Show","url":"https://pod.test/feed.xml","author":"A"},
                         {"id":2,"title":"Nodesignal","url":"https://pod.test/sc.xml","author":"N","podcastGuid":"$SC_GUID"}]}""")
@@ -340,6 +348,26 @@ class AndroidAppFlowTest {
     }
 
     // ── package 3 ──────────────────────────────────────────────────────────
+
+    /** A show recommended by a subscribed one leaves the recommendations once it is
+     *  subscribed too (device feedback 2026-10-13: it stayed, the list was loaded once). */
+    @Test
+    fun aSubscribedRecommendationLeavesTheList() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/nodesignal.xml")
+        back()
+        // The recommendations show while nothing is typed.
+        rule.onNode(hasSetTextAction()).performTextClearance()
+        // Below the fold on a phone: scroll to it once it has been resolved.
+        val discover = rule.onNode(androidx.compose.ui.test.hasScrollToNodeAction())
+        rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isSuccess }
+        tap("Münzweg 21"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        back()
+        waitFor("Search or feed address")
+        // Gone from the list — not merely scrolled out of view.
+        rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isFailure }
+    }
 
     /** A term goes to the Podcast Index; a result opens its page first. */
     @Test

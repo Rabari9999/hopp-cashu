@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import kotlinx.coroutines.flow.mapLatest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -356,8 +357,25 @@ class DiscoverViewModel(
     val valueOnly: StateFlow<Boolean> = _valueOnly.asStateFlow()
     private val _search = MutableStateFlow<SearchUi>(SearchUi.Idle)
     val search: StateFlow<SearchUi> = _search.asStateFlow()
-    private val _podroll = MutableStateFlow<List<DirectoryShow>>(emptyList())
-    val podroll: StateFlow<List<DirectoryShow>> = _podroll.asStateFlow()
+    /** Feed keys and podcast GUIDs of what is subscribed, for the recommendations. */
+    private val subscribedKeys = podcasts.shows
+        .map { list -> list.flatMap { listOfNotNull(feedKey(it.feedUrl), it.podcastGuid?.lowercase()) }.toSet() }
+        .distinctUntilChanged()
+
+    /** "Recommended by your shows" — fetched again whenever the subscriptions change,
+     *  and without what is subscribed at once, before that answer is in. Loaded once
+     *  only, a recommendation just subscribed stayed in the list (device feedback
+     *  2026-10-13): this page outlives the show's page opened from it. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val podroll: StateFlow<List<DirectoryShow>> = state(
+        combine(
+            subscribedKeys.mapLatest { runCatching { directory.podroll() }.getOrDefault(emptyList()) },
+            subscribedKeys,
+        ) { list, subscribed ->
+            list.filter { feedKey(it.feedUrl) !in subscribed && it.podcastGuid?.lowercase() !in subscribed }
+        },
+        emptyList(),
+    )
     private val _import = MutableStateFlow<AddState>(AddState.Idle)
     val import: StateFlow<AddState> = _import.asStateFlow()
     /** Feed keys of what is subscribed — results show it. */
@@ -382,7 +400,6 @@ class DiscoverViewModel(
                     _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)
                 }
         }
-        viewModelScope.launch { _podroll.value = runCatching { directory.podroll() }.getOrDefault(emptyList()) }
         if (_scShows.value == null) viewModelScope.launch { _scShows.value = scDirectory.shows() }
     }
 
