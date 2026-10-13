@@ -39,7 +39,7 @@ fun ChapterRow(
     val colors = MaterialTheme.colorScheme
     val uri = LocalUriHandler.current
     Row(
-        modifier.fillMaxWidth().combinedClickable(onClick = onSeek, onLongClick = onShare)
+        modifier.fillMaxWidth().onSecondaryClick(onShare).combinedClickable(onClick = onSeek, onLongClick = onShare)
             .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),

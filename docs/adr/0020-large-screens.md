@@ -106,12 +106,32 @@ Mac: keyboard shortcuts (space for play/pause, arrows to skip), hover states, a
 context menu on right-click where a long press acts on phones. Bottom sheets
 stay sheets — Material 3 already caps them at 640 dp and centres them.
 
-### Step 3 — the Mac
+### Step 3 — keyboard, pointer and the Mac (code done 2026-10-13)
 
-Keyboard and pointer (above). Enable the iPad app on Apple-Silicon Macs in App
-Store Connect, check it as a Mac window (resizing, media keys, Now Playing, the
-menu bar's standard items).
-Compose Desktop only if listeners ask for a native Mac app.
+- **Keyboard** (`Modifier.keyShortcuts` on the frame): space plays and pauses,
+  ← and → skip by the listener's skip lengths, Escape closes now playing —
+  only while nothing else holds the focus, so a search field keeps its spaces
+  and arrows and a focused button its space. The frame takes the focus itself
+  and back whenever nobody holds it; a `focusTarget`, not `focusable()`, so a
+  screen reader has nothing extra to stop at. No modifier combinations, which
+  stay the system's.
+- **Right-click** does what a long press does on a touch screen
+  (`Modifier.onSecondaryClick`): all speeds, the previous or next chapter from
+  the skip buttons, sharing a chapter or a transcript line. It takes the press
+  in the initial pass, before the clickable, so a right-click is never also a
+  tap.
+- **Hover** needs nothing of its own: Material's clickables already show a
+  hover state for a pointer.
+- `KeyboardAndPointerTest` (tablet size): space, an arrow, Escape, a space typed
+  into search that does not pause, a right-click that opens the speeds without
+  changing the speed.
+
+Left for the maintainer, outside the code: in App Store Connect, under the
+app's pricing and availability, make the iPad app available on Apple-Silicon
+Macs; then check it as a Mac window — resizing, media keys, Now Playing, the
+keyboard shortcuts. Running it on a Mac, like on a device, needs the app signed
+with the team (`TEAM_ID` in `iosApp/Configuration/Config.xcconfig`, empty so
+far). Compose Desktop only if listeners ask for a native Mac app.
 
 ## Consequences
 

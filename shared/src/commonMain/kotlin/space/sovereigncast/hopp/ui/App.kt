@@ -110,6 +110,7 @@ import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
 import space.sovereigncast.hopp.ui.components.PLAYER_PANE
 import space.sovereigncast.hopp.ui.components.PLAYER_PANE_WIDTH
 import space.sovereigncast.hopp.ui.components.Readable
+import space.sovereigncast.hopp.ui.components.keyShortcuts
 import space.sovereigncast.hopp.ui.value.HistoryScreen
 import space.sovereigncast.hopp.ui.value.WalletScreen
 import space.sovereigncast.hopp.value.ValueService
@@ -296,7 +297,16 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     HoppTheme {
         androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav) {
           ProvideDownloadProgress {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            // Space, ← →, Escape for a keyboard (ADR 0020, step 3) — only with an episode loaded.
+            val shortcuts = remember(player) {
+                space.sovereigncast.hopp.ui.components.KeyShortcuts(
+                    playPause = { if (player.current.value != null) player.togglePlay() },
+                    back = { if (player.current.value != null) player.skipBack() },
+                    forward = { if (player.current.value != null) player.skipForward() },
+                    close = { if (player.expanded.value) { player.minimize(); true } else false },
+                )
+            }
+            Surface(Modifier.fillMaxSize().keyShortcuts(shortcuts), color = MaterialTheme.colorScheme.background) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                   // A rail at the side once the window is wider than a phone held
                   // upright (ADR 0020): a tablet, a phone on its side, a Mac window.

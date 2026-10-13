@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.player
 
+import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -125,7 +126,7 @@ fun TranscriptView(item: EpisodeItem, positionMs: Long?, onSeek: (Long) -> Unit,
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                                 .then(if (active) Modifier.background(colors.surfaceVariant) else Modifier)
                                 // A tap plays from the line, a long press shares it as a quote (device feedback 2026-10-12).
-                                .then(if (cue.startMs != null) Modifier.combinedClickable(onClick = { follow = true; onSeek(cue.startMs) }, onLongClick = onShare?.let { { it(cue) } }) else Modifier)
+                                .then(if (cue.startMs != null) Modifier.onSecondaryClick(onShare?.let { { it(cue) } }).combinedClickable(onClick = { follow = true; onSeek(cue.startMs) }, onLongClick = onShare?.let { { it(cue) } }) else Modifier)
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         ) {
                             if (speakerChanged || (q.isNotEmpty() && cue.speaker != null)) {

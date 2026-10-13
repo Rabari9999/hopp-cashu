@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.player
 
+import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
@@ -248,6 +249,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 Text(
                     "${formatSpeed(state.speed)}×",
                     Modifier.clip(RoundedCornerShape(50))
+                        .onSecondaryClick { showSpeed = true }
                         .combinedClickable(onClick = { model.cycleSpeed() }, onLongClick = { showSpeed = true })
                         .padding(12.dp).semantics { contentDescription = speedLabel },
                     fontWeight = FontWeight.Bold,
@@ -411,7 +413,7 @@ private fun ChapterButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
 @Composable
 private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, seconds: String, label: String, onClick: () -> Unit, onLongClick: () -> Unit) {
     Box(
-        Modifier.size(56.dp).clip(CircleShape).combinedClickable(onClick = onClick, onLongClick = onLongClick, onClickLabel = label),
+        Modifier.size(56.dp).clip(CircleShape).onSecondaryClick(onLongClick).combinedClickable(onClick = onClick, onLongClick = onLongClick, onClickLabel = label),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, label, modifier = Modifier.size(34.dp), tint = MaterialTheme.colorScheme.onSurface)

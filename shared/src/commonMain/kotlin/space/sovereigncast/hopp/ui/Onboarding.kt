@@ -121,7 +121,11 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
                     .background(if (i == pager.currentPage) colors.onSurface else colors.outlineVariant))
             }
         }
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // As wide as the text above, not the whole of a tablet (ADR 0020).
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp).wrapContentWidth().widthIn(max = 520.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             if (last && hasWallet) {
                 Button(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_start)) }
                 TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
