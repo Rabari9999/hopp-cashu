@@ -89,7 +89,9 @@ Breakpoints, those of Material 3's window size classes:
   (device feedback 2026-10-13) — and back, by the system or by the top bar's
   arrow (`PageBack`), returns to the show; without a pick the show's page, rows
   opening the episode as before.
-- **Now playing beside the content** once the window is 1200 dp wide: a column
+- **Now playing beside the content** once the window is 1000 dp wide — every
+  iPad on its side, not only the Pro (1200 dp left the Air and the mini out,
+  device feedback 2026-10-13): a column
   on the right taking 40 % of the window, at least 400 dp (400 dp alone, ~30 %
   on a Pixel Tablet, felt narrow), instead of a full-screen overlay, the rail
   and the page still in reach (as Apple Podcasts does on the iPad); the mini

@@ -102,6 +102,21 @@ class LargeScreenTest {
         check(!has("✓ Subscribed")) { "the show took the episode's place" }
     }
 
+    /** Every iPad on its side gets the column too, not only the Pro (device feedback
+     *  2026-10-13): the Air's 1180 pt and the mini's 1133. */
+    @Test @Config(qualifiers = "en-w1180dp-h820dp-land")
+    fun nowPlayingStandsBesideTheContentOnAnIpadAir() {
+        openPlayer(); controlsOnScreen()
+        rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
+        rule.onNode(hasText("Show notes")).assertIsDisplayed()
+    }
+
+    @Test @Config(qualifiers = "en-w1133dp-h744dp-land")
+    fun nowPlayingStandsBesideTheContentOnAnIpadMini() {
+        openPlayer(); controlsOnScreen()
+        rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
+    }
+
     /** Back from that episode goes to its show, not out of it — the arrow as the system's back. */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
     fun theArrowGoesBackFromThePickedEpisodeToItsShow() {

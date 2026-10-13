@@ -26,8 +26,10 @@ val MEDIUM_WIDTH: Dp = 600.dp
 /** From here the content (beside the rail) holds a list and its detail side by side. */
 val EXPANDED_WIDTH: Dp = 840.dp
 
-/** From here the whole window has room for now playing as a column of its own on the right. */
-val PLAYER_PANE_WIDTH: Dp = 1200.dp
+/** From here the whole window has room for now playing as a column of its own on the right —
+ *  every iPad on its side (the mini's 1133 pt, the Air's 1180), not only the Pro's 1210 and
+ *  up (device feedback 2026-10-13: at 1200 an iPad opened it over the whole width). */
+val PLAYER_PANE_WIDTH: Dp = 1000.dp
 
 /** How much of the window now playing's column takes when it stands beside the content
  *  (device feedback 2026-10-13: 400 dp, ~30 % on a Pixel Tablet, felt narrow) … */
