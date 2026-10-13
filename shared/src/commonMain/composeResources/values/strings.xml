@@ -31,6 +31,9 @@
     <string name="inbox_dismiss">Remove from New</string>
     <string name="library_continue">Continue listening</string>
     <string name="library_shows">Shows</string>
+    <string name="library_as_cards">Cards</string>
+    <string name="library_as_list">List</string>
+    <string name="library_new">%1$d new</string>
     <string name="library_empty">No subscriptions yet.</string>
     <string name="show_subscribed">Subscribed</string>
     <string name="show_pick_episode">Pick an episode to see it here.</string>

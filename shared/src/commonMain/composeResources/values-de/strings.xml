@@ -31,6 +31,9 @@
     <string name="inbox_dismiss">Aus „Neu“ entfernen</string>
     <string name="library_continue">Weiterhören</string>
     <string name="library_shows">Shows</string>
+    <string name="library_as_cards">Karten</string>
+    <string name="library_as_list">Liste</string>
+    <string name="library_new">%1$d neu</string>
     <string name="library_empty">Noch keine Abos.</string>
     <string name="show_subscribed">Abonniert</string>
     <string name="show_pick_episode">Wähle eine Folge, um sie hier zu sehen.</string>

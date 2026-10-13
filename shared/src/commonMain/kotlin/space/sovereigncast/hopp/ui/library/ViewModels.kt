@@ -125,10 +125,16 @@ class LibraryViewModel(
     episodes: EpisodeRepository,
     queue: QueueRepository,
     downloads: DownloadRepository,
+    private val settings: SettingsRepository,
 ) : RefreshingViewModel(podcasts) {
     val shows: StateFlow<List<Show>?> = state(podcasts.shows, null)
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
+    /** Episodes and new ones per show, for the cards and the list. */
+    val counts: StateFlow<Map<Long, space.sovereigncast.hopp.data.ShowCounts>> = state(episodes.countsPerShow, emptyMap())
+    /** Cards (the default) or a list — the listener's choice, kept in the settings. */
+    val asList: StateFlow<Boolean> = state(settings.settings.map { it.libraryAsList }, false)
+    fun showAsList(list: Boolean) = viewModelScope.launch { settings.update { it.copy(libraryAsList = list) } }
 }
 
 class QueueViewModel(private val queue: QueueRepository) : ViewModel() {

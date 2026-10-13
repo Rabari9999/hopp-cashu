@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
@@ -49,6 +50,15 @@ fun Cover(url: String?, size: Dp, corner: Dp = 12.dp, modifier: Modifier = Modif
     AsyncImage(
         model = url, contentDescription = null, contentScale = ContentScale.Crop,
         modifier = modifier.size(size).clip(RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.surfaceVariant),
+    )
+}
+
+/** A cover as wide as its place, and as tall — a card in the library's grid. */
+@Composable
+fun CoverFill(url: String?, corner: Dp = 18.dp, modifier: Modifier = Modifier) {
+    AsyncImage(
+        model = url, contentDescription = null, contentScale = ContentScale.Crop,
+        modifier = modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.surfaceVariant),
     )
 }
 

@@ -62,6 +62,10 @@ SELECT * FROM episode WHERE podcast_id = ? ORDER BY published_at DESC, id DESC L
 countByPodcast:
 SELECT count(*) FROM episode WHERE podcast_id = ?;
 
+-- The library's numbers per show: all its episodes, and how many are new (in "New").
+countsPerPodcast:
+SELECT podcast_id, count(*) AS total, sum(in_inbox) AS fresh FROM episode GROUP BY podcast_id;
+
 -- "New" (ADR 0012): what arrived since the listener last looked, newest first.
 selectInbox:
 SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url

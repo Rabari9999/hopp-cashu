@@ -114,6 +114,25 @@ Mac: keyboard shortcuts (space for play/pause, arrows to skip), hover states, a
 context menu on right-click where a long press acts on phones. Bottom sheets
 stay sheets — Material 3 already caps them at 640 dp and centres them.
 
+### Presence on a large screen (2026-10-13)
+
+Device feedback on a large tablet: the library's covers, the mini player and
+Discover's results looked small and had little presence.
+
+- **Library: cards or a list**, the listener's choice as in Pocket Casts, kept
+  in the settings (`libraryAsList`); cards by default. A card's cover fills its
+  cell — cells at least 104 dp on a phone, 168 dp from 600 dp wide — before,
+  the cover stayed 104 dp while the cell grew around it. The list has 64 dp
+  covers on a phone, 88 dp on a tablet, two columns once there is room, and
+  each show's episodes and Sovereigncast mark. Both show the show's new
+  episodes (`countsPerPodcast`, a query, no schema change) — on the phone too.
+- **Mini player** from 600 dp wide: a 64 dp cover, title and show in larger
+  type, the skips around a bigger play button. The phone keeps its slim bar.
+- **Discover's results and podroll** from 600 dp wide: 80 dp covers, a larger
+  title, more room; within the 840 dp list width.
+- A card is round at the top like its cover and barely at the bottom: clipped
+  round all over, its corner cut into the author's line.
+
 ### Step 3 — keyboard, pointer and the Mac (code done 2026-10-13)
 
 - **Keyboard** (`Modifier.keyShortcuts` on the frame): space plays and pauses,

@@ -47,6 +47,9 @@ data class Show(
     val podcastGuid: String? = null,
 )
 
+/** A show's numbers in the library: all its episodes, and the new ones among them. */
+data class ShowCounts(val episodes: Int, val new: Int)
+
 /** An episode as the UI lists it — the parsed feed data stays in the database
  *  until it is needed ([EpisodeRepository.details]). */
 data class EpisodeItem(
@@ -263,6 +266,11 @@ class EpisodeRepository(
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
                 r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at)
         }
+    }
+
+    /** Per show: how many episodes it has, and how many of them are new — the library's numbers. */
+    val countsPerShow: Flow<Map<Long, ShowCounts>> = eq.countsPerPodcast().asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.associate { it.podcast_id to ShowCounts(it.total.toInt(), (it.fresh ?: 0L).toInt()) }
     }
 
     val inProgress: Flow<List<EpisodeItem>> = eq.selectInProgress().asFlow().mapToList(Dispatchers.IO).map { rows ->

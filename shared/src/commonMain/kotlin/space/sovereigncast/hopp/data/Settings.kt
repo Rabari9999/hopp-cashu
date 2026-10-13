@@ -53,6 +53,8 @@ data class Settings(
     val boostFeedback: String = FEEDBACK_ERRORS,
     /** The first-start tour has been shown (or skipped). */
     val onboardingDone: Boolean = false,
+    /** The library's shows as a list rather than cards (device feedback 2026-10-13). */
+    val libraryAsList: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -94,6 +96,7 @@ data class Settings(
                 homeCollapsed = values["home_collapsed"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeCollapsed,
                 boostFeedback = values["boost_feedback"]?.takeIf { it in feedbackChoices } ?: d.boostFeedback,
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
+                libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
             )
         }
     }
@@ -126,6 +129,7 @@ data class Settings(
         "home_collapsed" to homeCollapsed.joinToString("\n"),
         "boost_feedback" to boostFeedback,
         "onboarding_done" to onboardingDone.toString(),
+        "library_as_list" to libraryAsList.toString(),
     )
 }
 

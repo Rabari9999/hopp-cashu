@@ -91,4 +91,14 @@ object HoppIcons {
             moveTo(5f, 9.5f); lineTo(19f, 9.5f); moveTo(5f, 14.5f); lineTo(19f, 14.5f)
         }
     }
+    /** Four rounded squares: the library as cards. */
+    val Grid = icon("grid") {
+        listOf(4f to 4f, 13.5f to 4f, 4f to 13.5f, 13.5f to 13.5f).forEach { (x, y) ->
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(x + 1.5f, y); lineTo(x + 5f, y); quadTo(x + 6.5f, y, x + 6.5f, y + 1.5f); lineTo(x + 6.5f, y + 5f)
+                quadTo(x + 6.5f, y + 6.5f, x + 5f, y + 6.5f); lineTo(x + 1.5f, y + 6.5f); quadTo(x, y + 6.5f, x, y + 5f)
+                lineTo(x, y + 1.5f); quadTo(x, y, x + 1.5f, y); close()
+            }
+        }
+    }
 }

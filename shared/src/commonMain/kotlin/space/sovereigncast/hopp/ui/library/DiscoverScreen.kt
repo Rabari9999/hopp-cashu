@@ -1,5 +1,9 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -86,82 +90,87 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     val q = query.trim()
     val address = q.takeIf { '.' in it }?.let(FeedFetcher::normalize)
 
-    LazyColumn(Modifier.fillMaxWidth()) {
-        item {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = query, onValueChange = vm::setQuery, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(Res.string.discover_field)) },
-                    trailingIcon = {
-                        if (query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Rounded.Clear, stringResource(Res.string.cancel)) }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {
-                        focus.clearFocus()
-                        if (!searchable(q) && address != null) onPreview(address, null) else vm.remember(q)
-                    }),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
-                    // Only shows on the curated list (device feedback 2026-10-10) — no
-                    // directory knows the feed marker, see ScDirectory. Always there,
-                    // not only once the list has arrived (device feedback 2026-10-11).
-                    FilterChip(selected = scOnly, onClick = { vm.setScOnly(!scOnly) }, label = { Text("✓ " + stringResource(Res.string.sc_badge)) })
-                    if (address != null) Button(onClick = { onPreview(address, null) }) { Text(stringResource(Res.string.discover_open_feed)) }
-                }
-                settings?.let { s ->
-                    val sources = listOfNotNull("Podcast Index", "fyyd".takeIf { s.fyydSearch && !valueOnly }, "Apple".takeIf { s.appleSearch && !valueOnly })
-                    Text(stringResource(Res.string.discover_privacy, sources.joinToString(", ")), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+    // Larger rows from a tablet's width (device feedback 2026-10-13, ADR 0020).
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+      CompositionLocalProvider(LocalLargeRows provides (maxWidth >= MEDIUM_WIDTH)) {
+        LazyColumn(Modifier.fillMaxWidth()) {
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = query, onValueChange = vm::setQuery, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(Res.string.discover_field)) },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Rounded.Clear, stringResource(Res.string.cancel)) }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            focus.clearFocus()
+                            if (!searchable(q) && address != null) onPreview(address, null) else vm.remember(q)
+                        }),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = valueOnly, onClick = { vm.setValueOnly(!valueOnly) }, label = { Text("⚡ " + stringResource(Res.string.discover_value_only)) })
+                        // Only shows on the curated list (device feedback 2026-10-10) — no
+                        // directory knows the feed marker, see ScDirectory. Always there,
+                        // not only once the list has arrived (device feedback 2026-10-11).
+                        FilterChip(selected = scOnly, onClick = { vm.setScOnly(!scOnly) }, label = { Text("✓ " + stringResource(Res.string.sc_badge)) })
+                        if (address != null) Button(onClick = { onPreview(address, null) }) { Text(stringResource(Res.string.discover_open_feed)) }
+                    }
+                    settings?.let { s ->
+                        val sources = listOfNotNull("Podcast Index", "fyyd".takeIf { s.fyydSearch && !valueOnly }, "Apple".takeIf { s.appleSearch && !valueOnly })
+                        Text(stringResource(Res.string.discover_privacy, sources.joinToString(", ")), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    }
                 }
             }
-        }
 
-        when (val s = search) {
-            SearchUi.Searching -> item {
-                Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
-            }
-            is SearchUi.Done -> {
-                val r = s.result
-                when {
-                    r.unavailable -> item { Note(stringResource(Res.string.discover_unavailable)) }
-                    r.shows.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
+            when (val s = search) {
+                SearchUi.Searching -> item {
+                    Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
                 }
-                if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
-                items(r.shows, key = { "r" + it.feedUrl }) { show ->
-                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
-                        vm.remember(q); onPreview(show.feedUrl, show)
+                is SearchUi.Done -> {
+                    val r = s.result
+                    when {
+                        r.unavailable -> item { Note(stringResource(Res.string.discover_unavailable)) }
+                        r.shows.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
                     }
-                }
-            }
-            SearchUi.Idle -> if (q.isEmpty()) {
-                if (recent.isNotEmpty()) item {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(Res.string.discover_recent), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            TextButton(onClick = { vm.clearRecent() }) { Text(stringResource(Res.string.discover_recent_clear)) }
-                        }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            recent.forEach { term -> SuggestionChip(onClick = { vm.setQuery(term) }, label = { Text(term) }) }
+                    if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
+                    items(r.shows, key = { "r" + it.feedUrl }) { show ->
+                        DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
+                            vm.remember(q); onPreview(show.feedUrl, show)
                         }
                     }
                 }
-                if (podroll.isNotEmpty()) {
-                    item { Header(stringResource(Res.string.discover_podroll)) }
-                    items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false, sovereigncast = vm.isSovereigncast(show)) { onPreview(show.feedUrl, show) } }
-                }
-                item {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(Res.string.opml_section), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(Res.string.opml_text), color = colors.onSurfaceVariant)
-                        OutlinedButton(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) {
-                            Text(stringResource(Res.string.opml_import))
+                SearchUi.Idle -> if (q.isEmpty()) {
+                    if (recent.isNotEmpty()) item {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(Res.string.discover_recent), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                TextButton(onClick = { vm.clearRecent() }) { Text(stringResource(Res.string.discover_recent_clear)) }
+                            }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                recent.forEach { term -> SuggestionChip(onClick = { vm.setQuery(term) }, label = { Text(term) }) }
+                            }
                         }
-                        if (importState == AddState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
-                        (importState as? AddState.Imported)?.let { Text(stringResource(Res.string.result_imported, it.subscribed, it.already, it.failed)) }
+                    }
+                    if (podroll.isNotEmpty()) {
+                        item { Header(stringResource(Res.string.discover_podroll)) }
+                        items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false, sovereigncast = vm.isSovereigncast(show)) { onPreview(show.feedUrl, show) } }
+                    }
+                    item {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(Res.string.opml_section), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(Res.string.opml_text), color = colors.onSurfaceVariant)
+                            OutlinedButton(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) {
+                                Text(stringResource(Res.string.opml_import))
+                            }
+                            if (importState == AddState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
+                            (importState as? AddState.Imported)?.let { Text(stringResource(Res.string.result_imported, it.subscribed, it.already, it.failed)) }
+                        }
                     }
                 }
             }
         }
+      }
     }
 }
 
@@ -173,23 +182,27 @@ private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.on
 @Composable
 private fun Header(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
 
+/** Search results and the podroll a size larger from a tablet's width. */
+private val LocalLargeRows = staticCompositionLocalOf { false }
+
 @Composable
 private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, sovereigncast: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val large = LocalLargeRows.current
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = if (large) 12.dp else 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (large) 16.dp else 12.dp),
     ) {
-        Cover(show.imageUrl, 56.dp)
-        Column(Modifier.weight(1f)) {
-            Text(show.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (large) Cover(show.imageUrl, 80.dp, corner = 14.dp) else Cover(show.imageUrl, 56.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (large) 2.dp else 0.dp)) {
+            Text(show.title, style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val meta = listOfNotNull(
                 show.author,
                 "⚡ V4V".takeIf { show.hasValue == true },
                 show.source.label.takeIf { show.source != Source.PodcastIndex },
                 stringResource(Res.string.show_subscribed).takeIf { subscribed },
             ).joinToString(" · ")
-            if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (meta.isNotEmpty()) Text(meta, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (sovereigncast) Row(Modifier.padding(top = 3.dp)) { ScBadge() }
         }
     }

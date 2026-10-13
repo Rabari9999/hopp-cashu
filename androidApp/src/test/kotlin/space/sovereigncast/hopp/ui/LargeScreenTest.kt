@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -52,7 +53,9 @@ class LargeScreenTest {
     private fun controlsOnScreen() {
         rule.onNode(hasContentDescription("Playback position")).assertIsDisplayed()
         rule.onNode(hasContentDescription("Playback speed")).assertIsDisplayed()
-        rule.onNode(hasContentDescription("Forward", substring = true)).assertIsDisplayed()
+        // Now playing's own skip: the last one drawn. A tablet's mini player has one too,
+        // covered when now playing opens over the whole window.
+        rule.onAllNodes(hasContentDescription("Forward", substring = true)).onLast().assertIsDisplayed()
     }
 
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
