@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -92,7 +94,8 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth()) { i ->
             val p = PAGES[i]
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp),
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp)
+                    .wrapContentWidth().widthIn(max = 520.dp), // a tablet: a column, not a banner (ADR 0020)
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
             ) {
                 Box(

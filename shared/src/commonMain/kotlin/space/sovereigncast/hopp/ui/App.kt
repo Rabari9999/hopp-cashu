@@ -17,6 +17,8 @@ import space.sovereigncast.hopp.ui.library.LocalEpisodeNav
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,6 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -99,6 +103,8 @@ import space.sovereigncast.hopp.ui.library.PrivacyScreen
 import space.sovereigncast.hopp.ui.library.SharedEpisode
 import space.sovereigncast.hopp.resources.wallet_title
 import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
+import space.sovereigncast.hopp.ui.components.Readable
 import space.sovereigncast.hopp.ui.value.HistoryScreen
 import space.sovereigncast.hopp.ui.value.WalletScreen
 import space.sovereigncast.hopp.value.ValueService
@@ -286,8 +292,25 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         androidx.compose.runtime.CompositionLocalProvider(LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav) {
           ProvideDownloadProgress {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Box(Modifier.fillMaxSize()) {
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                  // A rail at the side once the window is wider than a phone held
+                  // upright (ADR 0020): a tablet, a phone on its side, a Mac window.
+                  val rail = maxWidth >= MEDIUM_WIDTH
+                  Row(Modifier.fillMaxSize()) {
+                    if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        tabs.forEach { tab ->
+                            NavigationRailItem(
+                                selected = currentTab == tab,
+                                onClick = { selectTab(tab) },
+                                icon = { Icon(tab.icon, null) },
+                                label = { Text(stringResource(tab.label)) },
+                            )
+                        }
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    }
                     Scaffold(
+                        modifier = Modifier.weight(1f),
                         containerColor = MaterialTheme.colorScheme.background,
                         snackbarHost = { SnackbarHost(snackbar) },
                         topBar = {
@@ -310,7 +333,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         bottomBar = {
                             Column {
                                 MiniPlayer(player)
-                                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                                if (!rail) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                                     tabs.forEach { tab ->
                                         NavigationBarItem(
                                             selected = currentTab == tab,
@@ -350,12 +373,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<DownloadsRoute> { DownloadsScreen() }
                             composable<EpisodeRoute> { e ->
                                 val route = e.toRoute<EpisodeRoute>()
-                                EpisodeScreen(
+                                Readable { EpisodeScreen(
                                     route.id, startSeconds = route.startSeconds,
                                     onShow = { nav.navigate(ShowRoute(it)) },
                                     onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
                                     onOpenWallet = { nav.navigate(WalletRoute) },
-                                )
+                                ) }
                             }
                             composable<DiscoverRoute> {
                                 DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
@@ -384,28 +407,26 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     },
                                 )
                             }
-                            composable<SettingsRoute> {
+                            composable<SettingsRoute> { Readable {
                                 SettingsScreen(
                                     onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
-                            }
+                            } }
                             composable<SettingsPageRoute> { e ->
                                 val page = SettingsPage.entries.firstOrNull { it.name == e.toRoute<SettingsPageRoute>().page } ?: SettingsPage.About
-                                SettingsPageScreen(page, onTour = { tour = true })
+                                Readable { SettingsPageScreen(page, onTour = { tour = true }) }
                             }
-                            composable<PrivacyRoute> { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) }
-                            composable<CrashRoute> {
+                            composable<PrivacyRoute> { Readable { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) } }
+                            composable<CrashRoute> { Readable {
                                 CrashReportScreen(crashReport, onDelete = {
                                     crashes.clear(); crashReport = null
                                     if (nav.currentBackStackEntry?.destination?.hasRoute(CrashRoute::class) == true) nav.popBackStack()
                                 })
-                            }
-                            composable<WalletRoute> {
-                                WalletScreen()
-                            }
-                            composable<HistoryRoute> { HistoryScreen() }
+                            } }
+                            composable<WalletRoute> { Readable { WalletScreen() } }
+                            composable<HistoryRoute> { Readable { HistoryScreen() } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while
@@ -415,6 +436,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                         }
                     }
+                  }
                     if (crashReport != null && !crashAsked) AlertDialog(
                         onDismissRequest = { crashAsked = true },
                         title = { Text(stringResource(Res.string.crash_title)) },

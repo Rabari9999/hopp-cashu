@@ -52,6 +52,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -174,18 +180,12 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
                 ) { change, dy -> change.consume(); scope.launch { dragY.snapTo((dragY.value + dy).coerceAtLeast(0f)) } }
             },
     ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
-                Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
-                IconButton(onClick = { sharing = true }) { Icon(androidx.compose.material.icons.Icons.Rounded.Share, stringResource(Res.string.share_title)) }
-                IconButton(onClick = { showQueue = true }) { Icon(HoppIcons.Queue, stringResource(Res.string.queue_title)) }
-            }
-
+        // The cover's chapter swipe, kept while the layout switches.
+        var dragX by remember { mutableStateOf(0f) }
+        val cover: @Composable (Modifier) -> Unit = { m ->
             // Cover — the chapter image replaces it while a chapter has one.
-            var dragX by remember { mutableStateOf(0f) }
             Box(
-                Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
+                m.clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
                     .pointerInput(chapters) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -219,7 +219,8 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+        }
+        val details: @Composable ColumnScope.() -> Unit = {
             Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 (listOf(playing.podcastTitle) + playing.persons.map { it.name }).filter { it.isNotBlank() }.distinct().joinToString(" · "),
@@ -280,6 +281,35 @@ fun NowPlayingScreen(model: PlayerController, onOpenWallet: () -> Unit = {}) {
                 SheetChip(stringResource(Res.string.sheet_community), enabled = hasCommunity) { showCommunity = true }
             }
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
+        }
+        // Large screens (ADR 0020): side by side wherever the window is wider than
+        // tall — a tablet or a phone on its side, where a full-width square cover
+        // pushed every control below the edge. Upright, the phone layout as it
+        // was, at most a phone's width: no scrolling there, so swiping down still
+        // closes the player.
+        BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
+            val wide = maxWidth > maxHeight && maxWidth >= 480.dp
+            val coverSide = minOf(maxHeight - 64.dp, maxWidth * 0.45f)
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
+                    Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+                    IconButton(onClick = { sharing = true }) { Icon(androidx.compose.material.icons.Icons.Rounded.Share, stringResource(Res.string.share_title)) }
+                    IconButton(onClick = { showQueue = true }) { Icon(HoppIcons.Queue, stringResource(Res.string.queue_title)) }
+                }
+
+                if (wide) Row(
+                    Modifier.fillMaxSize().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    cover(Modifier.size(coverSide))
+                    Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) { details() }
+                } else Column(Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 560.dp)) {
+                    cover(Modifier.fillMaxWidth().aspectRatio(1f))
+                    Spacer(Modifier.height(16.dp))
+                    details()
+                }
+            }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
