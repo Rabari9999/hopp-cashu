@@ -38,7 +38,12 @@ never update a release install.
 Betas carry release code and, until a beta key exists, the public debug key —
 anyone can build an APK that installs over such a beta (security review
 2026-10-10, M-07). They show as **"Hopp β"** on the home screen and never claim
-to be the release. To give them a key of their own:
+to be the release. Since 2026-10-14 a beta is an app of its own,
+`space.sovereigncast.hopp.beta`: it installs next to the release, with its own
+library and wallet connection. (Debug builds keep `space.sovereigncast.hopp` —
+the tests run as that package — and so conflict with an installed release.)
+Links Android verifies for Hopp (`/open`, ADR 0002) go to the release only;
+`hopp://` and `nostr+walletconnect:` offer both apps. To give them a key of their own:
 
 1. Create it once, off CI: `keytool -genkeypair -keystore hopp-beta.jks -alias hopp-beta -keyalg EC -groupname secp256r1 -validity 10000`.
 2. In GitLab → Settings → CI/CD → Variables, add (protected, masked where possible):

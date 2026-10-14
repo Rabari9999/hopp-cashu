@@ -122,7 +122,6 @@ android {
         // feels. A debug build is not debuggable for nothing — interpreted,
         // with the runtime's checks on, Compose in it runs several times
         // slower and its animations stutter (device feedback 2026-10-08).
-        // Signed like the debug builds, so it installs over them.
         // R8 (package 5): smaller and faster, and what the stores get. Configured
         // before "beta" is created, which copies it.
         getByName("release") {
@@ -130,8 +129,12 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // An app of its own (2026-10-14): "space.sovereigncast.hopp.beta" installs
+        // next to the release from Zapstore, F-Droid or GitLab, with its own data.
+        // A beta can never update the release anyway — another key signs it.
         create("beta") {
             initWith(getByName("release"))
+            applicationIdSuffix = ".beta"
             signingConfig = signingConfigs.findByName("beta") ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             revision?.let { versionNameSuffix = "-beta.$it" }

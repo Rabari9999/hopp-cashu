@@ -5,7 +5,7 @@ From 0.1.0 (2026-10) Hopp is tested in two rings:
 | | Crew | Community |
 |---|---|---|
 | Where | Nodesignal crew group (Signal) | Nodesignal community group (Telegram, public) |
-| What | every CI build of `main` (`foss-beta`) | release tags only: `v0.1.0`, `v0.1.1` … |
+| What | every CI build of `main` (`foss-beta`, app id `….hopp.beta`, next to the release) | release tags only: `v0.1.0`, `v0.1.1` … |
 | Signed with | debug key, later the beta key (docs/signing.md) | **the release key** |
 | From | job artifact links (GitLab login) | GitLab release, Zapstore |
 | Updates | by hand | Obtainium or Zapstore |
