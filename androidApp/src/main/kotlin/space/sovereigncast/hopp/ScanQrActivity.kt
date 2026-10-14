@@ -52,8 +52,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Reads a QR code with the camera and returns its text (device feedback
  * 2026-10-14: a wallet's NWC connection could only be pasted). CameraX takes
  * the picture, ZXing reads it — no Google services, so the foss flavour has
- * it too. The camera is asked for here, when the listener wants to scan, and
- * the picture never leaves the phone.
+ * it too. The camera is asked for here, when the listener wants to scan. No
+ * picture is stored: each frame is read in memory, its copy wiped, and the
+ * frame handed back to the camera at once (device feedback 2026-10-14). The
+ * window is kept out of screenshots — the code it shows can spend.
  */
 class ScanQrActivity : ComponentActivity() {
     private val analysis = Executors.newSingleThreadExecutor()
@@ -66,6 +68,7 @@ class ScanQrActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) show()
         else askCamera.launch(Manifest.permission.CAMERA)
     }
@@ -119,9 +122,11 @@ class ScanQrActivity : ComponentActivity() {
             val plane = it.planes[0]
             val bytes = ByteArray(plane.buffer.remaining()).also { b -> plane.buffer.get(b) }
             val source = PlanarYUVLuminanceSource(bytes, plane.rowStride, it.height, 0, 0, it.width, it.height, false)
-            val text = listOf(source, source.invert()).firstNotNullOfOrNull { s ->
-                try { zxing.decodeWithState(BinaryBitmap(HybridBinarizer(s))).text } catch (e: NotFoundException) { null } finally { zxing.reset() }
-            } ?: return
+            val text = try {
+                listOf(source, source.invert()).firstNotNullOfOrNull { s ->
+                    try { zxing.decodeWithState(BinaryBitmap(HybridBinarizer(s))).text } catch (e: NotFoundException) { null } finally { zxing.reset() }
+                }
+            } finally { bytes.fill(0) } ?: return
             if (!done.compareAndSet(false, true)) return
             runOnUiThread { setResult(RESULT_OK, Intent().putExtra(EXTRA_TEXT, text)); finish() }
         }

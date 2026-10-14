@@ -119,6 +119,7 @@
     <string name="wallet_uri_hide">Verbergen</string>
     <string name="wallet_connect">Verbinden</string>
     <string name="wallet_scan">QR-Code scannen</string>
+    <string name="wallet_scanned">✓ QR-Code gelesen. Das Kamerabild wurde nirgends gespeichert – Hopp hat nur die Verbindung übernommen.</string>
     <string name="wallet_limit_tip">Tipp: Setze in deiner Wallet ein Ausgabelimit für diese Verbindung – Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
     <string name="wallet_failed">Verbindung fehlgeschlagen: %1$s</string>
     <string name="wallet_connected">Verbunden: %1$s</string>

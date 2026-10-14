@@ -119,6 +119,7 @@
     <string name="wallet_uri_hide">Hide</string>
     <string name="wallet_connect">Connect</string>
     <string name="wallet_scan">Scan QR code</string>
+    <string name="wallet_scanned">✓ QR code read. The camera picture was not saved anywhere — Hopp only kept the connection.</string>
     <string name="wallet_limit_tip">Tip: set a spending limit for this connection in your wallet — Hopp keeps its own daily budget on top.</string>
     <string name="wallet_failed">Could not connect: %1$s</string>
     <string name="wallet_connected">Connected: %1$s</string>

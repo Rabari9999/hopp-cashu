@@ -594,6 +594,7 @@ class AndroidAppFlowTest {
         tap("Scan QR code")
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Could not connect", substring = true).fetchSemanticsNodes().isNotEmpty() }
         check(scans == 1)
+        check(has("QR code read", substring = true)) { screen().toString() }
     }
 
     /** No camera, no button. */

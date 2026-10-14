@@ -59,6 +59,7 @@ import space.sovereigncast.hopp.resources.wallet_balance_unknown
 import space.sovereigncast.hopp.resources.wallet_budget
 import space.sovereigncast.hopp.resources.wallet_connect
 import space.sovereigncast.hopp.resources.wallet_scan
+import space.sovereigncast.hopp.resources.wallet_scanned
 import space.sovereigncast.hopp.resources.wallet_connected
 import space.sovereigncast.hopp.resources.wallet_disconnect
 import space.sovereigncast.hopp.resources.wallet_failed
@@ -110,6 +111,7 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
     // and the page kept out of screenshots (security review 2026-10-10, M-01).
     var uri by remember { mutableStateOf(space.sovereigncast.hopp.ui.IncomingLinks.takeWalletDraft().orEmpty()) }
     var showUri by remember { mutableStateOf(false) }
+    var scanned by remember { mutableStateOf(false) }
     LaunchedEffect(wallet) { if (wallet != null) uri = "" }
     val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
     androidx.compose.runtime.DisposableEffect(Unit) { actions.secureScreen(true); onDispose { actions.secureScreen(false) } }
@@ -130,11 +132,13 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
                 Button(onClick = { vm.connect(uri) }, enabled = uri.isNotBlank() && connect != ConnectState.Working) { Text(stringResource(Res.string.wallet_connect)) }
                 // The wallet's QR code instead of copying (device feedback 2026-10-14):
                 // read, it connects as a pasted string does.
-                if (actions.canScanQr) OutlinedButton(onClick = { actions.scanQr { text -> uri = text.trim(); vm.connect(uri) } }, enabled = connect != ConnectState.Working) {
+                if (actions.canScanQr) OutlinedButton(onClick = { actions.scanQr { text -> uri = text.trim(); scanned = true; vm.connect(uri) } }, enabled = connect != ConnectState.Working) {
                     Text(stringResource(Res.string.wallet_scan))
                 }
                 if (connect == ConnectState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
             }
+            // What happened to the picture, said where it matters (device feedback 2026-10-14).
+            if (scanned) Text(stringResource(Res.string.wallet_scanned), color = Hopp.colors.valueText, style = MaterialTheme.typography.bodyMedium)
             (connect as? ConnectState.Failed)?.let { Text(stringResource(Res.string.wallet_failed, it.reason), color = colors.error) }
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
