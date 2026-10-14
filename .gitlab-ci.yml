@@ -26,8 +26,15 @@ variables:
 
 stages: [test, build, release]
 
+# Every job shares one Gradle home in the runner's cache, and Gradle hands its
+# cache locks over between processes by pinging them — which does not reach
+# into another job's container. Two jobs at once (two pipelines, the runner
+# has concurrent = 2) left one waiting on the journal lock until it failed
+# (2026-10-14). resource_group: gradle-cache runs them one after the other.
+
 shared-tests:
   stage: test
+  resource_group: gradle-cache
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - ./gradlew --console=plain :shared:jvmTest
@@ -41,6 +48,7 @@ shared-tests:
 
 android-debug:
   stage: build
+  resource_group: gradle-cache
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     # Robolectric fetches its Android jars into ~/.m2 — keep them across jobs.
@@ -63,6 +71,7 @@ android-debug:
 # uses) then checks that the signed APK is this build plus a signature.
 release-unsigned:
   stage: release
+  resource_group: gradle-cache
   rules:
     - if: $CI_COMMIT_TAG =~ /^v[0-9.]+$/
   script:
