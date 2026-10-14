@@ -47,6 +47,7 @@ import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingSheet
 import space.sovereigncast.hopp.ui.sovereigncast.ScPaySheet
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestionRow
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestionSheet
+import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
 import space.sovereigncast.hopp.ui.sovereigncast.UnlockCard
 import space.sovereigncast.hopp.ui.sovereigncast.UnlockSheet
 import space.sovereigncast.hopp.sovereigncast.Boost2UnlockEpisode
@@ -101,6 +102,7 @@ fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
                         SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg }) { community.vote(sg) }
                     }
                 }
+                item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
@@ -116,7 +118,8 @@ fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
         is Suggestion -> {
             val sg = suggestions?.firstOrNull { it.id == d.id } ?: d
             val l = layer
-            SuggestionSheet(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onVote = { community.vote(sg) }) { details = null }
+            SuggestionSheet(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onVote = { community.vote(sg) },
+                onBoost = { details = null; paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { details = null }
         }
     }
     paying?.let { (target, title) ->

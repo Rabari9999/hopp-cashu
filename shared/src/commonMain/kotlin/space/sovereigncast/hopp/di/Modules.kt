@@ -94,7 +94,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get()) }
-    viewModel { params -> CommunityViewModel(params.get(), get(), get(), get()) }
+    viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
     single { FyydClient(get()) }
     single { AppleClient(get()) }

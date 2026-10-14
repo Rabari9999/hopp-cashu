@@ -23,7 +23,9 @@ each other.
 
 ## Steps left
 
-1. Tag `v0.1.1` (CI builds `release-unsigned`, ~5 min).
+1. Tag `v0.1.1` **on 318b7fb** (`git tag -a v0.1.1 318b7fb`), not on a later
+   `main`: phase-2 features landed after it, and 0.1.1's changelog says the app
+   did not change. CI builds `release-unsigned` (~5 min).
 2. Maintainer: `scripts/release.sh v0.1.1 ~/Documents/hopp-release.jks`, then
    `zsp publish zapstore.yaml` (Amber bunker, docs/zapstore.md).
 3. Check the signed APK once more with F-Droid's tools: build v0.1.1 in

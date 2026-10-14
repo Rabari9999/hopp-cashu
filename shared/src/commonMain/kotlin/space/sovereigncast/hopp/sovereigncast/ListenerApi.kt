@@ -26,7 +26,8 @@ import kotlinx.serialization.json.Json
  * Phase 1 uses what ADR 0018 puts there: meta, the show, Release Boosting,
  * Boost2Unlock, the open suggestions with free votes, invoices and their
  * status, and the rss::payment metadata for boosts — and, read-only, the
- * leaderboard (device feedback 2026-10-09).
+ * leaderboard (device feedback 2026-10-09). Phase 2 adds submitting and
+ * boosting suggestions and the top episodes.
  */
 
 @Serializable data class ApiMeta(@SerialName("api_versions") val apiVersions: List<String>, val instance: Instance) {
@@ -115,6 +116,27 @@ import kotlinx.serialization.json.Json
 )
 
 @Serializable data class SuggestionList(val suggestions: List<Suggestion>)
+
+/** A new suggestion; the instance raises [amountSats] to its `suggestion_min_sats`. */
+@Serializable data class SuggestionCreate(
+    val title: String,
+    val description: String = "",
+    val links: String = "",
+    val username: String = "",
+    @SerialName("amount_sats") val amountSats: Long,
+)
+
+/** One of the show's best-ranked published episodes. */
+@Serializable data class TopEpisode(
+    val rank: Int,
+    @SerialName("episode_guid") val episodeGuid: String,
+    @SerialName("episode_nr") val episodeNr: Int? = null,
+    val title: String,
+    val description: String = "",
+    @SerialName("website_url") val websiteUrl: String? = null,
+)
+
+@Serializable data class TopEpisodeList(val episodes: List<TopEpisode>)
 @Serializable data class VoteRequest(@SerialName("voter_id") val voterId: String)
 @Serializable data class VoteResult(@SerialName("already_voted") val alreadyVoted: Boolean)
 
@@ -225,6 +247,7 @@ class ListenerApi(private val http: HttpClient) {
     suspend fun boost2unlock(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/boost2unlock", Boost2UnlockList.serializer())
     suspend fun suggestions(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/suggestions", SuggestionList.serializer())
     suspend fun leaderboard(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/leaderboard", Leaderboard.serializer())
+    suspend fun topEpisodes(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/top-episodes", TopEpisodeList.serializer())
     suspend fun payment(base: String, hash: String) = get(base, "/v1/payments/${seg(hash)}", PaymentStatus.serializer())
 
     suspend fun vote(base: String, guid: String, suggestionId: Long, voterId: String) =
@@ -235,6 +258,12 @@ class ListenerApi(private val http: HttpClient) {
 
     suspend fun boost2unlockInvoice(base: String, guid: String, episodeGuid: String, request: BoostRequest) =
         post(base, "/v1/shows/${seg(guid)}/boost2unlock/${seg(episodeGuid)}/invoices", request, BoostRequest.serializer(), Invoice.serializer())
+
+    suspend fun createSuggestion(base: String, guid: String, request: SuggestionCreate) =
+        post(base, "/v1/shows/${seg(guid)}/suggestions", request, SuggestionCreate.serializer(), Invoice.serializer())
+
+    suspend fun suggestionBoostInvoice(base: String, guid: String, suggestionId: Long, request: BoostRequest) =
+        post(base, "/v1/shows/${seg(guid)}/suggestions/$suggestionId/invoices", request, BoostRequest.serializer(), Invoice.serializer())
 
     suspend fun paymentMetadata(base: String, guid: String, request: PaymentMetadataRequest) =
         post(base, "/v1/shows/${seg(guid)}/payment-metadata", request, PaymentMetadataRequest.serializer(), PaymentMetadataLink.serializer())

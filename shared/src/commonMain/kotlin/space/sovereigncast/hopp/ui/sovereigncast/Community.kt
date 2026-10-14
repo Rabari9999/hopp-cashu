@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,6 +84,17 @@ import space.sovereigncast.hopp.resources.sc_send_external
 import space.sovereigncast.hopp.resources.sc_unlock
 import space.sovereigncast.hopp.resources.sc_unlocked
 import space.sovereigncast.hopp.resources.sc_votes
+import space.sovereigncast.hopp.resources.sc_top_more
+import space.sovereigncast.hopp.resources.sc_top_episodes
+import space.sovereigncast.hopp.resources.sc_suggestion_boost_note
+import space.sovereigncast.hopp.resources.sc_pay_title_suggestion
+import space.sovereigncast.hopp.resources.sc_min_sats
+import space.sovereigncast.hopp.resources.sc_suggest_done
+import space.sovereigncast.hopp.resources.sc_suggest_note
+import space.sovereigncast.hopp.resources.sc_suggest_links
+import space.sovereigncast.hopp.resources.sc_suggest_description
+import space.sovereigncast.hopp.resources.sc_suggest_title
+import space.sovereigncast.hopp.resources.sc_suggest
 import space.sovereigncast.hopp.resources.sc_vote
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -112,6 +124,7 @@ import space.sovereigncast.hopp.resources.sc_publish_long
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
 import space.sovereigncast.hopp.sovereigncast.ScTarget
 import space.sovereigncast.hopp.sovereigncast.Suggestion
+import space.sovereigncast.hopp.sovereigncast.TopEpisode
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
@@ -370,10 +383,11 @@ private fun VoteButton(count: Int, voted: Boolean, onVote: () -> Unit) {
     }
 }
 
-/** A suggestion in full: who, when, the whole description, votes and sats. */
+/** A suggestion in full: who, when, the whole description, votes and sats —
+ *  and, where the instance takes it, a boost that gives it weight (phase 2). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onDismiss: () -> Unit) {
+fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onBoost: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -389,9 +403,36 @@ fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onDismiss
                     stringResource(Res.string.sc_votes, s.voteCount) + if (s.amountSats > 0) " · ${formatSats(s.amountSats)} sats" else "",
                     Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant,
                 )
+                if (onBoost != null) {
+                    ActionPill(stringResource(Res.string.np_boost), onBoost)
+                    Spacer(Modifier.size(8.dp))
+                }
                 VoteButton(s.voteCount, voted, onVote)
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** Under the open suggestions: a new one, paid as its spam filter (phase 2). */
+@Composable
+fun SuggestButton(onClick: () -> Unit) = OutlinedButton(onClick = onClick, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Text("+ " + stringResource(Res.string.sc_suggest))
+}
+
+/** One of the show's most popular episodes, by its rank (phase 2). */
+@Composable
+fun TopEpisodeRow(e: TopEpisode, onOpen: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(place(e.rank), Modifier.width(32.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(e.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (e.description.isNotBlank()) Text(e.description, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -453,7 +494,9 @@ fun BoosterRow(b: Booster) {
 /**
  * Paying the instance's invoice (ADR 0005, 0018): amounts, message, name,
  * then each step shown — through the connected wallet, or a wallet app
- * via `lightning:` while Hopp waits for the instance's confirmation.
+ * via `lightning:` while Hopp waits for the instance's confirmation. A new
+ * suggestion (phase 2) is the same payment with its topic instead of a
+ * message, from the show's minimum on.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -462,21 +505,39 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
     val hasWallet by vm.hasWallet.collectAsState()
     val colors = MaterialTheme.colorScheme
     val uri = LocalUriHandler.current
-    val presets: List<Long> = satsPerMinute?.let { m -> listOf(1L, 10L, 60L).map { it * m } } ?: listOf(100L, 500L, 1_000L, 2_100L)
-    var amount by remember { mutableLongStateOf(presets[1]) }
+    val suggesting = target is ScTarget.NewSuggestion
+    val min = if (suggesting) vm.suggestionMinSats else 1L
+    val presets: List<Long> = when {
+        suggesting -> (listOf(min) + listOf(210L, 1_000L, 2_100L).filter { it > min }).take(4)
+        satsPerMinute != null -> listOf(1L, 10L, 60L).map { it * satsPerMinute }
+        else -> listOf(100L, 500L, 1_000L, 2_100L)
+    }
+    var amount by remember { mutableLongStateOf(if (suggesting) presets[0] else presets[1]) }
     var custom by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var topic by remember { mutableStateOf("") }
+    var about by remember { mutableStateOf("") }
+    var links by remember { mutableStateOf("") }
+    val ready = amount >= min && (!suggesting || topic.isNotBlank())
 
     ModalBottomSheet(onDismissRequest = { vm.resetPay(); onDismiss() }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                stringResource(if (target is ScTarget.ReleaseBoosting) Res.string.sc_pay_title_rb else Res.string.sc_pay_title_b2u, title),
+                when (target) {
+                    ScTarget.ReleaseBoosting -> stringResource(Res.string.sc_pay_title_rb, title)
+                    is ScTarget.Boost2Unlock -> stringResource(Res.string.sc_pay_title_b2u, title)
+                    is ScTarget.NewSuggestion -> stringResource(Res.string.sc_suggest)
+                    is ScTarget.SuggestionBoost -> stringResource(Res.string.sc_pay_title_suggestion, title)
+                },
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
             )
             when (val p = pay) {
                 is ScPay.Done -> {
-                    Text(stringResource(Res.string.sc_done, formatSats(p.sats)), style = MaterialTheme.typography.titleMedium, color = Hopp.colors.valueText)
+                    Text(
+                        if (suggesting) stringResource(Res.string.sc_suggest_done) else stringResource(Res.string.sc_done, formatSats(p.sats)),
+                        style = MaterialTheme.typography.titleMedium, color = Hopp.colors.valueText,
+                    )
                     TextButton(onClick = { vm.resetPay(); onDismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(Res.string.boost_close)) }
                     return@Column
                 }
@@ -509,6 +570,19 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                 ScPay.Idle -> Unit
             }
 
+            when (target) {
+                is ScTarget.NewSuggestion -> {
+                    // The instance's limits (listener-v1.yaml, SuggestionCreate).
+                    OutlinedTextField(topic, { topic = it.take(300) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.sc_suggest_title)) })
+                    OutlinedTextField(about, { about = it.take(1000) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.sc_suggest_description)) }, minLines = 2)
+                    OutlinedTextField(links, { links = it.take(500) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.sc_suggest_links)) })
+                    Text(stringResource(Res.string.sc_suggest_note, formatSats(min)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                is ScTarget.SuggestionBoost ->
+                    Text(stringResource(Res.string.sc_suggestion_boost_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                else -> Unit
+            }
+
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.forEach { a ->
                     val label = formatSats(a) + (satsPerMinute?.let { m -> " · " + stringResource(Res.string.sc_minutes, (a / m).toInt()) } ?: "")
@@ -526,18 +600,24 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                 if (amount > 0) amount.toString() else "", { t -> amount = t.filter(Char::isDigit).take(9).toLongOrNull() ?: 0 },
                 Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_custom)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = amount < min,
+                supportingText = if (min > 1) { { Text(stringResource(Res.string.sc_min_sats, formatSats(min))) } } else null,
             )
-            // The instance takes 100 characters (listener-v1.yaml, BoostRequest).
-            OutlinedTextField(message, { message = it.take(100) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
+            // The instance takes 100 characters (listener-v1.yaml, BoostRequest);
+            // a suggestion carries its topic instead.
+            if (!suggesting) OutlinedTextField(message, { message = it.take(100) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
             OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_name)) }, singleLine = true)
             Box(
-                Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value)
-                    .clickable(enabled = amount > 0) { vm.pay(target, amount, message, name, title) }.padding(bottom = 0.dp),
+                Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(if (ready) Hopp.colors.value else colors.surfaceVariant)
+                    .clickable(enabled = ready) {
+                        if (target is ScTarget.NewSuggestion) vm.pay(ScTarget.NewSuggestion(topic, about, links), amount, "", name, topic.trim())
+                        else vm.pay(target, amount, message, name, title)
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     stringResource(if (hasWallet) Res.string.sc_send else Res.string.sc_send_external, formatSats(amount)),
-                    fontWeight = FontWeight.Bold, color = Hopp.colors.onValue,
+                    fontWeight = FontWeight.Bold, color = if (ready) Hopp.colors.onValue else colors.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(24.dp))

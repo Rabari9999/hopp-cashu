@@ -39,6 +39,11 @@ data class ScLayer(val base: String, val show: ScShow) {
 sealed interface ScTarget {
     data object ReleaseBoosting : ScTarget
     data class Boost2Unlock(val episodeGuid: String) : ScTarget
+    /** A new topic suggestion: the payment is its spam filter, and it is public
+     *  once paid (phase 2). The form fills in the fields. */
+    data class NewSuggestion(val title: String = "", val description: String = "", val links: String = "") : ScTarget
+    /** More weight for an open suggestion. */
+    data class SuggestionBoost(val suggestionId: Long) : ScTarget
 }
 
 /** An invoice that did not ask for what the listener chose (ADR 0005: never paid). */
@@ -155,6 +160,7 @@ class SovereigncastRepository(
     suspend fun boost2unlock(layer: ScLayer) = api.boost2unlock(layer.base, layer.show.podcastGuid)
     suspend fun suggestions(layer: ScLayer) = api.suggestions(layer.base, layer.show.podcastGuid)
     suspend fun leaderboard(layer: ScLayer) = api.leaderboard(layer.base, layer.show.podcastGuid)
+    suspend fun topEpisodes(layer: ScLayer) = api.topEpisodes(layer.base, layer.show.podcastGuid)
 
     /** Free, one per listener and suggestion; remembered here to show it. */
     suspend fun vote(layer: ScLayer, suggestionId: Long): VoteResult {
@@ -174,9 +180,16 @@ class SovereigncastRepository(
     /** The instance's invoice — checked to be for exactly [amountSats] before anyone pays it (ADR 0005). */
     suspend fun invoice(layer: ScLayer, target: ScTarget, amountSats: Long, message: String?, senderName: String?): Invoice {
         val request = BoostRequest(amountSats, message?.takeIf { it.isNotBlank() }, senderName?.takeIf { it.isNotBlank() })
+        val guid = layer.show.podcastGuid
         val invoice = when (target) {
-            ScTarget.ReleaseBoosting -> api.releaseBoostingInvoice(layer.base, layer.show.podcastGuid, request)
-            is ScTarget.Boost2Unlock -> api.boost2unlockInvoice(layer.base, layer.show.podcastGuid, target.episodeGuid, request)
+            ScTarget.ReleaseBoosting -> api.releaseBoostingInvoice(layer.base, guid, request)
+            is ScTarget.Boost2Unlock -> api.boost2unlockInvoice(layer.base, guid, target.episodeGuid, request)
+            is ScTarget.SuggestionBoost -> api.suggestionBoostInvoice(layer.base, guid, target.suggestionId, request)
+            // Below the minimum the instance would raise the amount, and the check
+            // below refuse the invoice: the form never asks for less.
+            is ScTarget.NewSuggestion -> api.createSuggestion(layer.base, guid, SuggestionCreate(
+                target.title.trim(), target.description.trim(), target.links.trim(), senderName?.trim().orEmpty(), amountSats,
+            ))
         }
         val decoded = runCatching { Bolt11.parse(invoice.bolt11) }.getOrNull()
         val asked = decoded?.amountMsat
@@ -215,7 +228,11 @@ class SovereigncastRepository(
     /** Into the payment history, once the instance confirmed it. */
     suspend fun log(podcastId: Long, layer: ScLayer, target: ScTarget, episodeTitle: String?, amountSats: Long, message: String?, feesMsat: Long?) =
         value.logInvoicePayment(
-            if (target is ScTarget.ReleaseBoosting) ValueService.KIND_RELEASE_BOOSTING else ValueService.KIND_BOOST2UNLOCK,
+            when (target) {
+                ScTarget.ReleaseBoosting -> ValueService.KIND_RELEASE_BOOSTING
+                is ScTarget.Boost2Unlock -> ValueService.KIND_BOOST2UNLOCK
+                is ScTarget.NewSuggestion, is ScTarget.SuggestionBoost -> ValueService.KIND_SUGGESTION
+            },
             podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host, feesMsat,
         )
 

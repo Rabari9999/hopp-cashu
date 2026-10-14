@@ -494,6 +494,8 @@ class ValueService(
         const val KIND_STREAM = "stream"
         const val KIND_RELEASE_BOOSTING = "release_boosting"
         const val KIND_BOOST2UNLOCK = "boost2unlock"
+        /** A new topic suggestion or a boost for one (phase 2). */
+        const val KIND_SUGGESTION = "suggestion"
         const val RAIL_LIGHTNING = "lightning"
         /** When neither the listener nor the show sets a rate. */
         const val DEFAULT_RATE = 10

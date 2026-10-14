@@ -6,6 +6,9 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Sovereigncast shows: suggest a topic and boost suggestions** — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The community tab also shows the show's most popular episodes, which open in Hopp.
+
 ## [0.1.1] - 2026-10-14
 
 ### 🐛 Fixes

@@ -1,5 +1,10 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.sc_top_more
+import space.sovereigncast.hopp.resources.sc_top_episodes
+import space.sovereigncast.hopp.sovereigncast.TopEpisode
+import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
+import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -136,14 +141,16 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val unlocks by community.unlocks.collectAsState()
     val suggestions by community.suggestions.collectAsState()
     val board by community.leaderboard.collectAsState()
+    val top by community.topEpisodes.collectAsState()
     val votes by community.votes.collectAsState()
+    val uri = LocalUriHandler.current
     var paying by remember { mutableStateOf<Pair<ScTarget, String>?>(null) }
     var details by remember { mutableStateOf<Any?>(null) } // a round, an unlock or a suggestion
     val colors = MaterialTheme.colorScheme
     val caps = layer?.show?.capabilities
     val tabs = buildList {
         add(ShowTab.Episodes)
-        if (caps?.suggestions == true) add(ShowTab.Community)
+        if (caps?.suggestions == true || caps?.topEpisodes == true) add(ShowTab.Community)
         if (caps?.leaderboard == true) add(ShowTab.Boosts)
     }
     val pager = rememberPagerState { tabs.size }
@@ -199,7 +206,6 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     meta?.description?.let { d -> FoldingText(plainText(d)) }
                     // podcast:funding — the show's own way to be supported (ADR 0012).
                     meta?.funding?.firstOrNull()?.let { f ->
-                        val uri = LocalUriHandler.current
                         Text(
                             "♥ " + (f.text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.show_support)) + " ›",
                             Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { runCatching { uri.openUri(f.url) } }
@@ -230,13 +236,20 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                 }
                 ShowTab.Community -> LazyColumn(Modifier.fillMaxSize()) {
                     val l = layer
-                    val list = suggestions.orEmpty()
-                    item(key = "sug-h") { SectionTitle(stringResource(Res.string.sc_suggestions)) }
-                    if (suggestions != null && list.isEmpty()) item(key = "sug-none") {
-                        Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant)
+                    if (caps?.suggestions == true) {
+                        val list = suggestions.orEmpty()
+                        item(key = "sug-h") { SectionTitle(stringResource(Res.string.sc_suggestions)) }
+                        if (suggestions != null && list.isEmpty()) item(key = "sug-none") {
+                            Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant)
+                        }
+                        items(list, key = { "sug" + it.id }) { sg ->
+                            SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg }) { community.vote(sg) }
+                        }
+                        item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
                     }
-                    items(list, key = { "sug" + it.id }) { sg ->
-                        SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg }) { community.vote(sg) }
+                    topEpisodes(top.orEmpty()) { e ->
+                        // In Hopp when the feed has it, else on the show's website.
+                        community.episodeFor(e) { item -> item?.let { nav.open(it) } ?: e.websiteUrl?.let { runCatching { uri.openUri(it) } } }
                     }
                     if (l != null) item(key = "sc-via") { ScVia(l.host) }
                 }
@@ -267,7 +280,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
             // The live entry, so a vote shows at once.
             val sg = suggestions?.firstOrNull { it.id == d.id } ?: d
             val l = layer
-            SuggestionSheet(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onVote = { community.vote(sg) }) { details = null }
+            SuggestionSheet(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onVote = { community.vote(sg) },
+                onBoost = { details = null; paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { details = null }
         }
     }
 
@@ -338,6 +352,21 @@ private fun ScVia(host: String) = Text(
     stringResource(Res.string.sc_via, host), Modifier.fillMaxWidth().padding(16.dp),
     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
 )
+
+/** The show's most popular episodes (phase 2): five, the rest a tap away. */
+private fun LazyListScope.topEpisodes(list: List<TopEpisode>, onOpen: (TopEpisode) -> Unit) {
+    if (list.isEmpty()) return
+    item(key = "top-ep-h") { SectionTitle(stringResource(Res.string.sc_top_episodes)) }
+    item(key = "top-ep") {
+        var all by rememberSaveable { mutableStateOf(false) }
+        Column {
+            (if (all) list else list.take(5)).forEach { e -> TopEpisodeRow(e) { onOpen(e) } }
+            if (!all && list.size > 5) TextButton(onClick = { all = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                Text(stringResource(Res.string.sc_top_more, list.size))
+            }
+        }
+    }
+}
 
 /** This month's top boosts, the latest ones, the all-time boosters (device feedback 2026-10-09). */
 private fun LazyListScope.leaderboard(b: Leaderboard) {

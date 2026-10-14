@@ -74,6 +74,11 @@ class SovereigncastTest {
             path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297","description":"","image_url":null},
                 "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},"clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
             path.endsWith("/leaderboard") -> respond(LEADERBOARD)
+            // Phase 2: a new suggestion and a suggestion's boost are invoices like the others.
+            req.method == io.ktor.http.HttpMethod.Post && (path.endsWith("/suggestions") || path.endsWith("/suggestions/32/invoices")) -> respond(
+                """{"payment_hash":"$hashInJson","bolt11":"${TestInvoices.make(invoiceAmountMsat ?: 210_000, ByteArray(32))}","amount_sats":210,"expires_at":"2026-10-09T22:00:00Z"}""",
+                HttpStatusCode.Created)
+            path.endsWith("/top-episodes") -> respond("""{"episodes":[{"rank":1,"episode_guid":"e","episode_nr":1,"title":"Ep","description":"Die beste.","website_url":null}]}""")
             path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"","username":"Anonymous","amount_sats":2226,"vote_count":12,"created_at":"2026-07-06T11:39:40Z"}]}""")
             path.endsWith("/votes") -> respond("""{"already_voted":false}""")
             path.endsWith("/release-boosting/invoices") -> respond(
@@ -206,5 +211,41 @@ class SovereigncastTest {
         val logged = value.payments.first().single()
         assertEquals(ValueService.KIND_RELEASE_BOOSTING, logged.kind)
         assertEquals(210_000L, logged.amountMsat)
+    }
+
+    /** Phase 2: a new suggestion carries its topic and the listener's name, and is
+     *  logged as one once the instance confirmed it. */
+    @Test
+    fun aSuggestionIsSubmittedPaidAndLogged() = test {
+        val id = subscribe(); sc.verify(id)
+        val layer = sc.layer(id).first()!!
+        wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        val target = ScTarget.NewSuggestion(" Ark und Spark ", "Wie sie sich unterscheiden", "https://ark.test")
+        val invoice = sc.invoice(layer, target, 210, null, "Satoshi")
+        val sent = bodies.last()
+        assertTrue("\"title\":\"Ark und Spark\"" in sent && "\"links\":\"https://ark.test\"" in sent && "\"username\":\"Satoshi\"" in sent && "\"amount_sats\":210" in sent, sent)
+        val fees = sc.payWithWallet(invoice)
+        assertTrue(sc.awaitPaid(layer, invoice))
+        sc.log(id, layer, target, "Ark und Spark", 210, null, fees)
+        assertEquals(ValueService.KIND_SUGGESTION, value.payments.first().single().kind)
+    }
+
+    /** Below the show's minimum the instance raises the amount — an invoice Hopp
+     *  then refuses, as any that asks for something else (ADR 0005). */
+    @Test
+    fun aRaisedSuggestionAmountIsNeverPaid() = test {
+        val id = subscribe(); sc.verify(id)
+        val layer = sc.layer(id).first()!!
+        invoiceAmountMsat = 21_000
+        assertFailsWith<InvoiceMismatch> { sc.invoice(layer, ScTarget.NewSuggestion("Thema"), 10, null, null) }
+    }
+
+    @Test
+    fun aSuggestionIsBoostedAndTheTopEpisodesAreRead() = test {
+        val id = subscribe(); sc.verify(id)
+        val layer = sc.layer(id).first()!!
+        sc.invoice(layer, ScTarget.SuggestionBoost(32), 210, "Bitte!", null)
+        assertTrue(bodies.last().let { "\"amount_sats\":210" in it && "\"message\":\"Bitte!\"" in it })
+        assertEquals("Die beste.", sc.topEpisodes(layer).episodes.single().description)
     }
 }

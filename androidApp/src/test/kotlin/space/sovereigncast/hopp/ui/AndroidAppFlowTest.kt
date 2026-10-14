@@ -27,6 +27,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextClearance
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -105,17 +106,28 @@ private val LEADERBOARD = buildString {
 }
 private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will, wer dafür ist und wer nicht."
 private var statusCalls = 0
+/** What Hopp last posted to the instance, to check what a form sent. */
+private var lastScPost: String? = null
+/** A suggestion submitted in this test run, listed once there. */
+private var submitted: String? = null
+private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
 
 /** A Sovereigncast instance as the Listener API answers (listener-v1.yaml). */
-private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String) = when {
+private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: String, post: Boolean = false) = when {
     path == "/api/listener/meta" -> respond("""{"api_versions":["v1"],"instance":{"id":"i","software":"sovereigncast","version":"dev"}}""")
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
-        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":false,"payment_metadata":true},
+        "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
         "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
-    path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}]}""")
+    // A new suggestion: the invoice is its spam filter (phase 2).
+    post && path.endsWith("/suggestions") -> { submitted = lastScPost?.let { Regex("\"title\":\"([^\"]*)\"").find(it)?.groupValues?.get(1) }; respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created) }
+    post && path.endsWith("/suggestions/32/invoices") -> respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created)
+    path.endsWith("/suggestions") -> respond("""{"suggestions":[{"id":32,"title":"BIP110","description":"$SUGGESTION_TEXT","username":"Anonymous","amount_sats":2226,"vote_count":$votes,"created_at":"2026-07-06T11:39:40Z"}""" +
+        (submitted?.let { """,{"id":33,"title":"$it","description":"","username":"","amount_sats":21,"vote_count":0,"created_at":"2026-10-14T10:00:00Z"}""" } ?: "") + "]}")
+    path.endsWith("/top-episodes") -> respond("""{"episodes":[{"rank":1,"episode_guid":"e296","episode_nr":296,"title":"E296","description":"Die meistgeboostete Folge."},
+        {"rank":2,"episode_guid":"e100","episode_nr":100,"title":"E100 - Jubiläum","description":"","website_url":"https://nodesignal.space/e100/"}]}""")
     path.endsWith("/leaderboard") -> respond(LEADERBOARD)
     path.endsWith("/votes") -> { votes++; respond("""{"already_voted":false}""") }
     path.endsWith("/release-boosting/invoices") -> respond(
@@ -148,7 +160,11 @@ class TestApp : Application() {
         val http = HttpClient(MockEngine { req ->
             kotlinx.coroutines.delay(1_500)
             when {
-                req.url.host == "pm.test" -> scInstance(req.url.encodedPath)
+                req.url.host == "pm.test" -> {
+                    val post = req.method == io.ktor.http.HttpMethod.Post
+                    if (post) lastScPost = (req.body as? io.ktor.http.content.TextContent)?.text
+                    scInstance(req.url.encodedPath, post)
+                }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
                 // One of Nodesignal's podroll, as the Podcast Index resolves it; the others it does not know.
                 req.url.host == "api.podcastindex.org" && req.url.encodedPath.endsWith("podcasts/byguid") ->
@@ -698,6 +714,65 @@ class AndroidAppFlowTest {
         tap("Pay 21 sats with a wallet app")
         waitFor("Open wallet app")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
+    }
+
+    // ── phase 2: the full Sovereigncast layer ──────────────────────────────
+
+    /** A new topic, paid as its spam filter from the show's minimum on, then on the list. */
+    @Test
+    fun aTopicIsSuggestedAndPaid() {
+        submitted = null
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Community")
+        waitFor("+ Suggest a topic")
+        tap("+ Suggest a topic")
+        waitFor("The payment keeps spam out; once it is paid, your suggestion is public right away. From 21 sats.")
+        // Without a topic there is nothing to pay.
+        check(rule.onAllNodes(hasText("Pay 21 sats with a wallet app") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isEmpty()) { screen().toString() }
+        rule.onNode(hasSetTextAction() and hasText("Topic")).performTextInput("Lightning im Einzelhandel")
+        tap("Pay 21 sats with a wallet app")
+        rule.waitUntil(15_000) { has("Suggested — thank you! It is on the list now.") }
+        val sent = lastScPost.orEmpty()
+        check("\"title\":\"Lightning im Einzelhandel\"" in sent && "\"amount_sats\":21" in sent) { sent }
+        tap("Close")
+        waitFor("Lightning im Einzelhandel")
+    }
+
+    /** An open suggestion gets weight with sats, from its sheet. */
+    @Test
+    fun aSuggestionIsBoosted() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Community")
+        waitFor("BIP110")
+        rule.onNode(hasText("BIP110") and hasClickAction()).performClick()
+        waitFor("by Anonymous · 06.07.2026")
+        tapTop("Boost")
+        waitFor("Boost “BIP110”")
+        tap("…")
+        rule.onNode(hasSetTextAction() and hasText("Amount in sats")).performTextReplacement("21")
+        tap("Pay 21 sats with a wallet app")
+        rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
+        check(lastScPost.orEmpty().contains("\"amount_sats\":21")) { lastScPost.toString() }
+    }
+
+    /** The show's most popular episodes; one the feed has opens in Hopp. */
+    @Test
+    fun theTopEpisodesOpenInHopp() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Community")
+        waitFor("Most popular episodes")
+        waitFor("Die meistgeboostete Folge.")
+        check(has("E100 - Jubiläum")) { screen().toString() }
+        // The top row itself — the episode list has an "E296" too.
+        rule.onNode(hasText("Die meistgeboostete Folge.") and hasClickAction()).performClick()
+        // E296's own page (no show notes in this feed), not the show any more.
+        rule.waitUntil(10_000) { has("02.06.2026", substring = true) && !has("Most popular episodes") }
     }
 
     // ── device feedback 2026-10-09 ─────────────────────────────────────────

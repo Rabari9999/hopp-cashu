@@ -47,10 +47,10 @@ implemented in Sovereigncast; ecash and push are not part of it yet.
 | Boost2Unlock: progress, pay through a Lightning invoice | **P1** (slim layer) |
 | Halving / Boost2Unlock clips | P2 (P1: where it waits, and a link once unlocked) |
 | Topic suggestions: open list, free vote | **P1** (slim layer) |
-| Topic suggestions: submit, sats boost | P2 |
+| Topic suggestions: submit, sats boost | P2 — **built 2026-10-14** (from the show's minimum; a raised invoice is refused) |
 | Paid Q&A | P2 |
 | Top boosts and the all-time boosters (read-only) | **P1** (pulled forward 2026-10-09, ADR 0019) |
-| Top episodes | P2 |
+| Top episodes | P2 — **built 2026-10-14** (community tab; opens in Hopp when the feed has the episode) |
 | Ecash (Cashu) redemption, nutzaps | P3 |
 | Ecash streaming over a Spilman channel (`ecash_channel` capability, ADR 0014) | P3 |
 
