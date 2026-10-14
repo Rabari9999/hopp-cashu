@@ -32,5 +32,12 @@ website: https://hopp.sovereigncast.space
 # The APK carries only an adaptive vector icon; this is the same icon as a PNG
 # (docs/brand/logo/hopp-icon-ios-1024-light.svg at 512 px).
 icon: https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/icon-512.png
+# Real screenshots from the app, shared with hopp.sovereigncast.space
+# (public_src/assets/screens there); German UI.
+images:
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/screenshots/1-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/screenshots/2-library.png
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/screenshots/3-boost.png
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/screenshots/4-privacy.jpg
 
 release_notes: ./CHANGELOG.md
