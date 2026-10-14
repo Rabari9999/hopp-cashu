@@ -141,6 +141,19 @@ ORDER BY e.download_state = 3, e.published_at DESC;
 downloadedBytes:
 SELECT CAST(coalesce(sum(download_size), 0) AS INTEGER) FROM episode WHERE download_state = 3;
 
+downloadedCount:
+SELECT count(*) FROM episode WHERE download_state = 3;
+
+-- Everything waiting, running, done or failed: "delete all downloads".
+downloadIds:
+SELECT id FROM episode WHERE download_state IN (1, 2, 3, 4);
+
+-- What a downloaded file is, for its name outside Hopp (Android's Files app).
+downloadedFile:
+SELECT e.id, e.title, e.download_path, e.download_size, p.title AS podcast_title
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.download_state = 3;
+
 -- Played a day ago: the file goes (ADR 0012).
 playedDownloadsBefore:
 SELECT id, download_path FROM episode WHERE download_state = 3 AND played = 1 AND played_at < ?;

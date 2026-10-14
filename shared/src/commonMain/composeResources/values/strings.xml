@@ -95,6 +95,12 @@
     <string name="settings_storage">Space for downloads</string>
     <string name="settings_unlimited">No limit</string>
     <string name="settings_downloads_text">New episodes download on Wi-Fi; played ones are deleted after 24 hours. When the space is full, the oldest unplayed go first.</string>
+    <string name="settings_downloads_used">Downloaded: %1$s in %2$d episodes</string>
+    <string name="settings_downloads_where">The episodes are in Hopp’s own storage on this device — not under Music or Downloads. Other apps do not see them, and they go when Hopp is uninstalled. The Files app shows them under “Hopp”.</string>
+    <string name="settings_downloads_where_ios">The episodes are in Hopp’s own storage on this device. Other apps do not see them; iOS may clear them when space runs low.</string>
+    <string name="settings_downloads_browse">Show in Files</string>
+    <string name="settings_downloads_delete">Delete all downloads</string>
+    <string name="settings_downloads_delete_confirm">Delete all %1$d downloaded episodes (%2$s)? Running downloads stop; the episodes stay in your library and can be streamed.</string>
     <string name="settings_subscriptions">Subscriptions</string>
     <string name="discover_field">Search or feed address</string>
     <string name="discover_open_feed">Open as feed</string>

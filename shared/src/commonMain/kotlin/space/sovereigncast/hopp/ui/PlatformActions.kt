@@ -24,6 +24,10 @@ interface PlatformActions {
     fun openVpnSettings() = Unit
     /** Opens the system's network settings, where private DNS is. */
     fun openNetworkSettings() = Unit
+    /** Whether a file manager can show Hopp's downloaded episodes (Android). */
+    val canBrowseDownloads: Boolean get() = false
+    /** Opens the downloaded episodes in the system's file manager. */
+    fun browseDownloads() = Unit
     /** Whether a QR code can be read with the camera (Android, with a camera). */
     val canScanQr: Boolean get() = false
     /** Reads a QR code with the camera; calls back with its text, not when closed. */

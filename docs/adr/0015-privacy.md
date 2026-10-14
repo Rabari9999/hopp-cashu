@@ -91,3 +91,8 @@ the "who sees what" page says so.
   listener taps "Scan QR code" on the wallet page, to read a wallet's NWC
   connection. CameraX and ZXing work on the phone; no picture is stored or
   leaves it. Without a camera the button is not there.
+- **Downloads in the Files app (amended 2026-10-14):** the episodes stay in
+  Hopp's private storage. A read-only DocumentsProvider shows them as "Hopp"
+  in the system's Files app (named after show and episode) — only the system
+  binds to it (MANAGE_DOCUMENTS), and a file leaves only when the listener
+  picks it there. Deleting stays in Hopp ("Delete all downloads").

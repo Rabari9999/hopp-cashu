@@ -17,4 +17,5 @@
     <string name="scan_hint">Halte die Kamera auf den QR-Code der Wallet-Verbindung</string>
     <string name="scan_close">Schließen</string>
     <string name="scan_no_camera">Hopp braucht die Kamera nur, um den QR-Code zu lesen.</string>
+    <string name="files_summary">Heruntergeladene Folgen</string>
 </resources>

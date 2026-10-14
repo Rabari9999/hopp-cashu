@@ -7,6 +7,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Wo die Downloads liegen** — die Einstellungen sagen, wo Hopp die Folgen speichert und wie viel Platz sie belegen, löschen alle auf einmal und zeigen sie unter Android als „Hopp“ in der Dateien-App.
 - **Vorschläge beim Tippen** — ein angefangenes Wort genügt: Sovereigncast-Shows, deine Abos, die Empfehlungen und was in dieser Sitzung gefunden wurde, erscheinen sofort (die Verzeichnisse finden nur ganze Wörter).
 - **Animierte Kapitelbilder** — GIFs bewegen sich jetzt, unter Android.
 - **Wallet per QR-Code verbinden** — den NWC-Code mit der Kamera scannen; nach der Kamera wird erst beim Scannen gefragt.

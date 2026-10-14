@@ -20,4 +20,5 @@
     <string name="scan_hint">Point the camera at the wallet connection’s QR code</string>
     <string name="scan_close">Close</string>
     <string name="scan_no_camera">Hopp needs the camera only to read the QR code.</string>
+    <string name="files_summary">Downloaded episodes</string>
 </resources>

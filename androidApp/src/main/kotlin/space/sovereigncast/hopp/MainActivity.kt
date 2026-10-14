@@ -42,6 +42,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
         text?.let(callback)
     }
 
+    /** The Files app at Hopp's episodes ([EpisodesProvider]). */
+    private fun filesIntent() = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(android.provider.DocumentsContract.buildRootUri(EpisodesProvider.authority(this), EpisodesProvider.ROOT), android.provider.DocumentsContract.Root.MIME_TYPE_ITEM)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+    override val canBrowseDownloads: Boolean get() = filesIntent().resolveActivity(packageManager) != null
+
+    override fun browseDownloads() {
+        runCatching { startActivity(filesIntent()) }
+    }
+
     override val canScanQr: Boolean get() = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
 
     override fun scanQr(onText: (String) -> Unit) {

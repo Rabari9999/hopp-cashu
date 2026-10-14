@@ -7,6 +7,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Where the downloads are** — the settings say where Hopp keeps the episodes and how much they take, delete all of them at once, and on Android show them as “Hopp” in the Files app.
 - **Search suggestions while typing** — a word begun is enough: the Sovereigncast shows, your subscriptions, the recommendations and what this session found are suggested at once (the directories only find whole words).
 - **Animated chapter images** — GIFs move now, on Android.
 - **Connect a wallet by QR code** — scan the NWC code with the camera; the camera is only asked for when you scan.

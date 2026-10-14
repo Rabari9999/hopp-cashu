@@ -95,6 +95,12 @@
     <string name="settings_storage">Speicher für Downloads</string>
     <string name="settings_unlimited">Unbegrenzt</string>
     <string name="settings_downloads_text">Neue Folgen laden im WLAN; gespielte werden nach 24 Stunden gelöscht. Ist der Speicher voll, gehen die ältesten ungespielten zuerst.</string>
+    <string name="settings_downloads_used">Heruntergeladen: %1$s in %2$d Folgen</string>
+    <string name="settings_downloads_where">Die Folgen liegen in Hopps eigenem Speicher auf diesem Gerät – nicht unter Musik oder Downloads. Andere Apps sehen sie nicht, und sie verschwinden mit Hopp. Die Dateien-App zeigt sie unter „Hopp“.</string>
+    <string name="settings_downloads_where_ios">Die Folgen liegen in Hopps eigenem Speicher auf diesem Gerät. Andere Apps sehen sie nicht; iOS darf sie löschen, wenn der Platz knapp wird.</string>
+    <string name="settings_downloads_browse">In Dateien anzeigen</string>
+    <string name="settings_downloads_delete">Alle Downloads löschen</string>
+    <string name="settings_downloads_delete_confirm">Alle %1$d heruntergeladenen Folgen löschen (%2$s)? Laufende Downloads werden abgebrochen; die Folgen bleiben in deiner Bibliothek und lassen sich streamen.</string>
     <string name="settings_subscriptions">Abos</string>
     <string name="discover_field">Suchen oder Feed-Adresse</string>
     <string name="discover_open_feed">Als Feed öffnen</string>

@@ -215,7 +215,14 @@ class SettingsViewModel(
     private val settings: SettingsRepository,
     private val podcasts: PodcastRepository,
     wallet: space.sovereigncast.hopp.value.WalletRepository,
+    private val downloads: space.sovereigncast.hopp.data.DownloadRepository,
 ) : ViewModel() {
+    /** What the downloads take, how many, and where (device feedback 2026-10-14). */
+    val downloadBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
+    val downloadCount: StateFlow<Long> = state(downloads.downloadedCount, 0L)
+    val downloadDir: String get() = downloads.dir
+    fun deleteAllDownloads() = viewModelScope.launch { downloads.removeAll() }
+
     val current: StateFlow<Settings?> = state(settings.settings, null)
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)

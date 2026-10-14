@@ -25,6 +25,17 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- The downloaded episodes as "Hopp" in the Files app, read only (device feedback 2026-10-14). -->
+        <provider
+            android:name=".EpisodesProvider"
+            android:authorities="${applicationId}.episodes"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
         <activity
             android:name=".ScanQrActivity"
             android:exported="false"
