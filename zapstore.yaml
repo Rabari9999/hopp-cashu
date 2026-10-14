@@ -1,0 +1,32 @@
+# Zapstore (ADR 0011): `zsp publish` reads this file; Zapstore's relay reads it
+# from the repository on the first publish and whitelists `pubkey` for Hopp.
+# How to publish: docs/zapstore.md.
+repository: https://gitlab.com/nodesignal/hopp
+pubkey: npub1n0devk3h2l3rx6vmt24a3lz4hsxp7j8rn3x44jkx6daj7j8jzc0q2u02cy
+
+name: Hopp
+summary: Honest open podcast player — Podcasting 2.0 with value for value over Lightning
+description: |
+  Hopp is a podcast player without an account, for Podcasting 2.0 and value
+  for value: connect your Lightning wallet over NWC, boost an episode or a
+  whole show, and stream sats while you listen.
+
+  - Library, Home with what is new and what you are listening to, queue,
+    downloads on Wi-Fi, sleep timer, speed per show, skip silence, Android Auto
+  - Find shows in the Podcast Index (optionally fyyd and Apple), by feed
+    address or OPML
+  - Chapters, transcripts, people, show notes
+  - Sovereigncast shows: Release Boosting, Boost2Unlock, votes, top boosts
+  - Hopp collects nothing; a privacy page explains who sees what
+
+  In English and German.
+tags:
+  - podcast
+  - lightning
+  - bitcoin
+  - value4value
+  - nostr
+license: MIT
+website: https://hopp.sovereigncast.space
+
+release_notes: ./CHANGELOG.md
