@@ -21,6 +21,12 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.sqldelight.android)
     implementation(libs.ktor.client.core)
+    // Scanning a wallet's NWC QR code (device feedback 2026-10-14): CameraX for
+    // the picture, ZXing for the code — both free, no Google services (foss).
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.zxing.core)
     // Android's own SQLite, without a device (Robolectric): the driver the
     // app really uses, which the shared JVM tests cannot reach.
     testImplementation(libs.junit)

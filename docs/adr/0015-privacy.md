@@ -87,3 +87,7 @@ the "who sees what" page says so.
   on iOS) are part of phase 1, not an afterthought.
 - The crash handler writes reports locally; the "share report" screen shows the
   exact text before anything leaves the device.
+- **Camera (amended 2026-10-14):** Android asks for the camera only when the
+  listener taps "Scan QR code" on the wallet page, to read a wallet's NWC
+  connection. CameraX and ZXing work on the phone; no picture is stored or
+  leaves it. Without a camera the button is not there.

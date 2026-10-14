@@ -171,6 +171,22 @@ internal fun spellings(term: String): List<String> {
     return listOf(toUmlaut, toAscii).filter { it != term }.distinct()
 }
 
+/**
+ * Whether a show's title starts to match what is typed (device feedback
+ * 2026-10-14: "Nodesig" found nothing). The directories match whole words
+ * only — the Podcast Index even with `similar`, and fyyd — so the
+ * suggestions while typing are matched here: case, umlauts ("muenzw" finds
+ * "Münzweg"), spaces and punctuation do not count, the typed letters only
+ * have to appear in the title in one run.
+ */
+internal fun titleMatches(title: String, typed: String): Boolean {
+    fun norm(s: String) = s.lowercase()
+        .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+        .filter { it.isLetterOrDigit() }
+    val t = norm(typed)
+    return t.length >= 2 && t in norm(title)
+}
+
 /** Two addresses of one feed: scheme, `www.`, case of the host and a trailing slash do not count. */
 internal fun feedKey(url: String): String {
     val noScheme = url.trim().substringAfter("://")

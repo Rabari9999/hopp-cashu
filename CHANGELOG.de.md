@@ -7,6 +7,9 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Vorschläge beim Tippen** — ein angefangenes Wort genügt: Sovereigncast-Shows, deine Abos, die Empfehlungen und was in dieser Sitzung gefunden wurde, erscheinen sofort (die Verzeichnisse finden nur ganze Wörter).
+- **Animierte Kapitelbilder** — GIFs bewegen sich jetzt, unter Android.
+- **Wallet per QR-Code verbinden** — den NWC-Code mit der Kamera scannen; nach der Kamera wird erst beim Scannen gefragt.
 - **Sovereigncast-Shows: Themen vorschlagen und Vorschläge boosten** — die Zahlung hält Spam fern, und sobald sie bezahlt ist, steht der Vorschlag in der Liste; Sats geben einem offenen Vorschlag Gewicht. Die beliebtesten Folgen der Show haben einen eigenen Tab und öffnen sich in Hopp; beim Hören zeigt der Player die letzten Boosts der Show Zeile für Zeile, und eine lange Boost-Nachricht öffnet sich per Tipp ganz; und ein freigeschalteter Clip läuft direkt in Hopps Player – danach ist die Folge, die du gehört hast, wieder da, wo du warst.
 
 ## [0.1.1] - 2026-10-14

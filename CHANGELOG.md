@@ -7,6 +7,9 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Search suggestions while typing** — a word begun is enough: the Sovereigncast shows, your subscriptions, the recommendations and what this session found are suggested at once (the directories only find whole words).
+- **Animated chapter images** — GIFs move now, on Android.
+- **Connect a wallet by QR code** — scan the NWC code with the camera; the camera is only asked for when you scan.
 - **Sovereigncast shows: suggest a topic and boost suggestions** — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The show's most popular episodes have a tab of their own and open in Hopp; while you listen the player shows the show's latest boosts a line at a time, and a long boost message opens in full on a tap; and an unlocked clip plays right in Hopp's player — afterwards the episode you were listening to is back where you left it.
 
 ## [0.1.1] - 2026-10-14

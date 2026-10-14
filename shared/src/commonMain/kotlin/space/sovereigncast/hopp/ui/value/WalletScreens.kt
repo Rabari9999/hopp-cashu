@@ -58,6 +58,7 @@ import space.sovereigncast.hopp.resources.wallet_balance
 import space.sovereigncast.hopp.resources.wallet_balance_unknown
 import space.sovereigncast.hopp.resources.wallet_budget
 import space.sovereigncast.hopp.resources.wallet_connect
+import space.sovereigncast.hopp.resources.wallet_scan
 import space.sovereigncast.hopp.resources.wallet_connected
 import space.sovereigncast.hopp.resources.wallet_disconnect
 import space.sovereigncast.hopp.resources.wallet_failed
@@ -127,6 +128,11 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
                 })
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = { vm.connect(uri) }, enabled = uri.isNotBlank() && connect != ConnectState.Working) { Text(stringResource(Res.string.wallet_connect)) }
+                // The wallet's QR code instead of copying (device feedback 2026-10-14):
+                // read, it connects as a pasted string does.
+                if (actions.canScanQr) OutlinedButton(onClick = { actions.scanQr { text -> uri = text.trim(); vm.connect(uri) } }, enabled = connect != ConnectState.Working) {
+                    Text(stringResource(Res.string.wallet_scan))
+                }
                 if (connect == ConnectState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
             }
             (connect as? ConnectState.Failed)?.let { Text(stringResource(Res.string.wallet_failed, it.reason), color = colors.error) }

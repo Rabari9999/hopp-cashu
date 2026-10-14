@@ -54,6 +54,8 @@ import space.sovereigncast.hopp.resources.discover_field
 import space.sovereigncast.hopp.resources.discover_no_results
 import space.sovereigncast.hopp.resources.discover_open_feed
 import space.sovereigncast.hopp.resources.discover_podroll
+import space.sovereigncast.hopp.resources.discover_results
+import space.sovereigncast.hopp.resources.discover_suggestions
 import space.sovereigncast.hopp.resources.discover_recent
 import space.sovereigncast.hopp.resources.discover_recent_clear
 import space.sovereigncast.hopp.resources.discover_privacy
@@ -79,6 +81,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     // Read so the badges below follow the list once it arrives.
     val scShows by vm.scShows.collectAsState()
     val search by vm.search.collectAsState()
+    val suggestions by vm.suggestions.collectAsState()
     val podroll by vm.podroll.collectAsState()
     val subscribed by vm.subscribed.collectAsState()
     val importState by vm.import.collectAsState()
@@ -123,18 +126,31 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 }
             }
 
+            // What Hopp knows that starts to match, at once (device feedback 2026-10-14).
+            val suggested = if (searchable(q)) suggestions else emptyList()
+            if (suggested.isNotEmpty()) {
+                item { Header(stringResource(Res.string.discover_suggestions)) }
+                items(suggested, key = { "s" + it.feedUrl }) { show ->
+                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
+                        vm.remember(q); onPreview(show.feedUrl, show)
+                    }
+                }
+            }
+            val shownAbove = suggested.map { feedKey(it.feedUrl) }.toSet()
             when (val s = search) {
                 SearchUi.Searching -> item {
                     Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
                 }
                 is SearchUi.Done -> {
                     val r = s.result
+                    val rest = r.shows.filterNot { feedKey(it.feedUrl) in shownAbove }
                     when {
                         r.unavailable -> item { Note(stringResource(Res.string.discover_unavailable)) }
-                        r.shows.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
+                        rest.isEmpty() && suggested.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
                     }
                     if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
-                    items(r.shows, key = { "r" + it.feedUrl }) { show ->
+                    if (suggested.isNotEmpty() && rest.isNotEmpty()) item { Header(stringResource(Res.string.discover_results)) }
+                    items(rest, key = { "r" + it.feedUrl }) { show ->
                         DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
                             vm.remember(q); onPreview(show.feedUrl, show)
                         }

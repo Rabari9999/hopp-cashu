@@ -14,4 +14,7 @@
     <string name="quick_boost_no_wallet">Boost nicht gesendet: Keine Wallet verbunden</string>
     <string name="quick_boost_failed">Boost fehlgeschlagen: %1$s</string>
     <string name="copied">Kopiert</string>
+    <string name="scan_hint">Halte die Kamera auf den QR-Code der Wallet-Verbindung</string>
+    <string name="scan_close">Schließen</string>
+    <string name="scan_no_camera">Hopp braucht die Kamera nur, um den QR-Code zu lesen.</string>
 </resources>

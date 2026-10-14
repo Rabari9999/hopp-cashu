@@ -181,7 +181,7 @@ private val tabs = listOf(
 fun App(platformActions: PlatformActions = NoPlatformActions) {
     val http: HttpClient = koinInject()
     // Images through the shared client: Hopp's User-Agent on them too (ADR 0015).
-    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory(http)) }.build() }
+    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory(http)); addAnimatedImages() }.build() }
     val player: PlayerController = koinInject()
     val expanded by player.expanded.collectAsState()
     val nav = rememberNavController()

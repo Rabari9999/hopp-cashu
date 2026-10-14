@@ -35,6 +35,20 @@ class MainActivity : ComponentActivity(), PlatformActions {
         contentResolver.openOutputStream(uri)?.use { it.write(text.encodeToByteArray()) }
     }
 
+    private var onQr: ((String) -> Unit)? = null
+    private val scanQr = registerForActivityResult(ScanQrActivity.Scan()) { text ->
+        val callback = onQr ?: return@registerForActivityResult
+        onQr = null
+        text?.let(callback)
+    }
+
+    override val canScanQr: Boolean get() = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+
+    override fun scanQr(onText: (String) -> Unit) {
+        onQr = onText
+        scanQr.launch(Unit)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

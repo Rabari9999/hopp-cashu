@@ -23,6 +23,7 @@ import space.sovereigncast.hopp.directory.DirectoryRepository
 import space.sovereigncast.hopp.directory.DirectoryShow
 import space.sovereigncast.hopp.directory.SearchResult
 import space.sovereigncast.hopp.directory.feedKey
+import space.sovereigncast.hopp.directory.titleMatches
 import space.sovereigncast.hopp.feed.FeedParser
 import space.sovereigncast.hopp.model.Feed
 import space.sovereigncast.hopp.net.FeedFetcher
@@ -320,6 +321,9 @@ sealed interface SearchUi {
 }
 
 /** A term, not an address: search. An address goes to the show page. */
+private const val SUGGESTIONS = 5
+private const val SEEN = 300
+
 internal fun searchable(q: String) = q.length >= 2 && "://" !in q && '/' !in q
 
 /** Discover (ADR 0008): search as you type, the V4V filter, a feed address
@@ -398,6 +402,7 @@ class DiscoverViewModel(
                     }
                     _search.value = SearchUi.Searching
                     val r = directory.search(q, v)
+                    seen.value = (r.shows + seen.value).distinctBy { feedKey(it.feedUrl) }.take(SEEN)
                     _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)
                 }
         }
@@ -406,6 +411,27 @@ class DiscoverViewModel(
 
     fun setQuery(q: String) { _query.value = q }
     fun setValueOnly(on: Boolean) { _valueOnly.value = on }
+
+    /** Shows the directories answered with in this session: typed again in
+     *  part, they are suggested at once. */
+    private val seen = MutableStateFlow<List<DirectoryShow>>(emptyList())
+
+    /**
+     * Suggestions while typing (device feedback 2026-10-14): the directories
+     * only find whole words, so what Hopp already knows — the Sovereigncast
+     * shows, the subscriptions, the recommendations and this session's results
+     * — is matched on the letters typed so far, without waiting.
+     */
+    val suggestions: StateFlow<List<DirectoryShow>> = state(
+        combine(_query, _scShows, podcasts.shows, podroll, seen) { q, sc, subscribed, rolled, found ->
+            val term = q.trim()
+            if (!searchable(term)) return@combine emptyList()
+            val known = sc.orEmpty().map { it.asDirectoryShow() } + subscribed.map { DirectoryShow(it.title, it.feedUrl, it.author, it.imageUrl, it.podcastGuid) } +
+                rolled + found
+            known.filter { titleMatches(it.title, term) }.distinctBy { feedKey(it.feedUrl) }.take(SUGGESTIONS)
+        },
+        emptyList(),
+    )
 
     fun importOpml(text: String) {
         _import.value = AddState.Working

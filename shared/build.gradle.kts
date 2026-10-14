@@ -108,6 +108,8 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            // Animated GIFs, e.g. chapter images (device feedback 2026-10-14).
+            implementation(libs.coil.gif)
             implementation(libs.secp256k1.jni.android)
             implementation(libs.sqldelight.android)
         }

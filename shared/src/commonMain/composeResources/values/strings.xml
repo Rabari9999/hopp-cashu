@@ -103,6 +103,8 @@
     <string name="discover_unavailable">Search is not available in this build. Open a show by its feed address instead.</string>
     <string name="discover_failed">%1$s did not answer</string>
     <string name="discover_podroll">Recommended by your shows</string>
+    <string name="discover_suggestions">Suggestions</string>
+    <string name="discover_results">In the directories</string>
     <string name="discover_privacy">Your searches go to: %1$s</string>
     <string name="preview_failed">Could not load the feed: %1$s</string>
     <string name="settings_directories">Directories</string>
@@ -116,6 +118,7 @@
     <string name="wallet_uri_show">Show</string>
     <string name="wallet_uri_hide">Hide</string>
     <string name="wallet_connect">Connect</string>
+    <string name="wallet_scan">Scan QR code</string>
     <string name="wallet_limit_tip">Tip: set a spending limit for this connection in your wallet — Hopp keeps its own daily budget on top.</string>
     <string name="wallet_failed">Could not connect: %1$s</string>
     <string name="wallet_connected">Connected: %1$s</string>

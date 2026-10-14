@@ -24,6 +24,10 @@ interface PlatformActions {
     fun openVpnSettings() = Unit
     /** Opens the system's network settings, where private DNS is. */
     fun openNetworkSettings() = Unit
+    /** Whether a QR code can be read with the camera (Android, with a camera). */
+    val canScanQr: Boolean get() = false
+    /** Reads a QR code with the camera; calls back with its text, not when closed. */
+    fun scanQr(onText: (String) -> Unit) = Unit
 }
 
 object NoPlatformActions : PlatformActions {

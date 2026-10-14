@@ -566,6 +566,46 @@ class AndroidAppFlowTest {
         check(!has("Payment history")) { "the history is a row of the settings, not of the wallet page" }
     }
 
+    /** A word begun is enough (device feedback 2026-10-14: "Nodesig" found nothing —
+     *  the directories match whole words): what Hopp knows is suggested at once. */
+    @Test
+    fun aWordBegunSuggestsAShow() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("Nodesig")
+        waitFor("Suggestions")
+        waitFor("Nodesignal")
+        // The directories' own answer below, under its heading.
+        waitFor("In the directories")
+    }
+
+    /** A wallet's QR code instead of copying (device feedback 2026-10-14): what the
+     *  camera read connects at once — here a broken string, refused as if pasted. */
+    @Test
+    fun aScannedConnectionConnectsAtOnce() {
+        var scans = 0
+        val camera = object : PlatformActions by NoPlatformActions {
+            override val canScanQr = true
+            override fun scanQr(onText: (String) -> Unit) { scans++; onText(" nostr+walletconnect://nonsense ") }
+        }
+        rule.setContent { App(camera) }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Wallet & payments")
+        tap("Scan QR code")
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Could not connect", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        check(scans == 1)
+    }
+
+    /** No camera, no button. */
+    @Test
+    fun withoutACameraThereIsNoScanButton() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Wallet & payments")
+        waitFor("Connect")
+        check(!has("Scan QR code")) { screen().toString() }
+    }
+
     /** A wallet's "connect" link opens the wallet page with the string filled in. */
     @Test
     fun aWalletLinkOpensTheWalletPage() {
