@@ -3,6 +3,9 @@ package space.sovereigncast.hopp
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
+import kotlinx.cinterop.cValue
+import platform.Foundation.NSOperatingSystemVersion
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
@@ -26,10 +29,19 @@ class IosPlatformActions : PlatformActions {
     override fun pickOpml(onText: (String) -> Unit) = Unit
     override fun exportOpml(text: String) = Unit
 
-    /** Hopp's page in the Settings app, with "Notifications" at its top. The direct
-     *  link to notifications needs iOS 16; Hopp runs from 15.3. */
+    /**
+     * Hopp's notification settings, as on Android (device feedback 2026-10-14: Hopp's
+     * page in the Settings app was one step short). iOS 16 has a link for them,
+     * UIApplication.openNotificationSettingsURLString — "app-settings:notifications",
+     * read from the SDK. Spelled out rather than linked, since Hopp runs from 15.3,
+     * where the symbol does not exist; there Hopp's own page, Notifications at its top.
+     */
+    @OptIn(ExperimentalForeignApi::class)
     override fun openNotificationSettings() {
-        val url = NSURL.URLWithString(UIApplicationOpenSettingsURLString) ?: return
+        val sixteen = NSProcessInfo.processInfo.isOperatingSystemAtLeastVersion(
+            cValue<NSOperatingSystemVersion> { majorVersion = 16; minorVersion = 0; patchVersion = 0 },
+        )
+        val url = NSURL.URLWithString(if (sixteen) NOTIFICATION_SETTINGS else UIApplicationOpenSettingsURLString) ?: return
         UIApplication.sharedApplication.openURL(url, emptyMap<Any?, Any?>(), null)
     }
 
@@ -57,3 +69,6 @@ class IosPlatformActions : PlatformActions {
         while (true) top = top.presentedViewController ?: return top
     }
 }
+
+/** UIApplication.openNotificationSettingsURLString's value (iOS 16 and later). */
+private const val NOTIFICATION_SETTINGS = "app-settings:notifications"

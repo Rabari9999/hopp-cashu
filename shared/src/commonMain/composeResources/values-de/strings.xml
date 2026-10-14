@@ -497,7 +497,7 @@
     <string name="settings_home">Home</string>
     <string name="settings_home_note">Bereiche anordnen oder ausblenden</string>
     <string name="home_customize">Home anpassen</string>
-    <string name="home_sections_text">Ziehe einen Bereich, um ihn zu verschieben; schalte ihn aus, um ihn auf Home auszublenden. Solange du nichts verschoben hast, kommen an ruhigen Tagen deine ungehörten Folgen zuerst.</string>
+    <string name="home_sections_text">Ziehe einen Bereich, um ihn zu verschieben; schalte ihn aus, um ihn auf Home auszublenden. Die Begrüßung bleibt immer oben.</string>
     <string name="home_sections_reset">Zurück zu Hopps Reihenfolge</string>
     <string name="home_section_move">%1$s verschieben</string>
     <string name="pv_backup_who_ios">Apple (iCloud-Backup)</string>
