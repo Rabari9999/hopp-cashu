@@ -6,3 +6,4 @@ live in `docs/adr/`; a task points to the ADR it implements. Delete the file
 (or set its status to `done`) in the commit that finishes it.
 
 - [Open Hopp from the "Open in Hopp" link](open-in-hopp-app-link.md) — implemented, device check and Sovereigncast hint left
+- [Hopp in F-Droid](fdroid-submission.md) — prepared, paused: tag 0.1.1, sign, submit to fdroiddata
