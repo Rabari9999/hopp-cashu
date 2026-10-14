@@ -19,3 +19,6 @@ Pods/
 # OS
 .DS_Store
 docs/design/Figtree.ttf
+
+# Signed release APKs that scripts/release.sh leaves behind for zsp
+/hopp-*-foss.apk

@@ -41,6 +41,9 @@ environment on a shared machine:
    zsp identity --verify hopp-0.1.0-foss.apk     # afterwards: the APK is linked
    ```
 
+   Linked on 2026-10-14 for Nodesignal's npub; **the link expires
+   2028-10-13** — run the `--link-key` command again before then.
+
 ## Every release
 
 After `scripts/release.sh` has created the GitLab release:
