@@ -33,6 +33,7 @@ import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import org.koin.mp.KoinPlatform
 import space.sovereigncast.hopp.appInfo
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.player.PlayerController
 
@@ -63,11 +64,16 @@ class PlaybackService : MediaLibraryService() {
             )
             .setHandleAudioBecomingNoisy(true) // pause when headphones are unplugged
             .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setSeekBackIncrementMs(10_000)
-            .setSeekForwardIncrementMs(30_000)
             .build()
-        // Skip silence (ADR 0012) is ExoPlayer's own; the setting follows live.
-        scope.launch { koin.get<SettingsRepository>().settings.collect { exo.skipSilenceEnabled = it.skipSilence } }
+        // Skip silence (ADR 0012) is ExoPlayer's own; the setting follows live,
+        // as do the skip intervals ([ChapterPlayer]).
+        scope.launch {
+            koin.get<SettingsRepository>().settings.collect {
+                exo.skipSilenceEnabled = it.skipSilence
+                skipBackMs = it.skipBackSeconds * 1000L
+                skipForwardMs = it.skipForwardSeconds * 1000L
+            }
+        }
 
         val tree = MediaTree(this, koin.get(), koin.get(), koin.get(), koin.get())
         session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree).also { callback = it }).build()
@@ -88,6 +94,8 @@ class PlaybackService : MediaLibraryService() {
         private set
 
     private var boostShown = false
+    private var skipBackMs = Settings().skipBackSeconds * 1000L
+    private var skipForwardMs = Settings().skipForwardSeconds * 1000L
     private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
 
     private fun buttons(): List<CommandButton> = if (!boostShown) emptyList() else listOf(
@@ -128,7 +136,9 @@ class PlaybackService : MediaLibraryService() {
             session.isMediaNotificationController(c) || session.isAutomotiveController(c) || session.isAutoCompanionController(c)
 
     /** Next/previous on headsets, the notification and in the car jump by
-     *  chapter, past the last one to the next episode in the queue (ADR 0012). */
+     *  chapter, past the last one to the next episode in the queue (ADR 0012).
+     *  Back and forward skip by the listener's intervals, as in the app (device
+     *  feedback 2026-10-14: the notification skipped a fixed 10 and 30 seconds). */
     private inner class ChapterPlayer(player: Player) : ForwardingPlayer(player) {
         private val extra = listOf(
             Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_PREVIOUS,
@@ -141,6 +151,10 @@ class PlaybackService : MediaLibraryService() {
         override fun seekToNextMediaItem() = controller.next()
         override fun seekToPrevious() = controller.previous()
         override fun seekToPreviousMediaItem() = controller.previous()
+        override fun getSeekBackIncrement() = skipBackMs
+        override fun getSeekForwardIncrement() = skipForwardMs
+        override fun seekBack() = seekTo((currentPosition - skipBackMs).coerceAtLeast(0))
+        override fun seekForward() = seekTo(currentPosition + skipForwardMs)
     }
 
     internal inner class Callback(private val tree: MediaTree) : MediaLibrarySession.Callback {

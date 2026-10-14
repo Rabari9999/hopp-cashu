@@ -82,4 +82,19 @@ class PlaybackServiceTest {
         }
         controller.destroy()
     }
+
+    /** The notification and the lock screen skip by the listener's intervals
+     *  (device feedback 2026-10-14: a fixed 10 and 30 seconds). */
+    @Test
+    fun theLockScreenSkipsByTheListenersIntervals() {
+        val settings = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>()
+        kotlinx.coroutines.runBlocking { settings.update { it.copy(skipBackSeconds = 15, skipForwardSeconds = 45) } }
+        val controller = Robolectric.buildService(PlaybackService::class.java).create()
+        repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(50) }
+        val player = controller.get().onGetSession(androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "test", 0, 0, 0, 0, false, android.os.Bundle.EMPTY, false))!!.player
+        assertEquals(15_000L, player.seekBackIncrement)
+        assertEquals(45_000L, player.seekForwardIncrement)
+        controller.destroy()
+    }
 }

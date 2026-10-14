@@ -38,6 +38,7 @@ import platform.MediaPlayer.MPRemoteCommandHandlerStatusCommandFailed
 import platform.MediaPlayer.MPRemoteCommandHandlerStatusSuccess
 import platform.UIKit.UIApplication
 import platform.UIKit.beginReceivingRemoteControlEvents
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
@@ -57,6 +58,8 @@ class IosPlaybackEngine(private val userAgent: String) : PlaybackEngine {
     private var current: PlaybackItem? = null
     private var speed = 1f
     private var playWhenReady = false
+    private var skipBack = Settings().skipBackSeconds
+    private var skipForward = Settings().skipForwardSeconds
     private val observer: Any
 
     init {
@@ -100,6 +103,16 @@ class IosPlaybackEngine(private val userAgent: String) : PlaybackEngine {
         )
     }
 
+    /** The lock screen shows the listener's intervals and skips by them (device
+     *  feedback 2026-10-14: it skipped a fixed 15 and 30 seconds). */
+    override fun setSkipIntervals(backSeconds: Int, forwardSeconds: Int) {
+        skipBack = backSeconds
+        skipForward = forwardSeconds
+        val center = MPRemoteCommandCenter.sharedCommandCenter()
+        center.skipBackwardCommand.preferredIntervals = listOf(backSeconds.toDouble())
+        center.skipForwardCommand.preferredIntervals = listOf(forwardSeconds.toDouble())
+    }
+
     private fun remoteCommands() {
         val center = MPRemoteCommandCenter.sharedCommandCenter()
         center.playCommand.addTargetWithHandler { _ -> play(); MPRemoteCommandHandlerStatusSuccess }
@@ -107,10 +120,9 @@ class IosPlaybackEngine(private val userAgent: String) : PlaybackEngine {
         center.togglePlayPauseCommand.addTargetWithHandler { _ ->
             if (_state.value.isPlaying) pause() else play(); MPRemoteCommandHandlerStatusSuccess
         }
-        center.skipBackwardCommand.preferredIntervals = listOf(15.0)
-        center.skipBackwardCommand.addTargetWithHandler { _ -> seekTo(_state.value.positionMs - 15_000); MPRemoteCommandHandlerStatusSuccess }
-        center.skipForwardCommand.preferredIntervals = listOf(30.0)
-        center.skipForwardCommand.addTargetWithHandler { _ -> seekTo(_state.value.positionMs + 30_000); MPRemoteCommandHandlerStatusSuccess }
+        setSkipIntervals(skipBack, skipForward)
+        center.skipBackwardCommand.addTargetWithHandler { _ -> seekTo((_state.value.positionMs - skipBack * 1000L).coerceAtLeast(0)); MPRemoteCommandHandlerStatusSuccess }
+        center.skipForwardCommand.addTargetWithHandler { _ -> seekTo(_state.value.positionMs + skipForward * 1000L); MPRemoteCommandHandlerStatusSuccess }
         center.changePlaybackPositionCommand.addTargetWithHandler { event ->
             val e = event as? MPChangePlaybackPositionCommandEvent
             if (e == null) MPRemoteCommandHandlerStatusCommandFailed

@@ -89,7 +89,12 @@ class PlayerController(
     private var clip: Clip? = null
 
     init {
-        scope.launch { settingsRepository.settings.collect { _settings.value = it } }
+        scope.launch {
+            settingsRepository.settings.collect {
+                _settings.value = it
+                engine.setSkipIntervals(it.skipBackSeconds, it.skipForwardSeconds)
+            }
+        }
         // What is still owed from before — offline, or the app closed mid-batch —
         // is caught up soon after the start; from then on batches follow listening.
         if (value != null) scope.launch { delay(CATCH_UP_AFTER); runCatching { value.settle() } }
