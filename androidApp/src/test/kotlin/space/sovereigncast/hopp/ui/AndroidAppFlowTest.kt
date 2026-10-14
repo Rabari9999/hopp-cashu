@@ -806,8 +806,7 @@ class AndroidAppFlowTest {
         tap("Play")
         until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
         koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
-        waitFor("LATEST BOOSTS")
-        waitFor("z · 21 sats")
+        rule.waitUntil(10_000) { has("z · 21 sats", substring = true) }
     }
 
     /** The player shows the show's latest boosts a line at a time; a tap opens one
@@ -817,6 +816,14 @@ class AndroidAppFlowTest {
         playScShow()
         rule.onNode(hasText("z · 21 sats", substring = true) and hasClickAction()).performClick()
         waitFor("21 sats")
+    }
+
+    /** Device feedback 2026-10-14: on a Pixel 9, upright, the line did not fit
+     *  under the controls. Slim, it does — here on a shorter screen still. */
+    @Test @Config(qualifiers = "en-w412dp-h800dp")
+    fun theLatestBoostFitsUprightOnAPhone() {
+        playScShow()
+        rule.onNode(hasText("z · 21 sats", substring = true) and hasClickAction()).assertIsDisplayed()
     }
 
     /** "All" in the player's line: the show's Boosts tab. */

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.fillMaxHeight
 import space.sovereigncast.hopp.ui.sovereigncast.LatestBoostLine
+import space.sovereigncast.hopp.ui.sovereigncast.LATEST_BOOST_HEIGHT
 import androidx.compose.material3.IconButton
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.player.PlayerController
@@ -331,8 +332,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     Spacer(Modifier.height(16.dp))
                     details()
                     // Upright the page does not scroll: the line only where it fits.
-                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(top = 16.dp)) {
-                        if (maxHeight >= 72.dp) boostLine()
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(top = 12.dp)) {
+                        if (maxHeight >= LATEST_BOOST_HEIGHT) boostLine()
                     }
                 }
             }

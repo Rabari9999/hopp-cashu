@@ -1,8 +1,13 @@
 package space.sovereigncast.hopp.ui.sovereigncast
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import space.sovereigncast.hopp.resources.sc_all
-import space.sovereigncast.hopp.resources.sc_recent_boosts
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.unit.sp
@@ -510,42 +515,45 @@ fun LatestBoostLine(podcastId: Long, onAll: () -> Unit) {
     }
     var open by remember { mutableStateOf<CommunityBoost?>(null) }
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(Res.string.sc_recent_boosts).uppercase(), Modifier.weight(1f),
-                style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
-            )
-            Text(
-                stringResource(Res.string.sc_all) + " ›", Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAll).padding(horizontal = 4.dp, vertical = 2.dp),
-                style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.SemiBold,
-            )
-        }
-        AnimatedContent(boosts[index.coerceIn(0, boosts.lastIndex)], transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) }, label = "boost") { b ->
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(colors.surface)
-                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(14.dp)).clickable { open = b }
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.width(3.dp).height(30.dp).clip(RoundedCornerShape(2.dp)).background(Hopp.colors.value))
+    val anonymous = stringResource(Res.string.sc_anonymous)
+    // One slim row (device feedback 2026-10-14: with a header and two lines it
+    // did not fit under a Pixel 9's controls): who and how much in bold, the
+    // message after it, "All" at the end.
+    Row(
+        Modifier.fillMaxWidth().height(LATEST_BOOST_HEIGHT).clip(RoundedCornerShape(14.dp)).background(colors.surface)
+            .border(1.dp, colors.outlineVariant, RoundedCornerShape(14.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AnimatedContent(
+            boosts[index.coerceIn(0, boosts.lastIndex)], Modifier.weight(1f).fillMaxHeight(),
+            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) }, label = "boost",
+        ) { b ->
+            Row(Modifier.fillMaxSize().clickable { open = b }.padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(3.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Hopp.colors.value))
                 Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        b.sender.ifBlank { stringResource(Res.string.sc_anonymous) } + " · ${formatSats(b.amountSats)} sats",
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    val line = b.message.takeIf { it.isNotBlank() }?.let { "„$it“" } ?: b.episode.title
-                    if (line.isNotBlank()) Text(
-                        line, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
-                        fontStyle = if (b.message.isNotBlank()) FontStyle.Italic else FontStyle.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(b.sender.ifBlank { anonymous } + " · ${formatSats(b.amountSats)} sats") }
+                        val line = b.message.takeIf { it.isNotBlank() }?.let { "„$it“" } ?: b.episode.title
+                        if (line.isNotBlank()) withStyle(SpanStyle(color = colors.onSurfaceVariant, fontStyle = if (b.message.isNotBlank()) FontStyle.Italic else FontStyle.Normal)) {
+                            append("  $line")
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
+        Text(
+            stringResource(Res.string.sc_all) + " ›",
+            Modifier.fillMaxHeight().clickable(onClick = onAll).wrapContentHeight().padding(horizontal = 12.dp),
+            style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.SemiBold,
+        )
     }
     open?.let { CommunityBoostSheet(it) { open = null } }
 }
+
+/** How tall the player's line of latest boosts is — the player leaves it out where this does not fit. */
+val LATEST_BOOST_HEIGHT = 44.dp
 
 /** A boost in full — the whole message, selectable. */
 @OptIn(ExperimentalMaterial3Api::class)
