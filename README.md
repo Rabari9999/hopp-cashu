@@ -13,10 +13,12 @@ suggestions, Q&A, leaderboards) on top of the standard player.
 
 ## Status
 
-**Specification complete — no code yet.** The decisions are recorded as ADRs;
-[ADR 0018](docs/adr/0018-phase-plan.md) is the phase plan that starts
-implementation with phase 0, [ADR 0019](docs/adr/0019-visual-design.md) the
-visual design (logo, design system, key screens).
+**Android: 0.1.0, in community testing** — get it from the
+[GitLab releases](https://gitlab.com/nodesignal/hopp/-/releases) (with
+[Obtainium](https://github.com/ImranR98/Obtainium) for updates) or Zapstore;
+how we test: [community testing](docs/community-testing.md). iOS runs and
+follows with its own version line. The decisions are recorded as ADRs;
+[ADR 0018](docs/adr/0018-phase-plan.md) is the phase plan.
 
 - [Architecture decisions](docs/adr/)
 - [Podcasting 2.0 feature matrix](docs/feature-matrix.md)

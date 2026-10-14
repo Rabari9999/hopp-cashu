@@ -29,4 +29,8 @@ tags:
 license: MIT
 website: https://hopp.sovereigncast.space
 
+# The APK carries only an adaptive vector icon; this is the same icon as a PNG
+# (docs/brand/logo/hopp-icon-ios-1024-light.svg at 512 px).
+icon: https://gitlab.com/nodesignal/hopp/-/raw/main/docs/brand/store/icon-512.png
+
 release_notes: ./CHANGELOG.md

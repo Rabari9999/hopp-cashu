@@ -21,23 +21,41 @@ later Google Play are all plain updates.
 Do not post APK files into the Telegram group: old versions keep circulating,
 and nobody can tell ours from someone else's. Link the release instead.
 
-## Pinned message (Telegram)
+## Introduction post (Telegram, pinned)
 
-> **Hopp testen** — der Podcast-Player von Nodesignal mit Value for Value.
-> Version für Android: https://gitlab.com/nodesignal/hopp/-/releases
+Nobody in the community has heard of Hopp before, so the post says what it is
+and why to try it next to Fountain — by what Hopp does, not by claims about
+Fountain (which has its own wallet and, since 1.4, NWC too). Under Telegram's
+4096 characters.
+
+> 🎧 **Hopp — wir testen unseren eigenen Podcast-Player**
 >
-> **Installieren — mit automatischen Updates:**
-> - **Zapstore:** Hopp suchen, installieren. Updates kommen von allein.
-> - **Obtainium:** „App hinzufügen“ → `https://gitlab.com/nodesignal/hopp` → hinzufügen. Obtainium meldet jede neue Version.
-> - **Von Hand:** auf der Release-Seite `hopp-X.Y.Z-foss.apk` laden.
+> Aus der Nodesignal-Crew kommt etwas Neues: **Hopp**, ein Podcast-Player für Android (iOS folgt). Hopp spielt jeden Podcast — nicht nur Bitcoin-Shows — und kann alles, was Podcasting 2.0 ausmacht: Kapitel, Transkripte, Mitwirkende, Boosts und Streaming-Sats über Lightning.
 >
-> **Echtheit prüfen:** Hopp ist immer mit diesem Zertifikat signiert (SHA-256), die App AppVerifier zeigt es an:
+> **Warum noch ein Player, wenn es Fountain gibt?**
+> Fountain ist eine starke App mit eigener Community. Hopp setzt bewusst andere Schwerpunkte:
+>
+> 🔓 **Kein Konto, kein Tracking.** Du installierst Hopp und hörst. Hopp sammelt nichts und betreibt keinen eigenen Server; deine Abos liegen bei dir, nicht bei uns. Eine eigene Seite in der App erklärt in klaren Worten, wer was sieht — und was du dagegen tun kannst.
+> ⚡ **Nur deine Wallet.** Hopp hat keine eingebaute Wallet und hält nie deine Sats. Du verbindest deine eigene Lightning-Wallet per NWC (Alby Hub, Primal, Coinos …), mit Tagesbudget.
+> 💯 **100 % für die Podcaster.** Hopp nimmt keinen Anteil. Routing-Gebühren siehst du getrennt. Wer Hopp unterstützen will, schaltet das selbst ein — es ist aus, bis du es willst.
+> 🧡 **Open Source** (MIT). Jeder kann nachsehen, was die App tut; F-Droid ist in Vorbereitung.
+> 🎙 **Sovereigncast-Shows** werden in Hopp lebendig: Release Boosting, Boost2Unlock, Themen-Abstimmungen und die Top-Boosts der Community — direkt in der App.
+> 🇩🇪 Auf Deutsch und Englisch, fürs Handy, Tablet und Android Auto.
+>
+> **Ihr seid die ersten Tester.** Hopp ist Version 0.1.0 — es wird Ecken geben. Genau dafür brauchen wir euch.
+>
+> 📲 **Installieren** (mit automatischen Updates):
+> • **Zapstore:** nach „Hopp“ suchen.
+> • **Obtainium:** „App hinzufügen“ → `https://gitlab.com/nodesignal/hopp`
+> • **Direkt:** https://gitlab.com/nodesignal/hopp/-/releases → `hopp-0.1.0-foss.apk`
+>
+> 🔐 **Echtheit:** Hopp ist immer mit diesem Zertifikat signiert (SHA-256, z. B. mit der App AppVerifier prüfbar):
 > `C8:0F:DE:C5:F9:8A:0A:AF:49:54:40:5E:3C:52:C1:7A:78:DB:40:F7:BD:05:D2:AC:25:85:32:40:03:DC:A3:D1`
-> APKs, die hier im Chat geteilt werden, sind **nicht** von uns.
+> APK-Dateien, die hier im Chat herumgehen, sind **nicht** von uns — bitte nur über die Links oben.
 >
-> **Noch eine Testversion:** verbinde nur eine Wallet mit kleinem Betrag und setze ein Tagesbudget.
+> ⚠️ **Testversion:** verbinde eine Wallet mit kleinem Betrag und setze in Hopp ein Tagesbudget.
 >
-> **Feedback:** hier im Thema „Hopp“ — mit Gerät, Android-Version und der Version aus Einstellungen → Über Hopp. Oder als Issue: https://gitlab.com/nodesignal/hopp/-/issues
+> 💬 **Feedback** gern hier — mit Gerät, Android-Version und der Version aus *Einstellungen → Über Hopp*. Oder als Issue: https://gitlab.com/nodesignal/hopp/-/issues
 
 ## Each release
 
