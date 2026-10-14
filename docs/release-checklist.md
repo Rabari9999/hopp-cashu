@@ -37,19 +37,22 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
 
 - [ ] `git tag vX.Y.Z && git push origin vX.Y.Z` — CI's `release-unsigned`
       job builds the unsigned APK (foss) and AAB (play).
-- [ ] Build and sign locally with the release key (`docs/signing.md`); check
-      the signed APK against CI's with `scripts/compare_apks.py`.
-- [ ] `apksigner verify --print-certs` shows the release certificate.
+- [ ] Optional, for F-Droid: build the release locally and check it against
+      CI's unsigned APK with `scripts/compare_apks.py` (reproducible builds).
+- [ ] `scripts/release.sh vX.Y.Z /path/to/release-keystore [alias]` — signs
+      CI's unsigned APK, checks the release certificate, uploads it and
+      creates the GitLab release (next section's first box).
 
 ## Publish
 
 - [ ] **GitLab release** with the signed foss APK (`hopp-X.Y.Z-foss.apk`, the
-      name F-Droid's `Binaries` expects).
-- [ ] **Zapstore:** publish the signed foss APK.
+      name F-Droid's `Binaries` and Obtainium expect) — done by `scripts/release.sh`.
+- [ ] **Zapstore:** `zsp publish zapstore.yaml` (docs/zapstore.md).
 - [ ] **F-Droid:** merge request to fdroiddata with the updated metadata
       (first time: the inclusion request — open question 17 first).
-- [ ] Tell the testers (Signal) what changed — from the changelog's
-      highlights.
+- [ ] Tell the testers what changed — the crew (Signal) and the community
+      (Telegram), from the changelog's highlights with the release link
+      (docs/community-testing.md).
 
 ## Later: Google Play (not for the first release, ADR 0011 amended 2026-10-10)
 

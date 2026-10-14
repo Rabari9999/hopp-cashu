@@ -4,7 +4,9 @@ Zwei Stufen wie bei Sovereigncast (ADR 0017): alles über **🐛 Fixes** sind di
 Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Play:
 500 Zeichen je Sprache); danach die Fehlerbehebungen. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
-## [Unreleased] — geplant als 0.1.0, die erste Version
+## [Unreleased]
+
+## [0.1.0] - 2026-10-14
 
 ### 🆕 New Features
 - **Ein Podcast-Player ohne Konto** — Bibliothek als Karten oder Liste, mit den neuen Folgen je Show, Home mit Neuem, dem, was du gerade hörst, deinen Shows samt nächstem Erscheinen — mit Begrüßung beim Boost-Namen, die Bereiche in deiner Reihenfolge oder ausgeblendet —, Warteschlange, Downloads im WLAN, Sleep-Timer (auch zum Kapitelende), Tempo je Show, eigene Sprungweiten (auch auf dem Sperrbildschirm), Stille überspringen, Android Auto — auf Telefon, Tablet und iPad, hochkant oder quer. Auf Englisch und Deutsch, ab Android 13 auch abweichend von der Systemsprache.
@@ -16,5 +18,3 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Folgenseiten** mit Shownotes, Kapiteln, Personen und Boost-Button; ein Transkript, das im Player mitläuft.
 - **Eine kurze Tour beim ersten Start** — Abonnieren, Bibliothek, Value for Value und Wallet verbinden.
 - **Seite zur Privatsphäre** — wer was sieht, in klaren Worten, mit einem Tipp zu jedem Punkt; was Hopp prüfen kann (VPN, privates DNS, deine Einstellungen), wird grün markiert. Hopp selbst sammelt nichts; nach einem Absturz zeigt es den Bericht, den du selbst teilen kannst.
-
-### 🐛 Fixes

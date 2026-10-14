@@ -21,7 +21,8 @@ Where it is used:
   Links for `/open` (ADR 0002), in the `nodesignal/sovereigncast-space` repo
 
 To check an APK: `apksigner verify --print-certs hopp.apk` must show this
-SHA-256 digest.
+SHA-256 digest. `scripts/release.sh` signs CI's unsigned release APK and
+refuses to publish one with any other certificate.
 
 If the key were ever lost, Hopp could not be updated on F-Droid or Zapstore
 again and Google Play would need a key upgrade — hence the offline backups.
