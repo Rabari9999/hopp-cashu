@@ -29,8 +29,15 @@ environment on a shared machine:
    keystore (docs/signing.md), valid for a year by default — renew it before
    it expires:
 
+   zsp picks the keystore format by the file's extension. Hopp's release
+   keystore is PKCS12 although it is named `.jks` (keytool's default since
+   Java 9; `xxd -l 2` shows `3082`, a real JKS starts `FEEDFEED`), so zsp
+   refuses it with "load JKS: got invalid magic". A `.p12` symlink to it
+   fixes that without a second copy of the key:
+
    ```bash
-   SIGN_WITH=browser zsp identity --link-key /path/to/release.jks --key-alias <alias> --link-key-expiry 2y
+   ln -s ~/Documents/hopp-release.jks ~/Documents/hopp-release.p12
+   SIGN_WITH=browser zsp identity --link-key ~/Documents/hopp-release.p12 --link-key-expiry 2y
    zsp identity --verify hopp-0.1.0-foss.apk     # afterwards: the APK is linked
    ```
 
