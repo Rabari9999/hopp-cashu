@@ -45,7 +45,7 @@ Fountain (which has its own wallet and, since 1.4, NWC too). Under Telegram's
 > **Ihr seid die ersten Tester.** Hopp ist Version 0.1.0 — es wird Ecken geben. Genau dafür brauchen wir euch.
 >
 > 📲 **Installieren** (mit automatischen Updates):
-> • **Zapstore:** nach „Hopp“ suchen.
+> • **Zapstore:** https://zapstore.dev/apps/space.sovereigncast.hopp
 > • **Obtainium:** „App hinzufügen“ → `https://gitlab.com/nodesignal/hopp`
 > • **Direkt:** https://gitlab.com/nodesignal/hopp/-/releases → `hopp-0.1.0-foss.apk`
 >
