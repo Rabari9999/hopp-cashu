@@ -7,7 +7,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Sovereigncast shows: suggest a topic and boost suggestions** — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The community tab also shows the show's most popular episodes, which open in Hopp, and an unlocked clip plays right in Hopp's player — afterwards the episode you were listening to is back where you left it.
+- **Sovereigncast shows: suggest a topic and boost suggestions** — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The show's most popular episodes have a tab of their own and open in Hopp; the latest boosts move along as a band of tiles, and a long boost message opens in full on a tap; and an unlocked clip plays right in Hopp's player — afterwards the episode you were listening to is back where you left it.
 
 ## [0.1.1] - 2026-10-14
 

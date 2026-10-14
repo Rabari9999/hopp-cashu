@@ -259,12 +259,12 @@
     <string name="sc_pay_title_suggestion">Boost “%1$s”</string>
     <string name="sc_suggestion_boost_note">Sats give a suggestion weight: the list is ordered by sats, then by votes.</string>
     <string name="sc_suggestion_name">Topic suggestion</string>
-    <string name="sc_top_episodes">Most popular episodes</string>
-    <string name="sc_top_more">Show all %1$d</string>
     <string name="sc_open_community">Open the community page</string>
     <string name="sc_open_episode">Go to the episode</string>
     <string name="sc_by">by %1$s</string>
     <string name="sc_tab_boosts">Boosts</string>
+    <string name="sc_tab_top">Top episodes</string>
+    <string name="sc_more">more ▾</string>
     <string name="sc_top_month">Top boosts in %1$s</string>
     <string name="sc_recent_boosts">Latest boosts</string>
     <string name="sc_alltime">All-time boosters</string>

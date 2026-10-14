@@ -259,12 +259,12 @@
     <string name="sc_pay_title_suggestion">„%1$s“ boosten</string>
     <string name="sc_suggestion_boost_note">Sats geben einem Vorschlag Gewicht: Die Liste ist nach Sats sortiert, dann nach Stimmen.</string>
     <string name="sc_suggestion_name">Themenvorschlag</string>
-    <string name="sc_top_episodes">Beliebteste Folgen</string>
-    <string name="sc_top_more">Alle %1$d zeigen</string>
     <string name="sc_open_community">Community-Seite öffnen</string>
     <string name="sc_open_episode">Zur Folge</string>
     <string name="sc_by">von %1$s</string>
     <string name="sc_tab_boosts">Boosts</string>
+    <string name="sc_tab_top">Top-Folgen</string>
+    <string name="sc_more">mehr ▾</string>
     <string name="sc_top_month">Top-Boosts im %1$s</string>
     <string name="sc_recent_boosts">Letzte Boosts</string>
     <string name="sc_alltime">Ewige Bestenliste</string>

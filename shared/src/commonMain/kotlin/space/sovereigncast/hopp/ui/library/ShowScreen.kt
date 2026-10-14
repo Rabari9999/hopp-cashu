@@ -1,9 +1,11 @@
 package space.sovereigncast.hopp.ui.library
 
-import space.sovereigncast.hopp.resources.sc_top_more
-import space.sovereigncast.hopp.resources.sc_top_episodes
-import space.sovereigncast.hopp.sovereigncast.TopEpisode
+import androidx.compose.foundation.background
+import space.sovereigncast.hopp.sovereigncast.CommunityBoost
+import space.sovereigncast.hopp.ui.sovereigncast.CommunityBoostSheet
+import space.sovereigncast.hopp.ui.sovereigncast.RecentBoostsBand
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
+import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
@@ -106,7 +108,7 @@ import space.sovereigncast.hopp.ui.value.BoostPill
 import space.sovereigncast.hopp.ui.value.BoostSheet
 import space.sovereigncast.hopp.ui.value.ValueBarViewModel
 
-private enum class ShowTab { Episodes, Community, Boosts }
+private enum class ShowTab { Episodes, Top, Community, Boosts }
 
 /**
  * A subscribed show: a quiet header (device feedback 2026-10-09 — the page was
@@ -150,7 +152,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val caps = layer?.show?.capabilities
     val tabs = buildList {
         add(ShowTab.Episodes)
-        if (caps?.suggestions == true || caps?.topEpisodes == true) add(ShowTab.Community)
+        // The show's most popular episodes, right after all of them (device feedback 2026-10-14).
+        if (caps?.topEpisodes == true) add(ShowTab.Top)
+        if (caps?.suggestions == true) add(ShowTab.Community)
         if (caps?.leaderboard == true) add(ShowTab.Boosts)
     }
     val pager = rememberPagerState { tabs.size }
@@ -164,6 +168,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val labels = tabs.map {
         when (it) {
             ShowTab.Episodes -> stringResource(Res.string.sc_tab_episodes)
+            ShowTab.Top -> stringResource(Res.string.sc_tab_top)
             ShowTab.Community -> stringResource(Res.string.sheet_community)
             ShowTab.Boosts -> stringResource(Res.string.sc_tab_boosts)
         }
@@ -247,11 +252,22 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         }
                         item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
                     }
-                    topEpisodes(top.orEmpty()) { e ->
-                        // In Hopp when the feed has it, else on the show's website.
-                        community.episodeFor(e) { item -> item?.let { nav.open(it) } ?: e.websiteUrl?.let { runCatching { uri.openUri(it) } } }
-                    }
                     if (l != null) item(key = "sc-via") { ScVia(l.host) }
+                }
+                ShowTab.Top -> LazyColumn(Modifier.fillMaxSize()) {
+                    val list = top
+                    if (list == null) item(key = "top-loading") {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    } else {
+                        // All of them (at most 25) — the tab is theirs.
+                        items(list, key = { "top" + it.rank }) { e ->
+                            TopEpisodeRow(e) {
+                                // In Hopp when the feed has it, else on the show's website.
+                                community.episodeFor(e) { item -> item?.let { nav.open(it) } ?: e.websiteUrl?.let { runCatching { uri.openUri(it) } } }
+                            }
+                        }
+                        layer?.let { l -> item(key = "sc-via") { ScVia(l.host) } }
+                    }
                 }
                 ShowTab.Boosts -> LazyColumn(Modifier.fillMaxSize()) {
                     // Nothing but a spinner until the list is there: a lone footer
@@ -261,7 +277,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     if (b == null) item(key = "board-loading") {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                     } else {
-                        leaderboard(b)
+                        leaderboard(b) { details = it }
                         layer?.let { l -> item(key = "sc-via") { ScVia(l.host) } }
                     }
                 }
@@ -276,6 +292,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         is Boost2UnlockEpisode -> UnlockSheet(d, layer?.show, onUnlock = {
             details = null; paying = ScTarget.Boost2Unlock(d.episode.episodeGuid) to d.episode.title
         }) { details = null }
+        is CommunityBoost -> CommunityBoostSheet(d) { details = null }
         is Suggestion -> {
             // The live entry, so a vote shows at once.
             val sg = suggestions?.firstOrNull { it.id == d.id } ?: d
@@ -353,39 +370,28 @@ private fun ScVia(host: String) = Text(
     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
 )
 
-/** The show's most popular episodes (phase 2): five, the rest a tap away. */
-private fun LazyListScope.topEpisodes(list: List<TopEpisode>, onOpen: (TopEpisode) -> Unit) {
-    if (list.isEmpty()) return
-    item(key = "top-ep-h") { SectionTitle(stringResource(Res.string.sc_top_episodes)) }
-    item(key = "top-ep") {
-        var all by rememberSaveable { mutableStateOf(false) }
-        Column {
-            (if (all) list else list.take(5)).forEach { e -> TopEpisodeRow(e) { onOpen(e) } }
-            if (!all && list.size > 5) TextButton(onClick = { all = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                Text(stringResource(Res.string.sc_top_more, list.size))
-            }
-        }
+/**
+ * The latest boosts as a moving band, this month's top boosts, the all-time
+ * boosters (device feedback 2026-10-09). Each part under a header set apart
+ * by a band (device feedback 2026-10-14: the latest boosts went under).
+ */
+private fun LazyListScope.leaderboard(b: Leaderboard, onOpen: (CommunityBoost) -> Unit) {
+    if (b.recentBoosts.isNotEmpty()) {
+        item(key = "recent-h") { BoardTitle(stringResource(Res.string.sc_recent_boosts), first = true) }
+        item(key = "recent") { RecentBoostsBand(b.recentBoosts, onOpen) }
     }
-}
-
-/** This month's top boosts, the latest ones, the all-time boosters (device feedback 2026-10-09). */
-private fun LazyListScope.leaderboard(b: Leaderboard) {
     item(key = "top-h") {
         val months = stringArrayResource(Res.array.months)
         val name = b.month.split("-").let { (y, m) -> months.getOrNull(m.toInt() - 1)?.let { "$it $y" } }
-        SectionTitle(stringResource(Res.string.sc_top_month, name ?: b.month))
+        BoardTitle(stringResource(Res.string.sc_top_month, name ?: b.month), first = b.recentBoosts.isEmpty())
     }
     if (b.topBoosts.isEmpty()) item(key = "top-none") {
         Text(stringResource(Res.string.sc_no_boosts), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     items(b.topBoosts, key = { "top" + it.rank + it.amountSats + it.sender }) { CommunityBoostRow(it, showRank = true) }
-    if (b.recentBoosts.isNotEmpty()) {
-        item(key = "recent-h") { SectionTitle(stringResource(Res.string.sc_recent_boosts)) }
-        itemsIndexed(b.recentBoosts, key = { i, _ -> "recent$i" }) { _, r -> CommunityBoostRow(r, showRank = false) }
-    }
     if (b.alltimeBoosters.isNotEmpty()) {
         item(key = "all-h") {
-            SectionTitle(stringResource(Res.string.sc_alltime))
+            BoardTitle(stringResource(Res.string.sc_alltime))
             Text(stringResource(Res.string.sc_alltime_note), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -399,6 +405,16 @@ private fun LazyListScope.leaderboard(b: Leaderboard) {
             }
         }
     }
+}
+
+/** A part of the Boosts tab: a band above it (not on the first), the title in bold. */
+@Composable
+private fun BoardTitle(text: String, first: Boolean = false) = Column(Modifier.fillMaxWidth()) {
+    if (!first) Box(Modifier.fillMaxWidth().padding(top = 12.dp).height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)))
+    Text(
+        text, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+    )
 }
 
 /** Show notes come as HTML; the header only needs readable text. */

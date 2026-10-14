@@ -97,13 +97,14 @@ private val LEADERBOARD = buildString {
         val (sender, message) = if (r == 1) "" to "Gemeinsam basteln" else "Booster $r" to "Danke für Folge $r, das war wirklich eine ausgesprochen gute Folge!"
         """{"rank":$r,"amount_sats":${4231 - r * 10},"sender":"$sender","message":"$message","episode":{"episode_guid":"e296","title":"E296"}}"""
     })
-    append("""],"recent_boosts":[{"amount_sats":21,"sender":"z","message":"","episode":{"episode_guid":"e296","title":"E296"}}],"alltime_boosters":[""")
+    append("""],"recent_boosts":[{"amount_sats":21,"sender":"z","message":"","episode":{"episode_guid":"e296","title":"E296"}},{"amount_sats":2100,"sender":"Langschreiber","message":"$LONG_BOOST","episode":{"episode_guid":"e296","title":"E296"}}],"alltime_boosters":[""")
     append((1..30).joinToString(",") { r ->
         val name = if (r == 1) "Blaubär" else "Hörer $r"
         """{"rank":$r,"sender":"$name","trend":"same","prev_rank":$r,"legendary":${r < 4},"medals":{"gold":${30 - r},"silver":1,"bronze":0}}"""
     })
     append("""],"poll_after_seconds":300}""")
 }
+private const val LONG_BOOST = "Danke für diese Folge! Ihr habt das Thema so erklärt, dass ich es endlich verstanden habe, und am Ende noch die richtigen Fragen gestellt. Weiter so, und grüßt den Gast!"
 private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will, wer dafür ist und wer nicht."
 private var statusCalls = 0
 /** What Hopp last posted to the instance, to check what a form sent. */
@@ -780,20 +781,35 @@ class AndroidAppFlowTest {
         } finally { clipUnlocked = false }
     }
 
-    /** The show's most popular episodes; one the feed has opens in Hopp. */
+    /** The show's most popular episodes have a tab of their own, all of them; one
+     *  the feed has opens in Hopp (device feedback 2026-10-14). */
     @Test
     fun theTopEpisodesOpenInHopp() {
         rule.setContent { App() }
         tap("Discover"); subscribe("https://pod.test/sc.xml")
         waitFor("✓ Sovereigncast")
-        tap("Community")
-        waitFor("Most popular episodes")
+        tap("Top episodes")
         waitFor("Die meistgeboostete Folge.")
         check(has("E100 - Jubiläum")) { screen().toString() }
         // The top row itself — the episode list has an "E296" too.
         rule.onNode(hasText("Die meistgeboostete Folge.") and hasClickAction()).performClick()
         // E296's own page (no show notes in this feed), not the show any more.
-        rule.waitUntil(10_000) { has("02.06.2026", substring = true) && !has("Most popular episodes") }
+        rule.waitUntil(10_000) { has("02.06.2026", substring = true) && !has("Die meistgeboostete Folge.") }
+    }
+
+    /** The latest boosts move as a band of tiles; a tile opens the boost in full
+     *  (device feedback 2026-10-14). */
+    @Test
+    fun theLatestBoostsAreABandAndLongMessagesOpen() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Boosts")
+        waitFor("Latest boosts")
+        rule.onAllNodes(hasText("„$LONG_BOOST“") and hasClickAction()).onFirst().performClick()
+        // The sheet: the message as it is (the tile quotes it).
+        rule.waitUntil(10_000) { rule.onAllNodesWithText(LONG_BOOST).fetchSemanticsNodes().isNotEmpty() }
+        check(has("Langschreiber") && has("2,100 sats")) { screen().toString() }
     }
 
     // ── device feedback 2026-10-09 ─────────────────────────────────────────
@@ -870,8 +886,10 @@ class AndroidAppFlowTest {
         tap("Boosts")
         waitFor("Top boosts in October 2026")
         check(has("Gemeinsam basteln") && has("4,221 sats") && has("Anonymous")) { screen().toString() }
-        // The tab's own list — the pager around it scrolls by index too.
-        rule.onAllNodes(androidx.compose.ui.test.hasScrollToIndexAction()).onLast().performScrollToNode(hasText("Blaubär"))
+        // The tab's own list — the pager around it and the band of latest boosts scroll by index too.
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollToIndexAction() and
+            androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .onLast().performScrollToNode(hasText("Blaubär"))
         waitFor("Blaubär")
     }
 

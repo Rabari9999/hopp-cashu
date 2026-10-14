@@ -7,7 +7,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Sovereigncast-Shows: Themen vorschlagen und Vorschläge boosten** — die Zahlung hält Spam fern, und sobald sie bezahlt ist, steht der Vorschlag in der Liste; Sats geben einem offenen Vorschlag Gewicht. Der Community-Tab zeigt außerdem die beliebtesten Folgen der Show, die sich in Hopp öffnen, und ein freigeschalteter Clip läuft direkt in Hopps Player – danach ist die Folge, die du gehört hast, wieder da, wo du warst.
+- **Sovereigncast-Shows: Themen vorschlagen und Vorschläge boosten** — die Zahlung hält Spam fern, und sobald sie bezahlt ist, steht der Vorschlag in der Liste; Sats geben einem offenen Vorschlag Gewicht. Die beliebtesten Folgen der Show haben einen eigenen Tab und öffnen sich in Hopp; die letzten Boosts laufen als Band aus Kacheln durch, und eine lange Boost-Nachricht öffnet sich per Tipp ganz; und ein freigeschalteter Clip läuft direkt in Hopps Player – danach ist die Folge, die du gehört hast, wieder da, wo du warst.
 
 ## [0.1.1] - 2026-10-14
 
