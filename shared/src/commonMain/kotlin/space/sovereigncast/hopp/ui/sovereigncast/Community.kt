@@ -1,19 +1,21 @@
 package space.sovereigncast.hopp.ui.sovereigncast
 
 import androidx.compose.foundation.background
+import space.sovereigncast.hopp.resources.sc_all
+import space.sovereigncast.hopp.resources.sc_recent_boosts
+import org.koin.core.parameter.parametersOf
+import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import space.sovereigncast.hopp.resources.sc_more
 import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -488,60 +490,61 @@ fun CommunityBoostRow(b: CommunityBoost, showRank: Boolean) {
 }
 
 /**
- * The latest boosts as a band of tiles that moves on by itself, as on the
- * community page (device feedback 2026-10-14: in the list they went under).
- * One tile at a time every few seconds, not a constant crawl; a finger stops
- * it and swipes; a tap opens the boost in full.
+ * The show's latest boosts while listening (design C2, device feedback
+ * 2026-10-14): a quiet line under the player's controls that shows the next
+ * boost every few seconds, like a chat line. A tap opens the boost in full;
+ * "All" goes to the show's Boosts tab. Only at Sovereigncast shows with a
+ * leaderboard.
  */
 @Composable
-fun RecentBoostsBand(boosts: List<CommunityBoost>, onOpen: (CommunityBoost) -> Unit) {
-    if (boosts.isEmpty()) return
-    val loop = boosts.size > 1
-    // A long run of copies, started in the middle: it can go on for hours either way.
-    val count = if (loop) boosts.size * 1_000 else 1
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = if (loop) boosts.size * 500 else 0)
-    val dragged by state.interactionSource.collectIsDraggedAsState()
-    val step = with(LocalDensity.current) { (TILE_WIDTH + TILE_GAP).toPx() }
-    LaunchedEffect(dragged, loop) {
-        if (!loop || dragged) return@LaunchedEffect
-        while (true) {
-            delay(3_500)
-            state.animateScrollBy(step, tween(durationMillis = 900, easing = FastOutSlowInEasing))
-        }
+fun LatestBoostLine(podcastId: Long, onAll: () -> Unit) {
+    val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
+    val layer by community.layer.collectAsState()
+    val board by community.leaderboard.collectAsState()
+    val boosts = board?.recentBoosts.orEmpty()
+    if (layer?.show?.capabilities?.leaderboard != true || boosts.isEmpty()) return
+    var index by remember(boosts) { mutableIntStateOf(0) }
+    LaunchedEffect(boosts) {
+        if (boosts.size < 2) return@LaunchedEffect
+        while (true) { delay(5_000); index = (index + 1) % boosts.size }
     }
-    LazyRow(
-        state = state, contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
-    ) {
-        items(count) { i -> BoostTile(boosts[i % boosts.size]) { onOpen(boosts[i % boosts.size]) } }
-    }
-}
-
-private val TILE_WIDTH = 240.dp
-private val TILE_GAP = 8.dp
-
-@Composable
-private fun BoostTile(b: CommunityBoost, onOpen: () -> Unit) {
+    var open by remember { mutableStateOf<CommunityBoost?>(null) }
     val colors = MaterialTheme.colorScheme
-    Column(
-        Modifier.width(TILE_WIDTH).height(132.dp).clip(RoundedCornerShape(16.dp)).background(colors.surface)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp)).clickable(onClick = onOpen)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(HoppIcons.Hop, null, tint = Hopp.colors.valueText, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.size(4.dp))
-            Text("${formatSats(b.amountSats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(Res.string.sc_recent_boosts).uppercase(), Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp,
+            )
+            Text(
+                stringResource(Res.string.sc_all) + " ›", Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAll).padding(horizontal = 4.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.SemiBold,
+            )
         }
-        Text(b.sender.ifBlank { stringResource(Res.string.sc_anonymous) }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (b.episode.title.isNotBlank()) Text(b.episode.title, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (b.message.isNotBlank()) Text(
-            "„${b.message}“", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
-            maxLines = 2, overflow = TextOverflow.Ellipsis,
-        )
+        AnimatedContent(boosts[index.coerceIn(0, boosts.lastIndex)], transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) }, label = "boost") { b ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(colors.surface)
+                    .border(1.dp, colors.outlineVariant, RoundedCornerShape(14.dp)).clickable { open = b }
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.width(3.dp).height(30.dp).clip(RoundedCornerShape(2.dp)).background(Hopp.colors.value))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        b.sender.ifBlank { stringResource(Res.string.sc_anonymous) } + " · ${formatSats(b.amountSats)} sats",
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    val line = b.message.takeIf { it.isNotBlank() }?.let { "„$it“" } ?: b.episode.title
+                    if (line.isNotBlank()) Text(
+                        line, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        fontStyle = if (b.message.isNotBlank()) FontStyle.Italic else FontStyle.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
     }
+    open?.let { CommunityBoostSheet(it) { open = null } }
 }
 
 /** A boost in full — the whole message, selectable. */

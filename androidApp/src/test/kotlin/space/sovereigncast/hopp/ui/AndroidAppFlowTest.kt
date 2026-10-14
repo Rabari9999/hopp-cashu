@@ -797,19 +797,34 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { has("02.06.2026", substring = true) && !has("Die meistgeboostete Folge.") }
     }
 
-    /** The latest boosts move as a band of tiles; a tile opens the boost in full
-     *  (device feedback 2026-10-14). */
-    @Test
-    fun theLatestBoostsAreABandAndLongMessagesOpen() {
+    /** Listening to a Sovereigncast show: its latest boosts in the player. */
+    private fun playScShow() {
         rule.setContent { App() }
         tap("Discover"); subscribe("https://pod.test/sc.xml")
         waitFor("✓ Sovereigncast")
-        tap("Boosts")
-        waitFor("Latest boosts")
-        rule.onAllNodes(hasText("„$LONG_BOOST“") and hasClickAction()).onFirst().performClick()
-        // The sheet: the message as it is (the tile quotes it).
-        rule.waitUntil(10_000) { rule.onAllNodesWithText(LONG_BOOST).fetchSemanticsNodes().isNotEmpty() }
-        check(has("Langschreiber") && has("2,100 sats")) { screen().toString() }
+        tap("E296"); waitFor("Play")
+        tap("Play")
+        until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
+        waitFor("LATEST BOOSTS")
+        waitFor("z · 21 sats")
+    }
+
+    /** The player shows the show's latest boosts a line at a time; a tap opens one
+     *  in full (design C2, device feedback 2026-10-14). */
+    @Test
+    fun thePlayerShowsTheLatestBoosts() {
+        playScShow()
+        rule.onNode(hasText("z · 21 sats", substring = true) and hasClickAction()).performClick()
+        waitFor("21 sats")
+    }
+
+    /** "All" in the player's line: the show's Boosts tab. */
+    @Test
+    fun allLatestBoostsOpenTheBoostsTab() {
+        playScShow()
+        tap("All ›")
+        waitFor("Top boosts in October 2026")
     }
 
     // ── device feedback 2026-10-09 ─────────────────────────────────────────

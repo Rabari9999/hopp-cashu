@@ -265,6 +265,7 @@
     <string name="sc_tab_boosts">Boosts</string>
     <string name="sc_tab_top">Top episodes</string>
     <string name="sc_more">more ▾</string>
+    <string name="sc_all">All</string>
     <string name="sc_top_month">Top boosts in %1$s</string>
     <string name="sc_recent_boosts">Latest boosts</string>
     <string name="sc_alltime">All-time boosters</string>

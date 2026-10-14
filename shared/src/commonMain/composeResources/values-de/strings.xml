@@ -265,6 +265,7 @@
     <string name="sc_tab_boosts">Boosts</string>
     <string name="sc_tab_top">Top-Folgen</string>
     <string name="sc_more">mehr ▾</string>
+    <string name="sc_all">Alle</string>
     <string name="sc_top_month">Top-Boosts im %1$s</string>
     <string name="sc_recent_boosts">Letzte Boosts</string>
     <string name="sc_alltime">Ewige Bestenliste</string>

@@ -146,7 +146,7 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object SettingsRoute
 @Serializable data class SettingsPageRoute(val page: String)
 /** A show's page; [community] opens its Community tab (Home's "vote", device feedback 2026-10-12). */
-@Serializable data class ShowRoute(val id: Long, val community: Boolean = false)
+@Serializable data class ShowRoute(val id: Long, val community: Boolean = false, val boosts: Boolean = false)
 /** An episode's page; [startSeconds] from a shared link offers playing from there. */
 @Serializable data class EpisodeRoute(val id: Long, val startSeconds: Long? = null)
 /** What the directory already knows rides along, so the page shows it at once. */
@@ -459,7 +459,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     route.id,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                            openCommunity = route.community)
+                                            openCommunity = route.community, openBoosts = route.boosts)
                                     },
                                     episode = { id, onGone ->
                                         Readable { EpisodeScreen(id, onShow = {}, onGone = onGone, onOpenWallet = { nav.navigate(WalletRoute) }) }
@@ -471,7 +471,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     if (paneOpen) {
                         androidx.compose.material3.VerticalDivider()
                         Box(Modifier.width(paneWidth).fillMaxHeight()) {
-                            NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
+                            NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) },
+                                onShowBoosts = { nav.navigate(ShowRoute(it, boosts = true)) })
                         }
                     }
                   }
@@ -489,7 +490,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         enter = slideInVertically(tween(420, easing = EmphasizedDecelerate)) { it } + fadeIn(tween(180)),
                         exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
                     ) {
-                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
+                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) },
+                            onShowBoosts = { player.minimize(); nav.navigate(ShowRoute(it, boosts = true)) })
                     }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(hasWallet = connectedWallet != null) { connectWallet ->
                         tour = false

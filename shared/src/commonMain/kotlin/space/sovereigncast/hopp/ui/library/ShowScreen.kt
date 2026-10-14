@@ -1,9 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.foundation.background
-import space.sovereigncast.hopp.sovereigncast.CommunityBoost
-import space.sovereigncast.hopp.ui.sovereigncast.CommunityBoostSheet
-import space.sovereigncast.hopp.ui.sovereigncast.RecentBoostsBand
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
@@ -119,7 +116,7 @@ private enum class ShowTab { Episodes, Top, Community, Boosts }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false) {
+fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false, openBoosts: Boolean = false) {
     val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
@@ -158,12 +155,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         if (caps?.leaderboard == true) add(ShowTab.Boosts)
     }
     val pager = rememberPagerState { tabs.size }
-    // Opened to vote (Home's "Take part"): the Community tab, once it is known —
-    // the capabilities arrive after the page — and only the first time.
-    var communityShown by rememberSaveable { mutableStateOf(!openCommunity) }
+    // Opened to vote (Home's "Take part"): the Community tab; from the player's
+    // latest boosts: the Boosts tab — once it is known (the capabilities arrive
+    // after the page), and only the first time.
+    val opening = when { openBoosts -> ShowTab.Boosts; openCommunity -> ShowTab.Community; else -> null }
+    var openingDone by rememberSaveable { mutableStateOf(opening == null) }
     LaunchedEffect(tabs) {
-        val at = tabs.indexOf(ShowTab.Community)
-        if (!communityShown && at >= 0) { pager.scrollToPage(at); communityShown = true }
+        val at = opening?.let(tabs::indexOf) ?: -1
+        if (!openingDone && at >= 0) { pager.scrollToPage(at); openingDone = true }
     }
     val labels = tabs.map {
         when (it) {
@@ -277,7 +276,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     if (b == null) item(key = "board-loading") {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                     } else {
-                        leaderboard(b) { details = it }
+                        leaderboard(b)
                         layer?.let { l -> item(key = "sc-via") { ScVia(l.host) } }
                     }
                 }
@@ -292,7 +291,6 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         is Boost2UnlockEpisode -> UnlockSheet(d, layer?.show, onUnlock = {
             details = null; paying = ScTarget.Boost2Unlock(d.episode.episodeGuid) to d.episode.title
         }) { details = null }
-        is CommunityBoost -> CommunityBoostSheet(d) { details = null }
         is Suggestion -> {
             // The live entry, so a vote shows at once.
             val sg = suggestions?.firstOrNull { it.id == d.id } ?: d
@@ -371,14 +369,15 @@ private fun ScVia(host: String) = Text(
 )
 
 /**
- * The latest boosts as a moving band, this month's top boosts, the all-time
- * boosters (device feedback 2026-10-09). Each part under a header set apart
- * by a band (device feedback 2026-10-14: the latest boosts went under).
+ * The latest boosts, this month's top boosts, the all-time boosters (device
+ * feedback 2026-10-09). Each part under a bold title set apart by a band
+ * (device feedback 2026-10-14: the latest boosts went under); the player
+ * shows the latest ones too, a line at a time.
  */
-private fun LazyListScope.leaderboard(b: Leaderboard, onOpen: (CommunityBoost) -> Unit) {
+private fun LazyListScope.leaderboard(b: Leaderboard) {
     if (b.recentBoosts.isNotEmpty()) {
         item(key = "recent-h") { BoardTitle(stringResource(Res.string.sc_recent_boosts), first = true) }
-        item(key = "recent") { RecentBoostsBand(b.recentBoosts, onOpen) }
+        itemsIndexed(b.recentBoosts, key = { i, _ -> "recent$i" }) { _, r -> CommunityBoostRow(r, showRank = false) }
     }
     item(key = "top-h") {
         val months = stringArrayResource(Res.array.months)
