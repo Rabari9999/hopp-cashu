@@ -1,0 +1,1 @@
+Signed so that F-Droid can publish the same APK as GitLab and Zapstore; store texts and screenshots. Nothing changed in the app itself.

@@ -1,0 +1,18 @@
+<p>Hopp is a podcast player for every podcast, built for Podcasting 2.0: chapters, transcripts, people, and value for value over Lightning.</p>
+
+<p><b>No account, no tracking.</b> Install it and listen. Hopp collects nothing and runs no server of its own. A privacy page explains in plain words who sees what when you listen — and what you can do about it.</p>
+
+<p><b>Only your wallet.</b> Hopp has no built-in wallet and never holds your sats. Connect your own Lightning wallet over Nostr Wallet Connect (NWC), boost an episode or a whole show, or stream sats while you listen — within a daily budget you set.</p>
+
+<p><b>100 % to the podcasters.</b> Hopp takes no cut; routing fees are shown separately. Supporting Hopp is a visible option you turn on yourself.</p>
+
+<p><b>Sovereigncast shows</b> come alive in Hopp: Release Boosting, Boost2Unlock, topic votes and the community's top boosts.</p>
+
+<ul>
+<li>Library as cards or a list, Home with what is new and what you are listening to</li>
+<li>Find shows in the Podcast Index (optionally fyyd and Apple), by feed address or OPML</li>
+<li>Queue, downloads on Wi-Fi, sleep timer, speed per show, skip silence, your own skip intervals</li>
+<li>Android Auto, phones and tablets, in English and German</li>
+</ul>
+
+<p>Hopp is open source (MIT).</p>

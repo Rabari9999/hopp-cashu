@@ -10,8 +10,11 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
       from them (Play: ≤ 500 characters per language).
 - [ ] `androidApp/build.gradle.kts`: `appVersion` and `versionCode` (+1 for
       every upload — Play refuses a code it has seen).
+- [ ] `fastlane/metadata/android/{en-US,de-DE}/changelogs/<versionCode>.txt`
+      (≤ 500 characters) — F-Droid's "what's new".
 - [ ] `fdroid/space.sovereigncast.hopp.yml`: a new `Builds` entry,
-      `CurrentVersion`, `CurrentVersionCode`.
+      `CurrentVersion`, `CurrentVersionCode` (our copy; once Hopp is in
+      F-Droid, its checkupdates adds the entry in fdroiddata itself).
 - [ ] Device checklist on a real phone, with the **beta** build of the release
       commit (R8 is on — this is the build that finds a missing keep rule):
   - [ ] subscribe (search, feed address, OPML), refresh, unsubscribe

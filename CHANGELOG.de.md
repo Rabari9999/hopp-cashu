@@ -6,6 +6,11 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
+### 🐛 Fixes
+- So signiert, dass F-Droid unsere APK veröffentlichen kann: 0.1.0 war mit neu ausgerichteten Einträgen signiert, die F-Droids Build aus dem Quellcode nicht treffen kann. Store-Texte, Icon und Screenshots für F-Droid und Zapstore. An der App selbst hat sich nichts geändert.
+
 ## [0.1.0] - 2026-10-14
 
 ### 🆕 New Features

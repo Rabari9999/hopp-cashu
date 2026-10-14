@@ -1,13 +1,13 @@
-# DRAFT — the metadata file for an F-Droid inclusion request
+# The metadata file for the F-Droid inclusion request
 # (gitlab.com/fdroid/fdroiddata, metadata/space.sovereigncast.hopp.yml).
 # Not used by our build; kept here so it changes together with the build.
-# Before submitting (the repository is public since 2026-10-09): a release tag must exist,
-# and AllowedAPKSigningKeys gets the SHA-256 of the release certificate
-# (ADR 0011: one key everywhere — F-Droid publishes OUR signed APK once its
-# own build from source matches it).
+# ADR 0011: one key everywhere — F-Droid publishes OUR signed APK (Binaries)
+# once its own build from source matches it (AllowedAPKSigningKeys).
+# Summary, description, icon and screenshots come from fastlane/ in the repo.
+# How to submit: docs/fdroid.md.
 
 Categories:
-  - Multimedia
+  - Podcast
 License: MIT
 AuthorName: Nodesignal
 WebSite: https://sovereigncast.space
@@ -22,9 +22,9 @@ Repo: https://gitlab.com/nodesignal/hopp.git
 Binaries: https://gitlab.com/nodesignal/hopp/-/releases/v%v/downloads/hopp-%v-foss.apk
 
 Builds:
-  - versionName: 0.1.0
-    versionCode: 1
-    commit: v0.1.0
+  - versionName: 0.1.1
+    versionCode: 2
+    commit: v0.1.1
     subdir: androidApp
     sudo:
       - apt-get update
@@ -37,5 +37,8 @@ AllowedAPKSigningKeys: c80fdec5f98a0aaf4954405e3c52c17a78db40f7bd05d2ac258532400
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
-CurrentVersion: 0.1.0
-CurrentVersionCode: 1
+# versionName is the variable appVersion in build.gradle.kts, which
+# checkupdates' own regex does not read.
+UpdateCheckData: androidApp/build.gradle.kts|versionCode\s*=\s*(\d+)|.|val appVersion\s*=\s*"([^"]+)"
+CurrentVersion: 0.1.1
+CurrentVersionCode: 2

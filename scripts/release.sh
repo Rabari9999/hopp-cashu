@@ -38,10 +38,13 @@ glab api "projects/$PROJECT/jobs/artifacts/$TAG/raw/androidApp/build/outputs/apk
 "$BUILD_TOOLS/zipalign" -c 4 "$WORK/unsigned.apk"
 
 echo "→ signing (apksigner asks for the password)"
-"$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" ${ALIAS:+--ks-key-alias "$ALIAS"} --out "$WORK/$NAME" "$WORK/unsigned.apk"
+# --alignment-preserved: apksigner otherwise re-aligns entries (the native
+# library to 16 KB pages), and F-Droid could not copy our signature onto its
+# own build (docs/fdroid.md). --layout below makes sure nothing moved.
+"$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" ${ALIAS:+--ks-key-alias "$ALIAS"} --alignment-preserved true --out "$WORK/$NAME" "$WORK/unsigned.apk"
 SIGNED=$("$BUILD_TOOLS/apksigner" verify --print-certs "$WORK/$NAME" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
 [[ $SIGNED == "$CERT_SHA256" ]] || { echo "signed with $SIGNED, not the release key $CERT_SHA256" >&2; exit 1; }
-python3 scripts/compare_apks.py "$WORK/unsigned.apk" "$WORK/$NAME"
+python3 scripts/compare_apks.py --layout "$WORK/unsigned.apk" "$WORK/$NAME"
 cp "$WORK/$NAME" "./$NAME"
 echo "✓ $NAME signed with the release key (also kept here, for Zapstore)"
 

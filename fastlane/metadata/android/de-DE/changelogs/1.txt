@@ -1,0 +1,1 @@
+Die erste Version: ein Podcast-Player ohne Konto für Podcasting 2.0 — Boosts und Streaming-Sats über deine eigene Lightning-Wallet (NWC), Sovereigncast-Shows mit Release Boosting, Boost2Unlock und Abstimmungen, Kapitel, Transkripte, Warteschlange, Downloads, Sleep-Timer, Android Auto. Auf Deutsch und Englisch.

@@ -6,6 +6,11 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
+### 🐛 Fixes
+- Signed so that F-Droid can publish our APK: 0.1.0 was signed with re-aligned entries, which F-Droid's build from source cannot match. Store texts, icon and screenshots for F-Droid and Zapstore. Nothing changed in the app itself.
+
 ## [0.1.0] - 2026-10-14
 
 ### 🆕 New Features

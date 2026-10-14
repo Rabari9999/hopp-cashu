@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Compare two APKs entry by entry, ignoring the signature files.
 
-Usage: scripts/compare_apks.py a.apk b.apk
+Usage: scripts/compare_apks.py [--layout] a.apk b.apk
+
+--layout also checks that every entry sits at the same offset in both files.
+F-Droid's check (apksigcopier) copies our signature onto its own unsigned
+build; that only verifies if signing moved nothing. apksigner re-aligns
+entries unless told `--alignment-preserved true` (0.1.0 was signed without
+it: same contents, 83 entries moved — F-Droid could not have used it).
 
 Reproducible builds (ADR 0011, 0017): F-Droid rebuilds Hopp from source and
 only publishes our signed APK if its own unsigned build matches it byte for
@@ -27,7 +33,21 @@ def entries(path):
         return out
 
 
-def main(a, b):
+def moved(a, b):
+    with zipfile.ZipFile(a) as za, zipfile.ZipFile(b) as zb:
+        oa = {i.filename: i.header_offset for i in za.infolist()}
+        ob = {i.filename: i.header_offset for i in zb.infolist()}
+    return sorted(n for n in oa if n in ob and oa[n] != ob[n])
+
+
+def main(a, b, layout=False):
+    if layout:
+        shifted = moved(a, b)
+        for n in shifted[:20]:
+            print(f"moved: {n}")
+        if shifted:
+            print(f"{len(shifted)} entries at other offsets — DIFFERENT layout")
+            return 1
     ea, eb = entries(a), entries(b)
     only_a, only_b = sorted(set(ea) - set(eb)), sorted(set(eb) - set(ea))
     differ = sorted(n for n in set(ea) & set(eb) if ea[n] != eb[n])
@@ -44,4 +64,7 @@ def main(a, b):
 
 
 if __name__ == "__main__":
-    sys.exit(main(*sys.argv[1:3]))
+    args = sys.argv[1:]
+    layout = "--layout" in args
+    files = [x for x in args if x != "--layout"]
+    sys.exit(main(files[0], files[1], layout))
