@@ -13,6 +13,7 @@ import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.net.FeedFetcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -136,5 +137,30 @@ class RepositoryTest {
         assertEquals("http://example.com/rss", FeedFetcher.normalize("http://example.com/rss"))
         assertNull(FeedFetcher.normalize("ftp://example.com/rss"))
         assertNull(FeedFetcher.normalize("not a url"))
+    }
+
+    /** Device feedback 2026-10-14: an episode and every older one heard, as in
+     *  Castamatic — the newer ones stay, and so do other shows. */
+    @Test
+    fun anEpisodeAndTheOlderOnesAreMarkedPlayed() = test {
+        feedBody = feed(4)
+        val id = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        val list = episodes.ofPodcast(id).first()
+        episodes.savePosition(list.first { it.guid == "ep-2" }.id, 90_000)
+        episodes.setPlayedUpTo(list.first { it.guid == "ep-3" })
+        val after = episodes.ofPodcast(id).first().associate { it.guid to it }
+        assertEquals(setOf("ep-1", "ep-2", "ep-3"), after.values.filter { it.played }.map { it.guid }.toSet())
+        assertFalse(after.getValue("ep-4").played, "a newer episode stays unheard")
+        assertEquals(0L, after.getValue("ep-2").positionMs, "heard: back to the start, as one marked alone")
+        assertTrue(episodes.inbox.first().none { it.guid != "ep-4" }, "heard ones leave New")
+    }
+
+    @Test
+    fun aWholeShowIsMarkedPlayed() = test {
+        feedBody = feed(3)
+        val id = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        episodes.setShowPlayed(id)
+        assertTrue(episodes.ofPodcast(id).first().all { it.played })
+        assertTrue(episodes.inbox.first().isEmpty())
     }
 }

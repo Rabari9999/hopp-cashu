@@ -104,6 +104,16 @@ UPDATE episode SET played = 1, played_at = ?, position_ms = 0, in_inbox = 0 WHER
 markUnplayed:
 UPDATE episode SET played = 0, played_at = NULL WHERE id = ?;
 
+-- A whole show, or an episode and all older ones, heard (device feedback 2026-10-14).
+-- Without a date only the episode itself counts as "older": it cannot be placed.
+markShowPlayed:
+UPDATE episode SET played = 1, played_at = :now, position_ms = 0, in_inbox = 0
+WHERE podcast_id = :podcastId AND played = 0;
+
+markPlayedUpTo:
+UPDATE episode SET played = 1, played_at = :now, position_ms = 0, in_inbox = 0
+WHERE podcast_id = :podcastId AND played = 0 AND (id = :id OR published_at <= :publishedAt);
+
 deleteByPodcast:
 DELETE FROM episode WHERE podcast_id = ?;
 

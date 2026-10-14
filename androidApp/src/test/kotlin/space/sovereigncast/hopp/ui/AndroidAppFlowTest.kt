@@ -566,6 +566,36 @@ class AndroidAppFlowTest {
         check(!has("Payment history")) { "the history is a row of the settings, not of the wallet page" }
     }
 
+    private fun playedTitles(): Set<String> = kotlinx.coroutines.runBlocking {
+        val repo = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>()
+        val show = koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first()
+        repo.ofPodcast(show.id).first().filter { it.played }.map { it.title }.toSet()
+    }
+
+    /** The show's menu marks all of it heard, after asking (device feedback 2026-10-14). */
+    @Test
+    fun aWholeShowIsMarkedPlayed() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasContentDescription("Show options")).performClick()
+        tap("Mark all as played")
+        waitFor("Mark every episode of Test Show as played?")
+        rule.onAllNodes(hasText("Mark as played") and hasClickAction()).onLast().performClick()
+        until { playedTitles() == setOf("Ep 1", "Ep 2") }
+    }
+
+    /** An episode's menu marks it and the older ones heard, as Castamatic does. */
+    @Test
+    fun anEpisodeAndTheOlderOnesAreMarkedPlayed() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        menuOf(1) // Ep 1, the older of the two
+        tap("Mark this and older as played")
+        waitFor("Mark “Ep 1” and every older episode of the show as played?")
+        rule.onAllNodes(hasText("Mark as played") and hasClickAction()).onLast().performClick()
+        until { playedTitles() == setOf("Ep 1") }
+    }
+
     /** A word begun is enough (device feedback 2026-10-14: "Nodesig" found nothing —
      *  the directories match whole words): what Hopp knows is suggested at once. */
     @Test

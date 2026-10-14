@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.mark_played
+import space.sovereigncast.hopp.resources.show_all_played_confirm
+import space.sovereigncast.hopp.resources.show_all_played
 import androidx.compose.foundation.background
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
@@ -130,6 +133,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val refreshing by vm.refreshing.collectAsState()
     val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
+    var confirmAllPlayed by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     LaunchedEffect(gone) { if (gone) onGone() }
@@ -201,7 +205,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
-                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) }) }
+                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
+                            onAllPlayed = { confirmAllPlayed = true }) }
                     }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
@@ -313,6 +318,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         )
     }
 
+    // A whole show heard at once (device feedback 2026-10-14).
+    if (confirmAllPlayed) AlertDialog(
+        onDismissRequest = { confirmAllPlayed = false },
+        text = { Text(stringResource(Res.string.show_all_played_confirm, show?.title ?: "")) },
+        confirmButton = { TextButton(onClick = { confirmAllPlayed = false; vm.markAllPlayed() }) { Text(stringResource(Res.string.mark_played)) } },
+        dismissButton = { TextButton(onClick = { confirmAllPlayed = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
+
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
@@ -325,7 +338,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
 /** The show's settings, out of the way: auto-download and unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit) {
+private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -338,6 +351,7 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 onClick = { onAutoDownload(!autoDownload) },
             )
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
+            DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })
         }
     }

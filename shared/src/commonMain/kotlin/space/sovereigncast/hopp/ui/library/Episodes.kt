@@ -1,5 +1,10 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.mark_played_older_confirm
+import space.sovereigncast.hopp.resources.mark_played_older
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
@@ -128,6 +133,7 @@ val LocalEpisodeActions = staticCompositionLocalOf<EpisodeActionsViewModel?> { n
 @Composable
 fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
     var open by remember { mutableStateOf(false) }
+    var confirmOlder by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
             Icon(Icons.Rounded.MoreVert, stringResource(Res.string.menu_more), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -148,12 +154,20 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
                 text = { Text(stringResource(if (item.played) Res.string.mark_unplayed else Res.string.mark_played)) },
                 onClick = { pick { vm.setPlayed(item, !item.played) } },
             )
+            // This one and every older one (device feedback 2026-10-14, as in Castamatic).
+            DropdownMenuItem(text = { Text(stringResource(Res.string.mark_played_older)) }, onClick = { pick { confirmOlder = true } })
             DropdownMenuItem(
                 text = { Text(stringResource(if (item.favorite) Res.string.favorite_remove else Res.string.favorite_add)) },
                 onClick = { pick { vm.setFavorite(item, !item.favorite) } },
             )
         }
     }
+    if (confirmOlder) AlertDialog(
+        onDismissRequest = { confirmOlder = false },
+        text = { Text(stringResource(Res.string.mark_played_older_confirm, item.title)) },
+        confirmButton = { TextButton(onClick = { confirmOlder = false; vm.setPlayedUpTo(item) }) { Text(stringResource(Res.string.mark_played)) } },
+        dismissButton = { TextButton(onClick = { confirmOlder = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
 }
 
 /**

@@ -42,6 +42,10 @@
     <string name="show_episodes">%1$d episodes</string>
     <string name="show_feed_error">Last update failed: %1$s</string>
     <string name="mark_played">Mark as played</string>
+    <string name="mark_played_older">Mark this and older as played</string>
+    <string name="mark_played_older_confirm">Mark “%1$s” and every older episode of the show as played?</string>
+    <string name="show_all_played">Mark all as played</string>
+    <string name="show_all_played_confirm">Mark every episode of %1$s as played?</string>
     <string name="mark_unplayed">Mark as unplayed</string>
     <string name="played">Played</string>
     <string name="remaining">%1$s left</string>
@@ -96,8 +100,6 @@
     <string name="settings_unlimited">No limit</string>
     <string name="settings_downloads_text">New episodes download on Wi-Fi; played ones are deleted after 24 hours. When the space is full, the oldest unplayed go first.</string>
     <string name="settings_downloads_used">Downloaded: %1$s in %2$d episodes</string>
-    <string name="settings_downloads_where">The episodes are in Hopp’s own storage on this device — not under Music or Downloads. Other apps do not see them, and they go when Hopp is uninstalled. The Files app shows them under “Hopp”.</string>
-    <string name="settings_downloads_where_ios">The episodes are in Hopp’s own storage on this device. Other apps do not see them; iOS may clear them when space runs low.</string>
     <string name="settings_downloads_browse">Show in Files</string>
     <string name="settings_downloads_delete">Delete all downloads</string>
     <string name="settings_downloads_delete_confirm">Delete all %1$d downloaded episodes (%2$s)? Running downloads stop; the episodes stay in your library and can be streamed.</string>

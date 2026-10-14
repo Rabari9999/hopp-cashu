@@ -3,14 +3,11 @@ package space.sovereigncast.hopp.ui.library
 import space.sovereigncast.hopp.resources.settings_downloads_delete_confirm
 import space.sovereigncast.hopp.resources.settings_downloads_delete
 import space.sovereigncast.hopp.resources.settings_downloads_browse
-import space.sovereigncast.hopp.resources.settings_downloads_where_ios
-import space.sovereigncast.hopp.resources.settings_downloads_where
 import space.sovereigncast.hopp.resources.settings_downloads_used
 import space.sovereigncast.hopp.resources.cancel
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.AlertDialog
 import space.sovereigncast.hopp.resources.settings_notifications_open_ios
 import space.sovereigncast.hopp.resources.settings_notifications_system_ios
@@ -178,14 +175,12 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                     if (mb == 0) stringResource(Res.string.settings_unlimited) else formatBytes(mb * 1024L * 1024L)
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
-                // Where the episodes are and what they take, and all of them gone
-                // at once (device feedback 2026-10-14).
+                // What the episodes take, and all of them gone at once (device
+                // feedback 2026-10-14; where they are said more than it helped).
                 val bytes by vm.downloadBytes.collectAsState()
                 val count by vm.downloadCount.collectAsState()
                 var confirmDelete by remember { mutableStateOf(false) }
                 Label(stringResource(Res.string.settings_downloads_used, formatBytes(bytes), count.toInt()))
-                Note(stringResource(if (app.isIos) Res.string.settings_downloads_where_ios else Res.string.settings_downloads_where))
-                SelectionContainer { Text(vm.downloadDir, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = colors.onSurfaceVariant) }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (actions.canBrowseDownloads) OutlinedButton(onClick = { actions.browseDownloads() }) { Text(stringResource(Res.string.settings_downloads_browse)) }
                     OutlinedButton(onClick = { confirmDelete = true }, enabled = count > 0) { Text(stringResource(Res.string.settings_downloads_delete)) }

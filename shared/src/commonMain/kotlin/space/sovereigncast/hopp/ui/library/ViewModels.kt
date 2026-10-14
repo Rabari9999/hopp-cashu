@@ -165,6 +165,7 @@ class EpisodeActionsViewModel(
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
     fun setPlayed(item: EpisodeItem, played: Boolean) = viewModelScope.launch { episodes.setPlayed(item.id, played) }
+    fun setPlayedUpTo(item: EpisodeItem) = viewModelScope.launch { episodes.setPlayedUpTo(item) }
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
     fun setFavorite(item: EpisodeItem, on: Boolean) = viewModelScope.launch { episodes.setFavorite(item.id, on) }
 }
@@ -217,10 +218,9 @@ class SettingsViewModel(
     wallet: space.sovereigncast.hopp.value.WalletRepository,
     private val downloads: space.sovereigncast.hopp.data.DownloadRepository,
 ) : ViewModel() {
-    /** What the downloads take, how many, and where (device feedback 2026-10-14). */
+    /** What the downloads take and how many (device feedback 2026-10-14). */
     val downloadBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
     val downloadCount: StateFlow<Long> = state(downloads.downloadedCount, 0L)
-    val downloadDir: String get() = downloads.dir
     fun deleteAllDownloads() = viewModelScope.launch { downloads.removeAll() }
 
     val current: StateFlow<Settings?> = state(settings.settings, null)
@@ -312,6 +312,7 @@ class ShowViewModel(
         }
     }
     fun setAutoDownload(on: Boolean) = viewModelScope.launch { podcasts.setAutoDownload(podcastId, on) }
+    fun markAllPlayed() = viewModelScope.launch { episodes.setShowPlayed(podcastId) }
     fun unsubscribe() = viewModelScope.launch { podcasts.unsubscribe(podcastId) }
 }
 

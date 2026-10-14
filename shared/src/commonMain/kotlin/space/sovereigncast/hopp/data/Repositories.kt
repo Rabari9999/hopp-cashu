@@ -315,6 +315,14 @@ class EpisodeRepository(
         if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
     }
 
+    /** Every episode of a show heard. */
+    suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) { eq.markShowPlayed(clock.now(), podcastId) }
+
+    /** This episode and every older one of its show heard — as Castamatic does. */
+    suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(Dispatchers.IO) {
+        eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+    }
+
     suspend fun dismiss(id: Long) = withContext(Dispatchers.IO) { eq.setInbox(0, id) }
     suspend fun clearInbox() = withContext(Dispatchers.IO) { eq.clearInbox() }
 

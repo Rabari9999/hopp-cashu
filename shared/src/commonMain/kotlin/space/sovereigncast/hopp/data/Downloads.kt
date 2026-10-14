@@ -99,8 +99,6 @@ class DownloadRepository(
 
     val usedBytes: Flow<Long> = eq.downloadedBytes().asFlow().mapToOne(Dispatchers.IO)
     val downloadedCount: Flow<Long> = eq.downloadedCount().asFlow().mapToOne(Dispatchers.IO)
-    /** Where the files are, for the settings to say (device feedback 2026-10-14). */
-    val dir: String get() = files.dir
 
     /** Every download — waiting, running, done or failed — and every file left
      *  in the folder (a .part of an interrupted one); running ones stop. */
