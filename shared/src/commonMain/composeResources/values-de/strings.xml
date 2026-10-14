@@ -247,6 +247,8 @@
     <string name="sc_clip_at_block">Bei Block %1$d wird ein Clip freigeschaltet</string>
     <string name="sc_clip_at_sats">Bei %1$s sats wird ein Clip freigeschaltet</string>
     <string name="sc_clip_play">Clip anhören: %1$s</string>
+    <string name="sc_clip_now">Clip · %1$s</string>
+    <string name="sc_clip_close">Clip schließen</string>
     <string name="sc_suggest">Thema vorschlagen</string>
     <string name="sc_suggest_title">Thema</string>
     <string name="sc_suggest_description">Worum es gehen soll (optional)</string>

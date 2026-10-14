@@ -247,6 +247,8 @@
     <string name="sc_clip_at_block">A clip unlocks at block %1$d</string>
     <string name="sc_clip_at_sats">A clip unlocks at %1$s sats</string>
     <string name="sc_clip_play">Listen to the clip: %1$s</string>
+    <string name="sc_clip_now">Clip · %1$s</string>
+    <string name="sc_clip_close">Close the clip</string>
     <string name="sc_suggest">Suggest a topic</string>
     <string name="sc_suggest_title">Topic</string>
     <string name="sc_suggest_description">What it should be about (optional)</string>

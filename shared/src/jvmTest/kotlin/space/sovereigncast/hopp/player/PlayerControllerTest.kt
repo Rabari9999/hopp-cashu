@@ -126,6 +126,45 @@ class PlayerControllerTest {
         until("paused and back") { !engine.state.value.isPlaying && engine.state.value.positionMs == 42_000L }
     }
 
+    /** Phase 2: a Sovereigncast clip plays in Hopp's player; at its end the episode
+     *  from before is back, paused where it was — nothing saved or played for the clip. */
+    @Test
+    fun aSovereigncastClipPlaysAndTheEpisodeComesBack() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(42_000)
+        player.playRemoteClip(RemoteClip("https://pm.test/clip.mp3", "Der Halving-Clip", "Nodesignal", null))
+        until("the clip loaded") { engine.loaded.last().id == PlayerController.REMOTE_CLIP_ID && engine.state.value.isPlaying }
+        assertEquals("https://pm.test/clip.mp3", engine.loaded.last().url)
+        assertEquals("Der Halving-Clip", player.remoteClip.value?.title)
+        until("Ep 1's position saved") { episodes.item(e1.id)!!.positionMs == 42_000L }
+        at(20_000)
+        step { end() }
+        until("Ep 1 back") { engine.loaded.last().id == e1.id.toString() && player.remoteClip.value == null }
+        assertEquals(42_000L, engine.loaded.last().startPositionMs)
+        assertFalse(engine.state.value.isPlaying, "back, but paused")
+        assertFalse(episodes.item(e1.id)!!.played, "the clip's end is not the episode's")
+    }
+
+    /** Closed by hand, or another episode started: no jump back later. */
+    @Test
+    fun aSovereigncastClipEndsWhenClosedOrReplaced() = test {
+        val (e1, e2, _) = episodes()
+        start(e1)
+        at(42_000)
+        player.playRemoteClip(RemoteClip("https://pm.test/clip.mp3", "Clip", "Nodesignal", null))
+        until("the clip loaded") { engine.loaded.last().id == PlayerController.REMOTE_CLIP_ID }
+        player.closeRemoteClip()
+        until("Ep 1 back") { engine.loaded.last().id == e1.id.toString() }
+        player.playRemoteClip(RemoteClip("https://pm.test/clip.mp3", "Clip", "Nodesignal", null))
+        until("the clip again") { engine.loaded.last().id == PlayerController.REMOTE_CLIP_ID }
+        start(e2)
+        until("the clip is over") { player.remoteClip.value == null }
+        step { end() }
+        delay(100)
+        assertTrue(engine.loaded.none { it.id == e1.id.toString() && engine.loaded.indexOf(it) > engine.loaded.indexOfLast { l -> l.id == e2.id.toString() } }, "no jump back to Ep 1")
+    }
+
     /** Moving away during a clip ends the clip: nothing pauses later. */
     @Test
     fun aJumpAwayEndsTheClip() = test {

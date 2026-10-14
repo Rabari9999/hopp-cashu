@@ -111,6 +111,8 @@ class PlaybackService : MediaLibraryService() {
      *  a notification that says what happened, as the listener chose
      *  (device feedback 2026-10-10: nothing, only failures, or everything). */
     private fun quickBoost() {
+        // During a Sovereigncast clip the episode behind it is not what is heard.
+        if (controller.remoteClip.value != null) return
         val now = controller.current.value?.item ?: return
         val position = controller.state.value.positionMs / 1000
         // One at a time: a second tap while the first is paying is not a second boost.

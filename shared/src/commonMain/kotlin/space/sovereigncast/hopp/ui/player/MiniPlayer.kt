@@ -44,11 +44,18 @@ import space.sovereigncast.hopp.resources.np_play
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.player.PlayerController
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.Icons
+import space.sovereigncast.hopp.resources.sc_clip_close
+import space.sovereigncast.hopp.resources.sc_clip_now
+import space.sovereigncast.hopp.player.RemoteClip
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** The mini player above the tab bar (ADR 0019): tap or swipe up to expand. */
 @Composable
 fun MiniPlayer(model: PlayerController) {
+    val clip by model.remoteClip.collectAsState()
+    clip?.let { ClipMiniPlayer(model, it); return }
     val now by model.current.collectAsState()
     val playing = now ?: return
     val episode = playing.item
@@ -129,3 +136,46 @@ fun MiniPlayer(model: PlayerController) {
         }
     }
 }
+
+/** A Sovereigncast clip playing (phase 2): what it is, play/pause, and closing
+ *  it — then the episode from before is back. It has no now-playing screen. */
+@Composable
+private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip) {
+    val state by model.state.collectAsState()
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().background(colors.surface)) {
+        HorizontalDivider(color = colors.outlineVariant)
+        val track = Hopp.colors.progressTrack
+        val fill = Hopp.colors.value
+        Canvas(Modifier.fillMaxWidth().height(3.dp)) {
+            drawRect(track, Offset.Zero, size)
+            val f = if (state.durationMs > 0) (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
+            drawRect(fill, Offset.Zero, Size(size.width * f, size.height))
+        }
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = clip.artworkUrl, contentDescription = null,
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.sc_clip_now, clip.title), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOf(clip.showTitle, "${formatTime(state.positionMs)} / ${formatTime(state.durationMs)}").filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable { if (state.isPlaying) model.engine.pause() else model.engine.play() }, contentAlignment = Alignment.Center) {
+                Icon(
+                    if (state.isPlaying) HoppIcons.Pause else HoppIcons.Play,
+                    stringResource(if (state.isPlaying) Res.string.np_pause else Res.string.np_play),
+                    tint = colors.onSurface,
+                )
+            }
+            IconButton(onClick = model::closeRemoteClip) {
+                Icon(Icons.Rounded.Close, stringResource(Res.string.sc_clip_close), tint = colors.onSurfaceVariant)
+            }
+        }
+    }
+}
+

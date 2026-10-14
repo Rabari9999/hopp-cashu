@@ -123,6 +123,10 @@ import space.sovereigncast.hopp.resources.sc_open_episode
 import space.sovereigncast.hopp.resources.sc_publish_long
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
 import space.sovereigncast.hopp.sovereigncast.ScTarget
+import org.koin.compose.koinInject
+import space.sovereigncast.hopp.sovereigncast.ScShow
+import space.sovereigncast.hopp.player.RemoteClip
+import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.sovereigncast.Suggestion
 import space.sovereigncast.hopp.sovereigncast.TopEpisode
 import space.sovereigncast.hopp.ui.components.HoppIcons
@@ -288,13 +292,16 @@ private fun ActionSheet(
     }
 }
 
-/** The clip at its mark: locked, it only says where; unlocked, it plays. */
+/** The clip at its mark: locked, it only says where; unlocked, it plays — in
+ *  Hopp's own player (phase 2; it opened in the browser before). */
 @Composable
-private fun ClipLine(clip: ClipState, lockedText: String) {
-    val uri = LocalUriHandler.current
+private fun ClipLine(clip: ClipState, lockedText: String, show: ScShow?) {
+    val player: PlayerController = koinInject()
     val url = clip.url
     if (clip.unlocked && url != null) Row(
-        Modifier.clip(RoundedCornerShape(12.dp)).clickable { runCatching { uri.openUri(url) } }.padding(vertical = 6.dp),
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+            player.playRemoteClip(RemoteClip(url, clip.title.ifBlank { "Clip" }, show?.title.orEmpty(), show?.imageUrl))
+        }.padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(HoppIcons.Play, null, tint = Hopp.colors.valueText, modifier = Modifier.size(20.dp))
@@ -328,26 +335,26 @@ private fun ChainView(chain: Chain) {
 }
 
 @Composable
-fun ReleaseBoostingSheet(round: ReleaseBoostingRound, communityUrl: String?, onBoost: () -> Unit, onDismiss: () -> Unit) = ActionSheet(
+fun ReleaseBoostingSheet(round: ReleaseBoostingRound, show: ScShow?, onBoost: () -> Unit, onDismiss: () -> Unit) = ActionSheet(
     label = stringResource(Res.string.sc_rb_label), episode = round.episode, raised = round.raisedSats, goal = round.goalSats,
-    action = stringResource(Res.string.np_boost), communityUrl = communityUrl, onAction = onBoost, onDismiss = onDismiss,
+    action = stringResource(Res.string.np_boost), communityUrl = show?.communityPageUrl, onAction = onBoost, onDismiss = onDismiss,
 ) {
     Text(stringResource(Res.string.sc_publish_long, formatIsoShort(round.publishAt)), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(Res.string.sc_per_minute, round.satsPerMinute), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     round.chain?.let { ChainView(it) }
-    round.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_block, c.atBlock ?: round.chain?.halvingBlock ?: 0)) }
+    round.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_block, c.atBlock ?: round.chain?.halvingBlock ?: 0), show) }
 }
 
 @Composable
-fun UnlockSheet(item: Boost2UnlockEpisode, communityUrl: String?, onUnlock: () -> Unit, onDismiss: () -> Unit) {
+fun UnlockSheet(item: Boost2UnlockEpisode, show: ScShow?, onUnlock: () -> Unit, onDismiss: () -> Unit) {
     val uri = LocalUriHandler.current
     ActionSheet(
         label = stringResource(Res.string.sc_b2u_label), episode = item.episode, raised = item.raisedSats, goal = item.goalSats,
-        action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), communityUrl = communityUrl, onAction = onUnlock, onDismiss = onDismiss,
+        action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), communityUrl = show?.communityPageUrl, onAction = onUnlock, onDismiss = onDismiss,
     ) {
         if (item.unlocked) Text(stringResource(Res.string.sc_unlocked), style = MaterialTheme.typography.titleSmall, color = Hopp.colors.valueText)
         item.link?.takeIf { item.unlocked }?.let { link -> TextButton(onClick = { runCatching { uri.openUri(link) } }) { Text(stringResource(Res.string.sc_open_episode)) } }
-        item.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_sats, formatSats(c.atSats ?: 0))) }
+        item.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_sats, formatSats(c.atSats ?: 0)), show) }
     }
 }
 

@@ -45,7 +45,7 @@ implemented in Sovereigncast; ecash and push are not part of it yet.
 |---|---|
 | Release Boosting: live progress, pay through a Lightning invoice | **P1** (slim layer, ADR 0018) |
 | Boost2Unlock: progress, pay through a Lightning invoice | **P1** (slim layer) |
-| Halving / Boost2Unlock clips | P2 (P1: where it waits, and a link once unlocked) |
+| Halving / Boost2Unlock clips | P2 — **built 2026-10-14**: unlocked, it plays in Hopp's player and the episode from before comes back paused (P1: where it waits, and a link) |
 | Topic suggestions: open list, free vote | **P1** (slim layer) |
 | Topic suggestions: submit, sats boost | P2 — **built 2026-10-14** (from the show's minimum; a raised invoice is refused) |
 | Paid Q&A | P2 |

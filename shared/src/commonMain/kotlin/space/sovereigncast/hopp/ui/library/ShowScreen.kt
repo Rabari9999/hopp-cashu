@@ -270,10 +270,10 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     }
 
     when (val d = details) {
-        is ReleaseBoostingRound -> ReleaseBoostingSheet(d, layer?.show?.communityPageUrl, onBoost = {
+        is ReleaseBoostingRound -> ReleaseBoostingSheet(d, layer?.show, onBoost = {
             details = null; paying = ScTarget.ReleaseBoosting to d.episode.title
         }) { details = null }
-        is Boost2UnlockEpisode -> UnlockSheet(d, layer?.show?.communityPageUrl, onUnlock = {
+        is Boost2UnlockEpisode -> UnlockSheet(d, layer?.show, onUnlock = {
             details = null; paying = ScTarget.Boost2Unlock(d.episode.episodeGuid) to d.episode.title
         }) { details = null }
         is Suggestion -> {

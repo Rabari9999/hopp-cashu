@@ -108,6 +108,8 @@ private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will,
 private var statusCalls = 0
 /** What Hopp last posted to the instance, to check what a form sent. */
 private var lastScPost: String? = null
+/** Whether the round's halving clip is unlocked, settable per test. */
+private var clipUnlocked = false
 /** A suggestion submitted in this test run, listed once there. */
 private var submitted: String? = null
 private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
@@ -120,7 +122,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
         "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
-        "clip":{"unlocked":false,"at_block":36}},"poll_after_seconds":60}""")
+        "clip":${if (clipUnlocked) """{"unlocked":true,"at_block":36,"title":"Halving-Clip","duration_seconds":42,"url":"https://pm.test/api/listener/v1/shows/$SC_GUID/release-boosting/clip"}""" else """{"unlocked":false,"at_block":36}"""}},"poll_after_seconds":60}""")
     // A new suggestion: the invoice is its spam filter (phase 2).
     post && path.endsWith("/suggestions") -> { submitted = lastScPost?.let { Regex("\"title\":\"([^\"]*)\"").find(it)?.groupValues?.get(1) }; respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created) }
     post && path.endsWith("/suggestions/32/invoices") -> respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created)
@@ -757,6 +759,25 @@ class AndroidAppFlowTest {
         tap("Pay 21 sats with a wallet app")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
         check(lastScPost.orEmpty().contains("\"amount_sats\":21")) { lastScPost.toString() }
+    }
+
+    /** An unlocked clip plays in Hopp's own player, not the browser; closed, it is gone. */
+    @Test
+    fun anUnlockedClipPlaysInHopp() {
+        clipUnlocked = true
+        try {
+            rule.setContent { App() }
+            tap("Discover"); subscribe("https://pod.test/sc.xml")
+            waitFor("E297 - BTC++ Berlin")
+            rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+            waitFor("Listen to the clip: Halving-Clip · 0:42")
+            tap("Listen to the clip: Halving-Clip · 0:42")
+            until { engine().state.value.itemId == space.sovereigncast.hopp.player.PlayerController.REMOTE_CLIP_ID }
+            // The sheet stays open; the mini player below shows the clip.
+            waitFor("Clip · Halving-Clip")
+            rule.onNode(hasContentDescription("Close the clip")).performClick()
+            rule.waitUntil(10_000) { !has("Clip · Halving-Clip") }
+        } finally { clipUnlocked = false }
     }
 
     /** The show's most popular episodes; one the feed has opens in Hopp. */

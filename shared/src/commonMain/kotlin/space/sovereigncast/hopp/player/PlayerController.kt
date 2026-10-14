@@ -34,6 +34,13 @@ data class NowPlaying(
     val chapters: ChapterIndex = ChapterIndex(emptyList()),
 )
 
+/**
+ * A clip from a Sovereigncast instance — the halving clip of a Release Boosting
+ * round, a Boost2Unlock clip (phase 2). Not an episode of the feed: nothing is
+ * saved, marked played or streamed for it.
+ */
+data class RemoteClip(val url: String, val title: String, val showTitle: String, val artworkUrl: String?)
+
 /** The sleep timer (ADR 0012): minutes, end of episode, end of chapter. */
 sealed interface SleepTimer {
     data object Off : SleepTimer
@@ -87,6 +94,14 @@ class PlayerController(
      *  goes back to where the listener was. */
     private class Clip(val itemId: Long, val startMs: Long, val endMs: Long, val returnTo: Long) { var reached = false }
     private var clip: Clip? = null
+    private val _remoteClip = MutableStateFlow<RemoteClip?>(null)
+    /** The instance's clip playing instead of the episode, until it ends or is closed. */
+    val remoteClip: StateFlow<RemoteClip?> = _remoteClip.asStateFlow()
+    /** The episode to go back to after a [RemoteClip], at the position it was left at. */
+    private var afterRemoteClip: EpisodeItem? = null
+    private var remoteClipWasPlaying = false
+    /** Until the engine reports the clip, its old item is not someone else's. */
+    private var remoteClipLoading = false
 
     init {
         scope.launch {
@@ -101,6 +116,15 @@ class PlayerController(
         scope.launch {
             var wasPlaying = false
             engine.state.collect { s ->
+                if (s.itemId == REMOTE_CLIP_ID) {
+                    remoteClipLoading = false
+                    val over = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
+                    if (over && remoteClipWasPlaying) closeRemoteClip()
+                    remoteClipWasPlaying = s.isPlaying
+                    return@collect
+                }
+                // Something else is playing now: the clip is over, and nothing to go back to.
+                if (_remoteClip.value != null && !remoteClipLoading && s.itemId != null) { _remoteClip.value = null; afterRemoteClip = null }
                 val id = s.itemId?.toLongOrNull() ?: return@collect
                 if (expectedId == id) expectedId = null
                 // Started elsewhere — Android Auto, a resumed notification, or
@@ -189,6 +213,34 @@ class PlayerController(
         val returnTo = if (loaded) engine.state.value.positionMs else item.positionMs
         clip = Clip(item.id, startMs, startMs + durationMs, returnTo)
         playAt(item, startMs)
+    }
+
+    /**
+     * The instance's clip in Hopp's own player (phase 2; until then it opened in
+     * the browser). The episode loaded before waits at its position and comes
+     * back, paused, when the clip ends or is closed — as a soundbite does.
+     */
+    fun playRemoteClip(clip: RemoteClip) {
+        val s = engine.state.value
+        val item = _current.value?.item
+        if (_remoteClip.value == null) afterRemoteClip = item?.let {
+            if (s.itemId == it.id.toString()) it.copy(positionMs = s.positionMs, played = false) else it
+        }
+        if (item != null && s.itemId == item.id.toString()) scope.launch { episodes.savePosition(item.id, s.positionMs) }
+        _remoteClip.value = clip
+        remoteClipWasPlaying = false
+        remoteClipLoading = true
+        expectedId = null
+        engine.load(PlaybackItem(REMOTE_CLIP_ID, clip.url, clip.title, clip.showTitle, clip.artworkUrl, 0), true)
+    }
+
+    /** Ends the clip: back to the episode from before, paused where it was. */
+    fun closeRemoteClip() {
+        if (_remoteClip.value == null) return
+        _remoteClip.value = null
+        val back = afterRemoteClip
+        afterRemoteClip = null
+        if (back != null) scope.launch { open(back, load = true, autoplay = false) } else engine.pause()
     }
 
     private fun tickClip(id: Long, s: PlaybackState) {
@@ -317,6 +369,10 @@ class PlayerController(
     }
 
     companion object {
+        /** The engine's item id for a [RemoteClip] — not a number, so the
+         *  episode bookkeeping above never takes it for one. */
+        const val REMOTE_CLIP_ID = "sovereigncast-clip"
+
         /** Longer than any engine report gap while playing — a bigger jump is a seek. */
         const val MAX_TICK_MS = 5_000L
         val SETTLE_EVERY = 3.minutes
