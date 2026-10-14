@@ -232,6 +232,19 @@ class SettingsViewModel(
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
+    private val _import = MutableStateFlow<AddState>(AddState.Idle)
+    val import: StateFlow<AddState> = _import.asStateFlow()
+    fun importOpml(text: String) {
+        _import.value = AddState.Working
+        viewModelScope.launch {
+            val results = podcasts.importOpml(text).map { it.second }
+            _import.value = AddState.Imported(
+                subscribed = results.count { it is SubscribeResult.Subscribed },
+                already = results.count { it is SubscribeResult.AlreadySubscribed },
+                failed = results.count { it is SubscribeResult.Failed },
+            )
+        }
+    }
 }
 
 /**

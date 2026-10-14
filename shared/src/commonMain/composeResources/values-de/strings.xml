@@ -414,7 +414,7 @@
     <string name="settings_boost_feedback_note">Für den Schnell-Boost vom Sperrbildschirm und für Boosts in der App. Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
     <string name="settings_notifications_system">Wiedergabe- und Download-Benachrichtigung braucht Android, damit beides im Hintergrund weiterläuft; Aussehen und Ton stellst du in den Systemeinstellungen ein.</string>
     <string name="settings_notifications_open">System-Benachrichtigungen öffnen</string>
-    <string name="settings_opml_note">Deine Abos als OPML-Datei – als Sicherung oder für eine andere Podcast-App. Importieren geht unter Entdecken.</string>
+    <string name="settings_opml_note">Deine Abos als OPML-Datei – als Sicherung oder für eine andere Podcast-App.</string>
     <string name="onboarding_again">Tour noch einmal zeigen</string>
     <string name="settings_source">Quellcode (GitLab)</string>
     <string name="settings_website">Website</string>

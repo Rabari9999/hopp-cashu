@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import space.sovereigncast.hopp.resources.settings_notifications_open_ios
 import space.sovereigncast.hopp.resources.settings_notifications_system_ios
 import space.sovereigncast.hopp.resources.settings_home_note
@@ -231,7 +232,13 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
             }
             SettingsPage.Subscriptions -> {
                 Note(stringResource(Res.string.settings_opml_note))
-                OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
+                val importState by vm.import.collectAsState()
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) { Text(stringResource(Res.string.opml_import)) }
+                    OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
+                }
+                if (importState == AddState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
+                (importState as? AddState.Imported)?.let { Text(stringResource(Res.string.result_imported, it.subscribed, it.already, it.failed)) }
             }
             SettingsPage.About -> {
                 SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

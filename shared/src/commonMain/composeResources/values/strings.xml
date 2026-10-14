@@ -414,7 +414,7 @@
     <string name="settings_boost_feedback_note">For the quick boost from the lock screen and for boosts in the app. A success goes by itself after a few seconds. The payment history always has the details.</string>
     <string name="settings_notifications_system">Playback and download notifications are what Android needs to keep them running; their look and sound are set in the system settings.</string>
     <string name="settings_notifications_open">Open system notification settings</string>
-    <string name="settings_opml_note">Your subscriptions as an OPML file — for a backup or another podcast app. Importing works under Discover.</string>
+    <string name="settings_opml_note">Your subscriptions as an OPML file — for a backup or another podcast app.</string>
     <string name="onboarding_again">Show the tour again</string>
     <string name="settings_source">Source code (GitLab)</string>
     <string name="settings_website">Website</string>
