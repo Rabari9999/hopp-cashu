@@ -28,9 +28,8 @@ dependencyResolutionManagement {
     }
 }
 
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
-}
+// No foojay toolchain resolver: nothing asks for a toolchain, and F-Droid's
+// scanner refuses a build that could download a JDK (fdroiddata MR 52675).
 
 include(":shared")
 include(":androidApp")
