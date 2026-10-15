@@ -135,7 +135,7 @@
     <string name="wallet_balance_unknown">The wallet does not share its balance</string>
     <string name="wallet_disconnect">Disconnect</string>
     <string name="wallet_budget">Daily budget for boosts and streaming</string>
-    <string name="wallet_spent_today">Spent today: %1$s of %2$s sats</string>
+    <string name="wallet_spent_today">Spent today: %1$s of %2$s sats, routing fees included</string>
     <string name="wallet_rate">Streaming rate</string>
     <string name="wallet_rate_show">As the show suggests</string>
     <string name="wallet_rate_value">%1$d sats/min</string>

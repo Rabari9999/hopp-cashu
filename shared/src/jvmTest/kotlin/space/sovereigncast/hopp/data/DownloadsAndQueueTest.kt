@@ -96,6 +96,9 @@ class DownloadsAndQueueTest {
         assertEquals(listOf(1L), EpisodeRepository(migrated, http, clock).favorites.first().map { it.id })
         SettingsRepository(migrated).update { it.copy(skipBackSeconds = 15) }
         assertEquals(15, SettingsRepository(migrated).current().skipBackSeconds)
+        // Version 5: routing fees count against the budget.
+        migrated.paymentQueries.insert(1, "boost", 1, 1, "Old", "Kept", 21_000, null, 2_000, "[]")
+        assertEquals(23_000L, migrated.paymentQueries.spentSince(0).executeAsOne())
     }
 
     @Test

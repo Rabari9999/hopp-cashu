@@ -420,6 +420,17 @@ class ValueServiceTest {
         assertTrue(lines.all { it.feesMsat == 1000L }, "the fake wallet reports a 1-sat fee per payment")
     }
 
+    /** Device feedback 2026-10-15: routing fees leave the wallet too and count
+     *  against today's budget. */
+    @Test
+    fun routingFeesCountAgainstTheBudget() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(dailyBudgetSats = 100) }
+        value.boost(episode(), 30, 21_000, null)
+        assertEquals(23_000L, value.spentTodayMsat.first(), "21 sats and a 1-sat fee for each of the two payments")
+        assertEquals(77_000L, value.budgetLeftMsat.first())
+    }
+
     /** "Support Hopp" (ADR 0005): off by default; when chosen, a visible share
      *  taken from the boost, not added to it. */
     @Test

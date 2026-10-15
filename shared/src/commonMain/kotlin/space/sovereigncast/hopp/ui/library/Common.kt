@@ -10,6 +10,14 @@ import space.sovereigncast.hopp.resources.episode_search
 import space.sovereigncast.hopp.resources.episode_search_found
 import space.sovereigncast.hopp.resources.episode_search_none
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import space.sovereigncast.hopp.data.DownloadState
+import space.sovereigncast.hopp.ui.components.HoppIcons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,7 +86,10 @@ fun EpisodeRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Cover(item.imageUrl ?: item.podcastImageUrl, 56.dp)
+        Box {
+            Cover(item.imageUrl ?: item.podcastImageUrl, 56.dp)
+            DownloadBadge(item, Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp))
+        }
         Column(Modifier.weight(1f)) {
             if (showPodcast && item.podcastTitle != null) {
                 Text(item.podcastTitle, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -100,6 +111,45 @@ fun EpisodeRow(
             Text(meta, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
         trailing()
+    }
+}
+
+/**
+ * On the cover's corner, what is on the device (device feedback 2026-10-15,
+ * AntennaPod for comparison): a tick for downloaded, the progress while it
+ * loads, "!" when it failed; nothing for an episode that streams. Play stays
+ * the row's button — Hopp streams what is not downloaded.
+ */
+@Composable
+fun DownloadBadge(item: EpisodeItem, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val state = item.downloadState
+    if (state == DownloadState.NONE) return
+    val label = downloadLabel(item).orEmpty()
+    val progress = LocalDownloadProgress.current[item.id]
+    // Waiting is quiet (a list may hold many); dark is on the device.
+    val waiting = state == DownloadState.QUEUED || (state == DownloadState.DOWNLOADING && progress == null)
+    val fill = when {
+        state == DownloadState.FAILED -> colors.error
+        waiting -> colors.surfaceVariant
+        else -> colors.onSurface
+    }
+    val on = when {
+        state == DownloadState.FAILED -> colors.onError
+        waiting -> colors.onSurfaceVariant
+        else -> colors.surface
+    }
+    Box(
+        modifier.size(24.dp).border(2.dp, colors.surface, CircleShape).padding(2.dp).clip(CircleShape).background(fill)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            state == DownloadState.DONE -> Icon(HoppIcons.Downloaded, null, Modifier.size(14.dp), tint = on)
+            state == DownloadState.FAILED -> Text("!", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = on)
+            waiting -> Icon(HoppIcons.Download, null, Modifier.size(14.dp), tint = on)
+            else -> CircularProgressIndicator(progress = { progress ?: 0f }, Modifier.size(13.dp), color = on, strokeWidth = 2.dp, trackColor = on.copy(alpha = 0.3f), gapSize = 0.dp)
+        }
     }
 }
 

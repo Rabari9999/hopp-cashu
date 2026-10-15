@@ -335,6 +335,8 @@ class AndroidAppFlowTest {
         menuOf(1); waitFor("Download"); tap("Download")
         kotlinx.coroutines.runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>().runPending(includeAuto = false) }
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        // The cover's badge says so too; the episode not downloaded has none.
+        check(rule.onAllNodes(hasContentDescription("Downloaded"), useUnmergedTree = true).fetchSemanticsNodes().size == 1) { "one badge expected: ${screen()}" }
         tap("Library"); waitFor("Downloads")
         tap("Downloads"); waitFor("Ep 1")
         check(has("used", substring = true)) { "no space shown: ${screen()}" }

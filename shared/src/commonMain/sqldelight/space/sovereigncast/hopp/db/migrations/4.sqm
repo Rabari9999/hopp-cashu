@@ -1,0 +1,3 @@
+-- Version 4 → 5 (device feedback 2026-10-15): routing fees count against the
+-- daily budget. Older rows keep theirs only in results_json.
+ALTER TABLE payment ADD COLUMN fees_msat INTEGER NOT NULL DEFAULT 0;

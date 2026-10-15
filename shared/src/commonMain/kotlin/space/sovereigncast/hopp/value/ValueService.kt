@@ -251,7 +251,7 @@ class ValueService(
         message: String?, recipientName: String?, recipientAddress: String, feesMsat: Long?,
     ) = withContext(Dispatchers.IO) {
         val line = PaymentLine(recipientName, recipientAddress, amountMsat, "paid", feesMsat = feesMsat, route = "invoice")
-        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, amountMsat, message, json.encodeToString(lineList, listOf(line)))
+        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, amountMsat, message, feesMsat ?: 0, json.encodeToString(lineList, listOf(line)))
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -321,8 +321,9 @@ class ValueService(
                 is ShareResult.Failed -> PaymentLine(rec.name, rec.address, r.share.amountMsat, if (r.outcomeUnknown) "unknown" else "failed", route = r.route, reason = r.reason)
             }
         }
-        val paid = results.filterIsInstance<ShareResult.Paid>().sumOf { it.share.amountMsat }
-        pq.insert(clock.now(), kind, podcastId, episodeId, podcastTitle, episodeTitle, paid, message, json.encodeToString(lineList, lines))
+        val paid = results.filterIsInstance<ShareResult.Paid>()
+        pq.insert(clock.now(), kind, podcastId, episodeId, podcastTitle, episodeTitle, paid.sumOf { it.share.amountMsat }, message,
+            paid.sumOf { it.feesMsat ?: 0 }, json.encodeToString(lineList, lines))
     }
 
     // ── streaming ─────────────────────────────────────────────────────────
@@ -390,7 +391,7 @@ class ValueService(
                     when (result) {
                         is ShareResult.Paid -> {
                             // Rounded up: what was owed is settled, the extra is a gift.
-                            sq.paid(minOf(amount, row.owed_msat), episodeId, row.recipient_key, RAIL_LIGHTNING); left -= amount
+                            sq.paid(minOf(amount, row.owed_msat), episodeId, row.recipient_key, RAIL_LIGHTNING); left -= amount + (result.feesMsat ?: 0)
                             if (row.attempts > 0) { caughtUp += amount; caughtUpEpisodes += episodeId }
                         }
                         is ShareResult.Skipped -> sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)

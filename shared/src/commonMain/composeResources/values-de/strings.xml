@@ -135,7 +135,7 @@
     <string name="wallet_balance_unknown">Die Wallet gibt ihr Guthaben nicht preis</string>
     <string name="wallet_disconnect">Trennen</string>
     <string name="wallet_budget">Tagesbudget für Boosts und Streaming</string>
-    <string name="wallet_spent_today">Heute ausgegeben: %1$s von %2$s sats</string>
+    <string name="wallet_spent_today">Heute ausgegeben: %1$s von %2$s sats, inkl. Routing-Gebühren</string>
     <string name="wallet_rate">Streaming-Rate</string>
     <string name="wallet_rate_show">Wie die Show vorschlägt</string>
     <string name="wallet_rate_value">%1$d sats/Min.</string>

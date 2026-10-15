@@ -12,6 +12,9 @@ CREATE TABLE payment (
     -- What actually went out, all recipients together.
     amount_msat INTEGER NOT NULL,
     message TEXT,
+    -- Routing fees the wallet paid on top, as far as it said: they leave the
+    -- wallet too and count against the daily budget (device feedback 2026-10-15).
+    fees_msat INTEGER NOT NULL DEFAULT 0,
     -- Per recipient: name, address, msat, paid / skipped / failed, route, reason.
     results_json TEXT NOT NULL
 );
@@ -20,14 +23,15 @@ CREATE INDEX payment_created_idx ON payment(created_at);
 CREATE INDEX payment_episode_idx ON payment(episode_id);
 
 insert:
-INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, results_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, results_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 recent:
 SELECT * FROM payment ORDER BY created_at DESC, id DESC LIMIT 200;
 
+-- What left the wallet: amounts and routing fees.
 spentSince:
-SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ?;
+SELECT CAST(coalesce(sum(amount_msat + fees_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ?;
 
 spentSinceOfKind:
 SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ? AND kind = ?;
