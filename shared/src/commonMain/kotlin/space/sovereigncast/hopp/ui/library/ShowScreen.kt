@@ -215,6 +215,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
                     meta?.description?.let { d -> FoldingText(plainText(d)) }
+                    meta?.let { m -> TrailerLine(m.trailers, show?.title ?: m.title.orEmpty(), show?.imageUrl) }
                     // podcast:funding — the show's own way to be supported (ADR 0012).
                     meta?.funding?.firstOrNull()?.let { f ->
                         // A Lightning address and a wallet: paid here, without leaving Hopp.

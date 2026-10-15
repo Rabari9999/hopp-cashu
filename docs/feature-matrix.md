@@ -24,7 +24,7 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:image` | ✅ | ✅ | P1 | Responsive artwork. |
 | `podcast:funding` | ✅ | ✅ | P1 | |
 | `podcast:updateFrequency` | ✅ derived from the publishing gaps | ✅ | P1 | Read and shown; not used for refresh scheduling (the listener sets the interval, ADR 0013). |
-| `podcast:trailer` | ✅ | ✅ | P2 | |
+| `podcast:trailer` | ✅ | ✅ | P2 | **Built 2026-10-15:** the newest trailer plays from the show page, before subscribing too, as a clip. |
 | `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
 | `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |
 | `podcast:medium` | ✅ (always `podcast`) | ✅ | P2 | Music medium → V4V music use case. |
@@ -48,7 +48,6 @@ implemented in Sovereigncast; ecash and push are not part of it yet.
 | Halving / Boost2Unlock clips | P2 — **built 2026-10-14**: unlocked, it plays in Hopp's player and the episode from before comes back paused (P1: where it waits, and a link) |
 | Topic suggestions: open list, free vote | **P1** (slim layer) |
 | Topic suggestions: submit, sats boost | P2 — **built 2026-10-14** (from the show's minimum; a raised invoice is refused) |
-| Paid Q&A | P2 |
 | Top boosts and the all-time boosters (read-only) | **P1** (pulled forward 2026-10-09, ADR 0019) |
 | Top episodes | P2 — **built 2026-10-14** (community tab; opens in Hopp when the feed has the episode) |
 | Ecash (Cashu) redemption, nutzaps | P3 |

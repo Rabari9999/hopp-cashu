@@ -6,6 +6,9 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Hear a show's trailer** — on its page, before subscribing too; the episode you were listening to waits where you left it.
+
 ## [0.1.1] - 2026-10-15
 
 ### 🆕 New Features

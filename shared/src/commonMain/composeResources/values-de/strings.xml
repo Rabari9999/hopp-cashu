@@ -260,6 +260,7 @@
     <string name="sc_clip_at_sats">Bei %1$s sats wird ein Clip freigeschaltet</string>
     <string name="sc_clip_play">Clip anhören: %1$s</string>
     <string name="sc_clip_now">Clip · %1$s</string>
+    <string name="trailer_now">Trailer · %1$s</string>
     <string name="sc_clip_close">Clip schließen</string>
     <string name="sc_suggest">Thema vorschlagen</string>
     <string name="sc_suggest_title">Thema</string>
@@ -354,6 +355,7 @@
     <string name="pv_share_when">nur, wenn du etwas teilst</string>
     <string name="pv_share_tip">Teile ohne „ab hier“, wenn der Zeitpunkt nichts verraten soll.</string>
     <string name="pv_backup_tip">Willst du das nicht, schalte die Sicherung von App-Daten in den Google-Einstellungen deines Geräts aus.</string>
+    <string name="show_trailer">Trailer anhören</string>
     <string name="show_support">Show unterstützen</string>
     <string name="transcript_search">Im Transkript suchen</string>
     <string name="transcript_follow">Mitlesen</string>

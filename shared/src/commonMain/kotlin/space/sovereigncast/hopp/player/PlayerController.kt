@@ -36,10 +36,10 @@ data class NowPlaying(
 
 /**
  * A clip from a Sovereigncast instance — the halving clip of a Release Boosting
- * round, a Boost2Unlock clip (phase 2). Not an episode of the feed: nothing is
- * saved, marked played or streamed for it.
+ * round, a Boost2Unlock clip (phase 2) — or a show's trailer ([trailer]). Not an
+ * episode of the feed: nothing is saved, marked played or streamed for it.
  */
-data class RemoteClip(val url: String, val title: String, val showTitle: String, val artworkUrl: String?)
+data class RemoteClip(val url: String, val title: String, val showTitle: String, val artworkUrl: String?, val trailer: Boolean = false)
 
 /** The sleep timer (ADR 0012): minutes, end of episode, end of chapter. */
 sealed interface SleepTimer {

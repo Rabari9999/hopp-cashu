@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.Icons
 import space.sovereigncast.hopp.resources.sc_clip_close
 import space.sovereigncast.hopp.resources.sc_clip_now
+import space.sovereigncast.hopp.resources.trailer_now
 import space.sovereigncast.hopp.player.RemoteClip
 import space.sovereigncast.hopp.ui.theme.Hopp
 
@@ -159,7 +160,7 @@ private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip) {
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(Res.string.sc_clip_now, clip.title), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(if (clip.trailer) Res.string.trailer_now else Res.string.sc_clip_now, clip.title), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOf(clip.showTitle, "${formatTime(state.positionMs)} / ${formatTime(state.durationMs)}").filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,

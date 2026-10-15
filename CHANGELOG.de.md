@@ -6,6 +6,9 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Den Trailer einer Show anhören** — auf ihrer Seite, auch vor dem Abonnieren; die Folge, die du gerade hörst, wartet, wo du warst.
+
 ## [0.1.1] - 2026-10-15
 
 ### 🆕 New Features

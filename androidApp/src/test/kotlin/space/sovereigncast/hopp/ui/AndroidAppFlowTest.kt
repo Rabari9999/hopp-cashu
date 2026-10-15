@@ -57,6 +57,8 @@ import space.sovereigncast.hopp.platform.PlaybackState
 
 private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel><title>Test Show</title>
 <podcast:funding url="https://fund.test/">Unterstütze uns</podcast:funding>
+<podcast:trailer pubdate="Mon, 01 Jun 2026 05:00:00 +0000" url="https://cdn.test/trailer-old.mp3" length="1" type="audio/mpeg">Old trailer</podcast:trailer>
+<podcast:trailer pubdate="Mon, 01 Jun 2026 06:00:00 +0000" url="https://cdn.test/trailer.mp3" length="1" type="audio/mpeg">So klingt Test Show</podcast:trailer>
 <podcast:person role="host">Thorsten</podcast:person>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
 <item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host" group="cast" href="https://primal.net/p/karsten">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
@@ -896,6 +898,23 @@ class AndroidAppFlowTest {
             rule.onNode(hasContentDescription("Close the clip")).performClick()
             rule.waitUntil(10_000) { !has("Clip · Halving-Clip") }
         } finally { clipUnlocked = false }
+    }
+
+    /** The show's trailer (podcast:trailer, phase 2) plays from its page — before
+     *  subscribing as after — the newest one, as a clip: closed, it is gone. */
+    @Test
+    fun theTrailerPlaysFromTheShowPage() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Open as feed"); waitFor("Play the trailer")
+        tap("Play the trailer")
+        until { engine().state.value.itemId == space.sovereigncast.hopp.player.PlayerController.REMOTE_CLIP_ID }
+        waitFor("Trailer · So klingt Test Show")
+        rule.onNode(hasContentDescription("Close the clip")).performClick()
+        rule.waitUntil(10_000) { !has("Trailer · So klingt Test Show") }
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        waitFor("Play the trailer")
     }
 
     /** The show's most popular episodes have a tab of their own, all of them; one

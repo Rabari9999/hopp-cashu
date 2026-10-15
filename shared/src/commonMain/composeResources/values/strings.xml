@@ -260,6 +260,7 @@
     <string name="sc_clip_at_sats">A clip unlocks at %1$s sats</string>
     <string name="sc_clip_play">Listen to the clip: %1$s</string>
     <string name="sc_clip_now">Clip · %1$s</string>
+    <string name="trailer_now">Trailer · %1$s</string>
     <string name="sc_clip_close">Close the clip</string>
     <string name="sc_suggest">Suggest a topic</string>
     <string name="sc_suggest_title">Topic</string>
@@ -354,6 +355,7 @@
     <string name="pv_share_when">only when you share something</string>
     <string name="pv_share_tip">Share without “from here” if the time should not tell anything.</string>
     <string name="pv_backup_tip">If you do not want that, switch off the backup of app data in your device's Google settings.</string>
+    <string name="show_trailer">Play the trailer</string>
     <string name="show_support">Support the show</string>
     <string name="transcript_search">Search the transcript</string>
     <string name="transcript_follow">Follow along</string>

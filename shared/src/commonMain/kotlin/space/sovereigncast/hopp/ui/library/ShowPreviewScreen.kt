@@ -115,6 +115,8 @@ fun ShowPreviewScreen(
                         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
             }
+            // Most use before subscribing: what the show sounds like.
+            p?.let { TrailerLine(it.trailers, it.title.orEmpty(), it.imageUrl) }
             if (state == PreviewState.Loading) {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             }

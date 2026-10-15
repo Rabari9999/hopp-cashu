@@ -47,13 +47,19 @@
 ### Phase 2
 
 - The full Sovereigncast layer: submit and boost suggestions, unlocked clips
-  in the player, top episodes. (The leaderboard, read-only, moved into phase 1
+  in the player, top episodes. *Built 2026-10-14.* (The leaderboard, read-only, moved into phase 1
   on 2026-10-09 — ADR 0019.)
 - Optional Nostr identity with comments and sync (ADR 0006).
 - WebPush and UnifiedPush (ADR 0007).
 - Person search, trending, categories (ADR 0008); video via
   `alternateEnclosure`; `valueTimeSplit` with `remoteItem`.
-- Sovereigncast show directory as a curated list (ADR 0008).
+- Sovereigncast show directory as a curated list (ADR 0008). *Built in
+  phase 1 (2026-10-10): `sovereigncast.space/directory.json`.*
+- `podcast:trailer` on the show page. *Built 2026-10-15.*
+
+*Amended 2026-10-15:* the full Sovereigncast layer was built on 2026-10-14.
+"Paid Q&A", which ADR 0001 and the feature matrix listed, is not a feature of
+its own: listeners' paid questions are the topic suggestions, built with it.
 
 ### After phase 2 — iOS
 
