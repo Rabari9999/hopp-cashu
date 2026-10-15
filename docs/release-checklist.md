@@ -9,7 +9,10 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
       `## [x.y.z] - YYYY-MM-DD`; highlights above Fixes, the stores' text cut
       from them (Play: ≤ 500 characters per language).
 - [ ] `androidApp/build.gradle.kts`: `appVersion` and `versionCode` (+1 for
-      every upload — Play refuses a code it has seen).
+      every upload — Play refuses a code it has seen). iOS takes both over:
+      any Android build writes `iosApp/Configuration/Version.xcconfig`
+      (`./gradlew :androidApp:syncIosVersion`); commit it — `VersionTest`
+      fails otherwise.
 - [ ] `fastlane/metadata/android/{en-US,de-DE}/changelogs/<versionCode>.txt`
       (≤ 500 characters) — F-Droid's "what's new".
 - [ ] `fdroid/space.sovereigncast.hopp.yml`: a new `Builds` entry,

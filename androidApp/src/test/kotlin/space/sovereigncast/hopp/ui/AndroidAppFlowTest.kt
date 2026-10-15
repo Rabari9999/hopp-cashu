@@ -342,6 +342,23 @@ class AndroidAppFlowTest {
         check(has("used", substring = true)) { "no space shown: ${screen()}" }
     }
 
+    /** Device feedback 2026-10-15: an automatic download waiting for Wi-Fi
+     *  goes now on request, over mobile data too — no cancel and request again. */
+    @Test
+    fun aWaitingDownloadGoesNowOnRequest() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Download waiting", substring = true)
+        val downloads = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>()
+        // On mobile data the worker leaves automatic downloads alone.
+        kotlinx.coroutines.runBlocking { downloads.runPending(includeAuto = false) }
+        check(has("Download waiting", substring = true)) { screen().toString() }
+        menuOf(0); waitFor("Download now, mobile data too"); tap("Download now, mobile data too")
+        rule.waitUntil(10_000) { kotlinx.coroutines.runBlocking { downloads.waitingCount.first() } == 0L }
+        kotlinx.coroutines.runBlocking { downloads.runPending(includeAuto = false) }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
+    }
+
     @Test
     fun theSleepTimerShowsWhatIsSet() {
         rule.setContent { App() }

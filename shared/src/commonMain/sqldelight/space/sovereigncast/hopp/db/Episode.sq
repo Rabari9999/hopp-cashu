@@ -122,6 +122,17 @@ DELETE FROM episode WHERE podcast_id = ?;
 requestDownload:
 UPDATE episode SET download_state = 1, download_manual = ? WHERE id = ? AND download_state IN (0, 4);
 
+-- A waiting download made a requested one: any network from now on
+-- (device feedback 2026-10-15). One episode, or every one that waits.
+downloadNow:
+UPDATE episode SET download_manual = 1 WHERE id = ? AND download_state IN (1, 2);
+
+downloadAllNow:
+UPDATE episode SET download_manual = 1 WHERE download_state IN (1, 2);
+
+waitingCount:
+SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
+
 setDownloadState:
 UPDATE episode SET download_state = ? WHERE id = ?;
 

@@ -151,6 +151,8 @@ class DownloadsViewModel(private val downloads: DownloadRepository) : ViewModel(
     val usedBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
     val progress: StateFlow<Map<Long, Float>> = downloads.progress
     fun remove(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
+    val waiting: StateFlow<Long> = state(downloads.waitingCount, 0L)
+    fun startAllNow() = viewModelScope.launch { downloads.startNow() }
 }
 
 /** What every episode row offers in its menu (ADR 0012). */
@@ -164,6 +166,7 @@ class EpisodeActionsViewModel(
     fun playLast(item: EpisodeItem) = viewModelScope.launch { queue.playLast(item.id) }
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
+    fun downloadNow(item: EpisodeItem) = viewModelScope.launch { downloads.startNow(item.id) }
     fun setPlayed(item: EpisodeItem, played: Boolean) = viewModelScope.launch { episodes.setPlayed(item.id, played) }
     fun setPlayedUpTo(item: EpisodeItem) = viewModelScope.launch { episodes.setPlayedUpTo(item) }
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }

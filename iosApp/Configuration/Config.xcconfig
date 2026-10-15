@@ -1,3 +1,7 @@
 TEAM_ID=
 BUNDLE_ID=space.sovereigncast.hopp
 APP_NAME=Hopp
+
+// MARKETING_VERSION, CURRENT_PROJECT_VERSION: written by Gradle from
+// androidApp/build.gradle.kts (syncIosVersion), so both apps say the same.
+#include "Version.xcconfig"

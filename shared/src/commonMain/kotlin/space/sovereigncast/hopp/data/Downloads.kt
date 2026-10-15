@@ -114,6 +114,19 @@ class DownloadRepository(
         scheduler.schedule(manual = true)
     }
 
+    /**
+     * A download waiting for Wi-Fi — an automatic one — goes now, over mobile
+     * data too (device feedback 2026-10-15: before, it had to be cancelled and
+     * requested again). [episodeId] null: every one that waits.
+     */
+    suspend fun startNow(episodeId: Long? = null) {
+        withContext(Dispatchers.IO) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
+        scheduler.schedule(manual = true)
+    }
+
+    /** Automatic downloads still waiting for Wi-Fi. */
+    val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(Dispatchers.IO)
+
     /** Stops a download or removes a finished one. */
     suspend fun remove(episodeId: Long) = withContext(Dispatchers.IO) {
         cancelled.update { it + episodeId }

@@ -166,3 +166,16 @@ kotlin {
         jvmTarget = JvmTarget.JVM_17
     }
 }
+
+// The iOS app has the same version (device feedback 2026-10-15: it still said
+// 0.0.1). Info.plist reads it from Version.xcconfig, kept in step here on every
+// Android build; VersionTest fails if it is not.
+val syncIosVersion by tasks.registering {
+    val file = rootProject.file("iosApp/Configuration/Version.xcconfig")
+    val text = "// Written by Gradle (androidApp/build.gradle.kts, syncIosVersion) — do not edit.\n" +
+        "MARKETING_VERSION = $appVersion\nCURRENT_PROJECT_VERSION = ${android.defaultConfig.versionCode}\n"
+    inputs.property("text", text)
+    outputs.file(file)
+    doLast { if (!file.isFile || file.readText() != text) file.writeText(text) }
+}
+tasks.named("preBuild") { dependsOn(syncIosVersion) }

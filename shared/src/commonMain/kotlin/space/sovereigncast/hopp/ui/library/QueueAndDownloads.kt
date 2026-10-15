@@ -30,6 +30,8 @@ import space.sovereigncast.hopp.resources.menu_remove_download
 import space.sovereigncast.hopp.resources.queue_empty
 import space.sovereigncast.hopp.resources.queue_empty_text
 import space.sovereigncast.hopp.ui.components.formatBytes
+import space.sovereigncast.hopp.resources.downloads_start_now
+import androidx.compose.material3.TextButton
 
 /** "Up next" as its own page, reached from the Library. */
 @Composable
@@ -50,6 +52,7 @@ fun DownloadsScreen(vm: DownloadsViewModel = koinViewModel(), settings: Settings
     val nav = LocalEpisodeNav.current
     val items by vm.items.collectAsState()
     val used by vm.usedBytes.collectAsState()
+    val waiting by vm.waiting.collectAsState()
     val limitMb = settings.current.collectAsState().value?.storageLimitMb
     val list = items ?: return
     if (list.isEmpty()) {
@@ -63,6 +66,10 @@ fun DownloadsScreen(vm: DownloadsViewModel = koinViewModel(), settings: Settings
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
+        // Automatic downloads wait for Wi-Fi; on mobile data the listener may not want to.
+        if (waiting > 0) TextButton(onClick = vm::startAllNow, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Text(stringResource(Res.string.downloads_start_now, waiting.toInt()))
+        }
         LazyColumn {
             items(list, key = { it.id }) { item ->
                 EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) {

@@ -63,6 +63,7 @@ import space.sovereigncast.hopp.resources.mark_unplayed
 import space.sovereigncast.hopp.resources.favorite_add
 import space.sovereigncast.hopp.resources.favorite_remove
 import space.sovereigncast.hopp.resources.menu_cancel_download
+import space.sovereigncast.hopp.resources.menu_download_now
 import space.sovereigncast.hopp.resources.menu_download
 import space.sovereigncast.hopp.resources.menu_more
 import space.sovereigncast.hopp.resources.menu_play_last
@@ -145,8 +146,12 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_last)) }, onClick = { pick { vm.playLast(item) } })
             when (item.downloadState) {
                 DownloadState.DONE -> DropdownMenuItem(text = { Text(stringResource(Res.string.menu_remove_download)) }, onClick = { pick { vm.removeDownload(item) } })
-                DownloadState.QUEUED, DownloadState.DOWNLOADING ->
+                DownloadState.QUEUED, DownloadState.DOWNLOADING -> {
+                    // Waiting for Wi-Fi: load it now, over mobile data too.
+                    if (item.downloadState == DownloadState.QUEUED)
+                        DropdownMenuItem(text = { Text(stringResource(Res.string.menu_download_now)) }, onClick = { pick { vm.downloadNow(item) } })
                     DropdownMenuItem(text = { Text(stringResource(Res.string.menu_cancel_download)) }, onClick = { pick { vm.removeDownload(item) } })
+                }
                 else -> if (item.enclosureUrl != null)
                     DropdownMenuItem(text = { Text(stringResource(Res.string.menu_download)) }, onClick = { pick { vm.download(item) } })
             }

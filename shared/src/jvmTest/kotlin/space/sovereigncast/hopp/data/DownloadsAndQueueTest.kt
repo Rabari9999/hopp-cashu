@@ -150,6 +150,28 @@ class DownloadsAndQueueTest {
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState, "unless the show is switched off")
     }
 
+    /** Device feedback 2026-10-15: one waiting for Wi-Fi goes now on request,
+     *  over mobile data too. */
+    @Test
+    fun aWaitingDownloadGoesNowOverMobileData() = test {
+        val id = subscribe()
+        assertEquals(1L, downloads.waitingCount.first())
+        assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 2").downloadState)
+        downloads.startNow(byTitle(id, "Ep 2").id)
+        assertEquals(listOf(false, true), scheduled, "on the chain for any network")
+        assertEquals(0L, downloads.waitingCount.first())
+        assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+        // All at once: from the Downloads page.
+        items = 3
+        podcasts.refresh(id)
+        assertEquals(1L, downloads.waitingCount.first())
+        downloads.startNow()
+        assertTrue(downloads.runPending(includeAuto = false))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 3").downloadState)
+    }
+
     @Test
     fun anInterruptedDownloadResumes() = test {
         val id = subscribe()

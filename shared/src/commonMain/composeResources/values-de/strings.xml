@@ -536,4 +536,6 @@
     <string name="home_hello_day_name">Hallo %1$s</string>
     <string name="home_hello_evening_name">Guten Abend, %1$s</string>
     <string name="home_hello_night_name">Noch wach, %1$s?</string>
+    <string name="menu_download_now">Jetzt laden, auch mobil</string>
+    <string name="downloads_start_now">%1$d wartende jetzt laden, auch mobil</string>
 </resources>
