@@ -401,7 +401,7 @@
     <string name="settings_language">Sprache</string>
     <string name="settings_language_current">Deutsch</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
-    <string name="settings_subscriptions_note">Als OPML exportieren</string>
+    <string name="settings_subscriptions_note">OPML importieren und exportieren</string>
     <string name="settings_privacy_note">Wer sieht was</string>
     <string name="settings_crash_note">Hopp ist zuletzt abgestürzt – ansehen und teilen</string>
     <string name="settings_about_title">Über Hopp</string>
@@ -414,7 +414,7 @@
     <string name="settings_boost_feedback_note">Für den Schnell-Boost vom Sperrbildschirm und für Boosts in der App. Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
     <string name="settings_notifications_system">Wiedergabe- und Download-Benachrichtigung braucht Android, damit beides im Hintergrund weiterläuft; Aussehen und Ton stellst du in den Systemeinstellungen ein.</string>
     <string name="settings_notifications_open">System-Benachrichtigungen öffnen</string>
-    <string name="settings_opml_note">Deine Abos als OPML-Datei – als Sicherung oder für eine andere Podcast-App.</string>
+    <string name="settings_opml_note">Deine Abos als OPML-Datei: aus einer anderen Podcast-App übernehmen, sichern oder an eine andere App weitergeben.</string>
     <string name="onboarding_again">Tour noch einmal zeigen</string>
     <string name="settings_source">Quellcode (GitLab)</string>
     <string name="settings_website">Website</string>

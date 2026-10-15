@@ -401,7 +401,7 @@
     <string name="settings_language">Language</string>
     <string name="settings_language_current">English</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
-    <string name="settings_subscriptions_note">Export as OPML</string>
+    <string name="settings_subscriptions_note">Import and export OPML</string>
     <string name="settings_privacy_note">Who sees what</string>
     <string name="settings_crash_note">Hopp crashed last time — look and share</string>
     <string name="settings_about_title">About Hopp</string>
@@ -414,7 +414,7 @@
     <string name="settings_boost_feedback_note">For the quick boost from the lock screen and for boosts in the app. A success goes by itself after a few seconds. The payment history always has the details.</string>
     <string name="settings_notifications_system">Playback and download notifications are what Android needs to keep them running; their look and sound are set in the system settings.</string>
     <string name="settings_notifications_open">Open system notification settings</string>
-    <string name="settings_opml_note">Your subscriptions as an OPML file — for a backup or another podcast app.</string>
+    <string name="settings_opml_note">Your subscriptions as an OPML file: bring them over from another podcast app, back them up or take them to another app.</string>
     <string name="onboarding_again">Show the tour again</string>
     <string name="settings_source">Source code (GitLab)</string>
     <string name="settings_website">Website</string>
