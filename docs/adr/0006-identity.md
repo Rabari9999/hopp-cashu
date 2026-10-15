@@ -1,6 +1,6 @@
 # ADR 0006 — Identity: no account, optional Nostr
 
-- **Status:** accepted
+- **Status:** accepted — detailed by ADR 0021 (comments, relays, moderation, sync)
 - **Date:** 2026-10-06
 
 ## Context
