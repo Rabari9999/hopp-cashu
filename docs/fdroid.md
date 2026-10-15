@@ -70,12 +70,15 @@ Hence F-Droid starts with 0.1.1, not 0.1.0.
 F-Droid's own build image before a release that changes the build (Gradle,
 AGP, Kotlin, JDK, R8 rules):
 
+The image already ships JDK 21, so the metadata needs no `sudo` block
+(fdroiddata review, 2026-10-15).
+
 ```bash
 git clone --branch vX.Y.Z https://gitlab.com/nodesignal/hopp.git
 docker run --rm --platform linux/amd64 -v "$PWD":/work registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie bash -c '
-  apt-get update -qq && apt-get install -y -qq openjdk-21-jdk-headless && cd /work/hopp &&
+  cd /work/hopp &&
   echo sdk.dir=/opt/android-sdk > local.properties && ./gradlew -q :androidApp:assembleFossRelease'
 python3 scripts/compare_apks.py --layout hopp-X.Y.Z-foss.apk hopp/androidApp/build/outputs/apk/foss/release/hopp-X.Y.Z-foss-release-unsigned.apk
-# what F-Droid runs (pip install apksigcopier; apksigner on PATH):
+# what F-Droid runs (apksigcopier from apt or pip; apksigner on PATH):
 apksigcopier compare hopp-X.Y.Z-foss.apk --unsigned hopp/androidApp/build/outputs/apk/foss/release/hopp-X.Y.Z-foss-release-unsigned.apk
 ```

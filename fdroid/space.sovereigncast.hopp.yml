@@ -26,10 +26,6 @@ Builds:
     versionCode: 2
     commit: 7dde0336a3e42cfd5a08bfa4562a1fee418a9368
     subdir: androidApp
-    sudo:
-      - apt-get update
-      - apt-get install -y -t trixie openjdk-21-jdk-headless
-      - update-java-alternatives -a
     gradle:
       - foss
     prebuild: sed -i -e '/foojay-resolver/d' ../settings.gradle.kts
