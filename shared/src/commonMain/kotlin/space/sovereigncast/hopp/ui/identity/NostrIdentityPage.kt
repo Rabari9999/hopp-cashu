@@ -49,9 +49,17 @@ import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.identity.NostrIdentity
+import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.nostr_anonymous
+import space.sovereigncast.hopp.resources.nostr_sign_out_text_amber
+import space.sovereigncast.hopp.resources.nostr_via_amber
+import space.sovereigncast.hopp.resources.nostr_amber_failed
+import space.sovereigncast.hopp.resources.nostr_amber_rejected
+import space.sovereigncast.hopp.resources.nostr_or_new
+import space.sovereigncast.hopp.resources.nostr_amber_note
+import space.sovereigncast.hopp.resources.nostr_amber
 import space.sovereigncast.hopp.resources.nostr_anonymous_note
 import space.sovereigncast.hopp.resources.nostr_backup
 import space.sovereigncast.hopp.resources.nostr_backup_button
@@ -89,6 +97,26 @@ class NostrIdentityViewModel(
     val published: StateFlow<Int?> = _published.asStateFlow()
     private val _exported = MutableStateFlow<String?>(null)
     val exported: StateFlow<String?> = _exported.asStateFlow()
+    /** Whether a signer app (Amber) is on the device — then signing in with it comes first. */
+    val signerApp: Boolean = runCatching { identities.externalSigner?.available() == true }.getOrDefault(false)
+    /** What went wrong with the signer app, for one line under its button. */
+    private val _signerError = MutableStateFlow<SignerError?>(null)
+    val signerError: StateFlow<SignerError?> = _signerError.asStateFlow()
+    enum class SignerError { Rejected, Failed }
+
+    /** Signs in with the signer app; its profile name becomes the boost name when none is set. */
+    fun signInWithSigner() = work {
+        _signerError.value = null
+        try {
+            val me = identities.signInWithSigner()
+            val name = me.name
+            if (name != null && settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) }
+        } catch (e: SignerRejected) {
+            _signerError.value = SignerError.Rejected
+        } catch (e: Exception) {
+            _signerError.value = SignerError.Failed
+        }
+    }
 
     /** The name also becomes the boost name when there is none yet (ADR 0021, 4). */
     fun create(name: String) = work {
@@ -120,9 +148,24 @@ fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
     val busy by vm.busy.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val me = identity
-        if (me == null) Create(settings?.senderName.orEmpty(), busy, vm::create)
-        else Signed(me, settings, busy, vm)
+        if (me == null) {
+            // A signer app keeps the key out of Hopp: offered first where there is one (ADR 0021, stage 1b).
+            if (vm.signerApp) SignerLogin(busy, vm)
+            Create(settings?.senderName.orEmpty(), busy, vm::create)
+        } else Signed(me, settings, busy, vm)
     }
+}
+
+@Composable
+private fun SignerLogin(busy: Boolean, vm: NostrIdentityViewModel) {
+    val error by vm.signerError.collectAsState()
+    Text(stringResource(Res.string.nostr_amber_note), style = MaterialTheme.typography.bodyMedium)
+    Button(onClick = vm::signInWithSigner, enabled = !busy) { Text(stringResource(Res.string.nostr_amber)) }
+    error?.let {
+        Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    Text(stringResource(Res.string.nostr_or_new), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
 }
 
 @Composable
@@ -155,6 +198,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
+    if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     when (val n = published) {
         null -> Unit
         0 -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -164,31 +208,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         else -> Text(stringResource(Res.string.nostr_published, n), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 
-    // The key lives only on this device and in no backup (ADR 0015): its export comes first.
-    Text(stringResource(Res.string.nostr_backup), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-    if (!me.exported) Text(stringResource(Res.string.nostr_backup_missing), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-    Text(stringResource(Res.string.nostr_backup_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-    val out = exported
-    if (out == null) {
-        var password by remember { mutableStateOf("") }
-        var again by remember { mutableStateOf("") }
-        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password)) },
-            singleLine = true, visualTransformation = PasswordVisualTransformation())
-        OutlinedTextField(again, { again = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password_again)) },
-            singleLine = true, visualTransformation = PasswordVisualTransformation(),
-            isError = again.isNotEmpty() && again != password,
-            supportingText = { if (again.isNotEmpty() && again != password) Text(stringResource(Res.string.nostr_backup_mismatch)) })
-        Button(onClick = { vm.export(password) }, enabled = !busy && password.length >= 8 && password == again) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_backup_button))
-        }
-    } else {
-        Text(stringResource(Res.string.nostr_backup_done), style = MaterialTheme.typography.bodySmall)
-        SelectionContainer { Text(out, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { actions.copyText(out, "ncryptsec") }) { Text(stringResource(Res.string.nostr_copy)) }
-            OutlinedButton(onClick = { actions.shareText(out, "Nostr") }) { Text(stringResource(Res.string.nostr_share)) }
-        }
-    }
+    // A key Hopp holds lives only on this device and in no backup (ADR 0015): its export comes first.
+    if (me.holdsKey) Backup(me, busy, exported, vm)
 
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -204,8 +225,36 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (confirmSignOut) AlertDialog(
         onDismissRequest = { confirmSignOut = false },
         title = { Text(stringResource(Res.string.nostr_sign_out)) },
-        text = { Text(stringResource(Res.string.nostr_sign_out_text)) },
+        text = { Text(stringResource(if (me.holdsKey) Res.string.nostr_sign_out_text else Res.string.nostr_sign_out_text_amber)) },
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+@Composable
+private fun Backup(me: NostrIdentity, busy: Boolean, exported: String?, vm: NostrIdentityViewModel) {
+    val actions = LocalPlatformActions.current
+    Text(stringResource(Res.string.nostr_backup), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    if (!me.exported) Text(stringResource(Res.string.nostr_backup_missing), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(Res.string.nostr_backup_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    if (exported == null) {
+        var password by remember { mutableStateOf("") }
+        var again by remember { mutableStateOf("") }
+        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password)) },
+            singleLine = true, visualTransformation = PasswordVisualTransformation())
+        OutlinedTextField(again, { again = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password_again)) },
+            singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            isError = again.isNotEmpty() && again != password,
+            supportingText = { if (again.isNotEmpty() && again != password) Text(stringResource(Res.string.nostr_backup_mismatch)) })
+        Button(onClick = { vm.export(password) }, enabled = !busy && password.length >= 8 && password == again) {
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_backup_button))
+        }
+    } else {
+        Text(stringResource(Res.string.nostr_backup_done), style = MaterialTheme.typography.bodySmall)
+        SelectionContainer { Text(exported, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { actions.copyText(exported, "ncryptsec") }) { Text(stringResource(Res.string.nostr_copy)) }
+            OutlinedButton(onClick = { actions.shareText(exported, "Nostr") }) { Text(stringResource(Res.string.nostr_share)) }
+        }
+    }
 }

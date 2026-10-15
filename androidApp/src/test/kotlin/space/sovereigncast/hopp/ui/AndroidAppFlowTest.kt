@@ -116,12 +116,34 @@ internal var lastScAuth: String? = null
 /** Whether Hopp posted to the instance since the test reset it. */
 internal var scPosted = false
 
+/** Amber as the app sees it, in tests: installed only when a test says so. */
+internal object FakeAmber : space.sovereigncast.hopp.nostr.ExternalSigner {
+    var installed = false
+    var reject = false
+    val keys = space.sovereigncast.hopp.nostr.KeyPair.generate()
+    override fun available() = installed
+    override suspend fun login(permissions: List<space.sovereigncast.hopp.nostr.SignerPermission>): Pair<String, String> {
+        if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
+        return keys.publicKeyHex to "com.greenart7c3.nostrsigner"
+    }
+    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): space.sovereigncast.hopp.nostr.SignerResult {
+        val o = org.json.JSONObject(eventJson)
+        fun str(k: String) = o.get(k).toString()
+        val arr = o.getJSONArray("tags")
+        val tags = (0 until arr.length()).map { i -> arr.getJSONArray(i).let { t -> (0 until t.length()).map(t::getString) } }
+        val e = space.sovereigncast.hopp.nostr.Event.sign(keys, str("kind").toInt(), str("content"), tags, str("created_at").toLong())
+        return space.sovereigncast.hopp.nostr.SignerResult(null, e.sig)
+    }
+}
+
 /** Relays that take every event at once, so publishing a profile needs no network. */
 internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
     override suspend fun connect(url: String) = object : space.sovereigncast.hopp.nostr.RelaySession {
         private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
         override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
         override suspend fun send(message: String) {
+            // A query finds nothing here: end of stored events at once.
+            Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { channel.trySend("""["EOSE","${it.groupValues[1]}"]"""); return }
             val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
             channel.trySend("""["OK","$id",true,""]""")
         }
@@ -175,6 +197,7 @@ class TestApp : Application() {
             override fun secretStore() = space.sovereigncast.hopp.platform.MemorySecretStore()
             override fun crashDir(): String = java.io.File(app.cacheDir, "crash").absolutePath
             override fun networkPrivacy() = space.sovereigncast.hopp.platform.NetworkPrivacySource { testNetwork }
+            override fun externalSigner() = FakeAmber
         }
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = false, privateDns = false)
         val nodesignal = java.io.File("../shared/src/jvmTest/resources/feeds/nodesignal-podhome.xml").readBytes()

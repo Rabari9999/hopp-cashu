@@ -135,4 +135,43 @@ class NostrIdentityTest {
         waitFor("Create identity")
         check(koin.get<IdentityRepository>().signer() == null)
     }
+
+    @org.junit.After fun noAmber() { FakeAmber.installed = false; FakeAmber.reject = false }
+
+    /** With Amber installed, signing in with it comes first; the key stays there. */
+    @Test
+    fun aSignerAppSignsInAndSignsTheVote() {
+        FakeAmber.installed = true
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        tap("Sign in with Amber")
+        waitFor("Signed in with your signer app — your key stays there.")
+        check(!has("Back up your key")) { "a backup offered for a key Hopp does not hold" }
+        val me = koin.get<IdentityRepository>().identity.value!!
+        check(me.pubkey == FakeAmber.keys.publicKeyHex && !me.holdsKey)
+        tap("Home")
+        val auth = vote()
+        check(auth?.startsWith("Nostr ") == true) { "not NIP-98: $auth" }
+    }
+
+    @Test
+    fun noInTheSignerAppIsSaidAndLeavesNoIdentity() {
+        FakeAmber.installed = true; FakeAmber.reject = true
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        tap("Sign in with Amber")
+        waitFor("The signer app said no.")
+        check(koin.get<IdentityRepository>().identity.value == null)
+    }
+
+    @Test
+    fun withoutASignerAppThereIsNoAmberButton() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Create identity")
+        check(!has("Sign in with Amber"))
+    }
 }

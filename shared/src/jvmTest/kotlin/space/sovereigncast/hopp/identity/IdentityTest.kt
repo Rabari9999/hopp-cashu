@@ -8,6 +8,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.sovereigncast.hopp.crypto.Sha256
@@ -123,5 +124,74 @@ class IdentityTest {
         auths.clear()
         runCatching { api.suggestions("https://pm.test", "g") }
         assertNull(auths.single())
+    }
+
+    // ── stage 1b: a signer app (NIP-55) ─────────────────────────────────────
+
+    /** Amber as Hopp sees it: a key elsewhere that signs on request. */
+    private class FakeSignerApp(val keys: space.sovereigncast.hopp.nostr.KeyPair = space.sovereigncast.hopp.nostr.KeyPair.generate()) : space.sovereigncast.hopp.nostr.ExternalSigner {
+        var reject = false
+        var signWith: space.sovereigncast.hopp.nostr.KeyPair? = null
+        val asked = mutableListOf<List<space.sovereigncast.hopp.nostr.SignerPermission>>()
+        override fun available() = true
+        override suspend fun login(permissions: List<space.sovereigncast.hopp.nostr.SignerPermission>): Pair<String, String> {
+            asked += permissions
+            if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
+            return keys.publicKeyHex to "com.greenart7c3.nostrsigner"
+        }
+        override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): space.sovereigncast.hopp.nostr.SignerResult {
+            assertEquals("com.greenart7c3.nostrsigner", signerPackage)
+            assertEquals(keys.publicKeyHex, currentUser)
+            if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
+            val o = Json.parseToJsonElement(eventJson).jsonObject
+            val tags = o["tags"]!!.jsonArray.map { t -> t.jsonArray.map { it.jsonPrimitive.content } }
+            val e = Event.sign(signWith ?: keys, o["kind"]!!.jsonPrimitive.content.toInt(), o["content"]!!.jsonPrimitive.content, tags, o["created_at"]!!.jsonPrimitive.content.toLong())
+            return space.sovereigncast.hopp.nostr.SignerResult(Json.encodeToString(Event.serializer(), e), null)
+        }
+    }
+
+    @Test
+    fun aSignerAppSignsInReadsTheNameAndSigns() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        // The listener's existing profile, on a relay.
+        relay.publish(Event.sign(app.keys, 0, """{"name":"tg","display_name":"Thorsten"}""", emptyList(), now - 100))
+        val repo = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        val me = repo.signInWithSigner()
+        assertEquals(NostrIdentity.Source.Amber, me.source)
+        assertEquals("Thorsten", me.name)
+        assertEquals(false, me.holdsKey)
+        assertEquals(listOf(space.sovereigncast.hopp.nostr.SignerPermission("sign_event", Nip98.KIND)), app.asked.single())
+        assertTrue(published.isEmpty(), "Hopp wrote to an identity it did not make")
+        assertEquals(emptySet(), repo.publishProfile())
+        val header = Nip98.authorization(repo.signer()!!, "https://pm.test/x", "POST", null, now)
+        @OptIn(ExperimentalEncodingApi::class)
+        val event = Json.decodeFromString(Event.serializer(), Base64.decode(header.removePrefix("Nostr ")).decodeToString())
+        assertTrue(event.isValid() && event.pubkey == app.keys.publicKeyHex)
+        // After a restart: the same identity, still signing through the app, no key here.
+        val again = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
+        assertEquals(me, again.identity.value)
+        assertTrue(again.signer() is space.sovereigncast.hopp.nostr.ExternalNostrSigner)
+    }
+
+    @Test
+    fun saidNoInTheSignerAppLeavesNoIdentity() = runBlocking<Unit> {
+        val app = FakeSignerApp().apply { reject = true }
+        val repo = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
+        kotlin.test.assertFailsWith<space.sovereigncast.hopp.nostr.SignerRejected> { repo.signInWithSigner() }
+        assertNull(repo.identity.value)
+    }
+
+    /** A signer app is someone else's code: an event signed by another key is refused. */
+    @Test
+    fun aSignatureByAnotherKeyIsRefused() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val repo = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
+        repo.signInWithSigner()
+        app.signWith = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        kotlin.test.assertFailsWith<space.sovereigncast.hopp.nostr.SignerUnavailable> {
+            repo.signer()!!.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(Nip98.KIND, "", emptyList(), now))
+        }
     }
 }

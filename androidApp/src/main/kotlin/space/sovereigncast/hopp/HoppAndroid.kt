@@ -36,4 +36,5 @@ class AndroidPlatform(private val context: Context) : Platform {
     override fun crashDir(): String = java.io.File(context.noBackupFilesDir, "crash").absolutePath
     override fun networkPrivacy(): NetworkPrivacySource = AndroidNetworkPrivacy(context)
     override fun boostNotifier(): BoostNotifier = AndroidBoostNotifier(context)
+    override fun externalSigner() = space.sovereigncast.hopp.platform.AndroidExternalSigner(context)
 }

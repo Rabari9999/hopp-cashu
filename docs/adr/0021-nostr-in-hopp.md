@@ -143,8 +143,15 @@ boost, profile): this stays public and permanent.
    in shared code, checked against the spec's vector), NIP-98 on votes and
    suggestions with a switch to stay anonymous, the relays on the privacy
    page. Sovereigncast verifies NIP-98 since the same day — before, the
-   contract promised it and the server ignored the header. *Open:* 1b Amber,
-   1c bunker.
+   contract promised it and the server ignored the header.
+   *1b built 2026-10-15:* "Sign in with Amber" where a NIP-55 signer is
+   installed. Hopp keeps the public key and the signer's package, asks at
+   login for standing permission to sign NIP-98 (kind 27235), signs through
+   the content resolver in the background and opens the signer only when
+   that is not allowed; whatever comes back is checked (the listener's key,
+   the event asked for, a valid signature). The profile name is read from
+   the relays, never written; no backup is offered for a key Hopp does not
+   hold. *Open:* 1c bunker.
 2. **Reading comments**, with the relay entry on the privacy page.
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

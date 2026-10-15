@@ -60,6 +60,8 @@ interface Platform {
     fun crashDir(): String? = null
     /** VPN and private DNS, for the privacy page; unknown where it cannot tell. */
     fun networkPrivacy(): space.sovereigncast.hopp.platform.NetworkPrivacySource = space.sovereigncast.hopp.platform.NetworkPrivacySource.Unknown
+    /** A signer app on the device (NIP-55, Android); null where there is none. */
+    fun externalSigner(): space.sovereigncast.hopp.nostr.ExternalSigner? = null
     /** Where a boost's result goes when the listener wants to hear of it. */
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
 }
@@ -81,7 +83,7 @@ fun sharedModule(platform: Platform) = module {
         }
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
-    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get()) }
+    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner()) }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }

@@ -570,4 +570,11 @@
     <string name="pv_nostr_sees">deine IP-Adresse und was du mit deiner Nostr-Identität veröffentlichst – jetzt deinen Profilnamen; öffentlich für alle, dauerhaft</string>
     <string name="pv_nostr_when">nur mit einer Nostr-Identität: wenn sie erstellt und ihr Profil veröffentlicht wird</string>
     <string name="pv_nostr_tip">Ohne Identität spricht Hopp mit keinem Relay. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>
+    <string name="nostr_amber">Mit Amber anmelden</string>
+    <string name="nostr_amber_note">Du hast schon eine Nostr-Identität in Amber oder einer anderen Signer-App? Melde dich damit an – dein Schlüssel bleibt dort, Hopp lässt nur signieren.</string>
+    <string name="nostr_or_new">Oder eine neue Identität in Hopp erstellen</string>
+    <string name="nostr_amber_rejected">Die Signer-App hat abgelehnt.</string>
+    <string name="nostr_amber_failed">Die Signer-App hat nicht geantwortet.</string>
+    <string name="nostr_via_amber">Über deine Signer-App angemeldet – dein Schlüssel bleibt dort.</string>
+    <string name="nostr_sign_out_text_amber">Hopp vergisst die Verbindung zu deiner Signer-App. Dein Schlüssel bleibt dort; was du veröffentlicht hast, bleibt auf Nostr.</string>
 </resources>
