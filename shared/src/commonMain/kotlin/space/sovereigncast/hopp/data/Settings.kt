@@ -60,6 +60,8 @@ data class Settings(
     val homeOrder: List<String> = emptyList(),
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
+    /** With a Nostr identity, still vote and suggest without it (ADR 0021, 7). */
+    val scAnonymous: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -104,6 +106,7 @@ data class Settings(
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
+                scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
             )
         }
     }
@@ -139,6 +142,7 @@ data class Settings(
         "library_as_list" to libraryAsList.toString(),
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
+        "sc_anonymous" to scAnonymous.toString(),
     )
 }
 

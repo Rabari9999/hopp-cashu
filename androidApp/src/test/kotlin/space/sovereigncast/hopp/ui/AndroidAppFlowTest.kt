@@ -111,6 +111,23 @@ private const val SUGGESTION_TEXT = "Eine ganze Folge über BIP110: was es will,
 private var statusCalls = 0
 /** What Hopp last posted to the instance, to check what a form sent. */
 private var lastScPost: String? = null
+/** The Authorization header of that post — NIP-98 with a Nostr identity (ADR 0021). */
+internal var lastScAuth: String? = null
+/** Whether Hopp posted to the instance since the test reset it. */
+internal var scPosted = false
+
+/** Relays that take every event at once, so publishing a profile needs no network. */
+internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
+    override suspend fun connect(url: String) = object : space.sovereigncast.hopp.nostr.RelaySession {
+        private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+        override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
+        override suspend fun send(message: String) {
+            val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
+            channel.trySend("""["OK","$id",true,""]""")
+        }
+        override suspend fun close() { channel.close() }
+    }
+}
 /** Whether the round's halving clip is unlocked, settable per test. */
 private var clipUnlocked = false
 /** A suggestion submitted in this test run, listed once there. */
@@ -167,7 +184,7 @@ class TestApp : Application() {
             when {
                 req.url.host == "pm.test" -> {
                     val post = req.method == io.ktor.http.HttpMethod.Post
-                    if (post) lastScPost = (req.body as? io.ktor.http.content.TextContent)?.text
+                    if (post) { lastScPost = (req.body as? io.ktor.http.content.TextContent)?.text; lastScAuth = req.headers["Authorization"]; scPosted = true }
                     scInstance(req.url.encodedPath, post)
                 }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
@@ -194,6 +211,7 @@ class TestApp : Application() {
             allowOverride(true)
             modules(sharedModule(platform), module {
                 single { http }
+                single { space.sovereigncast.hopp.nostr.RelayPublisher(OkRelays) }
                 // A test key, whatever this build carries.
                 single { DirectoryRepository(get(), get(), get(), get(), get(), PodcastIndexCredentials("test-key", "test-secret")) }
             })
@@ -1306,7 +1324,8 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { !has("Welcome to Hopp") }
         until { settings().onboardingDone }
         rule.onNode(hasContentDescription("Settings")).performClick()
-        tap("About Hopp")
+        // The last row of the overview, below a phone's fold since the Nostr identity joined it.
+        rule.onNode(hasText("About Hopp") and hasClickAction()).performScrollTo().performClick()
         tap("Show the tour again")
         waitFor("Welcome to Hopp")
     }

@@ -23,7 +23,7 @@ A settings page lists it plainly:
 | Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features |
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |
-| Nostr relays | signed public events | only with public boosts or comments on (ADR 0006) |
+| Nostr relays | signed public events; the IP address | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006) |
 | Push gateway (sovereigncast.space) | device token ↔ endpoint, no content | only with push (ADR 0007) |
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |
 | Whoever opens a shared link (and www.sovereigncast.space, in a browser) | show, episode and time in the link; the page sees the opener's IP | only when the listener shares (added 2026-10-12) |

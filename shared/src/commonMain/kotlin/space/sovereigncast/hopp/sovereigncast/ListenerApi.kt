@@ -7,6 +7,7 @@ import space.sovereigncast.hopp.net.LimitedResponse
 import space.sovereigncast.hopp.net.Limits
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -215,8 +216,14 @@ import kotlinx.serialization.json.Json
 /** An answer the API gave as its error shape; [code] is what the app shows text for. */
 class ListenerApiException(val code: String, message: String, val status: Int) : Exception("$code: $message")
 
-/** One instance's Listener API; [base] is the public listener URL from the feed marker. */
-class ListenerApi(private val http: HttpClient) {
+/** Signs a request for the listener (NIP-98), or null to send it anonymously. */
+fun interface RequestAuthorizer {
+    suspend fun authorization(url: String, method: String, body: ByteArray): String?
+}
+
+/** One instance's Listener API; [base] is the public listener URL from the feed marker.
+ *  Votes and suggestions go out signed when [authorizer] signs (ADR 0021, 7). */
+class ListenerApi(private val http: HttpClient, private val authorizer: RequestAuthorizer = RequestAuthorizer { _, _, _ -> null }) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
     private fun url(base: String, path: String) = base.trimEnd('/') + "/api/listener" + path
@@ -233,13 +240,24 @@ class ListenerApi(private val http: HttpClient) {
 
     private suspend fun <T> get(base: String, path: String, serializer: KSerializer<T>): T = read(http.getLimited(url(base, path), Limits.API), serializer)
 
-    private suspend fun <B, T> post(base: String, path: String, body: B, bodySerializer: KSerializer<B>, serializer: KSerializer<T>): T =
-        url(base, path).let { target ->
-            read(http.limited(Limits.API) {
+    private suspend fun <B, T> post(
+        base: String, path: String, body: B, bodySerializer: KSerializer<B>, serializer: KSerializer<T>, signed: Boolean = false,
+    ): T {
+        val target = url(base, path)
+        val text = json.encodeToString(bodySerializer, body)
+        suspend fun send(auth: String?) = http.limited(Limits.API) {
             url(target); method = io.ktor.http.HttpMethod.Post
-            contentType(ContentType.Application.Json); setBody(json.encodeToString(bodySerializer, body))
-            }, serializer)
+            contentType(ContentType.Application.Json); setBody(text)
+            auth?.let { header(io.ktor.http.HttpHeaders.Authorization, it) }
         }
+        val auth = if (signed) runCatching { authorizer.authorization(target, "POST", text.encodeToByteArray()) }.getOrNull() else null
+        val response = send(auth)
+        // A signature the instance refuses (a phone's clock far off, say) costs
+        // the person the vote — sent again without it, it still counts, once per
+        // installation as before.
+        if (auth != null && response.status.value == 401) return read(send(null), serializer)
+        return read(response, serializer)
+    }
 
     suspend fun meta(base: String) = get(base, "/meta", ApiMeta.serializer())
     suspend fun show(base: String, guid: String) = get(base, "/v1/shows/by-guid/${seg(guid)}", ScShow.serializer())
@@ -251,7 +269,7 @@ class ListenerApi(private val http: HttpClient) {
     suspend fun payment(base: String, hash: String) = get(base, "/v1/payments/${seg(hash)}", PaymentStatus.serializer())
 
     suspend fun vote(base: String, guid: String, suggestionId: Long, voterId: String) =
-        post(base, "/v1/shows/${seg(guid)}/suggestions/$suggestionId/votes", VoteRequest(voterId), VoteRequest.serializer(), VoteResult.serializer())
+        post(base, "/v1/shows/${seg(guid)}/suggestions/$suggestionId/votes", VoteRequest(voterId), VoteRequest.serializer(), VoteResult.serializer(), signed = true)
 
     suspend fun releaseBoostingInvoice(base: String, guid: String, request: BoostRequest) =
         post(base, "/v1/shows/${seg(guid)}/release-boosting/invoices", request, BoostRequest.serializer(), Invoice.serializer())
@@ -260,7 +278,7 @@ class ListenerApi(private val http: HttpClient) {
         post(base, "/v1/shows/${seg(guid)}/boost2unlock/${seg(episodeGuid)}/invoices", request, BoostRequest.serializer(), Invoice.serializer())
 
     suspend fun createSuggestion(base: String, guid: String, request: SuggestionCreate) =
-        post(base, "/v1/shows/${seg(guid)}/suggestions", request, SuggestionCreate.serializer(), Invoice.serializer())
+        post(base, "/v1/shows/${seg(guid)}/suggestions", request, SuggestionCreate.serializer(), Invoice.serializer(), signed = true)
 
     suspend fun suggestionBoostInvoice(base: String, guid: String, suggestionId: Long, request: BoostRequest) =
         post(base, "/v1/shows/${seg(guid)}/suggestions/$suggestionId/invoices", request, BoostRequest.serializer(), Invoice.serializer())

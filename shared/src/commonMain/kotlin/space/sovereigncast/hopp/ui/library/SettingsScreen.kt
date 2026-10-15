@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.material.icons.rounded.Person
+import space.sovereigncast.hopp.resources.nostr_title
+import space.sovereigncast.hopp.resources.nostr_entry_none
 import space.sovereigncast.hopp.resources.settings_downloads_delete_confirm
 import space.sovereigncast.hopp.resources.settings_downloads_delete
 import space.sovereigncast.hopp.resources.settings_downloads_browse
@@ -78,6 +81,7 @@ enum class SettingsPage(val title: StringResource) {
     Notifications(Res.string.settings_notifications),
     Directories(Res.string.settings_directories),
     Subscriptions(Res.string.settings_subscriptions),
+    Nostr(Res.string.nostr_title),
     About(Res.string.settings_about_title),
 }
 
@@ -115,6 +119,10 @@ fun SettingsScreen(
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 
         Group(stringResource(Res.string.settings_group_hopp))
+        // The optional identity (ADR 0021): its name once there is one.
+        val identity by koinInject<space.sovereigncast.hopp.identity.IdentityRepository>().identity.collectAsState()
+        Entry(Icons.Rounded.Person, stringResource(Res.string.nostr_title),
+            identity?.let { it.name ?: it.npub.take(16) + "…" } ?: stringResource(Res.string.nostr_entry_none)) { onPage(SettingsPage.Nostr) }
         Entry(Icons.Rounded.Lock, stringResource(Res.string.privacy_title), stringResource(Res.string.settings_privacy_note), onClick = onPrivacy)
         // Only while a report waits (ADR 0015).
         if (onCrashReport != null) Entry(Icons.Rounded.Warning, stringResource(Res.string.crash_title), stringResource(Res.string.settings_crash_note), onClick = onCrashReport)
@@ -157,9 +165,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
     val s = settings ?: return
     // Home's sections are dragged, which wants a lazy list of its own rather than this column.
     if (page == SettingsPage.Home) { HomeSectionsEditor(s) { change -> vm.update(change) }; return }
+    if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
-            SettingsPage.Home -> Unit
+            SettingsPage.Home, SettingsPage.Nostr -> Unit
             SettingsPage.Playback -> {
                 Label(stringResource(Res.string.settings_skip_back))
                 Choices(Settings.skipBackChoices, s.skipBackSeconds, { stringResource(Res.string.settings_seconds, it) }) { v -> vm.update { it.copy(skipBackSeconds = v) } }

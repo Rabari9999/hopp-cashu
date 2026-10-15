@@ -137,6 +137,14 @@ boost, profile): this stays public and permanent.
 
 1. **Identity:** a key made in Hopp, Amber (NIP-55), bunker (NIP-46); the
    profile name in the greeting; NIP-98 to Sovereigncast.
+   *1a built 2026-10-15:* the key made in Hopp (secret store), its profile
+   (kind 0) and relay list (kind 10002) on the default relays, the name as
+   boost name when none is set, NIP-49 export (scrypt and XChaCha20-Poly1305
+   in shared code, checked against the spec's vector), NIP-98 on votes and
+   suggestions with a switch to stay anonymous, the relays on the privacy
+   page. Sovereigncast verifies NIP-98 since the same day — before, the
+   contract promised it and the server ignored the header. *Open:* 1b Amber,
+   1c bunker.
 2. **Reading comments**, with the relay entry on the privacy page.
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

@@ -65,6 +65,10 @@ import space.sovereigncast.hopp.resources.pv_recipients_sees
 import space.sovereigncast.hopp.resources.pv_recipients_when
 import space.sovereigncast.hopp.resources.pv_recipients_who
 import space.sovereigncast.hopp.resources.pv_sc_sees
+import space.sovereigncast.hopp.resources.pv_nostr_sees
+import space.sovereigncast.hopp.resources.pv_nostr_tip
+import space.sovereigncast.hopp.resources.pv_nostr_when
+import space.sovereigncast.hopp.resources.pv_nostr_who
 import space.sovereigncast.hopp.resources.pv_sc_when
 import space.sovereigncast.hopp.resources.pv_sc_who
 import space.sovereigncast.hopp.resources.pv_wallet_sees
@@ -76,8 +80,8 @@ private enum class Check { Done, Open, Info }
 private class Party(val who: StringResource, val sees: StringResource, val whenSeen: StringResource, val tip: StringResource)
 
 /** ADR 0015's table, in the order a listener meets them, each with what
- *  the listener can do about it (device feedback 2026-10-11). Push and
- *  Nostr join it when those features arrive (phase 2). */
+ *  the listener can do about it (device feedback 2026-10-11). Nostr relays
+ *  since the identity (ADR 0021); push joins when it arrives (phase 2). */
 private val PARTIES = listOf(
     Party(Res.string.pv_hosts_who, Res.string.pv_hosts_sees, Res.string.pv_hosts_when, Res.string.pv_hosts_tip),
     Party(Res.string.pv_pi_who, Res.string.pv_pi_sees, Res.string.pv_pi_when, Res.string.pv_pi_tip),
@@ -85,6 +89,7 @@ private val PARTIES = listOf(
     Party(Res.string.pv_sc_who, Res.string.pv_sc_sees, Res.string.pv_sc_when, Res.string.pv_sc_tip),
     Party(Res.string.pv_wallet_who, Res.string.pv_wallet_sees, Res.string.pv_wallet_when, Res.string.pv_wallet_tip),
     Party(Res.string.pv_recipients_who, Res.string.pv_recipients_sees, Res.string.pv_recipients_when, Res.string.pv_recipients_tip),
+    Party(Res.string.pv_nostr_who, Res.string.pv_nostr_sees, Res.string.pv_nostr_when, Res.string.pv_nostr_tip),
     Party(Res.string.pv_extra_who, Res.string.pv_extra_sees, Res.string.pv_extra_when, Res.string.pv_extra_tip),
     Party(Res.string.pv_share_who, Res.string.pv_share_sees, Res.string.pv_share_when, Res.string.pv_share_tip),
     Party(Res.string.pv_backup_who, Res.string.pv_backup_sees, Res.string.pv_backup_when, Res.string.pv_backup_tip),

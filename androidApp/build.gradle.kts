@@ -33,6 +33,8 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.ktor.client.mock)
+    // secp256k1 for the host JVM: Robolectric runs on it, not on Android (Nostr identity tests).
+    testImplementation(libs.secp256k1.jni.jvm)
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }

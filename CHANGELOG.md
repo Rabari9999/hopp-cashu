@@ -7,6 +7,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [Unreleased]
 
 ### 🆕 New Features
+- **An optional Nostr identity** — made in the settings with a name Hopp greets you by; your votes on Sovereigncast shows then count once per person, on every device. Back it up with a password (ncryptsec), or stay anonymous.
 - **Hear a show's trailer** — on its page, before subscribing too; the episode you were listening to waits where you left it.
 
 ## [0.1.1] - 2026-10-15

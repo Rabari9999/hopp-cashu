@@ -71,7 +71,17 @@ fun sharedModule(platform: Platform) = module {
     single { createHttpClient(get()) }
     single<Clock> { Clock { kotlin.time.Clock.System.now().epochSeconds } }
     single { FeedFetcher(get()) }
-    single { ListenerApi(get()) }
+    single {
+        val koin = getKoin()
+        // Signed only with an identity and unless the listener chose to stay anonymous (ADR 0021, 7).
+        ListenerApi(get()) { url, method, body ->
+            val signer = koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().signer() ?: return@ListenerApi null
+            if (koin.get<SettingsRepository>().current().scAnonymous) return@ListenerApi null
+            space.sovereigncast.hopp.nostr.Nip98.authorization(signer, url, method, body, koin.get<Clock>().now())
+        }
+    }
+    single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
+    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get()) }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
@@ -109,6 +119,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
+    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get()) }
     viewModel { HistoryViewModel(get()) }
     single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     viewModel { ValueBarViewModel(get(), get(), get(), get()) }
