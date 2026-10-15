@@ -244,6 +244,38 @@ class ValueService(
         results
     }
 
+    /**
+     * A donation through the show's `podcast:funding` link (device feedback
+     * 2026-10-15): a `lightning:` Lightning address paid from the connected
+     * wallet, inside Hopp, as a boost with the address as its one recipient.
+     */
+    fun donationBlock(address: String) = ValueBlock(
+        type = "lightning", method = "lnaddress", suggested = null,
+        recipients = listOf(ValueRecipient(name = address, type = "lnaddress", address = address, split = 100)),
+    )
+
+    suspend fun planDonation(address: String, amountMsat: Long): BoostPlan {
+        val info = wallet.wallet.value?.info
+        val planned = Splits.divideWholeSats(donationBlock(address).recipients, amountMsat).map { s ->
+            PlannedShare(s.recipient, s.amountMsat, info?.let { unpayableReason(s.recipient, it) })
+        }
+        return BoostPlan.Ready(planned, null)
+    }
+
+    suspend fun donate(podcastId: Long, address: String, amountMsat: Long, message: String?): List<ShareResult> = spending.withLock {
+        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
+        val info = wallet.wallet.value?.info ?: client.info()
+        val show = podcasts.show(podcastId).first()
+        val ctx = BoostContext(
+            action = "boost", appVersion = app.version, podcast = show?.title, episode = null, feedUrl = show?.feedUrl,
+            podcastGuid = show?.podcastGuid, episodeGuid = null, positionSeconds = null,
+            senderName = settings.current().senderName.takeIf { it.isNotBlank() }, message = message?.takeIf { it.isNotBlank() },
+        )
+        val results = BoostSender(client, lnAddress, info).send(donationBlock(address), amountMsat, ctx)
+        record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
+        results
+    }
+
     /** A payment made outside the value split — an instance's invoice for
      *  Release Boosting or Boost2Unlock — kept in the same history. */
     suspend fun logInvoicePayment(

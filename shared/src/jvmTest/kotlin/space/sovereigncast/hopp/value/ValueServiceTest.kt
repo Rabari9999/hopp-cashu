@@ -47,6 +47,7 @@ class ValueServiceTest {
     private val host = "02" + "a".repeat(64)
     private val cohost = "02" + "b".repeat(64)
     private val artist = "02" + "c".repeat(64)
+    private val donee = "02" + "d".repeat(64)
     private val feed = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
         <title>Show</title><podcast:guid>show-guid</podcast:guid>
         <podcast:value type="lightning" method="keysend" suggested="0.00000060000">
@@ -66,6 +67,7 @@ class ValueServiceTest {
     private val http = HttpClient(MockEngine { req ->
         when (req.url.encodedPath) {
             "/feed.xml" -> if (req.url.host == "music.test") respond(music) else respond(feed)
+            "/.well-known/keysend/donate" -> respond("""{"tag":"keysend","pubkey":"$donee"}""")
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
@@ -418,6 +420,21 @@ class ValueServiceTest {
         val lines = value.payments.first().single().lines
         assertEquals(21_000L, lines.sumOf { it.msat })
         assertTrue(lines.all { it.feesMsat == 1000L }, "the fake wallet reports a 1-sat fee per payment")
+    }
+
+    /** Device feedback 2026-10-15: a show's `lightning:` funding link paid
+     *  inside Hopp — all of it to that address, logged as the show's boost. */
+    @Test
+    fun aFundingAddressIsPaidInHopp() = test {
+        wallet.connect(uri())
+        val ep = episode()
+        val plan = value.planDonation("donate@alby.test", 5_000) as BoostPlan.Ready
+        assertEquals(listOf("donate@alby.test" to 5_000L), plan.shares.map { it.recipient.address to it.amountMsat })
+        value.donate(ep.podcastId, "donate@alby.test", 5_000, "Danke!")
+        assertEquals(listOf(donee to 5L), keysends())
+        val logged = value.payments.first().single()
+        assertEquals(5_000L, logged.amountMsat)
+        assertEquals("Danke!", logged.message)
     }
 
     /** Device feedback 2026-10-15: routing fees leave the wallet too and count

@@ -139,6 +139,13 @@ class ValueBarViewModel(
     fun sendShow(podcastId: Long, amountSats: Long, message: String, name: String) =
         run(podcastId, amountSats, name) { value.boostShow(podcastId, amountSats * 1000, message) }
 
+    fun planDonation(address: String, amountSats: Long) = viewModelScope.launch {
+        _plan.value = value.planDonation(address, amountSats * 1000)
+    }
+
+    fun sendDonation(podcastId: Long, address: String, amountSats: Long, message: String, name: String) =
+        run(podcastId, amountSats, name) { value.donate(podcastId, address, amountSats * 1000, message) }
+
     /** In the app's scope, not the screen's: a boost on its way is finished
      *  and reported even when the sheet or the player closes (BoostReports). */
     private fun run(podcastId: Long, amountSats: Long, name: String, pay: suspend () -> List<space.sovereigncast.hopp.value.ShareResult>) {

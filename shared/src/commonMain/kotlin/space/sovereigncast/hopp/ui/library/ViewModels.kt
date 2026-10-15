@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
@@ -422,6 +423,23 @@ class DiscoverViewModel(
 
     fun setQuery(q: String) { _query.value = q }
     fun setValueOnly(on: Boolean) { _valueOnly.value = on }
+
+    private val _subscribing = MutableStateFlow<Set<String>>(emptySet())
+    /** Feed keys being subscribed from the list right now. */
+    val subscribing: StateFlow<Set<String>> = _subscribing.asStateFlow()
+
+    /** Subscribes from the result list, staying on the search (device feedback
+     *  2026-10-15); [onFailed] when it did not work — the show's page says why. */
+    fun subscribe(show: DirectoryShow, onFailed: () -> Unit) {
+        val key = feedKey(show.feedUrl)
+        if (key in _subscribing.value) return
+        _subscribing.update { it + key }
+        viewModelScope.launch {
+            val r = podcasts.subscribe(show.feedUrl)
+            _subscribing.update { it - key }
+            if (r is SubscribeResult.Failed) onFailed()
+        }
+    }
 
     /** Shows the directories answered with in this session: typed again in
      *  part, they are suggested at once. */

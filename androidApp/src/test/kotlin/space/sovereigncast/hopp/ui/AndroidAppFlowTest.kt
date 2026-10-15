@@ -422,6 +422,20 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Subscribed", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
+    /** Device feedback 2026-10-15: subscribed from the result list, staying on the search. */
+    @Test
+    fun aResultIsSubscribedFromTheList() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("test show")
+        waitFor("Test Show")
+        rule.onAllNodes(hasContentDescription("Subscribe") and hasClickAction()).onFirst().performClick()
+        rule.waitUntil(15_000) { rule.onAllNodes(hasContentDescription("Subscribed"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        check(has("Test Show") && rule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()) { "still on the search: ${screen()}" }
+        check(!has("✓ Subscribed")) { "not on the show page: ${screen()}" }
+        tap("Library"); waitFor("Test Show")
+    }
+
     // ── package 4 ──────────────────────────────────────────────────────────
 
     private fun openEpisode() {
@@ -850,6 +864,19 @@ class AndroidAppFlowTest {
         tap("Pay 21 sats with a wallet app")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
         check(lastScPost.orEmpty().contains("\"amount_sats\":21")) { lastScPost.toString() }
+    }
+
+    /** Device feedback 2026-10-15: a suggestion is boosted from its row, without opening it. */
+    @Test
+    fun aSuggestionIsBoostedFromItsRow() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Community")
+        waitFor("BIP110")
+        rule.onAllNodes(hasContentDescription("Boost") and hasClickAction()).onFirst().performClick()
+        waitFor("Boost “BIP110”")
+        check(!has("by Anonymous · 06.07.2026")) { "no detour through the suggestion: ${screen()}" }
     }
 
     /** An unlocked clip plays in Hopp's own player, not the browser; closed, it is gone. */

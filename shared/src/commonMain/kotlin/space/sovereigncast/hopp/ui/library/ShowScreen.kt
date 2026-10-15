@@ -135,6 +135,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     var confirm by remember { mutableStateOf(false) }
     var confirmAllPlayed by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
+    var donating by remember { mutableStateOf<String?>(null) }
+    val hasWallet = koinViewModel<ValueBarViewModel>().connected.collectAsState().value != null
     var sharing by remember { mutableStateOf(false) }
     LaunchedEffect(gone) { if (gone) onGone() }
     // The Sovereigncast layer (ADR 0018, phase 1) — only once the instance confirmed the show.
@@ -215,9 +217,11 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     meta?.description?.let { d -> FoldingText(plainText(d)) }
                     // podcast:funding — the show's own way to be supported (ADR 0012).
                     meta?.funding?.firstOrNull()?.let { f ->
+                        // A Lightning address and a wallet: paid here, without leaving Hopp.
+                        val address = f.lightningAddress?.takeIf { hasWallet }
                         Text(
                             "♥ " + (f.text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.show_support)) + " ›",
-                            Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { runCatching { uri.openUri(f.url) } }
+                            Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { if (address != null) donating = address else runCatching { uri.openUri(f.url) } }
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
@@ -252,7 +256,8 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant)
                         }
                         items(list, key = { "sug" + it.id }) { sg ->
-                            SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg }) { community.vote(sg) }
+                            SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg },
+                                onBoost = { paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { community.vote(sg) }
                         }
                         item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
                     }
@@ -315,6 +320,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         BoostSheet(
             valueVm, item = null, showTitle = show?.title.orEmpty(), positionMs = 0, podcastId = podcastId,
             onDismiss = { boosting = false }, onOpenWallet = { boosting = false; onOpenWallet() },
+        )
+    }
+
+    donating?.let { address ->
+        val valueVm: ValueBarViewModel = koinViewModel()
+        BoostSheet(
+            valueVm, item = null, showTitle = show?.title.orEmpty(), positionMs = 0, podcastId = podcastId, donateTo = address,
+            onDismiss = { donating = null }, onOpenWallet = { donating = null; onOpenWallet() },
         )
     }
 

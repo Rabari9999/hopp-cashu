@@ -99,7 +99,8 @@ fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
                     list.isEmpty() -> item(key = "sug-none") { Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant) }
                     else -> items(list, key = { "sug" + it.id }) { sg ->
                         val l = layer
-                        SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg }) { community.vote(sg) }
+                        SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg },
+                            onBoost = { paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { community.vote(sg) }
                     }
                 }
                 item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }

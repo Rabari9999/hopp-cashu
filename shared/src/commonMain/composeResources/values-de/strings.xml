@@ -538,4 +538,6 @@
     <string name="home_hello_night_name">Noch wach, %1$s?</string>
     <string name="menu_download_now">Jetzt laden, auch mobil</string>
     <string name="downloads_start_now">%1$d wartende jetzt laden, auch mobil</string>
+    <string name="donate_title">%1$s unterstützen</string>
+    <string name="donate_to">Eine Spende an %1$s, aus deiner Wallet</string>
 </resources>

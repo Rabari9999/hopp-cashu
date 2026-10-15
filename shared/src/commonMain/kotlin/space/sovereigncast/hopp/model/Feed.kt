@@ -67,7 +67,14 @@ data class Enclosure(val url: String, val length: Long? = null, val type: String
 @Serializable
 data class UpdateFrequency(val text: String?, val rrule: String?, val complete: Boolean = false)
 @Serializable
-data class Funding(val url: String, val text: String?)
+data class Funding(val url: String, val text: String?) {
+    /** The Lightning address behind a `lightning:` link (`lightning:nodesignal@getalby.com`),
+     *  paid inside Hopp when a wallet is connected (device feedback 2026-10-15); null otherwise. */
+    val lightningAddress: String? get() = url.trim().takeIf { it.startsWith("lightning:", ignoreCase = true) }
+        ?.substring("lightning:".length)?.trim()?.takeIf { LN_ADDRESS.matches(it) }
+
+    private companion object { val LN_ADDRESS = Regex("""[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+""") }
+}
 @Serializable
 data class TxtRecord(val purpose: String?, val value: String)
 @Serializable

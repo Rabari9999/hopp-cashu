@@ -379,7 +379,7 @@ fun UnlockSheet(item: Boost2UnlockEpisode, show: ScShow?, onUnlock: () -> Unit, 
 /** An open suggestion: votes are free, one per listener (ADR 0018); a tap
  *  shows all of it (device feedback 2026-10-09). */
 @Composable
-fun SuggestionRow(s: Suggestion, voted: Boolean, onOpen: () -> Unit, onVote: () -> Unit) {
+fun SuggestionRow(s: Suggestion, voted: Boolean, onOpen: () -> Unit, onBoost: (() -> Unit)? = null, onVote: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(Res.string.sc_details), onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -392,6 +392,11 @@ fun SuggestionRow(s: Suggestion, voted: Boolean, onOpen: () -> Unit, onVote: () 
             if (s.amountSats > 0) Text("${formatSats(s.amountSats)} sats", style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText)
         }
         Spacer(Modifier.size(8.dp))
+        // Boosting it without opening it first (device feedback 2026-10-15).
+        if (onBoost != null) {
+            space.sovereigncast.hopp.ui.value.BoostIconButton(onBoost)
+            Spacer(Modifier.size(8.dp))
+        }
         VoteButton(s.voteCount, voted, onVote)
     }
 }

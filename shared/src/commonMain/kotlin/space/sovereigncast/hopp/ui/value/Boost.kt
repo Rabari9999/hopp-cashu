@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.value
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +68,8 @@ import space.sovereigncast.hopp.resources.boost_send
 import space.sovereigncast.hopp.resources.boost_send_over
 import space.sovereigncast.hopp.resources.boost_split
 import space.sovereigncast.hopp.resources.boost_title
+import space.sovereigncast.hopp.resources.donate_title
+import space.sovereigncast.hopp.resources.donate_to
 import space.sovereigncast.hopp.resources.boost_unreachable
 import space.sovereigncast.hopp.resources.boost_via
 import space.sovereigncast.hopp.resources.boost_where
@@ -268,6 +273,8 @@ fun BoostSheet(
     onDismiss: () -> Unit,
     onOpenWallet: () -> Unit,
     podcastId: Long = item?.podcastId ?: 0,
+    /** A Lightning address from the show's funding link: a donation there. */
+    donateTo: String? = null,
 ) {
     val wallet by vm.connected.collectAsState()
     val settings by vm.current.collectAsState()
@@ -284,7 +291,11 @@ fun BoostSheet(
     var overConfirmed by remember { mutableStateOf(false) }
     LaunchedEffect(amount) {
         overConfirmed = false
-        if (amount > 0) { if (item != null) vm.plan(item, position, amount) else vm.planShow(podcastId, amount) }
+        if (amount > 0) when {
+            donateTo != null -> vm.planDonation(donateTo, amount)
+            item != null -> vm.plan(item, position, amount)
+            else -> vm.planShow(podcastId, amount)
+        }
     }
 
     ModalBottomSheet(onDismissRequest = { vm.resetBoost(); onDismiss() }) {
@@ -292,10 +303,14 @@ fun BoostSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.size(8.dp))
-                Text(stringResource(Res.string.boost_title, showTitle), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(if (donateTo != null) stringResource(Res.string.donate_title, showTitle) else stringResource(Res.string.boost_title, showTitle), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Text(
-                if (item != null) stringResource(Res.string.boost_where, item.title, formatTime(positionMs)) else stringResource(Res.string.boost_whole_show),
+                when {
+                    donateTo != null -> stringResource(Res.string.donate_to, donateTo)
+                    item != null -> stringResource(Res.string.boost_where, item.title, formatTime(positionMs))
+                    else -> stringResource(Res.string.boost_whole_show)
+                },
                 color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
             )
 
@@ -343,7 +358,11 @@ fun BoostSheet(
                     if (over && !overConfirmed) overConfirmed = true
                     else {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (item != null) vm.send(item, position, amount, message, name) else vm.sendShow(podcastId, amount, message, name)
+                        when {
+                            donateTo != null -> vm.sendDonation(podcastId, donateTo, amount, message, name)
+                            item != null -> vm.send(item, position, amount, message, name)
+                            else -> vm.sendShow(podcastId, amount, message, name)
+                        }
                     }
                 }
                 Text(
@@ -452,6 +471,20 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
             }
         }
         TextButton(onClick = onClose, modifier = Modifier.padding(bottom = 16.dp)) { Text(stringResource(Res.string.boost_close)) }
+    }
+}
+
+/** The Boost pill without its word, where a row has no room for it — a
+ *  suggestion next to its vote (device feedback 2026-10-15). */
+@Composable
+fun BoostIconButton(onClick: () -> Unit) {
+    val label = stringResource(Res.string.np_boost)
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).background(Hopp.colors.value).clickable(onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
     }
 }
 

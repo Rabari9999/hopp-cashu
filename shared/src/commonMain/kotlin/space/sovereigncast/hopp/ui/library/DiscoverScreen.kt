@@ -16,6 +16,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import space.sovereigncast.hopp.resources.discover_add_button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -84,6 +89,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     val suggestions by vm.suggestions.collectAsState()
     val podroll by vm.podroll.collectAsState()
     val subscribed by vm.subscribed.collectAsState()
+    val subscribing by vm.subscribing.collectAsState()
     val importState by vm.import.collectAsState()
     val recent by vm.recent.collectAsState()
     val settings by settingsVm.current.collectAsState()
@@ -131,7 +137,8 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
             if (suggested.isNotEmpty()) {
                 item { Header(stringResource(Res.string.discover_suggestions)) }
                 items(suggested, key = { "s" + it.feedUrl }) { show ->
-                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
+                    DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show),
+                        busy = feedKey(show.feedUrl) in subscribing, onSubscribe = { vm.subscribe(show) { onPreview(show.feedUrl, show) } }) {
                         vm.remember(q); onPreview(show.feedUrl, show)
                     }
                 }
@@ -151,7 +158,8 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                     if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
                     if (suggested.isNotEmpty() && rest.isNotEmpty()) item { Header(stringResource(Res.string.discover_results)) }
                     items(rest, key = { "r" + it.feedUrl }) { show ->
-                        DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show)) {
+                        DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show),
+                        busy = feedKey(show.feedUrl) in subscribing, onSubscribe = { vm.subscribe(show) { onPreview(show.feedUrl, show) } }) {
                             vm.remember(q); onPreview(show.feedUrl, show)
                         }
                     }
@@ -202,7 +210,12 @@ private fun Header(text: String) = Text(text, style = MaterialTheme.typography.t
 private val LocalLargeRows = staticCompositionLocalOf { false }
 
 @Composable
-private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, sovereigncast: Boolean = false, onClick: () -> Unit) {
+private fun DirectoryRow(
+    show: DirectoryShow, subscribed: Boolean, sovereigncast: Boolean = false,
+    /** Subscribe from the list (device feedback 2026-10-15); null: no button. */
+    busy: Boolean = false, onSubscribe: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     val large = LocalLargeRows.current
     Row(
@@ -220,6 +233,13 @@ private fun DirectoryRow(show: DirectoryShow, subscribed: Boolean, sovereigncast
             ).joinToString(" · ")
             if (meta.isNotEmpty()) Text(meta, style = if (large) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (sovereigncast) Row(Modifier.padding(top = 3.dp)) { ScBadge() }
+        }
+        if (onSubscribe != null) when {
+            busy -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+            subscribed -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Check, stringResource(Res.string.show_subscribed), tint = colors.onSurfaceVariant)
+            }
+            else -> IconButton(onClick = onSubscribe) { Icon(Icons.Rounded.Add, stringResource(Res.string.discover_add_button)) }
         }
     }
 }
