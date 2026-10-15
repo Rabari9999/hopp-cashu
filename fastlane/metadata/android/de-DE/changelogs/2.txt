@@ -1,1 +1,1 @@
-So signiert, dass F-Droid dieselbe APK wie GitLab und Zapstore veröffentlichen kann; Store-Texte und Screenshots. An der App selbst hat sich nichts geändert.
+Neu in 0.1.1: Shows per Lightning-Funding-Link direkt in Hopp unterstützen; direkt aus der Suche abonnieren; Download-Abzeichen am Cover, wartende Downloads auch über Mobilfunk; Shows als gehört markieren; Vorschläge beim Tippen; Wallet per QR-Code; animierte Kapitel-GIFs; bei Sovereigncast-Shows Themen vorschlagen und boosten, Top-Folgen, letzte Boosts im Player, Clips in Hopp. Routing-Gebühren zählen zum Tagesbudget.

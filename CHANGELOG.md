@@ -6,18 +6,23 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-15
+
 ### 🆕 New Features
+- **Support a show from within Hopp** — a show's funding link to a Lightning address opens Hopp's boost sheet as a donation when a wallet is connected, instead of leaving the app.
+- **Subscribe straight from the search results** — a + on every result, and you stay on the search.
+- **Downloads at a glance on every episode** — a badge on the cover: downloaded, waiting, loading or failed. A download waiting for Wi-Fi can go now over mobile data, one or all at once.
+- **Import OPML from the settings** too, next to the export.
 - **Mark a whole show as played**, or an episode and every older one — from the show's menu and the episode's.
 - **Downloads at a glance** — the settings say how much the downloads take, delete all of them at once, and on Android show them as “Hopp” in the Files app.
 - **Search suggestions while typing** — a word begun is enough: the Sovereigncast shows, your subscriptions, the recommendations and what this session found are suggested at once (the directories only find whole words).
 - **Animated chapter images** — GIFs move now, on Android.
 - **Connect a wallet by QR code** — scan the NWC code with the camera; the camera is only asked for when you scan.
-- **Sovereigncast shows: suggest a topic and boost suggestions** — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The show's most popular episodes have a tab of their own and open in Hopp; while you listen the player shows the show's latest boosts a line at a time, and a long boost message opens in full on a tap; and an unlocked clip plays right in Hopp's player — afterwards the episode you were listening to is back where you left it.
-
-## [0.1.1] - 2026-10-14
+- **Sovereigncast shows: suggest a topic and boost suggestions** (right from their row) — the payment keeps spam out, and once it is paid the suggestion is on the list; sats give an open suggestion weight. The show's most popular episodes have a tab of their own and open in Hopp; while you listen the player shows the show's latest boosts a line at a time, and a long boost message opens in full on a tap; and an unlocked clip plays right in Hopp's player — afterwards the episode you were listening to is back where you left it.
 
 ### 🐛 Fixes
-- Signed so that F-Droid can publish our APK: 0.1.0 was signed with re-aligned entries, which F-Droid's build from source cannot match. Store texts, icon and screenshots for F-Droid and Zapstore. Nothing changed in the app itself.
+- Routing fees count against the daily budget — they leave the wallet too.
+- Signed so that F-Droid can publish our APK: 0.1.0 was signed with re-aligned entries, which F-Droid's build from source cannot match. Store texts, icon and screenshots for F-Droid and Zapstore.
 
 ## [0.1.0] - 2026-10-14
 

@@ -6,18 +6,23 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-15
+
 ### 🆕 New Features
+- **Eine Show direkt aus Hopp unterstützen** — führt der Funding-Link einer Show zu einer Lightning-Adresse, öffnet er bei verbundener Wallet Hopps Boost-Fenster als Spende, statt die App zu verlassen.
+- **Direkt aus den Suchergebnissen abonnieren** — ein + an jedem Ergebnis, und du bleibst in der Suche.
+- **Downloads an jeder Folge im Blick** — ein Abzeichen am Cover: geladen, wartet, lädt oder fehlgeschlagen. Ein Download, der auf WLAN wartet, kann jetzt über Mobilfunk starten, einzeln oder alle auf einmal.
+- **OPML auch in den Einstellungen importieren**, neben dem Export.
 - **Eine ganze Show als gehört markieren**, oder eine Folge und alle älteren — im Menü der Show und der Folge.
 - **Downloads im Blick** — die Einstellungen zeigen, wie viel Platz die Downloads belegen, löschen alle auf einmal und zeigen sie unter Android als „Hopp“ in der Dateien-App.
 - **Vorschläge beim Tippen** — ein angefangenes Wort genügt: Sovereigncast-Shows, deine Abos, die Empfehlungen und was in dieser Sitzung gefunden wurde, erscheinen sofort (die Verzeichnisse finden nur ganze Wörter).
 - **Animierte Kapitelbilder** — GIFs bewegen sich jetzt, unter Android.
 - **Wallet per QR-Code verbinden** — den NWC-Code mit der Kamera scannen; nach der Kamera wird erst beim Scannen gefragt.
-- **Sovereigncast-Shows: Themen vorschlagen und Vorschläge boosten** — die Zahlung hält Spam fern, und sobald sie bezahlt ist, steht der Vorschlag in der Liste; Sats geben einem offenen Vorschlag Gewicht. Die beliebtesten Folgen der Show haben einen eigenen Tab und öffnen sich in Hopp; beim Hören zeigt der Player die letzten Boosts der Show Zeile für Zeile, und eine lange Boost-Nachricht öffnet sich per Tipp ganz; und ein freigeschalteter Clip läuft direkt in Hopps Player – danach ist die Folge, die du gehört hast, wieder da, wo du warst.
-
-## [0.1.1] - 2026-10-14
+- **Sovereigncast-Shows: Themen vorschlagen und Vorschläge boosten** (direkt in ihrer Zeile) — die Zahlung hält Spam fern, und sobald sie bezahlt ist, steht der Vorschlag in der Liste; Sats geben einem offenen Vorschlag Gewicht. Die beliebtesten Folgen der Show haben einen eigenen Tab und öffnen sich in Hopp; beim Hören zeigt der Player die letzten Boosts der Show Zeile für Zeile, und eine lange Boost-Nachricht öffnet sich per Tipp ganz; und ein freigeschalteter Clip läuft direkt in Hopps Player – danach ist die Folge, die du gehört hast, wieder da, wo du warst.
 
 ### 🐛 Fixes
-- So signiert, dass F-Droid unsere APK veröffentlichen kann: 0.1.0 war mit neu ausgerichteten Einträgen signiert, die F-Droids Build aus dem Quellcode nicht treffen kann. Store-Texte, Icon und Screenshots für F-Droid und Zapstore. An der App selbst hat sich nichts geändert.
+- Routing-Gebühren zählen zum Tagesbudget — sie verlassen die Wallet ja auch.
+- So signiert, dass F-Droid unsere APK veröffentlichen kann: 0.1.0 war mit neu ausgerichteten Einträgen signiert, die F-Droids Build aus dem Quellcode nicht treffen kann. Store-Texte, Icon und Screenshots für F-Droid und Zapstore.
 
 ## [0.1.0] - 2026-10-14
 
