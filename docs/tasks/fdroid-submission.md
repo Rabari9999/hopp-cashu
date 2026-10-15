@@ -1,6 +1,6 @@
 # Hopp in F-Droid
 
-- **Status:** in progress — 0.1.1 tagged 2026-10-15
+- **Status:** in progress — 0.1.1 released and checked 2026-10-15; merge request waits for the maintainer's go
 - **ADR:** 0011 (distribution, one key everywhere), 0017 (release checklist)
 - **How:** docs/fdroid.md
 
@@ -25,16 +25,16 @@ each other.
 
 ## Steps left
 
-1. Tag `v0.1.1` on `main` (2026-10-15, with the phase-2 features). CI builds
-   `release-unsigned` (~5 min).
-2. Maintainer: `scripts/release.sh v0.1.1 ~/Documents/hopp-release.jks`, then
-   `zsp publish zapstore.yaml` (Amber bunker, docs/zapstore.md).
-3. Check the signed APK once more with F-Droid's tools: build v0.1.1 in
-   `buildserver-trixie`, `apksigcopier compare` against the release APK
-   (docs/fdroid.md, Reproducibility).
+1. ~~Tag `v0.1.1` on `main`~~ — done 2026-10-15 (7dde033).
+2. ~~`scripts/release.sh v0.1.1`, `zsp publish`~~ — done 2026-10-15; Zapstore's
+   relay holds 0.1.1 with the APK's hash.
+3. ~~Check with F-Droid's tools~~ — done 2026-10-15: v0.1.1 built in
+   `buildserver-trixie` is identical to CI's (240 entries), and
+   `apksigcopier compare` against the released APK matches. `fdroid lint`
+   passes; `commit` is the full hash, as fdroiddata asks.
 4. Fork fdroiddata, add `metadata/space.sovereigncast.hopp.yml`, open the
-   merge request ("App inclusion" template) under the maintainer's account —
-   ask before sending.
+   merge request ("App inclusion" template, title "New app: Hopp") under the
+   maintainer's account — ask before sending.
 5. Answer the reviewers; after the merge, the next build cycle publishes it.
 
 ## Done when
