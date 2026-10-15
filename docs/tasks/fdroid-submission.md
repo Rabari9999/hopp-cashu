@@ -1,6 +1,6 @@
 # Hopp in F-Droid
 
-- **Status:** in progress — 0.1.1 released and checked 2026-10-15; merge request waits for the maintainer's go
+- **Status:** in progress — 0.1.1 released and checked 2026-10-15; merge request 52675 open since 2026-10-15
 - **ADR:** 0011 (distribution, one key everywhere), 0017 (release checklist)
 - **How:** docs/fdroid.md
 
@@ -32,9 +32,9 @@ each other.
    `buildserver-trixie` is identical to CI's (240 entries), and
    `apksigcopier compare` against the released APK matches. `fdroid lint`
    passes; `commit` is the full hash, as fdroiddata asks.
-4. Fork fdroiddata, add `metadata/space.sovereigncast.hopp.yml`, open the
-   merge request ("App inclusion" template, title "New app: Hopp") under the
-   maintainer's account — ask before sending.
+4. ~~Fork fdroiddata, open the merge request~~ — done 2026-10-15:
+   https://gitlab.com/fdroid/fdroiddata/-/merge_requests/52675 (fork
+   nodesignal1/fdroiddata, branch `hopp`).
 5. Answer the reviewers; after the merge, the next build cycle publishes it.
 
 ## Done when
