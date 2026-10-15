@@ -1100,6 +1100,23 @@ class AndroidAppFlowTest {
         check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
     }
 
+    /** OPML import next to the export, in the settings (actionsslave, 2026-10-14). */
+    @Test
+    fun opmlIsImportedFromTheSettings() {
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) =
+                onText("""<opml version="2.0"><body><outline type="rss" text="Test Show" xmlUrl="https://pod.test/feed.xml"/></body></opml>""")
+            override fun exportOpml(text: String) = Unit
+        }
+        rule.setContent { App(actions) }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Subscriptions") and hasClickAction()).performScrollTo().performClick()
+        tap("Import OPML")
+        waitFor("1 subscribed, 0 already there, 0 failed")
+        back(); back()
+        tap("Library"); waitFor("Test Show")
+    }
+
     /** A tip on every card; green where Hopp sees it followed, a tap to where it is set. */
     @Test
     fun thePrivacyPageChecksWhatItCan() {
