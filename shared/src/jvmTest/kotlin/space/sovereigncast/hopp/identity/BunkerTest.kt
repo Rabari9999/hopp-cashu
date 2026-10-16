@@ -114,7 +114,7 @@ class BunkerTest {
         assertEquals(false, me.holdsKey)
         // connect names the signer, the secret, and asks for NIP-98 for good.
         val connect = bunker.params[bunker.methods.indexOf("connect")]
-        assertEquals(listOf(bunker.bunkerKeys.publicKeyHex, "s3cret", "sign_event:27235"), connect.take(3))
+        assertEquals(listOf(bunker.bunkerKeys.publicKeyHex, "s3cret", IdentityRepository.BUNKER_PERMS), connect.take(3))
         assertEquals("Hopp", Json.parseToJsonElement(connect[3]).jsonObject["name"]?.jsonPrimitive?.contentOrNull)
         val signer = identities.signer()
         assertTrue(signer is BunkerSigner)

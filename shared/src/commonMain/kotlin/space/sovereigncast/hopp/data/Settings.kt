@@ -62,6 +62,14 @@ data class Settings(
     val homeHidden: Set<String> = emptySet(),
     /** With a Nostr identity, still vote and suggest without it (ADR 0021, 7). */
     val scAnonymous: Boolean = false,
+    /** The listener was told, once, that what Hopp publishes stays public (ADR 0021, 8). */
+    val nostrPublicNoted: Boolean = false,
+    /** The backup reminder after the first comment with a key from Hopp was shown (ADR 0021, 9). */
+    val nostrBackupReminded: Boolean = false,
+    /** People muted on this device — without an identity, or before the relays have the list (ADR 0021, 3). */
+    val mutedLocally: Set<String> = emptySet(),
+    /** Comments the listener reported or hid: never shown again here. */
+    val hiddenComments: Set<String> = emptySet(),
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -107,6 +115,10 @@ data class Settings(
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
+                nostrPublicNoted = values["nostr_public_noted"]?.toBooleanStrictOrNull() ?: d.nostrPublicNoted,
+                nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
+                mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
+                hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
             )
         }
     }
@@ -143,6 +155,10 @@ data class Settings(
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),
+        "nostr_public_noted" to nostrPublicNoted.toString(),
+        "nostr_backup_reminded" to nostrBackupReminded.toString(),
+        "muted_local" to mutedLocally.joinToString("\n"),
+        "hidden_comments" to hiddenComments.joinToString("\n"),
     )
 }
 

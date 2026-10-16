@@ -267,6 +267,111 @@ class CommentsTest {
         assertNull(again.cached(anchor), "gone with the show")
     }
 
+    // ── Stage 3: writing ─────────────────────────────────────────────────
+
+    private val store = MemoryCommentStore()
+    private val writer = CommentWriter(publisher, identities, store, { now })
+    private val writeReader = CommentReader(publisher, { now }, store)
+
+    @Test
+    fun aCommentAnswersTheShowsNoteAndIsKeptAtOnce() = test {
+        relay.publish(feedNote)
+        identities.create("Me")
+        val anchor = comments.anchor(episode())!!
+        val posted = writer.comment(anchor, "  Great show!  ", listOf("wss://relay.damus.io"))
+        assertEquals(1, posted.kind)
+        assertEquals("Great show!", posted.content)
+        val note = anchor.notes.first()
+        assertTrue(listOf("e", note.id, note.relays.first(), "root") in posted.tags, "NIP-10 root: the show's note, with its relay")
+        assertTrue(listOf("p", show.publicKeyHex) in posted.tags)
+        assertTrue(listOf("i", item) in posted.tags && listOf("i", "podcast:guid:$guid") in posted.tags, "NIP-73: episode and show")
+        assertEquals(listOf(posted.id), writeReader.cached(anchor)?.comments?.map { it.id }, "shown without asking the relays again")
+        assertEquals(listOf(posted.id), writeReader.load(anchor).comments.map { it.id }, "and on the relays")
+    }
+
+    @Test
+    fun withoutAShowNoteItIsAKind1111CommentOnTheGuid() = test {
+        identities.create("Me")
+        val anchor = comments.anchor(episode())!!.copy(notes = emptyList())
+        val posted = writer.comment(anchor, "No note here", emptyList())
+        assertEquals(1111, posted.kind)
+        assertEquals(listOf(listOf("I", item), listOf("K", "podcast:item:guid"), listOf("i", item), listOf("k", "podcast:item:guid")), posted.tags)
+        assertEquals(listOf(posted.id), writeReader.load(anchor).comments.map { it.id })
+    }
+
+    @Test
+    fun anAnswerFollowsTheKindOfWhatItAnswers() = test {
+        relay.publish(feedNote)
+        identities.create("Me")
+        val anchor = comments.anchor(episode())!!
+        val fountain = post(bob, 1, "From Fountain", listOf(listOf("i", item)), now - 100)
+        val nip22 = post(alice, 1111, "A 1111", listOf(listOf("I", item), listOf("K", "podcast:item:guid"), listOf("i", item), listOf("k", "podcast:item:guid")), now - 90)
+        val thread = writeReader.load(anchor)
+        val toFountain = writer.comment(anchor, "Agreed", thread.relays, thread.comments.first { it.id == fountain.id })
+        assertEquals(1, toFountain.kind)
+        assertTrue(listOf("e", fountain.id, thread.relays.first(), "root") in toFountain.tags && listOf("e", fountain.id, thread.relays.first(), "reply") in toFountain.tags)
+        val toNip22 = writer.comment(anchor, "Me too", thread.relays, thread.comments.first { it.id == nip22.id })
+        assertEquals(1111, toNip22.kind)
+        assertTrue(listOf("e", nip22.id, thread.relays.first(), alice.publicKeyHex) in toNip22.tags && listOf("k", "1111") in toNip22.tags)
+        // An answer to the answer keeps the thread's root (NIP-10).
+        val again = writeReader.load(anchor)
+        val mine = again.comments.first { it.id == fountain.id }.replies.single()
+        val deeper = writer.comment(anchor, "Deeper", again.relays, mine)
+        assertTrue(listOf("e", fountain.id, again.relays.first(), "root") in deeper.tags && listOf("e", mine.id, again.relays.first(), "reply") in deeper.tags)
+        val final = writeReader.load(anchor)
+        assertEquals(setOf(toFountain.id, deeper.id), final.comments.first { it.id == fountain.id }.replies.map { it.id }.toSet())
+        assertEquals(listOf(toNip22.id), final.comments.first { it.id == nip22.id }.replies.map { it.id })
+    }
+
+    @Test
+    fun likesAreCountedAndOwnOnesKnown() = test {
+        relay.publish(feedNote)
+        identities.create("Me")
+        val anchor = comments.anchor(episode())!!
+        val c = post(alice, 1, "Like me", listOf(listOf("i", item)), now - 100)
+        post(bob, 7, "🔥", listOf(listOf("e", c.id), listOf("p", alice.publicKeyHex)), now - 50)
+        post(troll, 7, "-", listOf(listOf("e", c.id)), now - 40)
+        val thread = writeReader.load(anchor)
+        assertEquals(setOf(bob.publicKeyHex), thread.comments.single().likes, "a dislike is no like")
+        val like = writer.like(anchor, thread.comments.single(), thread.relays)
+        assertEquals(listOf(listOf("e", c.id, thread.relays.first(), alice.publicKeyHex), listOf("p", alice.publicKeyHex), listOf("k", "1")), like.tags)
+        val me = identities.identity.value!!.pubkey
+        assertEquals(setOf(bob.publicKeyHex, me), writeReader.cached(anchor)!!.comments.single().likes)
+    }
+
+    @Test
+    fun mutingKeepsWhatTheListAlreadyHeld() = test {
+        identities.create("Me")
+        val me = identities.signer()!!
+        // A list from another app: a public entry and an encrypted private part Hopp cannot read.
+        relay.publish(me.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(10000, "encrypted-private-part", listOf(listOf("p", alice.publicKeyHex), listOf("t", "nsfw")), now - 100)))
+        writer.mute(troll.publicKeyHex)
+        val list = publisher.latest(10000, me.pubkey, listOf("wss://relay.damus.io"))!!
+        assertEquals("encrypted-private-part", list.content)
+        assertEquals(listOf(listOf("p", alice.publicKeyHex), listOf("t", "nsfw"), listOf("p", troll.publicKeyHex)), list.tags)
+        // And the next load hides the muted person.
+        relay.publish(feedNote)
+        post(troll, 1, "spam", listOf(listOf("i", item)), now - 10)
+        val listening = CommentReader(publisher, { now }) { me.pubkey }
+        assertEquals(emptyList(), listening.load(comments.anchor(episode())!!).comments)
+    }
+
+    @Test
+    fun aReportNamesTheCommentAndTheReason() = test {
+        identities.create("Me")
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        writer.report(Comment("ab".repeat(32), troll.publicKeyHex, now, "spam"), ReportType.Spam, listOf("wss://relay.damus.io"))
+        val report = published.first { it.kind == 1984 }
+        assertEquals(listOf(listOf("e", "ab".repeat(32), "spam"), listOf("p", troll.publicKeyHex, "spam")), report.tags)
+    }
+
+    @Test
+    fun withoutAnIdentityNothingIsPublished() = test {
+        val anchor = comments.anchor(episode())!!
+        kotlin.test.assertFailsWith<NoIdentity> { writer.comment(anchor, "Hi", emptyList()) }
+    }
+
     @Test
     fun nip19ReferencesDecode() {
         // NIP-19's own examples.

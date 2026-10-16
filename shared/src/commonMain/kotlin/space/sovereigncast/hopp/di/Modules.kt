@@ -101,7 +101,9 @@ fun sharedModule(platform: Platform) = module {
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { space.sovereigncast.hopp.sovereigncast.ScDirectory(get(), get()) }
-    single { space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, space.sovereigncast.hopp.comments.DbCommentStore(get())) { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey } }
+    single<space.sovereigncast.hopp.comments.CommentStore> { space.sovereigncast.hopp.comments.DbCommentStore(get()) }
+    single { space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, get()) { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey } }
+    single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }
@@ -119,7 +121,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
-    viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get()) }
+    viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.FavoritesViewModel(get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }

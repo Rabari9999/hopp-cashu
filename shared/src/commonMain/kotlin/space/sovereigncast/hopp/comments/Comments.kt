@@ -35,7 +35,11 @@ data class CommentAnchor(val episodeGuid: String, val podcastGuid: String?, val 
     val itemTag: String get() = "podcast:item:guid:$episodeGuid"
 }
 
-/** A comment; [replies] only on a top-level one, oldest first, each naming whom it answers when that is not the top. */
+/**
+ * A comment; [replies] only on a top-level one, oldest first, each naming whom
+ * it answers when that is not the top. [kind] and [root] (its NIP-10 root, for
+ * kind 1) say how an answer to it is tagged; [likes]: who reacted (NIP-25).
+ */
 data class Comment(
     val id: String,
     val pubkey: String,
@@ -43,6 +47,9 @@ data class Comment(
     val content: String,
     val replyTo: String? = null,
     val replies: List<Comment> = emptyList(),
+    val kind: Int = 1,
+    val root: String? = null,
+    val likes: Set<String> = emptySet(),
 )
 
 data class CommentAuthor(val name: String?, val picture: String?)
@@ -175,9 +182,10 @@ class CommentReader(
         // Replies to the comments found: a Fountain listener answering another names only that comment.
         // Replies to the comments known before too: new answers to an old comment.
         val asked = roots.toSet()
-        val more = (before?.events.orEmpty() + first).map { it.id }.distinct().filter { it !in asked }.take(MAX_EVENTS)
+        val more = (before?.events.orEmpty() + first).filter { it.kind != REACTION }.map { it.id }.distinct().filter { it !in asked }.take(MAX_EVENTS)
+        // Their likes (NIP-25) in the same request.
         val second = if (more.isEmpty()) emptyList() else
-            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS, since) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
+            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION, since) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
         val mutedNow = muted.await()
         store.save(anchor.itemTag, CommentStore.Seen(first + second, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt))
@@ -259,6 +267,7 @@ class CommentReader(
 
     companion object {
         const val COMMENT = 1111
+        const val REACTION = 7
         private const val ZAP_RECEIPT = 9735
         private val KINDS = listOf(1, COMMENT)
         /** At most this many relays per episode (ADR 0021, 2). */
@@ -315,19 +324,25 @@ internal fun thread(events: List<Event>, anchor: CommentAnchor, muted: Set<Strin
             }
         }
     }
+    // Likes: a reaction other than "-" on a kept comment (NIP-25: the last e tag is its target).
+    val likes = events.filter { it.kind == CommentReader.REACTION && it.content != "-" && it.pubkey !in muted }
+        .mapNotNull { r -> r.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)?.takeIf { it in kept }?.let { it to r.pubkey } }
+        .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
 
     fun top(id: String): String {
         var at = id
         while (true) { val p = parent[at]; if (p == null || p !in kept) return at; at = p }
     }
+    fun rootOf(e: Event) = e.tags.firstOrNull { it.size >= 4 && it[0] == "e" && it[3] == "root" }?.get(1)
+    fun comment(e: Event, replyTo: String? = null, replies: List<Comment> = emptyList()) =
+        Comment(e.id, e.pubkey, e.created_at, e.content, replyTo, replies, e.kind, rootOf(e), likes[e.id].orEmpty())
     val byTop = kept.values.groupBy { top(it.id) }
     return byTop.mapNotNull { (topId, members) ->
         val head = kept[topId] ?: return@mapNotNull null
         val replies = members.filter { it.id != topId }.sortedBy { it.created_at }.map { r ->
-            val p = parent[r.id]
-            Comment(r.id, r.pubkey, r.created_at, r.content, replyTo = p?.takeIf { it != topId }?.let { kept[it]?.pubkey })
+            comment(r, replyTo = parent[r.id]?.takeIf { it != topId }?.let { kept[it]?.pubkey })
         }
-        Comment(head.id, head.pubkey, head.created_at, head.content, replies = replies)
+        comment(head, replies = replies)
     }.sortedByDescending { it.createdAt }
 }
 

@@ -10,7 +10,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **An optional Nostr identity** — made in the settings with a name Hopp greets you by; your votes on Sovereigncast shows then count once per person, on every device. Sign in with Amber or a bunker (nsec.app and others) and your key stays there, or make one in Hopp and back it up with a password. Or stay anonymous.
 - **Hear a show's trailer** — on its page, before subscribing too; the episode you were listening to waits where you left it.
 - **Show notes in the player** — a sheet like chapters and transcript; a time mark jumps there.
-- **Read the comments on an episode** — from Nostr, in the player and on the episode page: replies to the show's posts and what Fountain listeners say about it, with the sats of their boosts. Loaded only when you open them.
+- **Comments on every episode** — from Nostr, in the player and on the episode page: what other listeners say (Fountain's too, with the sats of their boosts), and with a Nostr identity your own comments, answers and likes. Mute, report or hide what you do not want to see.
 
 ### 🐛 Fixes
 - The player's cycling line of the show's latest boosts is gone: it confused more than it told.

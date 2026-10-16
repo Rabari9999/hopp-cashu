@@ -200,6 +200,25 @@ boost, profile): this stays public and permanent.
    Kept comments show either way. The player's chips show only what the
    episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
+   *Built 2026-10-16:* a field above the comments; without an identity the
+   way to one (the draft waits). A comment answers the show's note as
+   kind 1 (NIP-10 root with its relay, `p` of the show, the NIP-73 tags of
+   episode and show), else a kind-1111 comment with `I`/`K` and `i`/`k` of
+   the episode; an answer follows the kind of what it answers — kind 1 keeps
+   the thread's root and marks the reply, kind 1111 names its parent with
+   `e`/`k`/`p`. Likes (NIP-25, "+") on any comment, counted from what the
+   relays hold ("-" is no like). Published to the listener's NIP-65 write
+   relays (Hopp's own for a key made here) and the relays the comments came
+   from, kept in the database at once. Moderation: "⋯" on a comment —
+   mute (the mute list is read first and written back with all it held, the
+   encrypted private part untouched; hidden here at once, and on this device
+   only without an identity), report (NIP-56: spam, profanity, illegal,
+   other; hidden at once; without an identity only hidden), hide. Once,
+   before the first comment, like or report: "public, for good" (8); after
+   the first comment with an unsaved key from Hopp: the backup reminder (9).
+   Signers are asked at login for standing permission for kinds 1, 1111,
+   7, 10000 and 1984 besides NIP-98; identities from before are asked per
+   event by their signer.
 4. **Public boosts**, opt-in.
 5. **Sync.**
 

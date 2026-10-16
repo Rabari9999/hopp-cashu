@@ -27,6 +27,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextClearance
 import app.cash.sqldelight.db.SqlDriver
@@ -1027,6 +1028,31 @@ class AndroidAppFlowTest {
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
         waitFor("VPN active — the relays do not see your IP address")
         waitFor("No comments on this episode yet.")
+    }
+
+    /** Writing a comment (ADR 0021, stage 3): without an identity the way to one;
+     *  with one, once the note that it stays public, then the comment — and,
+     *  with a key from Hopp not backed up, the reminder. */
+    @Test
+    fun aCommentIsWrittenAfterThePublicNote() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Play")
+        tap("Comments")
+        waitFor("Load comments")
+        tap("Load comments")
+        waitFor("Set up a Nostr identity to comment")
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Me") }
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Write a comment…")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodes(hasSetTextAction()).onLast().performTextInput("Great episode")
+        rule.onNodeWithContentDescription("Send").performClick()
+        waitFor("Public, for good")
+        tap("Understood")
+        waitFor("Back up your key")
+        tap("Later")
+        waitFor("Great episode")
+        check(has("Me")) { "the comment shows under the listener's name" }
+        check(kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current().nostrPublicNoted })
     }
 
     /** Device feedback 2026-10-16: the show's latest boosts, cycling under the
