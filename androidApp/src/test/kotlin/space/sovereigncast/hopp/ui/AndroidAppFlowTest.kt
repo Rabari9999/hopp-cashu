@@ -211,6 +211,8 @@ class TestApp : Application() {
                     scInstance(req.url.encodedPath, post)
                 }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
+                // A show whose title sorts before Nodesignal's, with no round of its own.
+                req.url.encodedPath == "/alpha.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Alpha Show</title>"))
                 // One of Nodesignal's podroll, as the Podcast Index resolves it; the others it does not know.
                 req.url.host == "api.podcastindex.org" && req.url.encodedPath.endsWith("podcasts/byguid") ->
                     if (req.url.parameters["guid"] == ROLLED_GUID)
@@ -972,6 +974,21 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("Die meistgeboostete Folge.") and hasClickAction()).performClick()
         // E296's own page (no show notes in this feed), not the show any more.
         rule.waitUntil(10_000) { has("02.06.2026", substring = true) && !has("Die meistgeboostete Folge.") }
+    }
+
+    /** The show notes from the player, without closing it (device feedback 2026-10-16). */
+    @Test
+    fun theShowNotesOpenFromThePlayer() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Play")
+        tap("Play")
+        until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Show notes") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodes(hasText("Show notes") and hasClickAction()).onLast().performClick()
+        waitFor("(12:34) Hauptteil", substring = true)
+        check(koin.get<space.sovereigncast.hopp.player.PlayerController>().expanded.value) { "the player closed" }
     }
 
     /** Listening to a Sovereigncast show: its latest boosts in the player. */

@@ -101,7 +101,8 @@ class LargeScreenTest {
     fun nowPlayingStandsBesideTheEpisodeOnATablet() {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
-        rule.onNode(hasText("Show notes")).assertIsDisplayed()
+        // The notes' own text: "Show notes" is a chip in the player too.
+        rule.onNode(hasText("Mehr bei X.", substring = true)).assertIsDisplayed()
         check(!has("✓ Subscribed")) { "the show took the episode's place" }
     }
 
@@ -111,7 +112,8 @@ class LargeScreenTest {
     fun nowPlayingStandsBesideTheContentOnAnIpadAir() {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
-        rule.onNode(hasText("Show notes")).assertIsDisplayed()
+        // The notes' own text: "Show notes" is a chip in the player too.
+        rule.onNode(hasText("Mehr bei X.", substring = true)).assertIsDisplayed()
     }
 
     @Test @Config(qualifiers = "en-w1133dp-h744dp-land")
@@ -126,7 +128,7 @@ class LargeScreenTest {
         openPlayer()
         rule.onNode(hasContentDescription("Back")).performClick()
         waitFor("✓ Subscribed")
-        check(!has("Show notes")) { "the episode is still there" }
+        check(rule.onAllNodesWithText("Mehr bei X.", substring = true).fetchSemanticsNodes().isEmpty()) { "the episode is still there" }
     }
 
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
@@ -134,7 +136,7 @@ class LargeScreenTest {
         openPlayer()
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         waitFor("✓ Subscribed")
-        check(!has("Show notes")) { "the episode is still there" }
+        check(rule.onAllNodesWithText("Mehr bei X.", substring = true).fetchSemanticsNodes().isEmpty()) { "the episode is still there" }
     }
 
     /** Now playing's column takes about 40 % of a Pixel Tablet's width (device feedback 2026-10-13). */

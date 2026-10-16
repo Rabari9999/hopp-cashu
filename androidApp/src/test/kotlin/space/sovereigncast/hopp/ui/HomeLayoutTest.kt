@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -90,5 +91,32 @@ class HomeLayoutTest {
         runBlocking { settings.update { it.copy(senderName = "Satoshi") } }
         home()
         rule.waitUntil(10_000) { screen().any { "Satoshi" in it } }
+    }
+
+    /**
+     * Device feedback 2026-10-16: "Your shows" opened scrolled by one. The show
+     * with a Release Boosting round moves to the front once its instance answers,
+     * after the strip is shown, and the strip kept the old first show in view.
+     */
+    @Test
+    fun yourShowsStartsAtTheFirstShow() {
+        // A cold start: the shows are in the database, the instance answers later.
+        val podcasts = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>()
+        kotlinx.coroutines.runBlocking {
+            podcasts.subscribe("https://pod.test/alpha.xml")
+            podcasts.subscribe("https://pod.test/sc.xml")
+        }
+        rule.setContent { App() }
+        waitFor("Your shows")
+        // The tile in the strip — the rows under "New" start at the edge (0).
+        fun left(t: String) = rule.onAllNodes(hasText(t) and hasClickAction()).fetchSemanticsNodes().map { it.boundsInRoot.left }.filter { it > 0f }.minOrNull()
+        // First alphabetical: Alpha, then Nodesignal.
+        rule.waitUntil(10_000) { rule.waitForIdle(); (left("Alpha Show") ?: 999f) < (left("Nodesignal") ?: 0f) }
+        // The instance has answered (its round is listed to take part in): Nodesignal moves first.
+        rule.waitUntil(30_000) { rule.waitForIdle(); has("Take part") }
+        rule.waitForIdle()
+        check((left("Nodesignal") ?: 999f) < 100f) { "the strip does not start at its first show — Nodesignal at ${left("Nodesignal")}" }
+        val strip = rule.onAllNodes(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.HorizontalScrollAxisRange)).fetchSemanticsNodes()
+        check(strip.all { it.config[androidx.compose.ui.semantics.SemanticsProperties.HorizontalScrollAxisRange].value() == 0f }) { "a strip does not start at its first show" }
     }
 }

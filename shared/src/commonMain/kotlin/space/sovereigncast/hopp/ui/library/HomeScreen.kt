@@ -356,7 +356,14 @@ private fun ShowsStrip(
     val releases = actions.filter { it.kind == ShowAction.Kind.ReleaseBoosting }
         .mapNotNull { a -> a.publishAt?.let { isoToEpochSeconds(it) }?.let { a.podcastId to it } }.toMap()
     val ordered = shows.sortedBy { if (it.id in releases) 0 else 1 }
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    // A show with a round moves to the front once Sovereigncast answers — after
+    // the strip is shown. A lazy row keeps its first item in view, so the new
+    // first one sat off the left edge (device feedback 2026-10-16): back to the
+    // start, unless the listener has scrolled on.
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    val first = ordered.firstOrNull()?.id
+    androidx.compose.runtime.LaunchedEffect(first) { if (state.firstVisibleItemIndex <= 1) state.scrollToItem(0) }
+    LazyRow(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(ordered, key = { "s${it.id}" }) { show ->
             // Only the top corners echo the cover's: rounded at the bottom too, the
             // tile cut the ends off the rhythm line under it.

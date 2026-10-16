@@ -23,6 +23,8 @@ fun showNotes(html: String, link: SpanStyle, timestamp: SpanStyle, onTimestamp: 
     val links = ArrayDeque<Pair<String, Int>>()
     val lists = ArrayDeque<IntArray>() // [ordered 0/1, counter]
     var styleStart = -1
+    // Right after a list item's bullet, before any of its text.
+    var afterBullet = false
 
     // The last two characters written — reading them back from the builder
     // would copy the whole text each time.
@@ -44,6 +46,7 @@ fun showNotes(html: String, link: SpanStyle, timestamp: SpanStyle, onTimestamp: 
             if (last() == null || last() == '\n' || last() == ' ') t = t.trimStart()
         }
         if (t.isEmpty()) return
+        afterBullet = false
         val start = out.length
         put(t)
         val end = out.length
@@ -62,7 +65,11 @@ fun showNotes(html: String, link: SpanStyle, timestamp: SpanStyle, onTimestamp: 
         when (name) {
             "script", "style" -> if (closing) skip = (skip - 1).coerceAtLeast(0) else if (!attrs.trimEnd().endsWith("/")) skip++
             "br" -> put("\n")
-            "p", "div", "blockquote", "section", "article", "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr" -> {
+            // A paragraph inside a list item (<li><p>…</p></li>, device feedback
+            // 2026-10-16: Einundzwanzig's notes) is the item's text, not a block
+            // of its own: no break after the bullet, one line between items.
+            "p", "div" -> if (lists.isNotEmpty()) { if (!afterBullet) newline() } else paragraph()
+            "blockquote", "section", "article", "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr" -> {
                 paragraph()
                 if (name.startsWith("h") && name.length == 2) {
                     if (closing) { if (styleStart >= 0) out.addStyle(SpanStyle(fontWeight = FontWeight.Bold), styleStart, out.length); styleStart = -1 }
@@ -74,6 +81,7 @@ fun showNotes(html: String, link: SpanStyle, timestamp: SpanStyle, onTimestamp: 
                 newline()
                 val list = lists.lastOrNull()
                 if (list != null && list[0] == 1) { list[1]++; put("${list[1]}. ") } else put("• ")
+                afterBullet = true
             }
             "b", "strong" -> bold = (bold + if (closing) -1 else 1).coerceAtLeast(0)
             "i", "em" -> italic = (italic + if (closing) -1 else 1).coerceAtLeast(0)

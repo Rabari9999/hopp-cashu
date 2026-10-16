@@ -45,4 +45,14 @@ class ShowNotesTest {
     fun scriptsVanish() {
         assertEquals("Text", notes("<script>alert(1)</script><p>Text</p><style>p{}</style>").text)
     }
+
+    /** Device feedback 2026-10-16 (Einundzwanzig #336): each list item wrapped in a
+     *  paragraph read as a bullet alone on its line, the text two lines below. */
+    @Test
+    fun aParagraphInsideAListItemIsTheItemsText() {
+        val s = notes("""<p>Themen</p><ul><li><p>Code “<a href="https://bitbox.swiss/einundzwanzig">einundzwanzig</a>” — 10%.</p></li><li><p>Besuche den <a href="https://einundzwanzig.shop/">Shop</a></p></li></ul><p>Weitere Links</p>""")
+        assertEquals("Themen\n\n• Code “einundzwanzig” — 10%.\n• Besuche den Shop\n\nWeitere Links", s.text)
+        val numbered = notes("<ol><li><p>Eins</p><p>noch eins</p></li><li><p>Zwei</p></li></ol>")
+        assertEquals("1. Eins\nnoch eins\n2. Zwei", numbered.text)
+    }
 }

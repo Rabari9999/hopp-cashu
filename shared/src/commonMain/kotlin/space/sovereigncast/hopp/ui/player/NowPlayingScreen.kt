@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
@@ -121,6 +122,7 @@ import space.sovereigncast.hopp.resources.np_previous_chapter
 import space.sovereigncast.hopp.resources.np_progress
 import space.sovereigncast.hopp.resources.np_speed
 import space.sovereigncast.hopp.resources.sheet_chapters
+import space.sovereigncast.hopp.resources.episode_shownotes
 import space.sovereigncast.hopp.resources.sheet_community
 import space.sovereigncast.hopp.resources.sheet_people
 import space.sovereigncast.hopp.resources.sheet_transcript
@@ -159,6 +161,9 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     var showCommunity by remember { mutableStateOf(false) }
     val episodeRepo: EpisodeRepository = koinInject()
     val hasTranscript by produceState(false, episode.id) { value = runCatching { episodeRepo.hasTranscript(episode.id) }.getOrDefault(false) }
+    // The show notes without leaving the player (device feedback 2026-10-16): a sheet like the others.
+    var showNotesSheet by remember { mutableStateOf(false) }
+    val description by produceState<String?>(null, episode.id) { value = runCatching { episodeRepo.details(episode.id)?.description }.getOrNull()?.takeIf { it.isNotBlank() } }
     val sc: SovereigncastRepository = koinInject()
     val hasCommunity by remember(episode.podcastId) { sc.layer(episode.podcastId).map { it != null } }.collectAsState(false)
     val speedLabel = stringResource(Res.string.np_speed)
@@ -281,7 +286,10 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
 
             Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // One line that scrolls sideways: wrapped onto a second, the chips pushed
+            // the latest boosts off a phone held upright (2026-10-16, with Show notes).
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SheetChip(stringResource(Res.string.episode_shownotes), enabled = description != null) { showNotesSheet = true }
                 SheetChip(stringResource(Res.string.sheet_chapters), enabled = chapters.stops.isNotEmpty()) { showChapters = true }
                 SheetChip(stringResource(Res.string.sheet_transcript), enabled = hasTranscript) { showTranscript = true }
                 SheetChip(stringResource(Res.string.sheet_people), enabled = playing.persons.isNotEmpty()) { showPeople = true }
@@ -404,6 +412,18 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     }
                 }
                 Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
+    description?.let { html ->
+        if (showNotesSheet) ModalBottomSheet(onDismissRequest = { showNotesSheet = false }) {
+            val linkStyle = androidx.compose.ui.text.SpanStyle(color = colors.onSurface, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
+            val markStyle = androidx.compose.ui.text.SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+            // A time mark jumps there and stays: the listener may want the next one.
+            val notes = remember(html, linkStyle, markStyle) { space.sovereigncast.hopp.ui.components.showNotes(html, linkStyle, markStyle) { s -> model.seekTo(s * 1000) } }
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(notes, Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
