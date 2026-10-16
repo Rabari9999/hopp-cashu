@@ -148,3 +148,35 @@ private val ENTITY = Regex("&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);")
 private val WHITESPACE = Regex("\\s+")
 private val URL = Regex("https?://[^\\s<>\"]+")
 private val TIME = Regex("(?<![\\d:])(?:(\\d{1,2}):)?([0-5]?\\d):([0-5]\\d)(?![\\d:])")
+
+/**
+ * A Nostr comment as text: `nostr:npub…` mentions as the person's name
+ * ([name] gives it, or a short npub), plain URLs and time marks as links.
+ * Embedded notes (`nostr:nevent…`, as Fountain appends its episode) are left
+ * out — Hopp does not show them, and the bare code says nothing.
+ */
+fun commentText(
+    text: String, name: (String) -> String, mention: SpanStyle, link: SpanStyle, timestamp: SpanStyle, onTimestamp: (Long) -> Unit,
+): AnnotatedString {
+    val content = EMBED.replace(text, "").replace(TRAILING_SPACE, "\n").trim()
+    val out = AnnotatedString.Builder()
+    var at = 0
+    fun plain(text: String) {
+        val start = out.length
+        out.append(text)
+        linkify(out, text, start, link, timestamp, onTimestamp)
+    }
+    for (m in space.sovereigncast.hopp.comments.CommentThread.MENTION.findAll(content)) {
+        val key = space.sovereigncast.hopp.nostr.profileKey(m.value) ?: continue
+        plain(content.substring(at, m.range.first))
+        val start = out.length
+        out.append("@" + name(key))
+        out.addStyle(mention, start, out.length)
+        at = m.range.last + 1
+    }
+    plain(content.substring(at))
+    return out.toAnnotatedString()
+}
+
+private val EMBED = Regex("""nostr:(nevent|note|naddr)1[02-9ac-hj-np-z]+""")
+private val TRAILING_SPACE = Regex("""[ \t]+\n""")

@@ -566,10 +566,10 @@
     <string name="nostr_sign_out">Aus Hopp abmelden</string>
     <string name="nostr_sign_out_text">Der Schlüssel wird von diesem Gerät gelöscht. Ohne Sicherung ist die Identität verloren. Was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_confirm">Abmelden</string>
-    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net; purplepag.es und user.kindpag.es zum Nachschlagen von Profilen)</string>
-    <string name="pv_nostr_sees">deine IP-Adresse und was du mit deiner Nostr-Identität veröffentlichst – jetzt deinen Profilnamen; öffentlich für alle, dauerhaft</string>
-    <string name="pv_nostr_when">nur mit einer Nostr-Identität: wenn sie erstellt und ihr Profil veröffentlicht wird</string>
-    <string name="pv_nostr_tip">Ohne Identität spricht Hopp mit keinem Relay. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>
+    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net, die Relays, die eine Show nennt; purplepag.es, user.kindpag.es und relay.fountain.fm zum Nachschlagen von Profilen)</string>
+    <string name="pv_nostr_sees">deine IP-Adresse; beim Lesen von Kommentaren, um welche Folge es geht; was du mit deiner Nostr-Identität veröffentlichst – derzeit deinen Profilnamen; öffentlich für alle, dauerhaft</string>
+    <string name="pv_nostr_when">wenn du die Kommentare einer Folge lädst, und mit Nostr-Identität, wenn sie angelegt und ihr Profil veröffentlicht wird</string>
+    <string name="pv_nostr_tip">Hopp fragt Relays nur, wenn du die Kommentare öffnest oder eine Nostr-Identität nutzt. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>
     <string name="nostr_amber">Mit Amber anmelden</string>
     <string name="nostr_amber_note">Du hast schon eine Nostr-Identität in Amber oder einer anderen Signer-App? Melde dich damit an – dein Schlüssel bleibt dort, Hopp lässt nur signieren.</string>
     <string name="nostr_or_new">Oder eine neue Identität in Hopp erstellen</string>
@@ -591,4 +591,13 @@
     <string name="nostr_bunker_auth">Dein Signer bittet dich, auf seiner Seite zu bestätigen.</string>
     <string name="nostr_bunker_auth_open">Bestätigung öffnen</string>
     <string name="nostr_bunker_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="sheet_comments">Kommentare</string>
+    <string name="comments_intro">Kommentare kommen von Nostr – geschrieben in Hopp, Fountain, Damus oder einer anderen Nostr-App. Zum Laden fragt Hopp bis zu fünf Nostr-Relays; sie sehen deine IP-Adresse und diese Folge.</string>
+    <string name="comments_load">Kommentare laden</string>
+    <string name="comments_loading">Frage die Relays…</string>
+    <string name="comments_none">Noch keine Kommentare zu dieser Folge.</string>
+    <string name="comments_failed">Die Kommentare ließen sich nicht laden.</string>
+    <string name="comments_reload">Neu laden</string>
+    <string name="comments_from_relays">Von %1$d Nostr-Relays</string>
+    <string name="comments_reply_to">an %1$s</string>
 </resources>

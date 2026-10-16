@@ -43,6 +43,8 @@ import kotlinx.serialization.json.Json
     val leaderboard: Boolean = false,
     @SerialName("top_episodes") val topEpisodes: Boolean = false,
     @SerialName("payment_metadata") val paymentMetadata: Boolean = false,
+    /** The instance lists each episode's Nostr notes — where comments go (ADR 0021). */
+    @SerialName("episode_notes") val episodeNotes: Boolean = false,
 )
 
 @Serializable data class ScShow(
@@ -136,6 +138,10 @@ import kotlinx.serialization.json.Json
     val description: String = "",
     @SerialName("website_url") val websiteUrl: String? = null,
 )
+
+/** A Nostr note the show announced an episode with: `nostr:nevent1…` (or a bare `note1…`). */
+@Serializable data class EpisodeNote(val uri: String, @SerialName("author_npub") val authorNpub: String? = null, val purpose: String = "")
+@Serializable data class EpisodeNoteList(val notes: List<EpisodeNote>)
 
 @Serializable data class TopEpisodeList(val episodes: List<TopEpisode>)
 @Serializable data class VoteRequest(@SerialName("voter_id") val voterId: String)
@@ -266,6 +272,8 @@ class ListenerApi(private val http: HttpClient, private val authorizer: RequestA
     suspend fun suggestions(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/suggestions", SuggestionList.serializer())
     suspend fun leaderboard(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/leaderboard", Leaderboard.serializer())
     suspend fun topEpisodes(base: String, guid: String) = get(base, "/v1/shows/${seg(guid)}/top-episodes", TopEpisodeList.serializer())
+    suspend fun episodeNotes(base: String, guid: String, episodeGuid: String) =
+        get(base, "/v1/shows/${seg(guid)}/episodes/${seg(episodeGuid)}/notes", EpisodeNoteList.serializer())
     suspend fun payment(base: String, hash: String) = get(base, "/v1/payments/${seg(hash)}", PaymentStatus.serializer())
 
     suspend fun vote(base: String, guid: String, suggestionId: Long, voterId: String) =

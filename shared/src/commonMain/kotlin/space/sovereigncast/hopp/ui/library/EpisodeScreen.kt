@@ -57,6 +57,7 @@ import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.resources.episode_play
 import space.sovereigncast.hopp.resources.episode_resume
 import space.sovereigncast.hopp.resources.episode_shownotes
+import space.sovereigncast.hopp.resources.sheet_comments
 import space.sovereigncast.hopp.resources.np_pause
 import space.sovereigncast.hopp.resources.sheet_chapters
 import space.sovereigncast.hopp.resources.sheet_people
@@ -93,7 +94,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  */
 private enum class EpisodeTab(val label: StringResource) {
     Notes(Res.string.episode_shownotes), Chapters(Res.string.sheet_chapters), Transcript(Res.string.sheet_transcript),
-    Clips(Res.string.episode_clips), People(Res.string.sheet_people)
+    Clips(Res.string.episode_clips), People(Res.string.sheet_people), Comments(Res.string.sheet_comments)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -140,6 +141,9 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
         if (details?.transcripts?.isNotEmpty() == true) add(EpisodeTab.Transcript)
         if (clips.isNotEmpty()) add(EpisodeTab.Clips)
         if (persons.isNotEmpty()) add(EpisodeTab.People)
+        // Always: only the relays know whether there are any, and they are asked on a tap.
+        // Once the details are in — alone before them, the pager stayed on it as the others came.
+        if (details != null) add(EpisodeTab.Comments)
     }
     val pager = rememberPagerState { tabs.size }
 
@@ -258,6 +262,10 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                 }
                 EpisodeTab.Transcript -> Unit
                 EpisodeTab.People -> items(persons) { p -> PersonRow(p) }
+                EpisodeTab.Comments -> item {
+                    val comments: space.sovereigncast.hopp.ui.comments.CommentsViewModel = koinViewModel(key = "comments-${e.id}") { parametersOf(e.id) }
+                    space.sovereigncast.hopp.ui.comments.CommentsPane(comments, autoLoad = false, onTimestamp = { s -> player.playAt(e, s * 1000) }, modifier = Modifier.padding(16.dp))
+                }
                 null -> Unit
             }
             item { Spacer(Modifier.height(24.dp)) }

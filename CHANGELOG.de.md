@@ -10,8 +10,10 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Eine optionale Nostr-Identität** — in den Einstellungen erstellt, mit einem Namen, mit dem Hopp dich begrüßt; deine Stimmen bei Sovereigncast-Shows zählen dann einmal pro Person, auf jedem Gerät. Mit Amber oder einem Bunker (nsec.app und andere) anmelden, dann bleibt dein Schlüssel dort, oder in Hopp erstellen und mit Passwort sichern. Oder anonym bleiben.
 - **Den Trailer einer Show anhören** — auf ihrer Seite, auch vor dem Abonnieren; die Folge, die du gerade hörst, wartet, wo du warst.
 - **Shownotes im Player** — als Blatt wie Kapitel und Transkript; eine Zeitmarke springt dorthin.
+- **Kommentare zu einer Folge lesen** — von Nostr, im Player und auf der Folgenseite: Antworten auf die Posts der Show und was Fountain-Hörer dazu sagen. Erst geladen, wenn du sie öffnest.
 
 ### 🐛 Fixes
+- Die Chips im Player zeigten ausgegraut, was einer Folge fehlt; jetzt nur noch, was sie hat.
 - Shownotes, die jeden Listenpunkt in einen Absatz packen (Einundzwanzig), zeigten den Punkt allein und den Text zwei Zeilen darunter.
 - „Deine Shows“ konnte an der ersten Show vorbei gescrollt öffnen, sobald eine Show mit Release-Boosting-Runde nach vorn rückte.
 

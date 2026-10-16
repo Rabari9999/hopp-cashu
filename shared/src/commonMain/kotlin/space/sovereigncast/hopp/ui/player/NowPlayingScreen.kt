@@ -124,6 +124,7 @@ import space.sovereigncast.hopp.resources.np_speed
 import space.sovereigncast.hopp.resources.sheet_chapters
 import space.sovereigncast.hopp.resources.episode_shownotes
 import space.sovereigncast.hopp.resources.sheet_community
+import space.sovereigncast.hopp.resources.sheet_comments
 import space.sovereigncast.hopp.resources.sheet_people
 import space.sovereigncast.hopp.resources.sheet_transcript
 import space.sovereigncast.hopp.ui.components.ChapterProgressBar
@@ -159,6 +160,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     var showTranscript by remember { mutableStateOf(false) }
     var showPeople by remember { mutableStateOf(false) }
     var showCommunity by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) }
     val episodeRepo: EpisodeRepository = koinInject()
     val hasTranscript by produceState(false, episode.id) { value = runCatching { episodeRepo.hasTranscript(episode.id) }.getOrDefault(false) }
     // The show notes without leaving the player (device feedback 2026-10-16): a sheet like the others.
@@ -288,12 +290,16 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             Spacer(Modifier.height(12.dp))
             // One line that scrolls sideways: wrapped onto a second, the chips pushed
             // the latest boosts off a phone held upright (2026-10-16, with Show notes).
+            // Only what this episode has (device feedback 2026-10-16) — greyed-out
+            // placeholders crowded the line. Comments always: whether there are
+            // any only the relays know, and they are asked only once opened.
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SheetChip(stringResource(Res.string.episode_shownotes), enabled = description != null) { showNotesSheet = true }
-                SheetChip(stringResource(Res.string.sheet_chapters), enabled = chapters.stops.isNotEmpty()) { showChapters = true }
-                SheetChip(stringResource(Res.string.sheet_transcript), enabled = hasTranscript) { showTranscript = true }
-                SheetChip(stringResource(Res.string.sheet_people), enabled = playing.persons.isNotEmpty()) { showPeople = true }
-                SheetChip(stringResource(Res.string.sheet_community), enabled = hasCommunity) { showCommunity = true }
+                if (description != null) SheetChip(stringResource(Res.string.episode_shownotes)) { showNotesSheet = true }
+                if (chapters.stops.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_chapters)) { showChapters = true }
+                if (hasTranscript) SheetChip(stringResource(Res.string.sheet_transcript)) { showTranscript = true }
+                if (playing.persons.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_people)) { showPeople = true }
+                if (hasCommunity) SheetChip(stringResource(Res.string.sheet_community)) { showCommunity = true }
+                SheetChip(stringResource(Res.string.sheet_comments)) { showComments = true }
             }
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
         }
@@ -356,6 +362,15 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     if (showTranscript) TranscriptSheet(episode, position, onSeek = model::seekTo) { showTranscript = false }
     if (showPeople) PeopleSheet(playing.persons) { showPeople = false }
     if (showCommunity) CommunitySheet(episode.podcastId) { showCommunity = false }
+    if (showComments) ModalBottomSheet(onDismissRequest = { showComments = false }) {
+        val comments: space.sovereigncast.hopp.ui.comments.CommentsViewModel =
+            koinViewModel(key = "comments-${episode.id}") { org.koin.core.parameter.parametersOf(episode.id) }
+        Text(stringResource(Res.string.sheet_comments), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        space.sovereigncast.hopp.ui.comments.CommentsPane(
+            comments, autoLoad = true, onTimestamp = { s -> model.seekTo(s * 1000) },
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
+        )
+    }
 
     // The episode playing, "from here" a switch away (device feedback 2026-10-12).
 
@@ -461,14 +476,14 @@ private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, se
 }
 
 @Composable
-private fun SheetChip(label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun SheetChip(label: String, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
-        modifier = Modifier.clip(RoundedCornerShape(50)).clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
     ) {
         Text(
             label, Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
         )
     }

@@ -162,6 +162,21 @@ boost, profile): this stays public and permanent.
    code, signs out with `logout`. NIP-44 only; signers that speak only
    NIP-04 are not supported.
 2. **Reading comments**, with the relay entry on the privacy page.
+   *Built 2026-10-16:* a Comments chip in the player (a sheet, loaded on
+   opening) and a Comments tab on the episode page (loaded on a tap). The
+   anchor: the feed's `socialInteract`, `getEpisodeNotes`, and the show's
+   keys from `accountId`, the notes' authors and `podcast:txt
+   purpose="nostr"`. One REQ for kinds 1/1111 by `#i`, `#I` and `#e` of
+   the show's notes, a second for answers to what it found (Fountain
+   replies name only the comment). The relays: two hints of the notes, the
+   default list, the show's NIP-65 write relays — five at most. Muted:
+   the public entries of the show's and the listener's kind 10000; a muted
+   comment goes with everything below it. One level of replies; a deeper
+   one names whom it answers. Names: the comment relays, the two indexes
+   and relay.fountain.fm — Fountain listeners' profiles are often only
+   there (live on 2026-10-16: 5 of 10 commenters). Embedded `nostr:nevent`
+   references are not shown. The player's chips show only what the
+   episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.
 5. **Sync.**

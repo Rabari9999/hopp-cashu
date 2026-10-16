@@ -28,7 +28,7 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
 | `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |
 | `podcast:medium` | ✅ (always `podcast`) | ✅ | P2 | Music medium → V4V music use case. |
-| `podcast:socialInteract` | ✅ (Nostr) | ❌ | P2 | Comments via Nostr. |
+| `podcast:socialInteract` | ✅ (Nostr) | ✅ (read) | P2 | Comments via Nostr: read since 2026-10-16 (ADR 0021, stage 2); writing is stage 3. |
 | `podcast:txt` | ✅ | ✅ (`purpose="nostr"`) | P2 | `purpose="sovereigncast"` = discovery marker (ADR 0002). |
 | `podcast:locked` | ✅ | ✅ | — | Relevant for hosts, not players. |
 | `<language>` | ✅ per show | ✅ | P1 | Was hardcoded `en` on the self-hosted path until 2026-10-07. |

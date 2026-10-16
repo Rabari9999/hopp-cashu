@@ -161,6 +161,9 @@ class SovereigncastRepository(
     suspend fun suggestions(layer: ScLayer) = api.suggestions(layer.base, layer.show.podcastGuid)
     suspend fun leaderboard(layer: ScLayer) = api.leaderboard(layer.base, layer.show.podcastGuid)
     suspend fun topEpisodes(layer: ScLayer) = api.topEpisodes(layer.base, layer.show.podcastGuid)
+    /** The show's Nostr notes for an episode; none where the instance does not list them. */
+    suspend fun episodeNotes(layer: ScLayer, episodeGuid: String): List<EpisodeNote> =
+        if (!layer.show.capabilities.episodeNotes) emptyList() else api.episodeNotes(layer.base, layer.show.podcastGuid, episodeGuid).notes
 
     /** Free, one per listener and suggestion; remembered here to show it. */
     suspend fun vote(layer: ScLayer, suggestionId: Long): VoteResult {

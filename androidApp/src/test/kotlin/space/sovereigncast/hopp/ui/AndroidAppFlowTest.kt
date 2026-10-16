@@ -991,6 +991,36 @@ class AndroidAppFlowTest {
         check(koin.get<space.sovereigncast.hopp.player.PlayerController>().expanded.value) { "the player closed" }
     }
 
+    /** Device feedback 2026-10-16: only chips with something behind them — no
+     *  greyed-out Community for a show without Sovereigncast; Comments always,
+     *  and opening them asks the relays (ADR 0021, stage 2). */
+    @Test
+    fun thePlayerShowsOnlyChipsWithContentAndTheComments() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Play")
+        tap("Play")
+        until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Show notes") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        check(!has("Community")) { "a placeholder chip for a show without Sovereigncast" }
+        rule.onAllNodes(hasText("Comments") and hasClickAction()).onLast().performClick()
+        waitFor("No comments on this episode yet.")
+    }
+
+    /** On the episode page the comments wait for a tap: relays see the IP address and the episode. */
+    @Test
+    fun theEpisodePageLoadsCommentsOnlyOnRequest() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Play")
+        tap("Comments")
+        waitFor("Load comments")
+        check(!has("No comments on this episode yet.")) { "loaded before asked" }
+        tap("Load comments")
+        waitFor("No comments on this episode yet.")
+    }
+
     /** Listening to a Sovereigncast show: its latest boosts in the player. */
     private fun playScShow() {
         rule.setContent { App() }

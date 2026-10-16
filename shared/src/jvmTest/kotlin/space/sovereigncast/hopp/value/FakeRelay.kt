@@ -19,7 +19,8 @@ import space.sovereigncast.hopp.nostr.RelaySession
 /**
  * An in-memory Nostr relay for tests: stores events, answers REQ with stored
  * matches + EOSE and forwards new events to matching subscriptions. Enough of
- * NIP-01 for NIP-47 (kinds, authors, #e, #p, limit).
+ * NIP-01 for NIP-47 and comments (kinds, authors, ids, any #tag, limit,
+ * several filters in one REQ).
  */
 class FakeRelay : RelayConnector {
     private val json = Json { ignoreUnknownKeys = true }
@@ -51,11 +52,11 @@ class FakeRelay : RelayConnector {
         when (arr[0].jsonPrimitive.content) {
             "REQ" -> {
                 val id = arr[1].jsonPrimitive.content
-                val filter = arr[2].jsonObject
-                session.subs[id] = filter
-                val limit = filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE
-                synchronized(this) { stored.filter { matches(filter, it) }.takeLast(limit) }
-                    .forEach { session.channel.trySend(eventMessage(id, it)) }
+                val filters = arr.drop(2).map { it.jsonObject }
+                session.subs[id] = filters.first()
+                synchronized(this) {
+                    filters.flatMap { filter -> stored.filter { matches(filter, it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }
+                }.forEach { session.channel.trySend(eventMessage(id, it)) }
                 session.channel.trySend("""["EOSE","$id"]""")
             }
             "EVENT" -> {
@@ -76,7 +77,9 @@ class FakeRelay : RelayConnector {
         fun list(k: String) = (f[k] as? JsonArray)?.map { it.jsonPrimitive.content }
         list("kinds")?.let { if (e.kind.toString() !in it) return false }
         list("authors")?.let { if (e.pubkey !in it) return false }
-        for (tag in listOf("e", "p")) list("#$tag")?.let { vals ->
+        list("ids")?.let { if (e.id !in it) return false }
+        for (key in f.keys.filter { it.startsWith("#") }) list(key)?.let { vals ->
+            val tag = key.removePrefix("#")
             if (e.tags.none { it.size >= 2 && it[0] == tag && it[1] in vals }) return false
         }
         return true

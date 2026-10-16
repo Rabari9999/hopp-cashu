@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.jsonArray
@@ -16,7 +17,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** Sends an event to relays and says which of them took it (NIP-01 `OK`); reads
- *  an author's newest event of a kind back. */
+ *  an author's newest event of a kind back, or whatever matches a filter. */
 class RelayPublisher(val connector: RelayConnector, private val timeout: Duration = 10.seconds) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -28,6 +29,48 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     /** The newest valid event of [kind] by [author] on any of [relays], or null. */
     suspend fun latest(kind: Int, author: String, relays: List<String>): Event? = coroutineScope {
         relays.distinct().map { url -> async { latestOn(kind, author, url) } }.awaitAll().filterNotNull().maxByOrNull { it.created_at }
+    }
+
+    /**
+     * Every valid event matching any of [filters] (NIP-01 filters, one REQ) on
+     * [relays], each once. A relay that is slow to say EOSE keeps what it sent
+     * until then; one that fails adds nothing.
+     */
+    suspend fun query(filters: List<JsonObject>, relays: List<String>): List<Event> = coroutineScope {
+        relays.distinct().map { url -> async { queryOn(filters, url) } }.awaitAll().flatten()
+            .distinctBy { it.id }.filter { it.isValid() }
+    }
+
+    private suspend fun queryOn(filters: List<JsonObject>, url: String): List<Event> {
+        val found = mutableListOf<Event>()
+        withTimeoutOrNull(timeout) {
+            val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull
+            try {
+                coroutineScope {
+                    val sub = "hopp-query"
+                    val done = async(start = CoroutineStart.UNDISPATCHED) {
+                        session.incoming.mapNotNull { text ->
+                            runCatching {
+                                val arr = json.parseToJsonElement(text).jsonArray
+                                when (arr[0].jsonPrimitive.content) {
+                                    "EVENT" -> { found += json.decodeFromJsonElement(Event.serializer(), arr[2]); null }
+                                    "EOSE", "CLOSED" -> true
+                                    else -> null
+                                }
+                            }.getOrNull()
+                        }.first()
+                    }
+                    session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
+                    done.await()
+                    runCatching { session.send("""["CLOSE","$sub"]""") }
+                }
+            } catch (e: Exception) {
+                // What arrived before the failure still counts.
+            } finally {
+                runCatching { session.close() }
+            }
+        }
+        return found.toList()
     }
 
     private suspend fun latestOn(kind: Int, author: String, url: String): Event? = withTimeoutOrNull(timeout) {
