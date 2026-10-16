@@ -222,6 +222,11 @@ boost, profile): this stays public and permanent.
    Device feedback 2026-10-16: an answer's field opens under the comment it
    answers, focused and in view (at the top it went unseen); a like shows at
    once while the signer and the relays work, and is taken back if it fails.
+   A new comment answers the episode's announcement: Sovereigncast's
+   `post_release` note, else the feed's newest — a boost to E297 had landed
+   under the Release Boosting note, the first the instance lists. Above the
+   keyboard: the comment lists take the IME's height, so an answer to the
+   last comment is not typed blind.
 4. **Public boosts**, opt-in — *built 2026-10-16* with the comments: a
    switch in the boost dialog, preset by "Boosts on Nostr too" on the Nostr
    page (off by default). Once a boost to an episode is paid, the paid

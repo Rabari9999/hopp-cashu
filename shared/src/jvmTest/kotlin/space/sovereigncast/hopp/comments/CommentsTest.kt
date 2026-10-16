@@ -51,6 +51,8 @@ class CommentsTest {
     /** The show's notes: one in the feed, one only the instance knows (a PodHome feed carries no socialInteract). */
     private val feedNote = Event.sign(show, 1, "E297 is out", listOf(listOf("i", item)), now - 1000)
     private val preNote = Event.sign(show, 1, "Boost E297 out", emptyList(), now - 5000)
+    /** The announcement after the release — where new comments go, not under the Release Boosting note. */
+    private val postNote = Event.sign(show, 1, "E297 is out, listen", emptyList(), now - 900)
 
     private fun nevent(id: String, relay: String, author: String): String {
         val r = relay.encodeToByteArray()
@@ -73,7 +75,8 @@ class CommentsTest {
             path == "/api/listener/v1/shows/by-guid/$guid" -> respond("""{"podcast_guid":"$guid","title":"Nodesignal","feed_url":"https://pod.test/feed.xml",
                 "capabilities":{"episode_notes":true},"poll_after_seconds":3600}""")
             path == "/api/listener/v1/shows/$guid/episodes/e297/notes" -> respond("""{"notes":[
-                {"uri":"nostr:${Bech32.encode("note", preNote.id.hexToBytes())}","author_npub":"${npub(show.publicKeyHex)}","purpose":"pre_release"}]}""")
+                {"uri":"nostr:${Bech32.encode("note", preNote.id.hexToBytes())}","author_npub":"${npub(show.publicKeyHex)}","purpose":"pre_release"},
+                {"uri":"${nevent(postNote.id, "wss://post.test", show.publicKeyHex)}","author_npub":"${npub(show.publicKeyHex)}","purpose":"post_release"}]}""")
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
@@ -104,7 +107,9 @@ class CommentsTest {
         val anchor = comments.anchor(episode())!!
         assertEquals("e297", anchor.episodeGuid)
         assertEquals(guid, anchor.podcastGuid)
-        assertEquals(setOf(feedNote.id, preNote.id), anchor.notes.map { it.id }.toSet())
+        assertEquals(setOf(feedNote.id, preNote.id, postNote.id), anchor.notes.map { it.id }.toSet())
+        // Device feedback 2026-10-16: a boost landed under the Release Boosting note.
+        assertEquals(postNote.id, anchor.answerTo?.id, "new comments answer the announcement after the release")
         assertEquals(listOf("wss://show.test"), anchor.notes.first { it.id == feedNote.id }.relays)
         assertEquals(setOf(show.publicKeyHex), anchor.showKeys)
     }
@@ -281,8 +286,7 @@ class CommentsTest {
         val posted = writer.comment(anchor, "  Great show!  ", listOf("wss://relay.damus.io"))
         assertEquals(1, posted.kind)
         assertEquals("Great show!", posted.content)
-        val note = anchor.notes.first()
-        assertTrue(listOf("e", note.id, note.relays.first(), "root") in posted.tags, "NIP-10 root: the show's note, with its relay")
+        assertTrue(listOf("e", postNote.id, "wss://post.test", "root") in posted.tags, "NIP-10 root: the show's announcement, with its relay")
         assertTrue(listOf("p", show.publicKeyHex) in posted.tags)
         assertTrue(listOf("i", item) in posted.tags && listOf("i", "podcast:guid:$guid") in posted.tags, "NIP-73: episode and show")
         assertEquals(listOf(posted.id), writeReader.cached(anchor)?.comments?.map { it.id }, "shown without asking the relays again")
@@ -292,7 +296,7 @@ class CommentsTest {
     @Test
     fun withoutAShowNoteItIsAKind1111CommentOnTheGuid() = test {
         identities.create("Me")
-        val anchor = comments.anchor(episode())!!.copy(notes = emptyList())
+        val anchor = comments.anchor(episode())!!.copy(notes = emptyList(), answerTo = null)
         val posted = writer.comment(anchor, "No note here", emptyList())
         assertEquals(1111, posted.kind)
         assertEquals(listOf(listOf("I", item), listOf("K", "podcast:item:guid"), listOf("i", item), listOf("k", "podcast:item:guid")), posted.tags)
@@ -364,7 +368,7 @@ class CommentsTest {
         val anchor = comments.anchor(episode())!!
         val posted = writer.boost(anchor, 2100, "  Danke! ", emptyList())
         assertEquals("Danke!\n\n⚡ 2100 sats", posted.content)
-        assertTrue(listOf("e", feedNote.id, "wss://show.test", "root") in posted.tags && listOf("i", item) in posted.tags)
+        assertTrue(listOf("e", postNote.id, "wss://post.test", "root") in posted.tags && listOf("i", item) in posted.tags)
         assertEquals("⚡ 21 sats", writer.boost(anchor, 21, "", emptyList()).content)
         assertEquals(2, writeReader.cached(anchor)!!.comments.size)
     }

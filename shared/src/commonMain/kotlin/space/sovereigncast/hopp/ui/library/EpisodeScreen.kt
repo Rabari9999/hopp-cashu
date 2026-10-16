@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -229,7 +230,8 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                 onShare = { cue -> sharing = ShareTarget.Quote(e, cue) })
             return@TabbedPage
         }
-        LazyColumn(Modifier.fillMaxSize()) {
+        // Above the keyboard, for an answer to the last comment (device feedback 2026-10-16).
+        LazyColumn(Modifier.fillMaxSize().imePadding()) {
             when (tabs.getOrNull(index)) {
                 EpisodeTab.Notes -> item {
                     SelectionContainer {

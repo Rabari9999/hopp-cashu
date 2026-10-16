@@ -65,6 +65,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -356,7 +357,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         Text(stringResource(Res.string.sheet_comments), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
         space.sovereigncast.hopp.ui.comments.CommentsPane(
             comments, onTimestamp = { s -> model.seekTo(s * 1000) },
-            modifier = Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
+            // Above the keyboard: the list ends where it begins, so the last comment's answer stays in view.
+            modifier = Modifier.imePadding().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
         )
     }
 

@@ -14,6 +14,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Boosts auch auf Nostr** — mit Nostr-Identität kann ein Boost an eine Folge zusätzlich als öffentlicher Kommentar mit Betrag erscheinen, wie bei Fountain; ein Schalter im Boost-Dialog, vorbelegt in den Einstellungen.
 
 ### 🐛 Fixes
+- Eine Antwort auf den letzten Kommentar tippte man unter der Tastatur; und Kommentare und Boosts landeten am Release-Boosting-Post der Show statt an der Ankündigung der Folge.
 - Die wechselnde Zeile mit den letzten Boosts der Show im Player ist weg: Sie verwirrte mehr, als sie half.
 - Kommentare laden nur, wenn du es möchtest, auch im Player – sofort nur mit VPN; einmal geladen, bleiben sie auf dem Gerät und erscheinen sofort.
 - Kommentare brauchten 30–40 Sekunden, wenn ein Relay nicht antwortete; und Fountains Kommentare endeten mit einem Link auf die Folge, die du gerade hörst.

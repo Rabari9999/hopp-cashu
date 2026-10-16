@@ -81,6 +81,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -355,7 +358,11 @@ private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<S
     // An answer's field takes the focus and scrolls into view at once.
     val focus = remember { FocusRequester() }
     val inView = remember { BringIntoViewRequester() }
-    if (inline) LaunchedEffect(to?.id) { runCatching { focus.requestFocus() }; inView.bringIntoView() }
+    if (inline) LaunchedEffect(to?.id) { runCatching { focus.requestFocus() } }
+    // Again once the keyboard is up: for the last comment there was nothing left to scroll,
+    // and the keyboard covered the field (device feedback 2026-10-16).
+    val keyboard = WindowInsets.ime.getBottom(LocalDensity.current)
+    if (inline) LaunchedEffect(to?.id, keyboard) { inView.bringIntoView() }
     Column(modifier.bringIntoViewRequester(inView), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         to?.let { c ->
             Row(verticalAlignment = Alignment.CenterVertically) {

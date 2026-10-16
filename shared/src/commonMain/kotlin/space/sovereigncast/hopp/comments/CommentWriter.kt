@@ -44,7 +44,7 @@ class CommentWriter(
             add(listOf("i", anchor.itemTag)); add(listOf("k", "podcast:item:guid"))
             anchor.podcastGuid?.let { add(listOf("i", "podcast:guid:$it")); add(listOf("k", "podcast:guid")) }
         }
-        val note = anchor.notes.firstOrNull()
+        val note = anchor.answerTo
         val unsigned = when {
             to != null && to.kind == CommentReader.COMMENT -> UnsignedEvent(CommentReader.COMMENT, body, listOf(
                 listOf("I", anchor.itemTag), listOf("K", "podcast:item:guid"),

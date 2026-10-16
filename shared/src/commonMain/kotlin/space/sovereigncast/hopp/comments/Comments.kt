@@ -31,7 +31,15 @@ import space.sovereigncast.hopp.value.Bolt11
  * the notes the show announced it with, and the show's own keys — a note of
  * theirs about the episode is where comments go, not a comment itself.
  */
-data class CommentAnchor(val episodeGuid: String, val podcastGuid: String?, val notes: List<NoteRef>, val showKeys: Set<String>) {
+data class CommentAnchor(
+    val episodeGuid: String,
+    val podcastGuid: String?,
+    val notes: List<NoteRef>,
+    val showKeys: Set<String>,
+    /** The note a new comment answers: the episode's announcement once it is out,
+     *  not the Release Boosting note before it (device feedback 2026-10-16). */
+    val answerTo: NoteRef? = notes.firstOrNull(),
+) {
     val itemTag: String get() = "podcast:item:guid:$episodeGuid"
 }
 
@@ -127,7 +135,12 @@ class CommentsRepository(
             notes.mapNotNull { it.author }.forEach(::add)
             meta?.txt.orEmpty().filter { it.purpose.equals("nostr", ignoreCase = true) }.mapNotNull { profileKey(it.value) }.forEach(::add)
         }
-        return CommentAnchor(item.guid, meta?.podcastGuid, notes, keys) to asked.isSuccess
+        // Comments go under the announcement: the instance's post_release note, else the
+        // feed's newest (its priorities count up in the order they were posted).
+        val answerId = fromInstance.lastOrNull { it.purpose == "post_release" }?.let { noteRef(it.uri)?.id }
+            ?: fromFeed.lastOrNull()?.let { noteRef(it.uri)?.id }
+            ?: fromInstance.lastOrNull()?.let { noteRef(it.uri)?.id }
+        return CommentAnchor(item.guid, meta?.podcastGuid, notes, keys, notes.firstOrNull { it.id == answerId } ?: notes.firstOrNull()) to asked.isSuccess
     }
 }
 

@@ -14,6 +14,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Boosts on Nostr too** — with a Nostr identity, a boost to an episode can also go out as a public comment with its amount, as in Fountain; a switch in the boost dialog, preset in the settings.
 
 ### 🐛 Fixes
+- An answer to the last comment was typed under the keyboard; and comments and boosts went under a show's Release Boosting post instead of the episode's announcement.
 - The player's cycling line of the show's latest boosts is gone: it confused more than it told.
 - Comments load only when you ask, in the player too — at once only behind a VPN; once loaded they stay on the device and show at once.
 - Comments took 30–40 seconds when a relay did not answer; and Fountain's comments ended with a link to the episode you are on.
