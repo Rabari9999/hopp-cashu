@@ -84,7 +84,7 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
             if (valueOnly) add("val" to "lightning")
         }
         return get("search/byterm", credentials, *params.toTypedArray())["feeds"].objects()
-            .mapNotNull { show(it, valueKnown = valueOnly) }
+            .mapNotNull { show(it) }
     }
 
     /**
@@ -94,7 +94,7 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
     suspend fun trending(language: String?, category: Category?, max: Int, credentials: PodcastIndexCredentials): List<DirectoryShow> =
         get("podcasts/trending", credentials, *listOfNotNull(
             "max" to "$max", language?.let { "lang" to it }, category?.let { "cat" to it.index.joinToString(",") },
-        ).toTypedArray())["feeds"].objects().filter { it["duplicateOf"].let { d -> d == null || d is JsonNull } }.mapNotNull { show(it, valueKnown = false) }
+        ).toTypedArray())["feeds"].objects().filter { it["duplicateOf"].let { d -> d == null || d is JsonNull } }.mapNotNull { show(it) }
 
     /** Shows that newly carry a Lightning value block (`recent/newvaluefeeds`). */
     suspend fun newValueFeeds(language: String?, category: Category?, max: Int, credentials: PodcastIndexCredentials): List<DirectoryShow> =
@@ -106,10 +106,10 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
      *  feed claiming the GUID, so it is checked to really be that one. */
     suspend fun byGuid(guid: String, credentials: PodcastIndexCredentials): DirectoryShow? {
         val feed = get("podcasts/byguid", credentials, "guid" to guid)["feed"] as? JsonObject ?: return null
-        return show(feed, valueKnown = false)?.takeIf { it.podcastGuid.equals(guid, ignoreCase = true) }
+        return show(feed)?.takeIf { it.podcastGuid.equals(guid, ignoreCase = true) }
     }
 
-    private fun show(o: JsonObject, valueKnown: Boolean): DirectoryShow? {
+    private fun show(o: JsonObject, valueKnown: Boolean = false): DirectoryShow? {
         if ((o["dead"] as? JsonPrimitive)?.intOrNull == 1) return null
         val url = o.str("url") ?: return null
         val value = o["value"] as? JsonObject
@@ -119,11 +119,17 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
             author = o.str("author") ?: o.str("ownerName"),
             imageUrl = o.str("artwork") ?: o.str("image"),
             podcastGuid = o.str("podcastGuid"),
-            hasValue = when {
-                valueKnown -> true
-                value != null -> (value["model"] as? JsonObject)?.str("type") == "lightning"
-                else -> null
-            },
+            // Only an actual value object in the answer marks a show as
+            // boostable. The `val=lightning` search filter is no proof: the
+            // index keeps feeds whose value block is long gone (stale flag —
+            // "Sound Money Bitcoin Podcast", found on a device 2026-10-16,
+            // promised V4V in Discover and had none after subscribing).
+            // [valueKnown] is the one deliberate exception, for
+            // `recent/newvaluefeeds` ([newValueFeeds]): its answer carries no
+            // value objects at all (checked 2026-10-19 against the live API),
+            // and a feed is listed there because its value block just arrived,
+            // so the flag is fresh — unlike the search filter's.
+            hasValue = if (valueKnown) true else value?.let { (it["model"] as? JsonObject)?.str("type") == "lightning" },
             categories = (o["categories"] as? JsonObject)?.values?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty(),
         )
     }
