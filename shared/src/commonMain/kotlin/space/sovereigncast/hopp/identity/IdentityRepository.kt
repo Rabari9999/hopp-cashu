@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import space.sovereigncast.hopp.nostr.BunkerSigner
+import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.BunkerUri
 import space.sovereigncast.hopp.nostr.ExternalNostrSigner
 import space.sovereigncast.hopp.nostr.Nip46Client
@@ -31,6 +32,11 @@ import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.nostr.npub
 import space.sovereigncast.hopp.platform.SecretStore
+
+/** A pasted key that cannot be used. */
+class KeyImportException(val reason: Reason) : Exception(reason.name) {
+    enum class Reason { Unreadable, NeedsPassword, WrongPassword }
+}
 
 /** The listener's Nostr identity as Hopp shows it (ADR 0006/0021). */
 @Serializable
@@ -198,6 +204,38 @@ class IdentityRepository(
         val took = publisher.publish(profile, DEFAULT_RELAYS + INDEX_RELAYS)
         publisher.publish(relays, DEFAULT_RELAYS + INDEX_RELAYS)
         return took
+    }
+
+    /** The key Hopp holds, as NIP-19 nsec — for the password manager or another app; null for a key held elsewhere. */
+    fun nsec(): String? = _identity.value?.takeIf { it.holdsKey }?.let { secrets.get(KEY) }?.let { Bech32.encode("nsec", it.hexToBytes()) }
+
+    /** The key is kept somewhere beyond this device: the backup reminder is done. */
+    fun markBackedUp() { _identity.value?.let { if (!it.exported) save(it.copy(exported = true)) } }
+
+    /**
+     * An existing key, pasted or from the password manager: `nsec1…`, or a
+     * NIP-49 `ncryptsec1…` with its [password]. It is kept like a key made
+     * here; the profile is read from the relays, never written. Counts as
+     * backed up — it came from somewhere.
+     */
+    suspend fun importKey(text: String, password: String? = null): NostrIdentity {
+        val t = text.trim().removePrefix("nostr:")
+        val secret = when {
+            t.startsWith("nsec1") -> runCatching { Bech32.decode(t) }.getOrNull()?.takeIf { it.first == "nsec" && it.second.size == 32 }?.second
+                ?: throw KeyImportException(KeyImportException.Reason.Unreadable)
+            t.startsWith("ncryptsec1") -> {
+                if (password.isNullOrEmpty()) throw KeyImportException(KeyImportException.Reason.NeedsPassword)
+                withContext(Dispatchers.Default) { runCatching { Nip49.decrypt(t, password) }.getOrNull() }
+                    ?: throw KeyImportException(KeyImportException.Reason.WrongPassword)
+            }
+            else -> throw KeyImportException(KeyImportException.Reason.Unreadable)
+        }
+        val keys = runCatching { KeyPair(secret) }.getOrElse { throw KeyImportException(KeyImportException.Reason.Unreadable) }
+        secrets.put(BUNKER_KEY, null)
+        secrets.put(KEY, secret.toHex())
+        val me = NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, null, exported = true)
+        save(me)
+        return refreshProfile() ?: me
     }
 
     /** NIP-49 with [password]; scrypt takes a moment, so off the main thread. */

@@ -127,11 +127,25 @@ boost, profile): this stays public and permanent.
 
 ### 9. Key backup
 
-- The export is **NIP-49 (`ncryptsec`)** with a password; the bare `nsec` only
-  behind a second confirmation.
-- A reminder after the first comment or boost made with a key from Hopp.
-- The key stays out of system backups (ADR 0015) — so without an export, a
-  lost phone means a lost identity. The onboarding says so.
+*Amended 2026-10-16 (device feedback):* the password-locked ncryptsec was the
+only backup, and its text promised that any Nostr app opens it — Primal does
+not, nor does Damus. Hopp's working copy stays in the device-only store
+(Keystore, Keychain); the backup leaves the device by the listener's choice:
+
+- **First: the password manager** — on Android the Credential Manager saves
+  the nsec as a password under the npub (Google Password Manager, Bitwarden,
+  KeePassDX …; the FOSS build uses the system's own Credential Manager,
+  Android 14+, and carries no Play services); on iOS a synchronizable item
+  in the iCloud Keychain. No password to remember, back in one tap.
+- **The nsec in plain text**, which every app reads, after a warning; the
+  clipboard is marked sensitive and cleared after a minute (on iOS it
+  expires and stays off the Universal Clipboard).
+- **NIP-49 ncryptsec** with a password under "more options", saying which
+  apps read it.
+- **An existing key** — from the password manager or pasted as nsec or
+  ncryptsec — becomes the identity; its profile is read, not written.
+- The reminder after the first comment made with a key from Hopp stays; a
+  key saved or copied counts as backed up.
 
 ### Stages
 

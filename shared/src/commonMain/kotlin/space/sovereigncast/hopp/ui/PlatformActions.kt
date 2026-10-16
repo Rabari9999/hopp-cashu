@@ -32,6 +32,10 @@ interface PlatformActions {
     val canScanQr: Boolean get() = false
     /** Reads a QR code with the camera; calls back with its text, not when closed. */
     fun scanQr(onText: (String) -> Unit) = Unit
+    /** Where the Nostr key can be kept beyond this device; null where there is none. */
+    val keyVault: space.sovereigncast.hopp.platform.KeyVault? get() = null
+    /** Copies a secret: marked sensitive, gone from the clipboard after a minute, not sent to other devices. */
+    fun copySecret(text: String, label: String) = copyText(text, label)
 }
 
 object NoPlatformActions : PlatformActions {

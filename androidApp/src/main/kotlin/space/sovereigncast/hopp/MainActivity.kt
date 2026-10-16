@@ -132,6 +132,28 @@ class MainActivity : ComponentActivity(), PlatformActions {
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)) }
     }
 
+    override val keyVault: space.sovereigncast.hopp.platform.KeyVault? by lazy {
+        if (space.sovereigncast.hopp.platform.PasswordManagerVault.available) space.sovereigncast.hopp.platform.PasswordManagerVault(this) else null
+    }
+
+    /** Marked sensitive (Android 13+ hides it in the copy preview and from keyboards' suggestions),
+     *  and gone after a minute if it is still what the clipboard holds. */
+    override fun copySecret(text: String, label: String) {
+        val clipboard = getSystemService(android.content.ClipboardManager::class.java) ?: return
+        val clip = android.content.ClipData.newPlainText(label, text)
+        clip.description.extras = android.os.PersistableBundle().apply {
+            putBoolean(if (Build.VERSION.SDK_INT >= 33) android.content.ClipDescription.EXTRA_IS_SENSITIVE else "android.content.extra.IS_SENSITIVE", true)
+        }
+        clipboard.setPrimaryClip(clip)
+        if (Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(this, R.string.copied, android.widget.Toast.LENGTH_SHORT).show()
+        android.os.Handler(mainLooper).postDelayed({
+            val now = runCatching { clipboard.primaryClip?.getItemAt(0)?.text?.toString() }.getOrNull()
+            if (now == text) {
+                if (Build.VERSION.SDK_INT >= 28) clipboard.clearPrimaryClip() else clipboard.setPrimaryClip(android.content.ClipData.newPlainText("", ""))
+            }
+        }, 60_000)
+    }
+
     override fun copyText(text: String, label: String) {
         val clipboard = getSystemService(android.content.ClipboardManager::class.java) ?: return
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText(label, text))

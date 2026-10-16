@@ -229,4 +229,39 @@ class IdentityTest {
         assertEquals("X", me.name)
         assertNull(me.picture)
     }
+
+    /** Device feedback 2026-10-16: the key out as nsec (every app reads it) and back in, as nsec or ncryptsec. */
+    @Test
+    fun aKeyGoesOutAsNsecAndComesBack() = runBlocking<Unit> {
+        identities.create("X")
+        val me = identities.identity.value!!
+        val nsec = identities.nsec()!!
+        assertTrue(nsec.startsWith("nsec1"))
+        assertTrue(!me.exported)
+        identities.markBackedUp()
+        assertTrue(identities.identity.value!!.exported)
+        val locked = identities.export("correct horse")
+        identities.signOut()
+
+        // Another device: the nsec as it came from the password manager.
+        val other = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { now })
+        assertEquals(me.pubkey, other.importKey("  $nsec ").pubkey)
+        assertEquals(me.pubkey, other.signer()?.pubkey, "it signs")
+        assertTrue(other.identity.value!!.exported && other.identity.value!!.holdsKey)
+
+        // The ncryptsec: its password first, a wrong one refused.
+        val third = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { now })
+        assertEquals(KeyImportException.Reason.NeedsPassword, kotlin.test.assertFailsWith<KeyImportException> { third.importKey(locked) }.reason)
+        assertEquals(KeyImportException.Reason.WrongPassword, kotlin.test.assertFailsWith<KeyImportException> { third.importKey(locked, "wrong") }.reason)
+        assertNull(third.identity.value)
+        assertEquals(me.pubkey, third.importKey(locked, "correct horse").pubkey)
+        // And what is not a key at all.
+        assertEquals(KeyImportException.Reason.Unreadable, kotlin.test.assertFailsWith<KeyImportException> { third.importKey("npub1" + "q".repeat(58)) }.reason)
+        assertEquals(KeyImportException.Reason.Unreadable, kotlin.test.assertFailsWith<KeyImportException> { third.importKey("nsec1garbage") }.reason)
+    }
+
+    @Test
+    fun aKeyHeldElsewhereHasNoNsec() = runBlocking<Unit> {
+        assertNull(identities.nsec())
+    }
 }

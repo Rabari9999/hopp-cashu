@@ -13,6 +13,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Kommentare zu jeder Folge** — von Nostr, im Player und auf der Folgenseite: was andere Hörer sagen (auch bei Fountain, mit den Sats ihrer Boosts), und mit Nostr-Identität deine eigenen Kommentare, Antworten und Likes. Stummschalten, melden oder ausblenden, was du nicht sehen willst.
 - **Boosts auch auf Nostr** — mit Nostr-Identität kann ein Boost an eine Folge zusätzlich als öffentlicher Kommentar mit Betrag erscheinen, wie bei Fountain; ein Schalter im Boost-Dialog, vorbelegt in den Einstellungen.
 - **Sofort veröffentlichen oder freischalten** — Release Boosting und Boost2Unlock bieten den Betrag an, der die Folge jetzt herausbringt (oder das Ziel auffüllt), berechnet wie auf der Community-Seite.
+- **Dein Nostr-Schlüssel, sicher und mitnehmbar** — im Passwortmanager (Android) oder iCloud-Schlüsselbund (iOS) sichern und mit einem Tipp zurückholen, als nsec für jede Nostr-App kopieren oder einen vorhandenen Schlüssel verwenden.
 
 ### 🐛 Fixes
 - Eine Show ohne Value for Value bot im Player trotzdem Boost und Streaming an; jetzt sagt eine ausgegraute Leiste, dass sie keine Sats annimmt. Und ein Kommentar nannte den Autor des Release-Boosting-Posts statt der Show.

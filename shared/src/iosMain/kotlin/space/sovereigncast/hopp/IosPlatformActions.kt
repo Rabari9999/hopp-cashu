@@ -11,6 +11,7 @@ import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIPasteboard
+import platform.Foundation.dateByAddingTimeInterval
 import platform.UIKit.UIViewController
 import platform.UIKit.popoverPresentationController
 import space.sovereigncast.hopp.ui.PlatformActions
@@ -48,6 +49,19 @@ class IosPlatformActions : PlatformActions {
     /** iOS shows no confirmation of its own; the clipboard is the confirmation. */
     override fun copyText(text: String, label: String) {
         UIPasteboard.generalPasteboard.string = text
+    }
+
+    override val keyVault: space.sovereigncast.hopp.platform.KeyVault = space.sovereigncast.hopp.platform.ICloudKeychainVault()
+
+    /** Gone from the clipboard after a minute, and kept off the Universal Clipboard of the listener's other devices. */
+    override fun copySecret(text: String, label: String) {
+        UIPasteboard.generalPasteboard.setItems(
+            listOf(mapOf("public.utf8-plain-text" to text)),
+            mapOf(
+                platform.UIKit.UIPasteboardOptionLocalOnly to true,
+                platform.UIKit.UIPasteboardOptionExpirationDate to platform.Foundation.NSDate().dateByAddingTimeInterval(60.0),
+            ),
+        )
     }
 
     @OptIn(ExperimentalForeignApi::class)

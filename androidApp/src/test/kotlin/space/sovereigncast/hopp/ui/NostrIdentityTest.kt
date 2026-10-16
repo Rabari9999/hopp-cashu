@@ -4,6 +4,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
@@ -84,6 +85,9 @@ class NostrIdentityTest {
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
         waitFor("Back up your key")
+        // The password-locked backup is one of the "more options" now (device feedback 2026-10-16).
+        tap("More options ▾")
+        waitFor("Encrypt with a password (ncryptsec)")
         val fields = rule.onAllNodes(hasSetTextAction())
         fields[0].performTextInput("correct horse")
         fields[1].performTextInput("correct hors")
@@ -92,6 +96,36 @@ class NostrIdentityTest {
         tap("Create backup")
         rule.waitUntil(30_000) { has("ncryptsec1", substring = true) }
         check(koin.get<IdentityRepository>().identity.value?.exported == true)
+    }
+
+    /** The plain nsec, which every Nostr app reads (Primal too) — after a warning. */
+    @Test
+    fun theNsecIsCopiedAfterAWarning() {
+        runBlocking { koin.get<IdentityRepository>().create("X") }
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Copy key (nsec)")
+        tap("Copy key (nsec)")
+        waitFor("Copy the key in plain text?")
+        check(koin.get<IdentityRepository>().identity.value?.exported == false) { "not before it is copied" }
+        rule.onAllNodes(hasText("Copy") and androidx.compose.ui.test.hasClickAction()).onLast().performClick()
+        rule.waitUntil(10_000) { koin.get<IdentityRepository>().identity.value?.exported == true }
+    }
+
+    /** A key from elsewhere, pasted as nsec (device feedback 2026-10-16: there was no way back in). */
+    @Test
+    fun anExistingKeyIsUsed() {
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", keys.secretKey)
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Use an existing key")
+        rule.onNode(hasText("nsec1… or ncryptsec1…") and hasSetTextAction()).performTextInput(nsec)
+        tap("Use key")
+        rule.waitUntil(10_000) { koin.get<IdentityRepository>().identity.value?.pubkey == keys.publicKeyHex }
+        waitFor("npub1", substring = true)
     }
 
     private fun vote(): String? {
@@ -189,7 +223,7 @@ class NostrIdentityTest {
     @Test
     fun aBrokenBunkerAddressIsRefusedVisibly() {
         nostrPage()
-        rule.onAllNodes(hasSetTextAction())[0].performTextInput("bunker://nokey?relay=wss://r.test")
+        rule.onNode(hasText("bunker://…") and hasSetTextAction()).performTextInput("bunker://nokey?relay=wss://r.test")
         tap("Connect")
         waitFor("Could not connect: no signer key in the address")
         check(koin.get<IdentityRepository>().identity.value == null)

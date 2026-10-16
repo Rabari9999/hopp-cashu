@@ -13,6 +13,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Comments on every episode** — from Nostr, in the player and on the episode page: what other listeners say (Fountain's too, with the sats of their boosts), and with a Nostr identity your own comments, answers and likes. Mute, report or hide what you do not want to see.
 - **Boosts on Nostr too** — with a Nostr identity, a boost to an episode can also go out as a public comment with its amount, as in Fountain; a switch in the boost dialog, preset in the settings.
 - **Publish or unlock at once** — Release Boosting and Boost2Unlock offer the amount that brings the episode out now (or fills the goal), worked out as the community page does.
+- **Your Nostr key, safe and portable** — save it in your password manager (Android) or iCloud Keychain (iOS) and get it back with one tap, copy it as nsec for any Nostr app, or use a key you already have.
 
 ### 🐛 Fixes
 - A show without value for value still offered boosting and streaming in the player; a greyed bar says it takes no sats now. And a comment named the Release Boosting post's author instead of the show.

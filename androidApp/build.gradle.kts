@@ -11,6 +11,10 @@ plugins {
 dependencies {
     implementation(projects.shared)
     implementation(libs.androidx.activity.compose)
+    // The Nostr key into the password manager (device feedback 2026-10-16): the
+    // system's own Credential Manager (Android 14+, any provider). Play services for
+    // older Android only in the Play build, below — F-Droid's stays free of them.
+    implementation(libs.androidx.credentials)
     implementation(libs.compose.uiToolingPreview)
     implementation(libs.compose.foundation)
     implementation(libs.media3.exoplayer)
@@ -181,3 +185,9 @@ val syncIosVersion by tasks.registering {
     doLast { if (!file.isFile || file.readText() != text) file.writeText(text) }
 }
 tasks.named("preBuild") { dependsOn(syncIosVersion) }
+
+// After the flavours exist: Google Password Manager through Play services on
+// Android before 14, in the Play build only.
+dependencies {
+    "playImplementation"(libs.androidx.credentials.playServices)
+}
