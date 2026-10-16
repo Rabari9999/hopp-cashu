@@ -1,0 +1,9 @@
+// Copy to Local.xcconfig (git ignores it) and fill in.
+
+// Your Apple developer team: developer.apple.com → Account → Membership details.
+TEAM_ID = ABCDE12345
+
+// Runs on your own iPhone: an ID of your own, so that your team does not
+// register Hopp's IDs (an explicit bundle ID belongs to the first team that
+// registers it). Leave it out for the simulator.
+// BUNDLE_ID = space.sovereigncast.hopp.dev.yourname

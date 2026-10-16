@@ -69,6 +69,11 @@ personal name as seller, and a built-in wallet (phase 3) cannot ship in the
 `appstore` build until an organisation (legal entity + D-U-N-S number) exists.
 It can ship in `altstore` and on Android.
 
+**Amended 2026-10-16:** the first release is `altstore` only, uploaded and
+notarized in a befriended developer's existing account; Nodesignal's own
+account comes with the `appstore` build. That build has its own bundle ID
+(ADR 0004) and the developer's name as seller. How: docs/ios-release.md.
+
 ## Consequences
 
 - iOS release work doubles in distribution (App Store Connect + AltStore PAL

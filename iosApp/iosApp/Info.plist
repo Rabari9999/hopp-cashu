@@ -18,6 +18,11 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- Hopp implements standard encryption itself (ChaCha20, NIP-44 for NWC and
+	     signers, NIP-49 keys), beyond what iOS provides: not exempt. App Store
+	     Connect asks for the French declaration (docs/ios-release.md). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

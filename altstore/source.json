@@ -1,0 +1,38 @@
+{
+  "name": "Hopp",
+  "subtitle": "Honest open podcast player",
+  "description": "Hopp — by Sovereigncast. A podcast player for Podcasting 2.0: chapters, transcripts, people, and value for value over your own Lightning wallet. No account, no tracking. Open source (MIT): https://gitlab.com/nodesignal/hopp",
+  "iconURL": "https://hopp.sovereigncast.space/altstore/icon.png",
+  "website": "https://hopp.sovereigncast.space",
+  "nsfw": false,
+  "featuredApps": ["space.sovereigncast.hopp.pal"],
+  "apps": [
+    {
+      "name": "Hopp",
+      "bundleIdentifier": "space.sovereigncast.hopp.pal",
+      "marketplaceID": "APPLE-ID-FROM-APP-STORE-CONNECT",
+      "developerName": "Nodesignal",
+      "subtitle": "Podcasting 2.0 player — no account, boosts over your own Lightning wallet",
+      "localizedDescription": "Hopp is a podcast player for every podcast, built for Podcasting 2.0: chapters, transcripts, people, and value for value over Lightning.\n\nNo account, no tracking. Install it and listen. Hopp collects nothing and runs no server of its own. A privacy page explains in plain words who sees what when you listen — and what you can do about it.\n\nOnly your wallet. Hopp has no built-in wallet and never holds your sats. Connect your own Lightning wallet over Nostr Wallet Connect (NWC), boost an episode or a whole show, or stream sats while you listen — within a daily budget you set.\n\n100 % to the podcasters. Hopp takes no cut; routing fees are shown separately.\n\nSovereigncast shows come alive in Hopp: Release Boosting, Boost2Unlock, topic votes and the community's top boosts.\n\nHopp is open source (MIT).",
+      "iconURL": "https://hopp.sovereigncast.space/altstore/icon.png",
+      "category": "entertainment",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "X.Y.Z",
+          "buildVersion": "VERSION-CODE",
+          "date": "YYYY-MM-DD",
+          "localizedDescription": "The CHANGELOG.md section of X.Y.Z.",
+          "downloadURL": "https://hopp.sovereigncast.space/altstore/X.Y.Z/manifest.json",
+          "size": 0,
+          "minOSVersion": "17.4"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
+  "news": []
+}

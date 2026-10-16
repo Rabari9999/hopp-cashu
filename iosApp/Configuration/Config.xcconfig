@@ -5,3 +5,8 @@ APP_NAME=Hopp
 // MARKETING_VERSION, CURRENT_PROJECT_VERSION: written by Gradle from
 // androidApp/build.gradle.kts (syncIosVersion), so both apps say the same.
 #include "Version.xcconfig"
+
+// Each developer's own team (and, for runs on a device, own bundle ID) —
+// not checked in; copy Local.xcconfig.example. The AltStore PAL release sets
+// its bundle ID itself (scripts/release-ios.sh, docs/ios-release.md).
+#include? "Local.xcconfig"

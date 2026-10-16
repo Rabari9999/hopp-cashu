@@ -15,6 +15,7 @@ xcuserdata/
 DerivedData/
 *.xcuserstate
 Pods/
+iosApp/Configuration/Local.xcconfig
 
 # OS
 .DS_Store
