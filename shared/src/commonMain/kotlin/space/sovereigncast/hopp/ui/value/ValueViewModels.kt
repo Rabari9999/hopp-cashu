@@ -82,7 +82,9 @@ data class StreamDetail(
 sealed interface BoostState {
     data object Editing : BoostState
     data object Sending : BoostState
-    data class Done(val results: List<ShareResult>) : BoostState
+    /** [nostr]: the boost as a Nostr comment — null when not asked for. */
+    data class Done(val results: List<ShareResult>, val nostr: NostrPost? = null) : BoostState
+    enum class NostrPost { Posting, Posted, Failed }
     data class Failed(val reason: String) : BoostState
 }
 
@@ -92,7 +94,12 @@ class ValueBarViewModel(
     wallet: WalletRepository,
     private val settings: SettingsRepository,
     private val reports: space.sovereigncast.hopp.value.BoostReports,
+    identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
+    private val comments: space.sovereigncast.hopp.comments.CommentsRepository? = null,
+    private val writer: space.sovereigncast.hopp.comments.CommentWriter? = null,
 ) : ViewModel() {
+    /** With an identity, a boost to an episode can also go out as a Nostr comment. */
+    val identity: StateFlow<space.sovereigncast.hopp.identity.NostrIdentity?> = identities?.identity ?: MutableStateFlow(null)
     val connected: StateFlow<ConnectedWallet?> = wallet.wallet
     val current: StateFlow<Settings?> = state(settings.settings, null)
     val streamedToday: StateFlow<Long> = state(value.streamedTodayMsat, 0L)
@@ -129,8 +136,19 @@ class ValueBarViewModel(
         _plan.value = value.plan(item, positionSeconds, amountSats * 1000)
     }
 
-    fun send(item: EpisodeItem, positionSeconds: Long, amountSats: Long, message: String, name: String) =
-        run(item.podcastId, amountSats, name) { value.boost(item, positionSeconds, amountSats * 1000, message) }
+    fun send(item: EpisodeItem, positionSeconds: Long, amountSats: Long, message: String, name: String, onNostr: Boolean = false) =
+        run(item.podcastId, amountSats, name, onNostr = onNostr.takeIf { it }?.let { { sats -> postBoost(item, sats, message) } }) {
+            value.boost(item, positionSeconds, amountSats * 1000, message)
+        }
+
+    /** The paid part of a boost as a comment on the episode; false when it could not go out. */
+    private suspend fun postBoost(item: EpisodeItem, sats: Long, message: String): Boolean = runCatching {
+        settings.update { it.copy(nostrPublicNoted = true) }
+        val anchor = comments?.anchor(item.id) ?: return false
+        // Where its comments came from, if they were loaded; the writer adds the listener's relays.
+        val relays = comments.reader.cached(anchor)?.relays.orEmpty()
+        (writer ?: return false).boost(anchor, sats, message, relays)
+    }.isSuccess
 
     fun planShow(podcastId: Long, amountSats: Long) = viewModelScope.launch {
         _plan.value = value.planShow(podcastId, amountSats * 1000)
@@ -148,13 +166,22 @@ class ValueBarViewModel(
 
     /** In the app's scope, not the screen's: a boost on its way is finished
      *  and reported even when the sheet or the player closes (BoostReports). */
-    private fun run(podcastId: Long, amountSats: Long, name: String, pay: suspend () -> List<space.sovereigncast.hopp.value.ShareResult>) {
+    private fun run(
+        podcastId: Long, amountSats: Long, name: String,
+        onNostr: (suspend (Long) -> Boolean)? = null,
+        pay: suspend () -> List<space.sovereigncast.hopp.value.ShareResult>,
+    ) {
         _boost.value = BoostState.Sending
         reports.scope.launch {
             settings.update { it.copy(senderName = name.trim()) }
             val outcome = try {
                 val results = pay()
-                _boost.value = BoostState.Done(results)
+                // Public only for what was paid, and only when something was.
+                val paidSats = results.filterIsInstance<space.sovereigncast.hopp.value.ShareResult.Paid>().sumOf { it.share.amountMsat } / 1000
+                if (onNostr != null && paidSats > 0) {
+                    _boost.value = BoostState.Done(results, BoostState.NostrPost.Posting)
+                    _boost.value = BoostState.Done(results, if (onNostr(paidSats)) BoostState.NostrPost.Posted else BoostState.NostrPost.Failed)
+                } else _boost.value = BoostState.Done(results)
                 value.outcome(podcastId, amountSats, results)
             } catch (e: Exception) {
                 val reason = e.message ?: "error"

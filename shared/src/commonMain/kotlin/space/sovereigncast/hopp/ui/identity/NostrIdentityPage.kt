@@ -75,6 +75,8 @@ import space.sovereigncast.hopp.resources.nostr_or_new
 import space.sovereigncast.hopp.resources.nostr_amber_note
 import space.sovereigncast.hopp.resources.nostr_amber
 import space.sovereigncast.hopp.resources.nostr_anonymous_note
+import space.sovereigncast.hopp.resources.nostr_boosts
+import space.sovereigncast.hopp.resources.nostr_boosts_note
 import space.sovereigncast.hopp.resources.nostr_backup
 import space.sovereigncast.hopp.resources.nostr_backup_button
 import space.sovereigncast.hopp.resources.nostr_backup_done
@@ -201,6 +203,7 @@ class NostrIdentityViewModel(
     fun publishAgain() = work { _published.value = identities.publishProfile().size }
     fun export(password: String) = work { _exported.value = identities.export(password) }
     fun setAnonymous(on: Boolean) = viewModelScope.launch { settings.update { it.copy(scAnonymous = on) } }
+    fun setNostrBoosts(on: Boolean) = viewModelScope.launch { settings.update { it.copy(nostrBoosts = on) } }
     fun signOut() {
         _exported.value = null; _published.value = null
         // A bunker hears that the session is over — a courtesy, not waited on long.
@@ -362,6 +365,15 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
             Text(stringResource(Res.string.nostr_anonymous_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         Switch(checked = settings?.scAnonymous == true, onCheckedChange = vm::setAnonymous)
+    }
+
+    // Boosts as public comments too, as Fountain does (device feedback 2026-10-16).
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(Res.string.nostr_boosts))
+            Text(stringResource(Res.string.nostr_boosts_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = settings?.nostrBoosts == true, onCheckedChange = vm::setNostrBoosts)
     }
 
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {

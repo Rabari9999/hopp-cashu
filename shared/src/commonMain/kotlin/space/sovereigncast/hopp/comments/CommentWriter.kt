@@ -67,6 +67,17 @@ class CommentWriter(
         return event
     }
 
+    /**
+     * A boost made public (ADR 0021, 6): a comment like any other — answering
+     * the show's note, with the episode's NIP-73 tags — with the amount in its
+     * text, as every client shows it. Nostr readers cannot check the amount;
+     * it is the listener's word, as Fountain's own boost notes are.
+     */
+    suspend fun boost(anchor: CommentAnchor, sats: Long, message: String, relays: List<String>): Event {
+        val line = "⚡ $sats sats"
+        return comment(anchor, if (message.isBlank()) line else "${message.trim()}\n\n$line", relays)
+    }
+
     /** A like on [comment] (NIP-25), kept at once. */
     suspend fun like(anchor: CommentAnchor, comment: Comment, relays: List<String>): Event {
         val event = publish(UnsignedEvent(CommentReader.REACTION, "+", listOf(

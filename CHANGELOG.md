@@ -11,6 +11,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Hear a show's trailer** — on its page, before subscribing too; the episode you were listening to waits where you left it.
 - **Show notes in the player** — a sheet like chapters and transcript; a time mark jumps there.
 - **Comments on every episode** — from Nostr, in the player and on the episode page: what other listeners say (Fountain's too, with the sats of their boosts), and with a Nostr identity your own comments, answers and likes. Mute, report or hide what you do not want to see.
+- **Boosts on Nostr too** — with a Nostr identity, a boost to an episode can also go out as a public comment with its amount, as in Fountain; a switch in the boost dialog, preset in the settings.
 
 ### 🐛 Fixes
 - The player's cycling line of the show's latest boosts is gone: it confused more than it told.

@@ -70,6 +70,9 @@ data class Settings(
     val mutedLocally: Set<String> = emptySet(),
     /** Comments the listener reported or hid: never shown again here. */
     val hiddenComments: Set<String> = emptySet(),
+    /** A boost to an episode also as a public Nostr comment, as Fountain does — the
+     *  boost dialog's switch starts there (ADR 0021, 6; device feedback 2026-10-16). */
+    val nostrBoosts: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -118,6 +121,7 @@ data class Settings(
                 nostrPublicNoted = values["nostr_public_noted"]?.toBooleanStrictOrNull() ?: d.nostrPublicNoted,
                 nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
                 mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
+                nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
             )
         }
@@ -159,6 +163,7 @@ data class Settings(
         "nostr_backup_reminded" to nostrBackupReminded.toString(),
         "muted_local" to mutedLocally.joinToString("\n"),
         "hidden_comments" to hiddenComments.joinToString("\n"),
+        "nostr_boosts" to nostrBoosts.toString(),
     )
 }
 

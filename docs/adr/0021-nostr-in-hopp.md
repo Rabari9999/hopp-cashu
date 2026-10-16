@@ -219,7 +219,17 @@ boost, profile): this stays public and permanent.
    Signers are asked at login for standing permission for kinds 1, 1111,
    7, 10000 and 1984 besides NIP-98; identities from before are asked per
    event by their signer.
-4. **Public boosts**, opt-in.
+   Device feedback 2026-10-16: an answer's field opens under the comment it
+   answers, focused and in view (at the top it went unseen); a like shows at
+   once while the signer and the relays work, and is taken back if it fails.
+4. **Public boosts**, opt-in — *built 2026-10-16* with the comments: a
+   switch in the boost dialog, preset by "Boosts on Nostr too" on the Nostr
+   page (off by default). Once a boost to an episode is paid, the paid
+   amount goes out as a comment like any other (answering the show's note,
+   NIP-73 tags), the message and "⚡ n sats" as its text — what every client
+   shows; readers cannot check the amount, as with Fountain's own notes. The
+   boost dialog says whether it went out; a failed post leaves the boost as
+   it is. Boosts to a whole show and donations stay private.
 5. **Sync.**
 
 ## Consequences

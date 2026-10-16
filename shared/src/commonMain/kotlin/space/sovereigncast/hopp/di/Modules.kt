@@ -129,5 +129,5 @@ fun sharedModule(platform: Platform) = module {
     viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get()) }
     viewModel { HistoryViewModel(get()) }
     single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
-    viewModel { ValueBarViewModel(get(), get(), get(), get()) }
+    viewModel { ValueBarViewModel(get(), get(), get(), get(), get(), get(), get()) }
 }

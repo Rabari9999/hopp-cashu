@@ -79,6 +79,11 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import space.sovereigncast.hopp.resources.*
@@ -200,13 +205,18 @@ class CommentsViewModel(
         }
     }
 
+    /** Likes shown before the signer and the relays are done (device feedback 2026-10-16: a noticeable wait). */
+    val liking = MutableStateFlow<Set<String>>(emptySet())
+
     fun like(c: Comment) = publicly {
         val thread = thread() ?: return@publicly
         val me = identity.value?.pubkey ?: return@publicly
-        if (me in c.likes) return@publicly
+        if (me in c.likes || c.id in liking.value) return@publicly
+        liking.value += c.id
         viewModelScope.launch {
             runCatching { writer.like(repo.anchor(episodeId) ?: error("no episode"), c, thread.relays) }
                 .onSuccess { refreshFromStore() }.onFailure { error.value = reason(it) }
+            liking.value -= c.id
         }
     }
 
@@ -291,7 +301,11 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 val authors = me?.let { i -> authors + (i.pubkey to CommentAuthor(i.name ?: authors[i.pubkey]?.name, i.picture ?: authors[i.pubkey]?.picture)) } ?: authors
                 val hidden = settings?.hiddenComments.orEmpty()
                 val mutedHere = settings?.mutedLocally.orEmpty()
-                Composer(vm, me != null, authors)
+                val to by vm.replyTo.collectAsState()
+                val liking by vm.liking.collectAsState()
+                // A new comment at the top; an answer right under what it answers
+                // (device feedback 2026-10-16: far down, the field at the top went unseen).
+                if (to == null) Composer(vm, me != null, authors)
                 // Nothing to read and no sats behind it (a Fountain boost before its
                 // amount is in, or a bare link): not shown. Nor what the listener
                 // hid, reported or muted here.
@@ -302,8 +316,12 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 }
                 if (shown.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
                 shown.forEach { (c, replies) ->
-                    CommentRow(c, authors, boosts[c.id], me?.pubkey, vm, onTimestamp)
-                    replies.forEach { r -> CommentRow(r, authors, boosts[r.id], me?.pubkey, vm, onTimestamp, Modifier.padding(start = 40.dp)) }
+                    CommentRow(c, authors, boosts[c.id], me?.pubkey, c.id in liking, vm, onTimestamp)
+                    if (to?.id == c.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
+                    replies.forEach { r ->
+                        CommentRow(r, authors, boosts[r.id], me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp))
+                        if (to?.id == r.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
+                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(Res.string.comments_from_relays, s.thread.relays.size), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
@@ -321,8 +339,9 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
 val LocalOpenIdentity = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Writing: the field, or without an identity the way to one (the draft waits). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<String, CommentAuthor>) {
+private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<String, CommentAuthor>, inline: Boolean = false, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     if (!hasIdentity) {
         val open = LocalOpenIdentity.current
@@ -333,7 +352,11 @@ private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<S
     val to by vm.replyTo.collectAsState()
     val sending by vm.sending.collectAsState()
     val error by vm.error.collectAsState()
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // An answer's field takes the focus and scrolls into view at once.
+    val focus = remember { FocusRequester() }
+    val inView = remember { BringIntoViewRequester() }
+    if (inline) LaunchedEffect(to?.id) { runCatching { focus.requestFocus() }; inView.bringIntoView() }
+    Column(modifier.bringIntoViewRequester(inView), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         to?.let { c ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(Res.string.comments_replying, nameOf(c.pubkey, authors)), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
@@ -341,8 +364,8 @@ private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<S
             }
         }
         OutlinedTextField(
-            draft, { vm.draft.value = it }, Modifier.fillMaxWidth(),
-            placeholder = { Text(stringResource(Res.string.comments_write_hint)) }, maxLines = 6,
+            draft, { vm.draft.value = it }, Modifier.fillMaxWidth().focusRequester(focus),
+            placeholder = { Text(stringResource(if (to != null) Res.string.comments_reply_hint else Res.string.comments_write_hint)) }, maxLines = 6,
             trailingIcon = {
                 if (sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else IconButton(onClick = vm::send, enabled = draft.isNotBlank()) {
@@ -396,7 +419,7 @@ private fun nameOf(key: String, authors: Map<String, CommentAuthor>): String =
 
 @Composable
 private fun CommentRow(
-    c: Comment, authors: Map<String, CommentAuthor>, sats: Long?, me: String?, vm: CommentsViewModel,
+    c: Comment, authors: Map<String, CommentAuthor>, sats: Long?, me: String?, liking: Boolean, vm: CommentsViewModel,
     onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -431,10 +454,11 @@ private fun CommentRow(
             if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
             // Like, answer, more — small, under the text.
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                val liked = me != null && me in c.likes
+                val liked = me != null && (me in c.likes || liking)
+                val count = c.likes.size + if (liking && me !in c.likes) 1 else 0
                 val likeLabel = stringResource(Res.string.comments_like)
                 Text(
-                    (if (liked) "♥" else "♡") + if (c.likes.isNotEmpty()) " ${c.likes.size}" else "",
+                    (if (liked) "♥" else "♡") + if (count > 0) " $count" else "",
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = !liked) { if (me == null) openIdentity() else vm.like(c) }
                         .padding(vertical = 6.dp, horizontal = 2.dp).semantics { contentDescription = likeLabel },
                     color = if (liked) Hopp.colors.valueText else colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,

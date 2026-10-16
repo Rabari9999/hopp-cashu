@@ -289,6 +289,7 @@ fun BoostSheet(
     var message by remember { mutableStateOf("") }
     var name by remember(settings?.senderName) { mutableStateOf(settings?.senderName.orEmpty()) }
     var overConfirmed by remember { mutableStateOf(false) }
+    var onNostr by remember(settings?.nostrBoosts) { mutableStateOf(settings?.nostrBoosts == true) }
     LaunchedEffect(amount) {
         overConfirmed = false
         if (amount > 0) when {
@@ -315,7 +316,7 @@ fun BoostSheet(
             )
 
             when (val s = state) {
-                is BoostState.Done -> { BoostDone(s.results, onClose = { vm.resetBoost(); onDismiss() }); return@Column }
+                is BoostState.Done -> { BoostDone(s.results, s.nostr, onClose = { vm.resetBoost(); onDismiss() }); return@Column }
                 is BoostState.Failed -> Text(stringResource(Res.string.boost_failed, s.reason), color = colors.error)
                 else -> Unit
             }
@@ -331,6 +332,18 @@ fun BoostSheet(
             )
             OutlinedTextField(message, { message = it.take(250) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
             OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_name)) }, singleLine = true)
+            // As a public Nostr comment too, as Fountain does — per boost, starting from the
+            // setting (ADR 0021, 6). Episodes only: a comment needs one to hang on.
+            val me by vm.identity.collectAsState()
+            if (me != null && item != null && donateTo == null) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.boost_on_nostr))
+                        Text(stringResource(Res.string.boost_on_nostr_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = onNostr, onCheckedChange = { onNostr = it })
+                }
+            }
 
             when (val p = plan) {
                 BoostPlan.NoValue -> Text(stringResource(Res.string.boost_no_value), color = colors.onSurfaceVariant)
@@ -360,7 +373,7 @@ fun BoostSheet(
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         when {
                             donateTo != null -> vm.sendDonation(podcastId, donateTo, amount, message, name)
-                            item != null -> vm.send(item, position, amount, message, name)
+                            item != null -> vm.send(item, position, amount, message, name, onNostr = onNostr && vm.identity.value != null)
                             else -> vm.sendShow(podcastId, amount, message, name)
                         }
                     }
@@ -448,7 +461,7 @@ internal fun reasonText(reason: String): String = when (reason) {
 }
 
 @Composable
-private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
+private fun BoostDone(results: List<ShareResult>, nostr: BoostState.NostrPost?, onClose: () -> Unit) {
     val paid = results.filterIsInstance<ShareResult.Paid>()
     Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(48.dp))
@@ -469,6 +482,12 @@ private fun BoostDone(results: List<ShareResult>, onClose: () -> Unit) {
                 Text(stringResource(Res.string.boost_not_paid, r.share.recipient.name ?: r.share.recipient.address, why),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        when (nostr) {
+            BoostState.NostrPost.Posting -> Text(stringResource(Res.string.boost_nostr_posting), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            BoostState.NostrPost.Posted -> Text(stringResource(Res.string.boost_nostr_posted), style = MaterialTheme.typography.bodySmall, color = Hopp.colors.ok)
+            BoostState.NostrPost.Failed -> Text(stringResource(Res.string.boost_nostr_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            null -> Unit
         }
         TextButton(onClick = onClose, modifier = Modifier.padding(bottom = 16.dp)) { Text(stringResource(Res.string.boost_close)) }
     }

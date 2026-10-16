@@ -11,6 +11,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Den Trailer einer Show anhören** — auf ihrer Seite, auch vor dem Abonnieren; die Folge, die du gerade hörst, wartet, wo du warst.
 - **Shownotes im Player** — als Blatt wie Kapitel und Transkript; eine Zeitmarke springt dorthin.
 - **Kommentare zu jeder Folge** — von Nostr, im Player und auf der Folgenseite: was andere Hörer sagen (auch bei Fountain, mit den Sats ihrer Boosts), und mit Nostr-Identität deine eigenen Kommentare, Antworten und Likes. Stummschalten, melden oder ausblenden, was du nicht sehen willst.
+- **Boosts auch auf Nostr** — mit Nostr-Identität kann ein Boost an eine Folge zusätzlich als öffentlicher Kommentar mit Betrag erscheinen, wie bei Fountain; ein Schalter im Boost-Dialog, vorbelegt in den Einstellungen.
 
 ### 🐛 Fixes
 - Die wechselnde Zeile mit den letzten Boosts der Show im Player ist weg: Sie verwirrte mehr, als sie half.

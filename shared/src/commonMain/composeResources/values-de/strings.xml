@@ -631,4 +631,12 @@
     <string name="comments_not_published">kein Relay hat ihn angenommen</string>
     <string name="comments_signer_rejected">dein Signer hat abgelehnt</string>
     <string name="comments_failed_other">etwas ist schiefgelaufen</string>
+    <string name="comments_reply_hint">Deine Antwort schreiben…</string>
+    <string name="boost_on_nostr">Auch als Kommentar auf Nostr</string>
+    <string name="boost_on_nostr_note">Öffentlich mit deiner Nostr-Identität, mit dem Betrag – wie bei Fountain.</string>
+    <string name="boost_nostr_posting">Wird auf Nostr gepostet…</string>
+    <string name="boost_nostr_posted">Als Kommentar auf Nostr gepostet.</string>
+    <string name="boost_nostr_failed">Nicht auf Nostr gepostet – der Boost ist trotzdem raus.</string>
+    <string name="nostr_boosts">Boosts auch auf Nostr</string>
+    <string name="nostr_boosts_note">Ein Boost an eine Folge wird zusätzlich ein öffentlicher Kommentar mit Betrag. Im Boost-Dialog entscheidest du jedes Mal.</string>
 </resources>

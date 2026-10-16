@@ -631,4 +631,12 @@
     <string name="comments_not_published">no relay took it</string>
     <string name="comments_signer_rejected">your signer said no</string>
     <string name="comments_failed_other">something went wrong</string>
+    <string name="comments_reply_hint">Write your answer…</string>
+    <string name="boost_on_nostr">Also as a comment on Nostr</string>
+    <string name="boost_on_nostr_note">Public with your Nostr identity, with the amount — as Fountain does.</string>
+    <string name="boost_nostr_posting">Posting it on Nostr…</string>
+    <string name="boost_nostr_posted">Posted on Nostr as a comment.</string>
+    <string name="boost_nostr_failed">Not posted on Nostr — the boost went out all the same.</string>
+    <string name="nostr_boosts">Boosts on Nostr too</string>
+    <string name="nostr_boosts_note">A boost to an episode also becomes a public comment with its amount. The boost dialog lets you decide each time.</string>
 </resources>

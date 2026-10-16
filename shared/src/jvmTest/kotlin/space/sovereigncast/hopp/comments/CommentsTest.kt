@@ -356,6 +356,19 @@ class CommentsTest {
         assertEquals(emptyList(), listening.load(comments.anchor(episode())!!).comments)
     }
 
+    /** Device feedback 2026-10-16: boosts as comments, as Fountain does. */
+    @Test
+    fun aPublicBoostIsACommentWithItsAmount() = test {
+        relay.publish(feedNote)
+        identities.create("Me")
+        val anchor = comments.anchor(episode())!!
+        val posted = writer.boost(anchor, 2100, "  Danke! ", emptyList())
+        assertEquals("Danke!\n\n⚡ 2100 sats", posted.content)
+        assertTrue(listOf("e", feedNote.id, "wss://show.test", "root") in posted.tags && listOf("i", item) in posted.tags)
+        assertEquals("⚡ 21 sats", writer.boost(anchor, 21, "", emptyList()).content)
+        assertEquals(2, writeReader.cached(anchor)!!.comments.size)
+    }
+
     @Test
     fun aReportNamesTheCommentAndTheReason() = test {
         identities.create("Me")

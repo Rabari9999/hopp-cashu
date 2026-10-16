@@ -1053,6 +1053,11 @@ class AndroidAppFlowTest {
         waitFor("Great episode")
         check(has("Me")) { "the comment shows under the listener's name" }
         check(kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current().nostrPublicNoted })
+        // An answer's field opens right under the comment, in view (device feedback 2026-10-16).
+        tap("Reply")
+        waitFor("Replying to Me")
+        rule.onNode(hasText("Write your answer…")).assertIsDisplayed()
+        check(!has("Write a comment…")) { "the field at the top stays while answering" }
     }
 
     /** Device feedback 2026-10-16: the show's latest boosts, cycling under the
@@ -1095,6 +1100,22 @@ class AndroidAppFlowTest {
         tap("Boost")
         waitFor("Ep 2 · at 0:00")
         waitFor("Connect a wallet to boost")
+    }
+
+    /** With a Nostr identity a boost can go out as a comment too; the setting
+     *  presets the switch (device feedback 2026-10-16). */
+    @Test
+    fun aBoostOffersNostrWithAnIdentity() {
+        kotlinx.coroutines.runBlocking {
+            koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Me")
+            koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(nostrBoosts = true) }
+        }
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 2"); waitFor("Show notes")
+        tap("Boost")
+        waitFor("Also as a comment on Nostr")
+        rule.onNode(androidx.compose.ui.test.isToggleable() and androidx.compose.ui.test.isOn()).assertExists()
     }
 
     /** Auto-download and unsubscribe live in the show's menu now. */
