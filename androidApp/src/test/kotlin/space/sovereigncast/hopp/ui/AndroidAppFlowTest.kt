@@ -1412,7 +1412,11 @@ class AndroidAppFlowTest {
         repeat(3) { tap("Next") }
         waitFor("Value for value")
         tap("Next")
+        // Nostr, optional (2026-10-16): what it is and what Hopp does with it.
+        waitFor("Nostr, if you like")
+        tap("Next")
         waitFor("Connect your wallet")
+        check(has("Zeus", substring = true) && !has("Primal, Coinos", substring = true)) { "Primal's NWC does not do what Hopp needs" }
         tap("Connect a wallet")
         waitFor("Connection string (nostr+walletconnect://…)")
         until { settings().onboardingDone }
@@ -1483,6 +1487,8 @@ class AndroidAppFlowTest {
         waitFor("Welcome to Hopp")
         repeat(3) { tap("Next") }
         waitFor("Value for value")
+        tap("Next")
+        waitFor("Nostr, if you like")
         check(!has("Connect a wallet") && !has("Next")) { screen().toString() }
         tap("Let's go")
         until { settings().onboardingDone }
@@ -1626,7 +1632,7 @@ class AndroidAppFlowTest {
         tourNotDone()
         rule.setContent { App() }
         waitFor("Welcome to Hopp")
-        repeat(4) { tap("Next") }
+        repeat(5) { tap("Next") }
         waitFor("Connect your wallet")
         waitFor("nwc.ereignishorizont.xyz ↗")
     }
@@ -1638,7 +1644,7 @@ class AndroidAppFlowTest {
             tourNotDone()
             rule.setContent { App() }
             waitFor("Welcome to Hopp")
-            repeat(4) { tap("Next") }
+            repeat(5) { tap("Next") }
             waitFor("Connect your wallet")
             rule.waitForIdle()
             Thread.sleep(2_000)

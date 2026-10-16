@@ -433,7 +433,7 @@
     <string name="onboarding_v4v_title">Value for value</string>
     <string name="onboarding_v4v_text">Podcasts live on their listeners. A boost sends sats — bitcoin over Lightning — straight to the people behind a show, with a message, split the way the show sets it. Streaming sends a few sats per minute while you listen, only if you switch it on. Sovereigncast shows also let you bring episodes out sooner and vote on topics.</string>
     <string name="onboarding_wallet_title">Connect your wallet</string>
-    <string name="onboarding_wallet_text">For boosts, connect your Lightning wallet over Nostr Wallet Connect (NWC) — Alby Hub, Primal, Coinos and others offer it. A daily budget keeps it in check. Without a wallet, everything else works just the same.</string>
+    <string name="onboarding_wallet_text">For boosts, connect your Lightning wallet over Nostr Wallet Connect (NWC) — Alby Hub, Zeus, Coinos and others offer it. A daily budget keeps it in check. Without a wallet, everything else works just the same.</string>
     <string name="sc_info_title">What Sovereigncast brings</string>
     <string name="sc_info_intro">This show runs on Sovereigncast — the open, self-hosted platform its makers produce it with. In Hopp it brings extras no other app shows:</string>
     <string name="sc_info_rb">Release Boosting: your sats bring the next episode out sooner.</string>
@@ -642,4 +642,12 @@
     <string name="sc_fill_now">Publish now · %1$s sats</string>
     <string name="sc_fill_goal">Fill the goal · %1$s sats</string>
     <string name="sc_fill_unlock">Unlock now · %1$s sats</string>
+    <string name="onboarding_nostr_title">Nostr, if you like</string>
+    <string name="onboarding_nostr_text">An open network with no company behind it. Your identity is a key, not an account — and optional. With one:</string>
+    <string name="onboarding_nostr_comments">comment on episodes and like comments — seen in Fountain, Primal &amp; co. too</string>
+    <string name="onboarding_nostr_votes">your Sovereigncast votes count on every device</string>
+    <string name="onboarding_nostr_boosts">boosts as public comments, if you want</string>
+    <string name="onboarding_nostr_how">Reading comments needs none. Make a key in Hopp or use Amber or a bunker — in the settings.</string>
+    <string name="onboarding_soon">Soon</string>
+    <string name="onboarding_nostr_soon">Subscriptions, progress and settings in step between your devices over Nostr — encrypted, without a Hopp server.</string>
 </resources>

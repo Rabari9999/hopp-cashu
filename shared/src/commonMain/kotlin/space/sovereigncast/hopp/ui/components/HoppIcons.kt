@@ -101,4 +101,12 @@ object HoppIcons {
             }
         }
     }
+    /** A speech bubble: comments on Nostr (the tour's Nostr page). */
+    val Comment = icon("comment") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(6.5f, 4.5f); lineTo(17.5f, 4.5f); quadTo(20f, 4.5f, 20f, 7f); lineTo(20f, 13.5f); quadTo(20f, 16f, 17.5f, 16f)
+            lineTo(10f, 16f); lineTo(5.5f, 19.5f); lineTo(5.5f, 16f); quadTo(4f, 15.6f, 4f, 13.5f); lineTo(4f, 7f); quadTo(4f, 4.5f, 6.5f, 4.5f); close()
+            moveTo(8.5f, 9f); lineTo(15.5f, 9f); moveTo(8.5f, 12f); lineTo(13f, 12f)
+        }
+    }
 }

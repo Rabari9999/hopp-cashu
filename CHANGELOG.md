@@ -15,6 +15,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Publish or unlock at once** — Release Boosting and Boost2Unlock offer the amount that brings the episode out now (or fills the goal), worked out as the community page does.
 
 ### 🐛 Fixes
+- The tour has a page on Nostr: what it is, what Hopp does with it, and the sync to come; its wallet page names Zeus instead of Primal, whose NWC does not do what Hopp needs.
 - An answer to the last comment was typed under the keyboard; and comments and boosts went under a show's Release Boosting post instead of the episode's announcement.
 - The player's cycling line of the show's latest boosts is gone: it confused more than it told.
 - Comments load only when you ask, in the player too — at once only behind a VPN; once loaded they stay on the device and show at once.

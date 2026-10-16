@@ -53,6 +53,15 @@ import space.sovereigncast.hopp.resources.onboarding_v4v_text
 import space.sovereigncast.hopp.resources.onboarding_v4v_title
 import space.sovereigncast.hopp.resources.onboarding_wallet
 import space.sovereigncast.hopp.resources.onboarding_wallet_text
+import space.sovereigncast.hopp.resources.onboarding_nostr_text
+import space.sovereigncast.hopp.resources.onboarding_nostr_title
+import space.sovereigncast.hopp.resources.onboarding_nostr_comments
+import space.sovereigncast.hopp.resources.onboarding_nostr_votes
+import space.sovereigncast.hopp.resources.onboarding_nostr_boosts
+import space.sovereigncast.hopp.resources.onboarding_nostr_how
+import space.sovereigncast.hopp.resources.onboarding_nostr_soon
+import space.sovereigncast.hopp.resources.onboarding_soon
+import androidx.compose.foundation.shape.RoundedCornerShape
 import space.sovereigncast.hopp.resources.onboarding_wallet_title
 import space.sovereigncast.hopp.resources.onboarding_welcome_text
 import space.sovereigncast.hopp.resources.onboarding_welcome_title
@@ -61,19 +70,32 @@ import space.sovereigncast.hopp.ui.components.HoppSymbol
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** [icon] null: Hopp's logo symbol, for the page that says what Hopp is. */
-private class TourPage(val icon: ImageVector?, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false)
+private class TourPage(
+    val icon: ImageVector?, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false,
+    /** What it brings, a line each — a page with more to say than a paragraph holds. */
+    val points: List<StringResource> = emptyList(),
+    val after: StringResource? = null,
+    /** What is coming, set apart. */
+    val soon: StringResource? = null,
+)
 
 private val ALL_PAGES = listOf(
     TourPage(null, false, Res.string.onboarding_welcome_title, Res.string.onboarding_welcome_text),
     TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text),
     TourPage(Icons.AutoMirrored.Rounded.List, false, Res.string.onboarding_library_title, Res.string.onboarding_library_text),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_v4v_title, Res.string.onboarding_v4v_text),
+    // Nostr, optional (maintainer, 2026-10-16): what it is, what Hopp does with it, sync to come.
+    TourPage(
+        HoppIcons.Comment, false, Res.string.onboarding_nostr_title, Res.string.onboarding_nostr_text,
+        points = listOf(Res.string.onboarding_nostr_comments, Res.string.onboarding_nostr_votes, Res.string.onboarding_nostr_boosts),
+        after = Res.string.onboarding_nostr_how, soon = Res.string.onboarding_nostr_soon,
+    ),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_wallet_title, Res.string.onboarding_wallet_text, nwcLink = true),
 )
 
 /**
- * The first start (device feedback 2026-10-10): five short pages — what Hopp
- * is, subscribing, the library, value for value, the wallet — swiped or
+ * The first start (device feedback 2026-10-10): six short pages — what Hopp
+ * is, subscribing, the library, value for value, Nostr, the wallet — swiped or
  * stepped through, skippable at any time. The last page offers to connect a
  * wallet right away — left out when one is connected (device feedback
  * 2026-10-10); [onDone] says whether the listener took it.
@@ -110,6 +132,24 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
                 Text(stringResource(p.title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(p.text), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
+                if (p.points.isNotEmpty()) Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    p.points.forEach { point ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("•", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text(stringResource(point), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+                p.after?.let { Text(stringResource(it), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, textAlign = TextAlign.Center) }
+                p.soon?.let {
+                    Column(
+                        Modifier.padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceVariant).padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(stringResource(Res.string.onboarding_soon), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    }
+                }
                 // The NWC explainer (device feedback 2026-10-11), only when it answers.
                 if (p.nwcLink) space.sovereigncast.hopp.ui.components.NwcExplainerLink(Modifier.padding(top = 16.dp), centered = true)
             }
