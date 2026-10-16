@@ -12,6 +12,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Shownotes im Player** — als Blatt wie Kapitel und Transkript; eine Zeitmarke springt dorthin.
 - **Kommentare zu jeder Folge** — von Nostr, im Player und auf der Folgenseite: was andere Hörer sagen (auch bei Fountain, mit den Sats ihrer Boosts), und mit Nostr-Identität deine eigenen Kommentare, Antworten und Likes. Stummschalten, melden oder ausblenden, was du nicht sehen willst.
 - **Boosts auch auf Nostr** — mit Nostr-Identität kann ein Boost an eine Folge zusätzlich als öffentlicher Kommentar mit Betrag erscheinen, wie bei Fountain; ein Schalter im Boost-Dialog, vorbelegt in den Einstellungen.
+- **Sofort veröffentlichen oder freischalten** — Release Boosting und Boost2Unlock bieten den Betrag an, der die Folge jetzt herausbringt (oder das Ziel auffüllt), berechnet wie auf der Community-Seite.
 
 ### 🐛 Fixes
 - Eine Antwort auf den letzten Kommentar tippte man unter der Tastatur; und Kommentare und Boosts landeten am Release-Boosting-Post der Show statt an der Ankündigung der Folge.

@@ -639,4 +639,7 @@
     <string name="boost_nostr_failed">Not posted on Nostr — the boost went out all the same.</string>
     <string name="nostr_boosts">Boosts on Nostr too</string>
     <string name="nostr_boosts_note">A boost to an episode also becomes a public comment with its amount. The boost dialog lets you decide each time.</string>
+    <string name="sc_fill_now">Publish now · %1$s sats</string>
+    <string name="sc_fill_goal">Fill the goal · %1$s sats</string>
+    <string name="sc_fill_unlock">Unlock now · %1$s sats</string>
 </resources>

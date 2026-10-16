@@ -639,4 +639,7 @@
     <string name="boost_nostr_failed">Nicht auf Nostr gepostet – der Boost ist trotzdem raus.</string>
     <string name="nostr_boosts">Boosts auch auf Nostr</string>
     <string name="nostr_boosts_note">Ein Boost an eine Folge wird zusätzlich ein öffentlicher Kommentar mit Betrag. Im Boost-Dialog entscheidest du jedes Mal.</string>
+    <string name="sc_fill_now">Sofort veröffentlichen · %1$s sats</string>
+    <string name="sc_fill_goal">Ziel auffüllen · %1$s sats</string>
+    <string name="sc_fill_unlock">Sofort freischalten · %1$s sats</string>
 </resources>

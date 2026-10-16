@@ -140,6 +140,11 @@ import space.sovereigncast.hopp.resources.sc_open_community
 import space.sovereigncast.hopp.resources.sc_open_episode
 import space.sovereigncast.hopp.resources.sc_publish_long
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
+import space.sovereigncast.hopp.sovereigncast.releaseFill
+import space.sovereigncast.hopp.sovereigncast.unlockFill
+import space.sovereigncast.hopp.resources.sc_fill_now
+import space.sovereigncast.hopp.resources.sc_fill_goal
+import space.sovereigncast.hopp.resources.sc_fill_unlock
 import space.sovereigncast.hopp.sovereigncast.ScTarget
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.sovereigncast.ScShow
@@ -571,6 +576,19 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
     }
     var amount by remember { mutableLongStateOf(if (suggesting) presets[0] else presets[1]) }
     var custom by remember { mutableStateOf(false) }
+    // The amount that publishes or unlocks at once, as the community page offers it —
+    // for Release Boosting it changes with the clock, so it is worked out again.
+    val round by vm.round.collectAsState()
+    val unlocks by vm.unlocks.collectAsState()
+    var nowSeconds by remember { mutableLongStateOf(kotlin.time.Clock.System.now().epochSeconds) }
+    LaunchedEffect(Unit) { while (true) { delay(15_000); nowSeconds = kotlin.time.Clock.System.now().epochSeconds } }
+    val fill = when (target) {
+        ScTarget.ReleaseBoosting -> round?.let { releaseFill(it, nowSeconds) }
+        is ScTarget.Boost2Unlock -> unlocks.firstOrNull { it.episode.episodeGuid == target.episodeGuid }?.let(::unlockFill)
+        else -> null
+    }
+    var filling by remember { mutableStateOf(false) }
+    LaunchedEffect(fill?.sats, filling) { if (filling) fill?.let { amount = it.sats } }
     var message by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var topic by remember { mutableStateOf("") }
@@ -640,17 +658,35 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                 else -> Unit
             }
 
+            fill?.let { f ->
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(50))
+                        .background(if (filling) Hopp.colors.value else colors.surfaceVariant)
+                        .border(1.dp, Hopp.colors.value, RoundedCornerShape(50))
+                        .clickable { filling = true; custom = false; amount = f.sats }.padding(horizontal = 14.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(when {
+                            target is ScTarget.Boost2Unlock -> Res.string.sc_fill_unlock
+                            f.publishesNow -> Res.string.sc_fill_now
+                            else -> Res.string.sc_fill_goal
+                        }, formatSats(f.sats)),
+                        fontWeight = FontWeight.Bold, color = if (filling) Hopp.colors.onValue else colors.onSurface,
+                    )
+                }
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.forEach { a ->
                     val label = formatSats(a) + (satsPerMinute?.let { m -> " · " + stringResource(Res.string.sc_minutes, (a / m).toInt()) } ?: "")
                     Box(
-                        Modifier.clip(RoundedCornerShape(50)).background(if (!custom && amount == a) Hopp.colors.value else colors.surfaceVariant)
-                            .clickable { custom = false; amount = a }.padding(horizontal = 14.dp, vertical = 10.dp),
-                    ) { Text(label, fontWeight = FontWeight.Bold, color = if (!custom && amount == a) Hopp.colors.onValue else colors.onSurface) }
+                        Modifier.clip(RoundedCornerShape(50)).background(if (!custom && !filling && amount == a) Hopp.colors.value else colors.surfaceVariant)
+                            .clickable { custom = false; filling = false; amount = a }.padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) { Text(label, fontWeight = FontWeight.Bold, color = if (!custom && !filling && amount == a) Hopp.colors.onValue else colors.onSurface) }
                 }
                 Box(
                     Modifier.clip(RoundedCornerShape(50)).background(if (custom) Hopp.colors.value else colors.surfaceVariant)
-                        .clickable { custom = true }.padding(horizontal = 14.dp, vertical = 10.dp),
+                        .clickable { custom = true; filling = false }.padding(horizontal = 14.dp, vertical = 10.dp),
                 ) { Text("…", fontWeight = FontWeight.Bold, color = if (custom) Hopp.colors.onValue else colors.onSurface) }
             }
             if (custom) OutlinedTextField(

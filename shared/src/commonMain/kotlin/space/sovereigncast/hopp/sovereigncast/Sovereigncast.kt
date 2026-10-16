@@ -250,3 +250,32 @@ class SovereigncastRepository(
             ?.takeIf { it.startsWith("https://") && it.length > "https://".length }
     }
 }
+
+/** An amount that does the whole job at once: [publishesNow] — the episode comes out
+ *  with it; otherwise it fills the round to its goal (the earliest release). */
+data class ScFill(val sats: Long, val publishesNow: Boolean)
+
+/**
+ * What a Release Boosting round needs now, as the community page computes it
+ * (community.js, renderBoosting): the rest of the goal — or, once the earliest
+ * possible release has passed, just enough to bring the release to now. The
+ * instance moves the date by whole minutes over the whole balance
+ * (floor(total / rate)), so the amount tops the total up to a full minute, and
+ * one minute more covers the time until the payment settles. Null when the
+ * round is full.
+ */
+fun releaseFill(round: ReleaseBoostingRound, nowEpochSeconds: Long): ScFill? {
+    val remaining = (round.goalSats - round.raisedSats).coerceAtLeast(0)
+    if (remaining == 0L) return null
+    val rate = round.satsPerMinute.coerceAtLeast(1).toLong()
+    val publish = runCatching { kotlin.time.Instant.parse(round.publishAt).epochSeconds }.getOrNull() ?: return ScFill(remaining, false)
+    val earliest = publish - remaining * 60 / rate
+    if (nowEpochSeconds <= earliest) return ScFill(remaining, false)
+    val neededMinutes = (publish - nowEpochSeconds + 59).floorDiv(60) + 1
+    val sats = ((round.raisedSats / rate + neededMinutes) * rate - round.raisedSats).coerceIn(0, remaining)
+    return if (sats > 0) ScFill(sats, true) else null
+}
+
+/** What unlocks a Boost2Unlock episode at once: the rest of its goal. */
+fun unlockFill(episode: Boost2UnlockEpisode): ScFill? =
+    (episode.goalSats - episode.raisedSats).takeIf { it > 0 && !episode.unlocked }?.let { ScFill(it, true) }

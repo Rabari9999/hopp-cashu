@@ -248,4 +248,23 @@ class SovereigncastTest {
         assertTrue(bodies.last().let { "\"amount_sats\":210" in it && "\"message\":\"Bitte!\"" in it })
         assertEquals("Die beste.", sc.topEpisodes(layer).episodes.single().description)
     }
+
+    /** The amount that publishes or unlocks at once, as the community page computes it
+     *  (community.js, renderBoosting) — a preset in Hopp too (maintainer, 2026-10-16). */
+    @Test
+    fun theFillAmountFollowsTheCommunityPage() {
+        val publish = kotlin.time.Instant.parse("2026-10-09T21:50:00Z").epochSeconds
+        val round = ReleaseBoostingRound(UpcomingEpisode("e297", 297, "E297"), goalSats = 15120, raisedSats = 210, satsPerMinute = 21, publishAt = "2026-10-09T21:50:00Z")
+        // Long before the earliest release (710 minutes before the date): the rest of the goal.
+        assertEquals(ScFill(14910, publishesNow = false), releaseFill(round, publish - 1000 * 60))
+        // Past it: up to now — whole minutes over the whole balance, one minute of margin.
+        assertEquals(ScFill(2121, publishesNow = true), releaseFill(round, publish - 100 * 60))
+        assertEquals(ScFill(2121, publishesNow = true), releaseFill(round, publish - 100 * 60 + 30), "part of a minute counts as one")
+        assertEquals(ScFill(21 * 2 + 21 * 10 - 210 + 21, publishesNow = true), releaseFill(round, publish - 2 * 60), "close to the date: a little")
+        assertNull(releaseFill(round.copy(raisedSats = 15120), publish - 100 * 60), "a full round needs nothing")
+        // Boost2Unlock: the rest of the goal, until unlocked.
+        val b2u = Boost2UnlockEpisode(UpcomingEpisode("e1", 1, "E1"), goalSats = 1000, raisedSats = 400, unlocked = false)
+        assertEquals(ScFill(600, publishesNow = true), unlockFill(b2u))
+        assertNull(unlockFill(b2u.copy(unlocked = true)))
+    }
 }
