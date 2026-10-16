@@ -643,12 +643,12 @@
     <string name="sc_fill_goal">Fill the goal · %1$s sats</string>
     <string name="sc_fill_unlock">Unlock now · %1$s sats</string>
     <string name="onboarding_nostr_title">Nostr, if you like</string>
-    <string name="onboarding_nostr_text">An open network with no company behind it. Your identity is a key, not an account — and optional. With one:</string>
-    <string name="onboarding_nostr_comments">comment on episodes and like comments — seen in Fountain, Primal &amp; co. too</string>
-    <string name="onboarding_nostr_votes">your Sovereigncast votes count on every device</string>
+    <string name="onboarding_nostr_text">Your identity is a key, not an account — made in seconds, right here in Hopp. Optional, and with it:</string>
+    <string name="onboarding_nostr_comments">comment on episodes and like — seen in Fountain &amp; co. too</string>
+    <string name="onboarding_nostr_votes">your Sovereigncast votes on every device</string>
     <string name="onboarding_nostr_boosts">boosts as public comments, if you want</string>
-    <string name="onboarding_nostr_how">Reading comments needs none. Make a key in Hopp or use Amber or a bunker — in the settings.</string>
     <string name="onboarding_soon">Soon</string>
-    <string name="onboarding_nostr_soon">Subscriptions, progress and settings in step between your devices over Nostr — encrypted, without a Hopp server.</string>
+    <string name="onboarding_nostr_soon">Subscriptions and progress on all your devices over Nostr — encrypted, no Hopp server.</string>
     <string name="np_no_value">This show takes no sats — its feed names no value recipients.</string>
+    <string name="onboarding_nostr_setup">Set up Nostr now</string>
 </resources>

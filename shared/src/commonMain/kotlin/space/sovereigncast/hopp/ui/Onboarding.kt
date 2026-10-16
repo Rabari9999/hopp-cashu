@@ -58,9 +58,10 @@ import space.sovereigncast.hopp.resources.onboarding_nostr_title
 import space.sovereigncast.hopp.resources.onboarding_nostr_comments
 import space.sovereigncast.hopp.resources.onboarding_nostr_votes
 import space.sovereigncast.hopp.resources.onboarding_nostr_boosts
-import space.sovereigncast.hopp.resources.onboarding_nostr_how
 import space.sovereigncast.hopp.resources.onboarding_nostr_soon
 import space.sovereigncast.hopp.resources.onboarding_soon
+import space.sovereigncast.hopp.resources.onboarding_nostr_setup
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.shape.RoundedCornerShape
 import space.sovereigncast.hopp.resources.onboarding_wallet_title
 import space.sovereigncast.hopp.resources.onboarding_welcome_text
@@ -77,6 +78,8 @@ private class TourPage(
     val after: StringResource? = null,
     /** What is coming, set apart. */
     val soon: StringResource? = null,
+    /** Set up right here, from Hopp — a Nostr key needs nothing outside it, unlike a wallet. */
+    val setup: StringResource? = null,
 )
 
 private val ALL_PAGES = listOf(
@@ -88,7 +91,7 @@ private val ALL_PAGES = listOf(
     TourPage(
         HoppIcons.Comment, false, Res.string.onboarding_nostr_title, Res.string.onboarding_nostr_text,
         points = listOf(Res.string.onboarding_nostr_comments, Res.string.onboarding_nostr_votes, Res.string.onboarding_nostr_boosts),
-        after = Res.string.onboarding_nostr_how, soon = Res.string.onboarding_nostr_soon,
+        soon = Res.string.onboarding_nostr_soon, setup = Res.string.onboarding_nostr_setup,
     ),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_wallet_title, Res.string.onboarding_wallet_text, nwcLink = true),
 )
@@ -101,7 +104,7 @@ private val ALL_PAGES = listOf(
  * 2026-10-10); [onDone] says whether the listener took it.
  */
 @Composable
-fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean) -> Unit) {
+fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onDone: (connectWallet: Boolean) -> Unit) {
     // A wallet already connected (tour again, or after an update): no page asking for one.
     val PAGES = if (hasWallet) ALL_PAGES.dropLast(1) else ALL_PAGES
     val pager = rememberPagerState { PAGES.size }
@@ -179,8 +182,10 @@ fun OnboardingScreen(hasWallet: Boolean = false, onDone: (connectWallet: Boolean
                 Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(Res.string.onboarding_next))
                 }
-                // Same height as the last page's second button, so nothing jumps.
-                TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
+                // The Nostr page sets up right away; elsewhere the same height, so nothing jumps.
+                val setup = PAGES[pager.currentPage].setup
+                if (setup != null) OutlinedButton(onClick = onNostr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(setup)) }
+                else TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
             }
         }
     }

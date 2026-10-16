@@ -493,7 +493,15 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) {
                         NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                     }
-                    if (tour || appSettings?.onboardingDone == false) OnboardingScreen(hasWallet = connectedWallet != null) { connectWallet ->
+                    if (tour || appSettings?.onboardingDone == false) OnboardingScreen(
+                        hasWallet = connectedWallet != null,
+                        // Set up Nostr from the tour: it ends there, on the Nostr page (a wallet can follow any time).
+                        onNostr = {
+                            tour = false
+                            tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                            nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name))
+                        },
+                    ) { connectWallet ->
                         tour = false
                         tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
                         if (connectWallet) nav.navigate(WalletRoute)

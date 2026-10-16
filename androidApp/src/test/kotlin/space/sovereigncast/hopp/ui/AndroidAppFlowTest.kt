@@ -1430,6 +1430,7 @@ class AndroidAppFlowTest {
         tap("Next")
         // Nostr, optional (2026-10-16): what it is and what Hopp does with it.
         waitFor("Nostr, if you like")
+        check(has("Set up Nostr now")) { "the tour offers to set up Nostr right away" }
         tap("Next")
         waitFor("Connect your wallet")
         check(has("Zeus", substring = true) && !has("Primal, Coinos", substring = true)) { "Primal's NWC does not do what Hopp needs" }
@@ -1493,6 +1494,19 @@ class AndroidAppFlowTest {
     // ── device feedback 2026-10-10 (later) ─────────────────────────────────
 
     /** With a wallet connected, the tour does not ask for one. */
+    /** Nostr is made in Hopp itself — the tour leads there (maintainer, 2026-10-16). */
+    @Test
+    fun theTourSetsUpNostr() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(4) { tap("Next") }
+        waitFor("Nostr, if you like")
+        tap("Set up Nostr now")
+        waitFor("Or make a new identity in Hopp")
+        until { settings().onboardingDone }
+    }
+
     @Test
     fun theTourSkipsTheWalletPageWhenOneIsConnected() {
         val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()

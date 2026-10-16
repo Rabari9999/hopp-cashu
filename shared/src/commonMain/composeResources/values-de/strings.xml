@@ -643,12 +643,12 @@
     <string name="sc_fill_goal">Ziel auffüllen · %1$s sats</string>
     <string name="sc_fill_unlock">Sofort freischalten · %1$s sats</string>
     <string name="onboarding_nostr_title">Nostr, wenn du magst</string>
-    <string name="onboarding_nostr_text">Ein offenes Netz ohne Firma dahinter. Deine Identität ist ein Schlüssel, kein Konto – und freiwillig. Damit:</string>
-    <string name="onboarding_nostr_comments">Folgen kommentieren und liken – auch in Fountain, Primal &amp; Co. sichtbar</string>
-    <string name="onboarding_nostr_votes">deine Sovereigncast-Stimmen zählen auf jedem Gerät</string>
+    <string name="onboarding_nostr_text">Deine Identität ist ein Schlüssel, kein Konto – in Sekunden erstellt, direkt in Hopp. Freiwillig, und damit:</string>
+    <string name="onboarding_nostr_comments">Folgen kommentieren und liken – auch in Fountain &amp; Co. sichtbar</string>
+    <string name="onboarding_nostr_votes">deine Sovereigncast-Stimmen auf jedem Gerät</string>
     <string name="onboarding_nostr_boosts">Boosts auf Wunsch als öffentlicher Kommentar</string>
-    <string name="onboarding_nostr_how">Kommentare lesen geht auch ohne. Schlüssel in Hopp erstellen oder Amber bzw. Bunker nutzen – in den Einstellungen.</string>
     <string name="onboarding_soon">Bald</string>
-    <string name="onboarding_nostr_soon">Abos, Hörstand und Einstellungen über Nostr zwischen deinen Geräten abgleichen – verschlüsselt, ohne Hopp-Server.</string>
+    <string name="onboarding_nostr_soon">Abos und Hörstand über Nostr auf all deinen Geräten – verschlüsselt, ohne Hopp-Server.</string>
     <string name="np_no_value">Diese Show nimmt keine Sats an – ihr Feed nennt keine Empfänger.</string>
+    <string name="onboarding_nostr_setup">Nostr jetzt einrichten</string>
 </resources>
