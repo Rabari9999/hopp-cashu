@@ -242,6 +242,31 @@ class CommentsTest {
         assertTrue(sent.filter { it.startsWith("[\"REQ\"") && "\"#" in it }.all { "\"since\":${now - 600}" in it }, "only since the last load (less the overlap)")
     }
 
+    /** Device feedback 2026-10-16: kept in the database, the comments outlive a restart,
+     *  and go with the show's subscription. */
+    @Test
+    fun theDatabaseKeepsCommentsNamesAndSatsUntilTheShowGoes() = test {
+        relay.publish(feedNote)
+        val c = post(alice, 1, "Kept", listOf(listOf("i", item)), now - 100)
+        post(alice, 0, """{"name":"Alice"}""", emptyList(), now - 100)
+        val id = episode()
+        val anchor = comments.anchor(id)!!
+        val first = CommentReader(publisher, { now }, DbCommentStore(db))
+        val loaded = first.load(anchor)
+        first.authors(loaded.people, loaded.relays)
+        first.boosts(loaded)
+
+        // A new run: nobody asked, everything there.
+        val silent = space.sovereigncast.hopp.nostr.RelayConnector { error("asked a relay") }
+        val again = CommentReader(RelayPublisher(silent), { now + 60 }, DbCommentStore(db))
+        val kept = again.cached(anchor)!!
+        assertEquals(listOf(c.id), kept.comments.map { it.id })
+        assertEquals("Alice", again.authors(kept.people, kept.relays)[alice.publicKeyHex]?.name)
+
+        podcasts.unsubscribe(episodes.item(id)!!.podcastId)
+        assertNull(again.cached(anchor), "gone with the show")
+    }
+
     @Test
     fun nip19ReferencesDecode() {
         // NIP-19's own examples.

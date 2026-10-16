@@ -1,0 +1,65 @@
+-- Nostr comments as last loaded (ADR 0021, stage 2): shown at once when opened
+-- again, and only what is new is asked for. By the episode's NIP-73 tag, so
+-- they outlive a deleted download; they go with the show's subscription.
+
+-- The events found for an episode (kinds 1 and 1111), as received.
+CREATE TABLE comment_event (
+    item_tag TEXT NOT NULL,
+    id TEXT NOT NULL,
+    json TEXT NOT NULL,
+    PRIMARY KEY (item_tag, id)
+);
+
+-- When an episode's comments were last asked for, where, and who was muted then.
+CREATE TABLE comment_fetch (
+    item_tag TEXT PRIMARY KEY NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    relays_json TEXT NOT NULL,
+    muted_json TEXT NOT NULL
+);
+
+-- Commenters' names and pictures (kind 0), looked up again after a while.
+CREATE TABLE comment_author (
+    pubkey TEXT PRIMARY KEY NOT NULL,
+    name TEXT,
+    picture TEXT,
+    fetched_at INTEGER NOT NULL
+);
+
+-- The sats behind a comment (Fountain's boosts); NULL: its receipt did not hold up.
+CREATE TABLE comment_boost (
+    comment_id TEXT PRIMARY KEY NOT NULL,
+    sats INTEGER
+);
+
+events:
+SELECT json FROM comment_event WHERE item_tag = ?;
+
+insertEvent:
+INSERT OR IGNORE INTO comment_event (item_tag, id, json) VALUES (?, ?, ?);
+
+fetch:
+SELECT * FROM comment_fetch WHERE item_tag = ?;
+
+upsertFetch:
+INSERT OR REPLACE INTO comment_fetch (item_tag, fetched_at, relays_json, muted_json) VALUES (?, ?, ?, ?);
+
+authors:
+SELECT * FROM comment_author WHERE pubkey IN ?;
+
+upsertAuthor:
+INSERT OR REPLACE INTO comment_author (pubkey, name, picture, fetched_at) VALUES (?, ?, ?, ?);
+
+boosts:
+SELECT * FROM comment_boost WHERE comment_id IN ?;
+
+upsertBoost:
+INSERT OR REPLACE INTO comment_boost (comment_id, sats) VALUES (?, ?);
+
+-- A show unsubscribed: its episodes' comments go too. Boosts and names stay —
+-- small, and shared with other shows' comments.
+deleteEventsByPodcast:
+DELETE FROM comment_event WHERE item_tag IN (SELECT 'podcast:item:guid:' || guid FROM episode WHERE podcast_id = ?);
+
+deleteFetchesByPodcast:
+DELETE FROM comment_fetch WHERE item_tag IN (SELECT 'podcast:item:guid:' || guid FROM episode WHERE podcast_id = ?);

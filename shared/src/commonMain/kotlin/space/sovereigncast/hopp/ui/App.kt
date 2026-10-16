@@ -471,8 +471,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     if (paneOpen) {
                         androidx.compose.material3.VerticalDivider()
                         Box(Modifier.width(paneWidth).fillMaxHeight()) {
-                            NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) },
-                                onShowBoosts = { nav.navigate(ShowRoute(it, boosts = true)) })
+                            NowPlayingScreen(player, inPane = true, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                         }
                     }
                   }
@@ -490,8 +489,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         enter = slideInVertically(tween(420, easing = EmphasizedDecelerate)) { it } + fadeIn(tween(180)),
                         exit = slideOutVertically(tween(280, easing = EmphasizedAccelerate)) { it } + fadeOut(tween(200, delayMillis = 80)),
                     ) {
-                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) },
-                            onShowBoosts = { player.minimize(); nav.navigate(ShowRoute(it, boosts = true)) })
+                        NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                     }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(hasWallet = connectedWallet != null) { connectWallet ->
                         tour = false

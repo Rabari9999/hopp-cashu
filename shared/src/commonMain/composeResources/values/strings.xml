@@ -568,7 +568,7 @@
     <string name="nostr_sign_out_confirm">Sign out</string>
     <string name="pv_nostr_who">Nostr relays (relay.damus.io, nos.lol, relay.primal.net, the relays a show names; purplepag.es, user.kindpag.es and relay.fountain.fm to look profiles up)</string>
     <string name="pv_nostr_sees">your IP address; when you read comments, which episode; what you publish with your Nostr identity — now your profile name; public for everyone, for good</string>
-    <string name="pv_nostr_when">when you load an episode's comments, and with a Nostr identity when it is made and its profile published</string>
+    <string name="pv_nostr_when">when you load an episode's comments (at once behind a VPN), and with a Nostr identity when it is made and its profile published</string>
     <string name="pv_nostr_tip">Hopp asks relays only when you open the comments or use a Nostr identity. A VPN keeps your IP address from them; what you publish stays public.</string>
     <string name="nostr_amber">Sign in with Amber</string>
     <string name="nostr_amber_note">You already have a Nostr identity in Amber or another signer app? Sign in with it — your key stays there, Hopp only asks it to sign.</string>

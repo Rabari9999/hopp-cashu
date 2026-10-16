@@ -101,7 +101,7 @@ fun sharedModule(platform: Platform) = module {
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { space.sovereigncast.hopp.sovereigncast.ScDirectory(get(), get()) }
-    single { space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now) { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey } }
+    single { space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, space.sovereigncast.hopp.comments.DbCommentStore(get())) { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey } }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
     viewModel { InboxViewModel(get(), get()) }

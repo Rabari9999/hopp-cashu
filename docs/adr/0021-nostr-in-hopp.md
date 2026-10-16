@@ -188,11 +188,16 @@ boost, profile): this stays public and permanent.
    the zap request inside is by the comment's author, names the invoice's
    amount, and — where the invoice has one — matches its description hash
    (Fountain's have none). A comment with neither text nor sats is not
-   shown. Loaded comments are kept while the app runs: shown at once when
-   opened again, and only what is new since the last load (less ten
-   minutes) is asked for — replies to old comments included. Before the
-   first load the page says what relays see, with the privacy page's VPN
-   line (a green check with a VPN on). The player's chips show only what the
+   shown. Loaded comments are kept in the database (`comment_*` tables,
+   schema 6): shown at once when opened again — after a restart, the
+   download deleted — and only what is new since the last load (less ten
+   minutes) is asked for, replies to old comments included. Names are looked
+   up again after a week; boost amounts are kept. Everything of a show goes
+   when it is unsubscribed; played or not does not matter.
+   Consent (device feedback 2026-10-16): the relays are asked only on a tap,
+   in the player as on the episode page — or at once behind a VPN, which
+   keeps the address from them; the privacy page's VPN line says which.
+   Kept comments show either way. The player's chips show only what the
    episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

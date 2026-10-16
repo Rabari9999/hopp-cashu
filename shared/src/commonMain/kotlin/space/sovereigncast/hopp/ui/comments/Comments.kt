@@ -70,6 +70,8 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 /** One episode's comments: nothing asked until [load] — relays see the IP address and the episode (ADR 0021, 2). */
 class CommentsViewModel(private val episodeId: Long, private val repo: CommentsRepository) : ViewModel() {
     sealed interface State {
+        /** Looking for comments kept from before — nobody is asked. */
+        data object Opening : State
         data object Idle : State
         data object Loading : State
         /** [refreshing]: shown from before while the relays are asked what is new. */
@@ -77,8 +79,7 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
         data object Failed : State
     }
 
-    // Loaded before in this run: shown at once, without asking anyone.
-    private val _state = MutableStateFlow<State>(repo.cached(episodeId)?.let { State.Loaded(it) } ?: State.Idle)
+    private val _state = MutableStateFlow<State>(State.Opening)
     val state: StateFlow<State> = _state.asStateFlow()
     private val _authors = MutableStateFlow<Map<String, CommentAuthor>>(emptyMap())
     /** Names and pictures — they follow the comments, which show at once with short npubs. */
@@ -90,7 +91,15 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
     var asked = false
         private set
 
-    init { (_state.value as? State.Loaded)?.let { details(it.thread) } }
+    // Loaded before: shown at once from the database, names and sats too.
+    init {
+        viewModelScope.launch {
+            val kept = runCatching { repo.cached(episodeId) }.getOrNull()
+            if (_state.value != State.Opening) return@launch
+            _state.value = kept?.let { State.Loaded(it) } ?: State.Idle
+            kept?.let(::details)
+        }
+    }
 
     fun load() {
         val shown = _state.value
@@ -114,9 +123,14 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
     }
 }
 
-/** The comments as a column — the caller scrolls it. [autoLoad]: opening was the listener's choice (the player's sheet). */
+/**
+ * The comments as a column — the caller scrolls it. The relays are asked only
+ * on the listener's tap, in the player as on the episode page (device feedback
+ * 2026-10-16) — or right away behind a VPN, which keeps the address from them.
+ * Comments kept from before show either way.
+ */
 @Composable
-fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier) {
     val state by vm.state.collectAsState()
     val authors by vm.authors.collectAsState()
     val boosts by vm.boosts.collectAsState()
@@ -124,18 +138,16 @@ fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -
     val net: NetworkPrivacySource = koinInject()
     val privacy by remember(net) { net.observe() }.collectAsState(NetworkPrivacy())
     val actions = LocalPlatformActions.current
-    // Opening the player's sheet is the listener's choice: ask (again) for what is new.
-    androidx.compose.runtime.LaunchedEffect(autoLoad) { if (autoLoad && !vm.asked) vm.load() }
+    val opening = state == CommentsViewModel.State.Opening
+    androidx.compose.runtime.LaunchedEffect(privacy.vpn, opening) { if (privacy.vpn == true && !opening && !vm.asked) vm.load() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // As on the privacy page: with a VPN the relays do not see the address.
+        if (privacy.vpn == true && !opening) CheckLine(Check.Done, stringResource(Res.string.comments_vpn_on))
         when (val s = state) {
+            CommentsViewModel.State.Opening -> Unit
             CommentsViewModel.State.Idle -> {
                 Text(stringResource(Res.string.comments_intro), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                // As on the privacy page: with a VPN the relays do not see the address.
-                when (privacy.vpn) {
-                    true -> CheckLine(Check.Done, stringResource(Res.string.comments_vpn_on))
-                    false -> CheckLine(Check.Open, stringResource(Res.string.privacy_vpn_off)) { actions.openVpnSettings() }
-                    null -> Unit
-                }
+                if (privacy.vpn == false) CheckLine(Check.Open, stringResource(Res.string.privacy_vpn_off)) { actions.openVpnSettings() }
                 FilledTonalButton(onClick = vm::load) { Text(stringResource(Res.string.comments_load)) }
             }
             CommentsViewModel.State.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

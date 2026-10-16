@@ -99,6 +99,9 @@ class DownloadsAndQueueTest {
         // Version 5: routing fees count against the budget.
         migrated.paymentQueries.insert(1, "boost", 1, 1, "Old", "Kept", 21_000, null, 2_000, "[]")
         assertEquals(23_000L, migrated.paymentQueries.spentSince(0).executeAsOne())
+        // Version 6: Nostr comments kept.
+        migrated.commentQueries.upsertBoost("c", 21)
+        assertEquals(21L, migrated.commentQueries.boosts(listOf("c")).executeAsOne().sats)
     }
 
     @Test

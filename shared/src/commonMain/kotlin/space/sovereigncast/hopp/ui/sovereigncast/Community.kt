@@ -499,67 +499,6 @@ fun CommunityBoostRow(b: CommunityBoost, showRank: Boolean) {
     }
 }
 
-/**
- * The show's latest boosts while listening (design C2, device feedback
- * 2026-10-14): a quiet line under the player's controls that shows the next
- * boost every few seconds, like a chat line. A tap opens the boost in full;
- * "All" goes to the show's Boosts tab. Only at Sovereigncast shows with a
- * leaderboard.
- */
-@Composable
-fun LatestBoostLine(podcastId: Long, onAll: () -> Unit) {
-    val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
-    val layer by community.layer.collectAsState()
-    val board by community.leaderboard.collectAsState()
-    val boosts = board?.recentBoosts.orEmpty()
-    if (layer?.show?.capabilities?.leaderboard != true || boosts.isEmpty()) return
-    var index by remember(boosts) { mutableIntStateOf(0) }
-    LaunchedEffect(boosts) {
-        if (boosts.size < 2) return@LaunchedEffect
-        while (true) { delay(5_000); index = (index + 1) % boosts.size }
-    }
-    var open by remember { mutableStateOf<CommunityBoost?>(null) }
-    val colors = MaterialTheme.colorScheme
-    val anonymous = stringResource(Res.string.sc_anonymous)
-    // One slim row (device feedback 2026-10-14: with a header and two lines it
-    // did not fit under a Pixel 9's controls): who and how much in bold, the
-    // message after it, "All" at the end.
-    Row(
-        Modifier.fillMaxWidth().height(LATEST_BOOST_HEIGHT).clip(RoundedCornerShape(14.dp)).background(colors.surface)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(14.dp)),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AnimatedContent(
-            boosts[index.coerceIn(0, boosts.lastIndex)], Modifier.weight(1f).fillMaxHeight(),
-            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) }, label = "boost",
-        ) { b ->
-            Row(Modifier.fillMaxSize().clickable { open = b }.padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.width(3.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Hopp.colors.value))
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(b.sender.ifBlank { anonymous } + " · ${formatSats(b.amountSats)} sats") }
-                        val line = b.message.takeIf { it.isNotBlank() }?.let { "„$it“" } ?: b.episode.title
-                        if (line.isNotBlank()) withStyle(SpanStyle(color = colors.onSurfaceVariant, fontStyle = if (b.message.isNotBlank()) FontStyle.Italic else FontStyle.Normal)) {
-                            append("  $line")
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Text(
-            stringResource(Res.string.sc_all) + " ›",
-            Modifier.fillMaxHeight().clickable(onClick = onAll).wrapContentHeight().padding(horizontal = 12.dp),
-            style = MaterialTheme.typography.labelMedium, color = Hopp.colors.valueText, fontWeight = FontWeight.SemiBold,
-        )
-    }
-    open?.let { CommunityBoostSheet(it) { open = null } }
-}
-
-/** How tall the player's line of latest boosts is — the player leaves it out where this does not fit. */
-val LATEST_BOOST_HEIGHT = 44.dp
-
 /** A boost in full — the whole message, selectable. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

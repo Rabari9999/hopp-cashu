@@ -4,8 +4,6 @@ import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.fillMaxHeight
-import space.sovereigncast.hopp.ui.sovereigncast.LatestBoostLine
-import space.sovereigncast.hopp.ui.sovereigncast.LATEST_BOOST_HEIGHT
 import androidx.compose.material3.IconButton
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.player.PlayerController
@@ -136,7 +134,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
  *  title, progress with chapter gaps, controls, value bar, sheets. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWallet: () -> Unit = {}, onShowBoosts: (Long) -> Unit = {}) {
+fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWallet: () -> Unit = {}) {
     val now by model.current.collectAsState()
     val playing = now ?: return
     val episode = playing.item
@@ -308,8 +306,6 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         // pushed every control below the edge. Upright, the phone layout as it
         // was, at most a phone's width: no scrolling there, so swiping down still
         // closes the player.
-        // The show's latest boosts, a line at a time (design C2, 2026-10-14).
-        val boostLine: @Composable () -> Unit = { LatestBoostLine(episode.podcastId) { onShowBoosts(episode.podcastId) } }
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             val wide = maxWidth > maxHeight && maxWidth >= 480.dp
             val coverSide = minOf(maxHeight - 64.dp, maxWidth * 0.45f)
@@ -328,8 +324,6 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     cover(Modifier.size(coverSide))
                     Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) {
                         details()
-                        Spacer(Modifier.height(16.dp))
-                        boostLine()
                     }
                 } else if (inPane) Column(Modifier.fillMaxSize().padding(bottom = 16.dp)) {
                     // A column beside the content: the controls always in view, the
@@ -339,16 +333,10 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     }
                     Spacer(Modifier.height(16.dp))
                     details()
-                    Spacer(Modifier.height(12.dp))
-                    boostLine()
                 } else Column(Modifier.fillMaxWidth().fillMaxHeight().wrapContentWidth().widthIn(max = 560.dp)) {
                     cover(Modifier.fillMaxWidth().aspectRatio(1f))
                     Spacer(Modifier.height(16.dp))
                     details()
-                    // Upright the page does not scroll: the line only where it fits.
-                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(top = 12.dp)) {
-                        if (maxHeight >= LATEST_BOOST_HEIGHT) boostLine()
-                    }
                 }
             }
         }
@@ -367,7 +355,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             koinViewModel(key = "comments-${episode.id}") { org.koin.core.parameter.parametersOf(episode.id) }
         Text(stringResource(Res.string.sheet_comments), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
         space.sovereigncast.hopp.ui.comments.CommentsPane(
-            comments, autoLoad = true, onTimestamp = { s -> model.seekTo(s * 1000) },
+            comments, onTimestamp = { s -> model.seekTo(s * 1000) },
             modifier = Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
         )
     }

@@ -140,6 +140,11 @@ latest boosts and the all-time ranking (read-only, so pulled forward from phase
 2). A suggestion opens in full on a tap. The episode page has the same swipeable
 tabs and a Boost button for the episode.
 
+**Amended 2026-10-16 (device feedback):** the player's cycling line of the
+show's latest boosts (design C2, 2026-10-14) is gone — it confused more than
+it told, and showed the whole show's boosts, not this episode's. An episode's
+boosts from Fountain show with its comments (ADR 0021).
+
 **Amended 2026-10-09 (device feedback, later):** the episode page also has a
 **Transcript** tab (readable before playing; reads along while the episode
 plays; a line starts it there) and a **Clips** tab for `podcast:soundbite`. A

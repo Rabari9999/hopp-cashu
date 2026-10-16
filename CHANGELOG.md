@@ -13,6 +13,8 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Read the comments on an episode** — from Nostr, in the player and on the episode page: replies to the show's posts and what Fountain listeners say about it, with the sats of their boosts. Loaded only when you open them.
 
 ### 🐛 Fixes
+- The player's cycling line of the show's latest boosts is gone: it confused more than it told.
+- Comments load only when you ask, in the player too — at once only behind a VPN; once loaded they stay on the device and show at once.
 - Comments took 30–40 seconds when a relay did not answer; and Fountain's comments ended with a link to the episode you are on.
 - The player's chips showed greyed-out what an episode lacks; now only what it has.
 - Show notes that wrap each list item in a paragraph (Einundzwanzig) showed the bullet alone, the text two lines below.

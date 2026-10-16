@@ -92,21 +92,26 @@ class CommentsRepository(
 
     /** What the feed, the show's Sovereigncast instance and its Nostr keys say about [episodeId]; null for an unknown one.
      *  Kept while the app runs, like the comments. */
-    suspend fun anchor(episodeId: Long): CommentAnchor? = anchors[episodeId] ?: findAnchor(episodeId)?.also { anchors[episodeId] = it }
+    suspend fun anchor(episodeId: Long): CommentAnchor? = anchors[episodeId] ?: findAnchor(episodeId)?.let { (anchor, complete) ->
+        anchor.also { if (complete) anchors[episodeId] = it }
+    }
 
-    /** The comments shown last for [episodeId] in this run, without asking anyone; null before. */
-    fun cached(episodeId: Long): CommentThread? = anchors[episodeId]?.let(reader::cached)
+    /** The comments shown last for [episodeId], from the database — nobody is asked; null before the first load.
+     *  (The anchor may ask the show's Sovereigncast instance, which knows the listener's episodes anyway.) */
+    suspend fun cached(episodeId: Long): CommentThread? = anchor(episodeId)?.let { reader.cached(it) }
 
-    private suspend fun findAnchor(episodeId: Long): CommentAnchor? {
+    /** The anchor, and whether it is complete — not when the instance could not be asked (offline). */
+    private suspend fun findAnchor(episodeId: Long): Pair<CommentAnchor, Boolean>? {
         val item = episodes.item(episodeId) ?: return null
         val details = runCatching { episodes.details(episodeId) }.getOrNull()
         val meta = runCatching { podcasts.podcastMeta(item.podcastId) }.getOrNull()
         val fromFeed = details?.socialInteracts.orEmpty()
             .filter { it.protocol.equals("nostr", ignoreCase = true) || it.uri.startsWith("nostr:") }
             .sortedBy { it.priority ?: Int.MAX_VALUE }
-        val fromInstance = runCatching {
+        val asked = runCatching {
             sovereigncast.layer(item.podcastId).first()?.let { sovereigncast.episodeNotes(it, item.guid) }
-        }.getOrNull().orEmpty()
+        }
+        val fromInstance = asked.getOrNull().orEmpty()
         val notes = (fromFeed.mapNotNull { noteRef(it.uri) } + fromInstance.mapNotNull { noteRef(it.uri) })
             .groupBy { it.id }.map { (id, refs) -> NoteRef(id, refs.flatMap { it.relays }.distinct(), refs.firstNotNullOfOrNull { it.author }) }
         val keys = buildSet {
@@ -115,7 +120,7 @@ class CommentsRepository(
             notes.mapNotNull { it.author }.forEach(::add)
             meta?.txt.orEmpty().filter { it.purpose.equals("nostr", ignoreCase = true) }.mapNotNull { profileKey(it.value) }.forEach(::add)
         }
-        return CommentAnchor(item.guid, meta?.podcastGuid, notes, keys)
+        return CommentAnchor(item.guid, meta?.podcastGuid, notes, keys) to asked.isSuccess
     }
 }
 
@@ -127,21 +132,14 @@ class CommentsRepository(
 class CommentReader(
     private val publisher: RelayPublisher,
     private val now: () -> Long,
+    private val store: CommentStore = MemoryCommentStore(),
     private val listener: () -> String? = { null },
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    /** Names already found, for the next episode's comments — kept while the app runs. */
-    private val cache = mutableMapOf<String, CommentAuthor>()
-
-    /** What an episode's comments were when last asked (by item tag), and when — kept while the app runs. */
-    private class Seen(val events: List<Event>, val relays: List<String>, val muted: Set<String>, val at: Long)
-    private val seen = mutableMapOf<String, Seen>()
-    /** Sats found behind a comment, or null where its receipt did not hold up. */
-    private val sats = mutableMapOf<String, Long?>()
 
     /** The comments as last loaded, to show at once while [load] asks for what is new; null before the first load. */
-    fun cached(anchor: CommentAnchor): CommentThread? =
-        seen[anchor.itemTag]?.let { CommentThread(thread(it.events, anchor, it.muted), it.relays) }
+    suspend fun cached(anchor: CommentAnchor): CommentThread? =
+        store.seen(anchor.itemTag)?.let { CommentThread(thread(it.events, anchor, it.muted), it.relays) }
 
     /**
      * The comments on [anchor]; muted people (the listener's and the show's
@@ -151,7 +149,7 @@ class CommentReader(
      * asked for (with [OVERLAP] for relays that take their time).
      */
     suspend fun load(anchor: CommentAnchor): CommentThread = coroutineScope {
-        val before = seen[anchor.itemTag]
+        val before = store.seen(anchor.itemTag)
         val since = before?.let { it.at - OVERLAP }
         val startedAt = now()
         val base = (anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS)
@@ -182,7 +180,7 @@ class CommentReader(
             publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS, since) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
         val mutedNow = muted.await()
-        seen[anchor.itemTag] = Seen(events, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt)
+        store.save(anchor.itemTag, CommentStore.Seen(first + second, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt))
         CommentThread(thread(events, anchor, mutedNow), relays)
     }
 
@@ -195,8 +193,9 @@ class CommentReader(
      */
     suspend fun boosts(thread: CommentThread): Map<String, Long> {
         val all = thread.comments.flatMap { listOf(it) + it.replies }
-        val known = all.mapNotNull { c -> sats[c.id]?.let { c.id to it } }.toMap()
-        val refs = all.filter { it.id !in sats }.flatMap { c -> embeddedNotes(c.content).map { c to it } }
+        val checked = store.boosts(all.map { it.id })
+        val known = checked.mapNotNull { (id, n) -> n?.let { id to it } }.toMap()
+        val refs = all.filter { it.id !in checked }.flatMap { c -> embeddedNotes(c.content).map { c to it } }
         if (refs.isEmpty()) return known
         val receipts = publisher.query(refs.map { it.second.id }.distinct().chunked(CHUNK).map { ids ->
             buildJsonObject {
@@ -208,7 +207,7 @@ class CommentReader(
         val found = refs.filter { receipts[it.second.id] != null }
             .groupBy({ it.first.id }, { (comment, ref) -> zapSats(receipts.getValue(ref.id), comment.pubkey) })
             .mapValues { (_, amounts) -> amounts.filterNotNull().takeIf { it.isNotEmpty() }?.sum() }
-        sats += found
+        store.saveBoosts(found)
         return known + found.mapNotNull { (id, n) -> n?.let { id to it } }
     }
 
@@ -227,8 +226,10 @@ class CommentReader(
 
     /** Names and pictures (kind 0) of [people], newest profile each, also from the indexes and Fountain's relay; https pictures only. */
     suspend fun authors(people: Set<String>, relays: List<String>): Map<String, CommentAuthor> {
-        val known = cache.filterKeys { it in people }
-        val missing = people - known.keys
+        val stored = store.authors(people)
+        val known = stored.mapValues { it.value.first }
+        // Looked up again after a week: names and pictures change.
+        val missing = people - stored.filterValues { now() - it.second < AUTHOR_TTL }.keys
         if (missing.isEmpty()) return known
         val found = publisher.query(missing.chunked(CHUNK).map { keys ->
             buildJsonObject {
@@ -240,7 +241,7 @@ class CommentReader(
             val obj = runCatching { json.parseToJsonElement(events.maxBy { it.created_at }.content).jsonObject }.getOrNull() ?: return@mapNotNull null
             fun text(vararg names: String) = names.firstNotNullOfOrNull { n -> (obj[n] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } }
             key to CommentAuthor(text("display_name", "displayName", "name"), text("picture")?.takeIf { it.startsWith("https://") })
-        }.toMap().also { cache += it }
+        }.toMap().also { store.saveAuthors(it, now()) }
     }
 
     /** The public entries of these people's mute lists (NIP-51, kind 10000). */
@@ -264,6 +265,7 @@ class CommentReader(
         const val MAX_RELAYS = 5
         /** Asked again from this long before the last load: relays may get a comment late. */
         private const val OVERLAP = 600L
+        private const val AUTHOR_TTL = 7 * 24 * 3600L
         /** How long the other relays get once the first has answered. */
         private val SETTLE = 1000.milliseconds
         /** Longer for names: Fountain's relay, often the only one with a commenter's
@@ -327,4 +329,37 @@ internal fun thread(events: List<Event>, anchor: CommentAnchor, muted: Set<Strin
         }
         Comment(head.id, head.pubkey, head.created_at, head.content, replies = replies)
     }.sortedByDescending { it.createdAt }
+}
+
+/** Where loaded comments, names and boost amounts are kept between loads. */
+interface CommentStore {
+    /** An episode's events as found so far, the relays asked, who was muted, and when it was last asked. */
+    class Seen(val events: List<Event>, val relays: List<String>, val muted: Set<String>, val at: Long)
+
+    suspend fun seen(itemTag: String): Seen?
+    /** Adds [seen]'s events to those kept; the rest replaces what was there. */
+    suspend fun save(itemTag: String, seen: Seen)
+    /** Names kept, with when each was looked up. */
+    suspend fun authors(keys: Set<String>): Map<String, Pair<CommentAuthor, Long>>
+    suspend fun saveAuthors(found: Map<String, CommentAuthor>, at: Long)
+    /** Comments whose receipt was checked: the sats, or null where it did not hold up. */
+    suspend fun boosts(ids: Collection<String>): Map<String, Long?>
+    suspend fun saveBoosts(found: Map<String, Long?>)
+}
+
+/** For a run without a database (tests, the live check). */
+class MemoryCommentStore : CommentStore {
+    private val seen = mutableMapOf<String, CommentStore.Seen>()
+    private val authors = mutableMapOf<String, Pair<CommentAuthor, Long>>()
+    private val boosts = mutableMapOf<String, Long?>()
+
+    override suspend fun seen(itemTag: String) = seen[itemTag]
+    override suspend fun save(itemTag: String, seen: CommentStore.Seen) {
+        val events = (this.seen[itemTag]?.events.orEmpty() + seen.events).distinctBy { it.id }
+        this.seen[itemTag] = CommentStore.Seen(events, seen.relays, seen.muted, seen.at)
+    }
+    override suspend fun authors(keys: Set<String>) = authors.filterKeys { it in keys }
+    override suspend fun saveAuthors(found: Map<String, CommentAuthor>, at: Long) { found.forEach { (k, v) -> authors[k] = v to at } }
+    override suspend fun boosts(ids: Collection<String>) = ids.filter { it in boosts }.associateWith { boosts[it] }
+    override suspend fun saveBoosts(found: Map<String, Long?>) { boosts += found }
 }

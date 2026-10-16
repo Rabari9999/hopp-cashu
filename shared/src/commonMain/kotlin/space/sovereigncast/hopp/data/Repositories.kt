@@ -224,6 +224,8 @@ class PodcastRepository(
         eq.downloadPathsOfPodcast(id).executeAsList().forEach { path -> path?.let { files?.delete(it) } }
         db.transaction {
             db.chapterCacheQueries.deleteByPodcast(id)
+            db.commentQueries.deleteEventsByPodcast(id)
+            db.commentQueries.deleteFetchesByPodcast(id)
             db.queueQueries.deleteByPodcast(id)
             eq.deleteByPodcast(id)
             q.delete(id)

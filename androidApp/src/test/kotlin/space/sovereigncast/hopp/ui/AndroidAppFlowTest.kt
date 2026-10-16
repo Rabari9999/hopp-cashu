@@ -1005,6 +1005,10 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("Show notes") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         check(!has("Community")) { "a placeholder chip for a show without Sovereigncast" }
         rule.onAllNodes(hasText("Comments") and hasClickAction()).onLast().performClick()
+        // Without a VPN the player asks first too (device feedback 2026-10-16).
+        waitFor("Load comments")
+        check(!has("No comments on this episode yet.")) { "the player loaded without asking" }
+        rule.onAllNodes(hasText("Load comments") and hasClickAction()).onLast().performClick()
         waitFor("No comments on this episode yet.")
     }
 
@@ -1017,16 +1021,18 @@ class AndroidAppFlowTest {
         tap("Comments")
         waitFor("Load comments")
         check(!has("No comments on this episode yet.")) { "loaded before asked" }
-        // Without a VPN the way to set one up; with one, the green check (device feedback 2026-10-16).
+        // Without a VPN the way to set one up; with one, the green check — and the
+        // comments load at once: the relays do not see the address (device feedback 2026-10-16).
         waitFor("No VPN active · set one up")
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
         waitFor("VPN active — the relays do not see your IP address")
-        tap("Load comments")
         waitFor("No comments on this episode yet.")
     }
 
-    /** Listening to a Sovereigncast show: its latest boosts in the player. */
-    private fun playScShow() {
+    /** Device feedback 2026-10-16: the show's latest boosts, cycling under the
+     *  player's controls, confused more than they told — they are gone. */
+    @Test
+    fun thePlayerNoLongerCyclesTheShowsBoosts() {
         rule.setContent { App() }
         tap("Discover"); subscribe("https://pod.test/sc.xml")
         waitFor("✓ Sovereigncast")
@@ -1034,32 +1040,8 @@ class AndroidAppFlowTest {
         tap("Play")
         until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
         koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
-        rule.waitUntil(10_000) { has("z · 21 sats", substring = true) }
-    }
-
-    /** The player shows the show's latest boosts a line at a time; a tap opens one
-     *  in full (design C2, device feedback 2026-10-14). */
-    @Test
-    fun thePlayerShowsTheLatestBoosts() {
-        playScShow()
-        rule.onNode(hasText("z · 21 sats", substring = true) and hasClickAction()).performClick()
-        waitFor("21 sats")
-    }
-
-    /** Device feedback 2026-10-14: on a Pixel 9, upright, the line did not fit
-     *  under the controls. Slim, it does — here on a shorter screen still. */
-    @Test @Config(qualifiers = "en-w412dp-h800dp")
-    fun theLatestBoostFitsUprightOnAPhone() {
-        playScShow()
-        rule.onNode(hasText("z · 21 sats", substring = true) and hasClickAction()).assertIsDisplayed()
-    }
-
-    /** "All" in the player's line: the show's Boosts tab. */
-    @Test
-    fun allLatestBoostsOpenTheBoostsTab() {
-        playScShow()
-        tap("All ›")
-        waitFor("Top boosts in October 2026")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Community") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        check(!has("z · 21 sats", substring = true)) { "the latest-boosts line is back" }
     }
 
     // ── device feedback 2026-10-09 ─────────────────────────────────────────
