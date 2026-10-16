@@ -53,6 +53,20 @@ import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.nostr_anonymous
+import space.sovereigncast.hopp.resources.nostr_bunker_failed
+import space.sovereigncast.hopp.resources.nostr_bunker_auth_open
+import space.sovereigncast.hopp.resources.nostr_bunker_auth
+import space.sovereigncast.hopp.resources.nostr_bunker_waiting
+import space.sovereigncast.hopp.resources.nostr_bunker_open
+import space.sovereigncast.hopp.resources.nostr_bunker_offer_note
+import space.sovereigncast.hopp.resources.nostr_bunker_offer
+import space.sovereigncast.hopp.resources.nostr_bunker_connecting
+import space.sovereigncast.hopp.resources.nostr_bunker_connect
+import space.sovereigncast.hopp.resources.nostr_bunker_scan
+import space.sovereigncast.hopp.resources.nostr_bunker_hint
+import space.sovereigncast.hopp.resources.nostr_bunker_note
+import space.sovereigncast.hopp.resources.nostr_bunker_title
+import space.sovereigncast.hopp.resources.nostr_profile_loading
 import space.sovereigncast.hopp.resources.nostr_sign_out_text_amber
 import space.sovereigncast.hopp.resources.nostr_via_amber
 import space.sovereigncast.hopp.resources.nostr_amber_failed
@@ -89,9 +103,16 @@ class NostrIdentityViewModel(
 ) : ViewModel() {
     val identity: StateFlow<NostrIdentity?> = identities.identity
 
+    /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
+    private val _loadingProfile = MutableStateFlow(false)
+    val loadingProfile: StateFlow<Boolean> = _loadingProfile.asStateFlow()
+
     init {
         // A profile from a signer app can change elsewhere — and an older Hopp did not find it at all.
-        if (identities.identity.value?.holdsKey == false) viewModelScope.launch { runCatching { identities.refreshProfile() } }
+        if (identities.identity.value?.holdsKey == false) viewModelScope.launch {
+            _loadingProfile.value = true
+            try { runCatching { identities.refreshProfile() } } finally { _loadingProfile.value = false }
+        }
     }
     val current: StateFlow<Settings?> = settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -112,6 +133,7 @@ class NostrIdentityViewModel(
     /** Signs in with the signer app; its profile name becomes the boost name when none is set. */
     fun signInWithSigner() = work {
         _signerError.value = null
+        _loadingProfile.value = true
         try {
             val me = identities.signInWithSigner()
             val name = me.name
@@ -120,6 +142,8 @@ class NostrIdentityViewModel(
             _signerError.value = SignerError.Rejected
         } catch (e: Exception) {
             _signerError.value = SignerError.Failed
+        } finally {
+            _loadingProfile.value = false
         }
     }
 
@@ -129,10 +153,62 @@ class NostrIdentityViewModel(
         _published.value = identities.create(name).size
     }
 
+    /** A remote signer (NIP-46): connecting, a code shown for it, or what went wrong. */
+    sealed interface Bunker {
+        data object Idle : Bunker
+        data object Connecting : Bunker
+        data class Offer(val uri: String) : Bunker
+        data class Failed(val reason: String) : Bunker
+    }
+    private val _bunker = MutableStateFlow<Bunker>(Bunker.Idle)
+    val bunker: StateFlow<Bunker> = _bunker.asStateFlow()
+    /** The signer wants the listener to confirm on one of its pages first. */
+    private val _authUrl = MutableStateFlow<String?>(null)
+    val authUrl: StateFlow<String?> = _authUrl.asStateFlow()
+    private var waiting: kotlinx.coroutines.Job? = null
+
+    fun connectBunker(address: String) {
+        if (_bunker.value == Bunker.Connecting) return
+        _bunker.value = Bunker.Connecting
+        waiting = viewModelScope.launch { finishBunker { identities.signInWithBunker(address) { _authUrl.value = it } } }
+    }
+
+    fun showConnectCode() {
+        val offer = identities.nostrConnectOffer()
+        _bunker.value = Bunker.Offer(offer.uri)
+        waiting?.cancel()
+        waiting = viewModelScope.launch { finishBunker { identities.signInWithNostrConnect(offer) } }
+    }
+
+    fun cancelBunker() { waiting?.cancel(); waiting = null; _authUrl.value = null; _bunker.value = Bunker.Idle }
+
+    private suspend fun finishBunker(signIn: suspend () -> NostrIdentity) {
+        _loadingProfile.value = true
+        try {
+            val me = signIn()
+            me.name?.let { name -> if (settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) } }
+            _bunker.value = Bunker.Idle
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _bunker.value = Bunker.Failed(e.message ?: e::class.simpleName.orEmpty())
+        } finally {
+            _authUrl.value = null
+            _loadingProfile.value = false
+        }
+    }
+
     fun publishAgain() = work { _published.value = identities.publishProfile().size }
     fun export(password: String) = work { _exported.value = identities.export(password) }
     fun setAnonymous(on: Boolean) = viewModelScope.launch { settings.update { it.copy(scAnonymous = on) } }
-    fun signOut() { _exported.value = null; _published.value = null; identities.signOut() }
+    fun signOut() {
+        _exported.value = null; _published.value = null
+        // A bunker hears that the session is over — a courtesy, not waited on long.
+        viewModelScope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
+            identities.signOut()
+        }
+    }
 
     private fun work(block: suspend () -> Unit) {
         if (_busy.value) return
@@ -156,6 +232,9 @@ fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
         if (me == null) {
             // A signer app keeps the key out of Hopp: offered first where there is one (ADR 0021, stage 1b).
             if (vm.signerApp) SignerLogin(busy, vm)
+            // A remote signer — on iOS the only way to keep the key outside Hopp (ADR 0006).
+            BunkerLogin(vm)
+            Text(stringResource(Res.string.nostr_or_new), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
             Create(settings?.senderName.orEmpty(), busy, vm::create)
         } else Signed(me, settings, busy, vm)
     }
@@ -170,7 +249,58 @@ private fun SignerLogin(busy: Boolean, vm: NostrIdentityViewModel) {
         Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
             color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
-    Text(stringResource(Res.string.nostr_or_new), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+}
+
+@Composable
+private fun BunkerLogin(vm: NostrIdentityViewModel) {
+    val state by vm.bunker.collectAsState()
+    val authUrl by vm.authUrl.collectAsState()
+    val actions = LocalPlatformActions.current
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    var address by rememberSaveable { mutableStateOf("") }
+    Text(stringResource(Res.string.nostr_bunker_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+    Text(stringResource(Res.string.nostr_bunker_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    when (val s = state) {
+        is NostrIdentityViewModel.Bunker.Offer -> {
+            Text(stringResource(Res.string.nostr_bunker_offer_note), style = MaterialTheme.typography.bodySmall)
+            SelectionContainer { Text(s.uri, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { runCatching { uri.openUri(s.uri) } }) { Text(stringResource(Res.string.nostr_bunker_open)) }
+                OutlinedButton(onClick = { actions.copyText(s.uri, "nostrconnect") }) { Text(stringResource(Res.string.nostr_copy)) }
+                OutlinedButton(onClick = { actions.shareText(s.uri, "Nostr") }) { Text(stringResource(Res.string.nostr_share)) }
+            }
+            Waiting(stringResource(Res.string.nostr_bunker_waiting), vm)
+        }
+        NostrIdentityViewModel.Bunker.Connecting -> Waiting(stringResource(Res.string.nostr_bunker_connecting), vm)
+        else -> {
+            OutlinedTextField(
+                address, { address = it }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text(stringResource(Res.string.nostr_bunker_hint)) },
+            )
+            (state as? NostrIdentityViewModel.Bunker.Failed)?.let {
+                Text(stringResource(Res.string.nostr_bunker_failed, it.reason), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.connectBunker(address) }, enabled = address.trim().startsWith("bunker://")) { Text(stringResource(Res.string.nostr_bunker_connect)) }
+                // Scanned, it connects at once — as the wallet's code does.
+                if (actions.canScanQr) OutlinedButton(onClick = { actions.scanQr { text -> address = text.trim(); vm.connectBunker(address) } }) {
+                    Text(stringResource(Res.string.nostr_bunker_scan))
+                }
+            }
+            TextButton(onClick = vm::showConnectCode) { Text(stringResource(Res.string.nostr_bunker_offer)) }
+        }
+    }
+    authUrl?.let { url ->
+        Text(stringResource(Res.string.nostr_bunker_auth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        OutlinedButton(onClick = { runCatching { uri.openUri(url) } }) { Text(stringResource(Res.string.nostr_bunker_auth_open)) }
+    }
+}
+
+@Composable
+private fun Waiting(text: String, vm: NostrIdentityViewModel) = Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    TextButton(onClick = vm::cancelBunker) { Text(stringResource(Res.string.cancel)) }
 }
 
 @Composable
@@ -203,6 +333,11 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
             coil3.compose.AsyncImage(it, null, Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
         }
         me.name?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+        val loading by vm.loadingProfile.collectAsState()
+        if (loading) {
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            if (me.name == null) Text(stringResource(Res.string.nostr_profile_loading), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        }
     }
     SelectionContainer { Text(me.npub, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

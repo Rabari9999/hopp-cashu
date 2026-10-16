@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Sends an event to relays and says which of them took it (NIP-01 `OK`); reads
  *  an author's newest event of a kind back. */
-class RelayPublisher(private val connector: RelayConnector, private val timeout: Duration = 10.seconds) {
+class RelayPublisher(val connector: RelayConnector, private val timeout: Duration = 10.seconds) {
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The relays that answered `OK true`; one that fails or stays silent is left out. */

@@ -15,7 +15,11 @@ import space.sovereigncast.hopp.data.Clock
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import space.sovereigncast.hopp.nostr.BunkerSigner
+import space.sovereigncast.hopp.nostr.BunkerUri
 import space.sovereigncast.hopp.nostr.ExternalNostrSigner
+import space.sovereigncast.hopp.nostr.Nip46Client
+import space.sovereigncast.hopp.nostr.NostrConnectOffer
 import space.sovereigncast.hopp.nostr.ExternalSigner
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.SignerRejected
@@ -41,13 +45,17 @@ data class NostrIdentity(
     val signerPackage: String? = null,
     /** The profile picture (kind 0 `picture`), https only. */
     val picture: String? = null,
+    /** A remote signer's key and relays, for an identity behind a bunker (NIP-46). */
+    val remoteSigner: String? = null,
+    val signerRelays: List<String> = emptyList(),
 ) {
     val npub: String get() = npub(pubkey)
     /** Whether Hopp holds the key — and so is responsible for its backup. */
     val holdsKey: Boolean get() = source == Source.Local
 
-    /** Local: a key Hopp made and keeps. Amber: a signer app on the device keeps it (stage 1b). */
-    enum class Source { Local, Amber }
+    /** Local: a key Hopp made and keeps. Amber: a signer app on the device keeps it (stage 1b).
+     *  Bunker: a remote signer keeps it (NIP-46, stage 1c) — on iOS the only external one. */
+    enum class Source { Local, Amber, Bunker }
 }
 
 /**
@@ -82,7 +90,50 @@ class IdentityRepository(
                 val app = externalSigner ?: return null
                 ExternalNostrSigner(me.pubkey, me.signerPackage ?: return null, app)
             }
+            NostrIdentity.Source.Bunker -> bunkerClient(me)?.let { BunkerSigner(me.pubkey, it) }
         }
+    }
+
+    private fun bunkerClient(me: NostrIdentity, onAuthUrl: (String) -> Unit = {}): Nip46Client? {
+        val keys = secrets.get(BUNKER_KEY)?.let { runCatching { KeyPair.fromHex(it) }.getOrNull() } ?: return null
+        return Nip46Client(keys, me.remoteSigner ?: return null, me.signerRelays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
+    }
+
+    /**
+     * Connects to a remote signer from its `bunker://` address (NIP-46): Hopp
+     * makes a key of its own for the conversation only, asks the signer for
+     * standing permission to sign NIP-98, learns its relays and the listener's
+     * key. [onAuthUrl]: the signer wants the listener to confirm on a page.
+     */
+    suspend fun signInWithBunker(address: String, onAuthUrl: (String) -> Unit = {}): NostrIdentity {
+        val bunker = BunkerUri.parse(address)
+        val keys = KeyPair.generate()
+        val client = Nip46Client(keys, bunker.remoteSignerPubkey, bunker.relays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
+        client.connect(bunker.secret, BUNKER_PERMS)
+        return finishBunker(keys, client)
+    }
+
+    /** A `nostrconnect://` code for the listener's signer — the other way round. */
+    fun nostrConnectOffer(): NostrConnectOffer = NostrConnectOffer.create(CONNECT_RELAYS, BUNKER_PERMS)
+
+    /** Waits until the signer takes up [offer], then signs in as with a bunker address. */
+    suspend fun signInWithNostrConnect(offer: NostrConnectOffer): NostrIdentity =
+        finishBunker(offer.clientKeys, Nip46Client.awaitConnect(offer, publisher.connector, { clock.now() }))
+
+    private suspend fun finishBunker(keys: KeyPair, client: Nip46Client): NostrIdentity {
+        client.switchRelays()
+        val pubkey = client.getPublicKey()
+        secrets.put(KEY, null)
+        secrets.put(BUNKER_KEY, keys.secretKey.toHex())
+        val me = NostrIdentity(pubkey, NostrIdentity.Source.Bunker, null, remoteSigner = client.remoteSignerPubkey, signerRelays = client.relays)
+        save(me)
+        return refreshProfile() ?: me
+    }
+
+    /** Tells a remote signer the session is over — a courtesy, never waited on long (NIP-46). */
+    suspend fun endRemoteSession() {
+        val me = _identity.value?.takeIf { it.source == NostrIdentity.Source.Bunker } ?: return
+        bunkerClient(me)?.logout()
     }
 
     /**
@@ -162,6 +213,7 @@ class IdentityRepository(
      *  app). Nothing published is touched — on Nostr it stays (ADR 0021, 8). */
     fun signOut() {
         secrets.put(KEY, null)
+        secrets.put(BUNKER_KEY, null)
         secrets.put(INFO, null)
         _identity.value = null
     }
@@ -174,6 +226,14 @@ class IdentityRepository(
     companion object {
         private const val KEY = "nostr_identity_key"
         private const val INFO = "nostr_identity"
+        /** Hopp's own key for talking to a remote signer — not the listener's. */
+        private const val BUNKER_KEY = "nostr_bunker_client_key"
+
+        /** What Hopp asks a remote signer to allow for good: NIP-98 for votes and suggestions. */
+        const val BUNKER_PERMS = "sign_event:27235"
+
+        /** Where Hopp waits for a signer that takes up a nostrconnect:// code. */
+        val CONNECT_RELAYS = listOf("wss://relay.nsec.app", "wss://nos.lol")
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")

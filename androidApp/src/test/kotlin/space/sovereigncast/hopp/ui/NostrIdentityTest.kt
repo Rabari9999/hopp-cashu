@@ -64,7 +64,8 @@ class NostrIdentityTest {
         tap("Nostr identity")
         // Said before anything is published: it stays.
         waitFor("is public and stays on Nostr for good", substring = true)
-        rule.onNode(hasSetTextAction()).performTextInput("Thorsten")
+        // The name is the last field — the bunker's address comes first.
+        rule.onAllNodes(hasSetTextAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performTextInput("Thorsten")
         tap("Create identity")
         // Hopp's three relays and the two indexes.
         waitFor("Profile published on 5 relays.")
@@ -174,5 +175,36 @@ class NostrIdentityTest {
         tap("Nostr identity")
         waitFor("Create identity")
         check(!has("Sign in with Amber"))
+    }
+
+    // ── stage 1c: a remote signer (NIP-46) ──────────────────────────────────
+
+    private fun nostrPage() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Signer elsewhere (bunker)")
+    }
+
+    @Test
+    fun aBrokenBunkerAddressIsRefusedVisibly() {
+        nostrPage()
+        rule.onAllNodes(hasSetTextAction())[0].performTextInput("bunker://nokey?relay=wss://r.test")
+        tap("Connect")
+        waitFor("Could not connect: no signer key in the address")
+        check(koin.get<IdentityRepository>().identity.value == null)
+    }
+
+    /** The other way round: a nostrconnect:// code to hand to the signer, and Hopp waits. */
+    @Test
+    fun aCodeForTheSignerIsShownAndCanBeCancelled() {
+        nostrPage()
+        tap("Show a code for your signer")
+        waitFor("nostrconnect://", substring = true)
+        waitFor("Waiting for your signer…")
+        check(has("perms=sign_event%3A27235", substring = true)) { "the code asks for nothing" }
+        tap("Cancel")
+        waitFor("Connect")
+        check(!has("Waiting for your signer…"))
     }
 }

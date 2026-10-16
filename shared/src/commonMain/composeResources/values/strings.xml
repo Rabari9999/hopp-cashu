@@ -577,4 +577,18 @@
     <string name="nostr_amber_failed">The signer app did not answer.</string>
     <string name="nostr_via_amber">Signed in with your signer app — your key stays there.</string>
     <string name="nostr_sign_out_text_amber">Hopp forgets the connection to your signer app. Your key stays in it; what you published stays on Nostr.</string>
+    <string name="nostr_profile_loading">Loading your profile…</string>
+    <string name="nostr_bunker_title">Signer elsewhere (bunker)</string>
+    <string name="nostr_bunker_note">Your key in nsec.app, in Amber's bunker mode or on a signing device: paste its bunker:// address. Hopp asks it for each signature; the key never comes here.</string>
+    <string name="nostr_bunker_hint">bunker://…</string>
+    <string name="nostr_bunker_scan">Scan QR code</string>
+    <string name="nostr_bunker_connect">Connect</string>
+    <string name="nostr_bunker_connecting">Connecting to your signer…</string>
+    <string name="nostr_bunker_offer">Show a code for your signer</string>
+    <string name="nostr_bunker_offer_note">Open this code in your signer, or paste it there. Hopp waits until the signer connects.</string>
+    <string name="nostr_bunker_open">Open in signer</string>
+    <string name="nostr_bunker_waiting">Waiting for your signer…</string>
+    <string name="nostr_bunker_auth">Your signer asks you to confirm on its page.</string>
+    <string name="nostr_bunker_auth_open">Open confirmation</string>
+    <string name="nostr_bunker_failed">Could not connect: %1$s</string>
 </resources>

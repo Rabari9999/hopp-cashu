@@ -7,7 +7,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Eine optionale Nostr-Identität** — in den Einstellungen erstellt, mit einem Namen, mit dem Hopp dich begrüßt; deine Stimmen bei Sovereigncast-Shows zählen dann einmal pro Person, auf jedem Gerät. Mit Amber anmelden, dann bleibt dein Schlüssel dort, oder in Hopp erstellen und mit Passwort sichern. Oder anonym bleiben.
+- **Eine optionale Nostr-Identität** — in den Einstellungen erstellt, mit einem Namen, mit dem Hopp dich begrüßt; deine Stimmen bei Sovereigncast-Shows zählen dann einmal pro Person, auf jedem Gerät. Mit Amber oder einem Bunker (nsec.app und andere) anmelden, dann bleibt dein Schlüssel dort, oder in Hopp erstellen und mit Passwort sichern. Oder anonym bleiben.
 - **Den Trailer einer Show anhören** — auf ihrer Seite, auch vor dem Abonnieren; die Folge, die du gerade hörst, wartet, wo du warst.
 
 ## [0.1.1] - 2026-10-15

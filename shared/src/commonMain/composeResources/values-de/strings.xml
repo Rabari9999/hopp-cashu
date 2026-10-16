@@ -577,4 +577,18 @@
     <string name="nostr_amber_failed">Die Signer-App hat nicht geantwortet.</string>
     <string name="nostr_via_amber">Über deine Signer-App angemeldet – dein Schlüssel bleibt dort.</string>
     <string name="nostr_sign_out_text_amber">Hopp vergisst die Verbindung zu deiner Signer-App. Dein Schlüssel bleibt dort; was du veröffentlicht hast, bleibt auf Nostr.</string>
+    <string name="nostr_profile_loading">Profil wird geladen…</string>
+    <string name="nostr_bunker_title">Signer anderswo (Bunker)</string>
+    <string name="nostr_bunker_note">Dein Schlüssel in nsec.app, im Bunker-Modus von Amber oder auf einem Signiergerät: Füge seine bunker://-Adresse ein. Hopp fragt ihn für jede Signatur; der Schlüssel kommt nie hierher.</string>
+    <string name="nostr_bunker_hint">bunker://…</string>
+    <string name="nostr_bunker_scan">QR-Code scannen</string>
+    <string name="nostr_bunker_connect">Verbinden</string>
+    <string name="nostr_bunker_connecting">Verbinde mit deinem Signer…</string>
+    <string name="nostr_bunker_offer">Code für deinen Signer anzeigen</string>
+    <string name="nostr_bunker_offer_note">Öffne diesen Code in deinem Signer oder füge ihn dort ein. Hopp wartet, bis sich der Signer verbindet.</string>
+    <string name="nostr_bunker_open">Im Signer öffnen</string>
+    <string name="nostr_bunker_waiting">Warte auf deinen Signer…</string>
+    <string name="nostr_bunker_auth">Dein Signer bittet dich, auf seiner Seite zu bestätigen.</string>
+    <string name="nostr_bunker_auth_open">Bestätigung öffnen</string>
+    <string name="nostr_bunker_failed">Verbindung fehlgeschlagen: %1$s</string>
 </resources>

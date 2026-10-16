@@ -151,7 +151,16 @@ boost, profile): this stays public and permanent.
    that is not allowed; whatever comes back is checked (the listener's key,
    the event asked for, a valid signature). The profile name is read from
    the relays, never written; no backup is offered for a key Hopp does not
-   hold. *Open:* 1c bunker.
+   hold. Profiles are looked up as clients do (device feedback 2026-10-16:
+   the maintainer's was only on an index): Hopp's relays and two indexes
+   (purplepag.es, user.kindpag.es), then the person's NIP-65 write relays.
+   *1c built 2026-10-16:* a remote signer (NIP-46) on both platforms —
+   a pasted or scanned `bunker://` address, or a `nostrconnect://` code
+   Hopp shows (copy, share, open in the signer; no QR drawn yet). Hopp keeps
+   a conversation key of its own, asks for standing NIP-98 permission,
+   honours `switch_relays` and `auth_url`, checks the connect secret of a
+   code, signs out with `logout`. NIP-44 only; signers that speak only
+   NIP-04 are not supported.
 2. **Reading comments**, with the relay entry on the privacy page.
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.
