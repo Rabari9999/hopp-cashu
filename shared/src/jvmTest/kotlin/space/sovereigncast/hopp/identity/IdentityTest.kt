@@ -42,7 +42,7 @@ class IdentityTest {
         val published = mutableListOf<Event>()
         relay.listeners += { published += it }
         val took = identities.create("  Thorsten ")
-        assertEquals(IdentityRepository.DEFAULT_RELAYS.toSet(), took)
+        assertEquals((IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS).toSet(), took)
         val me = assertNotNull(identities.identity.value)
         assertEquals("Thorsten", me.name)
         assertEquals(me.pubkey, npubToHex(me.npub))
@@ -193,5 +193,39 @@ class IdentityTest {
         kotlin.test.assertFailsWith<space.sovereigncast.hopp.nostr.SignerUnavailable> {
             repo.signer()!!.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(Nip98.KIND, "", emptyList(), now))
         }
+    }
+
+    /**
+     * Device feedback 2026-10-16: the listener's profile was on none of Hopp's
+     * relays — only an index had it, and their relay list. Found there, and on
+     * the relays that list names.
+     */
+    @Test
+    fun aProfileIsFoundThroughTheRelayListOnAnIndex() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val index = FakeRelay()
+        val theirRelay = FakeRelay()
+        val connector = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            when (url) {
+                "wss://purplepag.es" -> index.connect(url)
+                "wss://relay.their.example" -> theirRelay.connect(url)
+                else -> FakeRelay().connect(url)
+            }
+        }
+        index.publish(Event.sign(app.keys, 10002, "", listOf(listOf("r", "wss://relay.their.example/"), listOf("r", "wss://read.only.example", "read")), now - 50))
+        theirRelay.publish(Event.sign(app.keys, 0, """{"name":"Altbierjupp","picture":"https://img.example/a.png"}""", emptyList(), now - 100))
+        val repo = IdentityRepository(secrets, RelayPublisher(connector), { now }, app)
+        val me = repo.signInWithSigner()
+        assertEquals("Altbierjupp", me.name)
+        assertEquals("https://img.example/a.png", me.picture)
+    }
+
+    @Test
+    fun aPictureThatIsNotHttpsIsLeftOut() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        relay.publish(Event.sign(app.keys, 0, """{"name":"X","picture":"http://img.example/a.png"}""", emptyList(), now - 100))
+        val me = IdentityRepository(secrets, RelayPublisher(relay), { now }, app).signInWithSigner()
+        assertEquals("X", me.name)
+        assertNull(me.picture)
     }
 }

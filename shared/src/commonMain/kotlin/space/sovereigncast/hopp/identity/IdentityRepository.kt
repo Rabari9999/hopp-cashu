@@ -39,6 +39,8 @@ data class NostrIdentity(
     val exported: Boolean = false,
     /** The signer app's package, for an identity that lives in one (NIP-55). */
     val signerPackage: String? = null,
+    /** The profile picture (kind 0 `picture`), https only. */
+    val picture: String? = null,
 ) {
     val npub: String get() = npub(pubkey)
     /** Whether Hopp holds the key — and so is responsible for its backup. */
@@ -95,20 +97,31 @@ class IdentityRepository(
         secrets.put(KEY, null)
         val me = NostrIdentity(pubkey, NostrIdentity.Source.Amber, null, signerPackage = signerPackage)
         save(me)
-        return refreshName() ?: me
+        return refreshProfile() ?: me
     }
 
-    /** The profile name (kind 0) of an identity Hopp did not make, from the relays. */
-    suspend fun refreshName(): NostrIdentity? {
+    /**
+     * The profile (kind 0: name, picture) of an identity Hopp did not make. Found
+     * the way Nostr clients find one (device feedback 2026-10-16: a listener's
+     * profile was on none of Hopp's relays, only on an index): Hopp's relays and
+     * two indexes first, which also hold the person's relay list (NIP-65), then
+     * the relays that list names as theirs.
+     */
+    suspend fun refreshProfile(): NostrIdentity? {
         val me = _identity.value ?: return null
-        val profile = publisher.latest(0, me.pubkey, DEFAULT_RELAYS) ?: return null
+        val lookup = DEFAULT_RELAYS + INDEX_RELAYS
+        val theirs = publisher.latest(10002, me.pubkey, lookup)?.tags.orEmpty()
+            .filter { it.size >= 2 && it[0] == "r" && it[1].startsWith("wss://") && (it.size < 3 || it[2] == "write") }
+            .map { it[1].trimEnd('/') }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
+        val profile = publisher.latest(0, me.pubkey, lookup + theirs) ?: return null
         val obj = runCatching { json.parseToJsonElement(profile.content).jsonObject }.getOrNull() ?: return null
-        val name = listOf("display_name", "displayName", "name").firstNotNullOfOrNull { key ->
-            (obj[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
-        } ?: return null
+        fun text(vararg keys: String) = keys.firstNotNullOfOrNull { key -> (obj[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } }
+        val name = text("display_name", "displayName", "name")
+        val picture = text("picture")?.takeIf { it.startsWith("https://") }
+        if (name == null && picture == null) return null
         // Still the same identity — the listener may have signed out meanwhile.
         if (_identity.value?.pubkey != me.pubkey) return _identity.value
-        return me.copy(name = name).also(::save)
+        return me.copy(name = name ?: me.name, picture = picture ?: me.picture).also(::save)
     }
 
     /**
@@ -130,8 +143,9 @@ class IdentityRepository(
         val now = clock.now()
         val profile = signer.sign(UnsignedEvent(0, buildJsonObject { me.name?.let { put("name", it) } }.toString(), emptyList(), now))
         val relays = signer.sign(UnsignedEvent(10002, "", DEFAULT_RELAYS.map { listOf("r", it) }, now))
-        val took = publisher.publish(profile, DEFAULT_RELAYS)
-        publisher.publish(relays, DEFAULT_RELAYS)
+        // To the indexes too: other clients look a new profile up there.
+        val took = publisher.publish(profile, DEFAULT_RELAYS + INDEX_RELAYS)
+        publisher.publish(relays, DEFAULT_RELAYS + INDEX_RELAYS)
         return took
     }
 
@@ -163,5 +177,11 @@ class IdentityRepository(
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")
+
+        /** Relays that collect profiles and relay lists (kinds 0, 3, 10002) to look people up. */
+        val INDEX_RELAYS = listOf("wss://purplepag.es", "wss://user.kindpag.es")
+
+        /** A person's own relays asked at most, for one profile. */
+        private const val MAX_THEIR_RELAYS = 4
     }
 }

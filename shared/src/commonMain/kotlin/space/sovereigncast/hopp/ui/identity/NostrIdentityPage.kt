@@ -88,6 +88,11 @@ class NostrIdentityViewModel(
     private val settings: SettingsRepository,
 ) : ViewModel() {
     val identity: StateFlow<NostrIdentity?> = identities.identity
+
+    init {
+        // A profile from a signer app can change elsewhere — and an older Hopp did not find it at all.
+        if (identities.identity.value?.holdsKey == false) viewModelScope.launch { runCatching { identities.refreshProfile() } }
+    }
     val current: StateFlow<Settings?> = settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _busy = MutableStateFlow(false)
@@ -193,7 +198,12 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     val exported by vm.exported.collectAsState()
     var confirmSignOut by remember { mutableStateOf(false) }
 
-    me.name?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        me.picture?.let {
+            coil3.compose.AsyncImage(it, null, Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        }
+        me.name?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
+    }
     SelectionContainer { Text(me.npub, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }

@@ -66,7 +66,8 @@ class NostrIdentityTest {
         waitFor("is public and stays on Nostr for good", substring = true)
         rule.onNode(hasSetTextAction()).performTextInput("Thorsten")
         tap("Create identity")
-        waitFor("Profile published on 3 relays.")
+        // Hopp's three relays and the two indexes.
+        waitFor("Profile published on 5 relays.")
         waitFor("npub1", substring = true)
         waitFor("Not backed up yet.")
         // The name is the boost name too, as none was set.

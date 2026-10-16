@@ -566,7 +566,7 @@
     <string name="nostr_sign_out">Aus Hopp abmelden</string>
     <string name="nostr_sign_out_text">Der Schlüssel wird von diesem Gerät gelöscht. Ohne Sicherung ist die Identität verloren. Was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_confirm">Abmelden</string>
-    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net)</string>
+    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net; purplepag.es und user.kindpag.es zum Nachschlagen von Profilen)</string>
     <string name="pv_nostr_sees">deine IP-Adresse und was du mit deiner Nostr-Identität veröffentlichst – jetzt deinen Profilnamen; öffentlich für alle, dauerhaft</string>
     <string name="pv_nostr_when">nur mit einer Nostr-Identität: wenn sie erstellt und ihr Profil veröffentlicht wird</string>
     <string name="pv_nostr_tip">Ohne Identität spricht Hopp mit keinem Relay. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>

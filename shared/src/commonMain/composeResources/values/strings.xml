@@ -566,7 +566,7 @@
     <string name="nostr_sign_out">Sign out of Hopp</string>
     <string name="nostr_sign_out_text">The key is deleted from this device. Without a backup the identity is lost. What you published stays on Nostr.</string>
     <string name="nostr_sign_out_confirm">Sign out</string>
-    <string name="pv_nostr_who">Nostr relays (relay.damus.io, nos.lol, relay.primal.net)</string>
+    <string name="pv_nostr_who">Nostr relays (relay.damus.io, nos.lol, relay.primal.net; purplepag.es and user.kindpag.es to look profiles up)</string>
     <string name="pv_nostr_sees">your IP address, and what you publish with your Nostr identity — now your profile name; public for everyone, for good</string>
     <string name="pv_nostr_when">only with a Nostr identity: when it is made and its profile published</string>
     <string name="pv_nostr_tip">Without an identity Hopp contacts no relay. A VPN keeps your IP address from them; what you publish stays public.</string>
