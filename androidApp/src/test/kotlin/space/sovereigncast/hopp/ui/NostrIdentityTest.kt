@@ -63,15 +63,14 @@ class NostrIdentityTest {
         rule.onNode(hasContentDescription("Settings")).performClick()
         waitFor("Optional — vote as a person, comment later")
         tap("Nostr identity")
-        // Said before anything is published: it stays.
-        waitFor("is public and stays on Nostr for good", substring = true)
-        // The name is the last field — the bunker's address comes first.
-        rule.onAllNodes(hasSetTextAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performTextInput("Thorsten")
-        tap("Create identity")
-        // Hopp's three relays and the two indexes.
-        waitFor("Profile published on 5 relays.")
+        // One way in for a newcomer (device feedback 2026-10-16), said before: it stays public.
+        waitFor("What you publish on Nostr is public and stays.")
+        check(!has("bunker://…") && !has("nsec1… or ncryptsec1…")) { "the ways for an existing account belong behind their link" }
+        rule.onNode(hasSetTextAction()).performTextInput("Thorsten")
+        tap("Get started")
         waitFor("npub1", substring = true)
-        waitFor("Not backed up yet.")
+        // Not backed up: one card, one button.
+        waitFor("Back up your key")
         // The name is the boost name too, as none was set.
         rule.waitUntil(10_000) { runBlocking { koin.get<SettingsRepository>().settings.first().senderName } == "Thorsten" }
         tap("Home")
@@ -85,8 +84,8 @@ class NostrIdentityTest {
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
         waitFor("Back up your key")
-        // The password-locked backup is one of the "more options" now (device feedback 2026-10-16).
-        tap("More options ▾")
+        // The password-locked backup is one of the "other ways" (device feedback 2026-10-16).
+        tap("Other ways")
         waitFor("Encrypt with a password (ncryptsec)")
         val fields = rule.onAllNodes(hasSetTextAction())
         fields[0].performTextInput("correct horse")
@@ -121,7 +120,7 @@ class NostrIdentityTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
-        waitFor("Use an existing key")
+        tap("I already have a Nostr account")
         rule.onNode(hasText("nsec1… or ncryptsec1…") and hasSetTextAction()).performTextInput(nsec)
         tap("Use key")
         rule.waitUntil(10_000) { koin.get<IdentityRepository>().identity.value?.pubkey == keys.publicKeyHex }
@@ -168,7 +167,7 @@ class NostrIdentityTest {
         tap("Sign out of Hopp")
         waitFor("What you published stays on Nostr.", substring = true)
         tap("Sign out")
-        waitFor("Create identity")
+        waitFor("Get started")
         check(koin.get<IdentityRepository>().signer() == null)
     }
 
@@ -181,8 +180,9 @@ class NostrIdentityTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
+        tap("I already have a Nostr account")
         tap("Sign in with Amber")
-        waitFor("Signed in with your signer app — your key stays there.")
+        waitFor("Your key stays in your signer app.")
         check(!has("Back up your key")) { "a backup offered for a key Hopp does not hold" }
         val me = koin.get<IdentityRepository>().identity.value!!
         check(me.pubkey == FakeAmber.keys.publicKeyHex && !me.holdsKey)
@@ -197,6 +197,7 @@ class NostrIdentityTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
+        tap("I already have a Nostr account")
         tap("Sign in with Amber")
         waitFor("The signer app said no.")
         check(koin.get<IdentityRepository>().identity.value == null)
@@ -207,7 +208,8 @@ class NostrIdentityTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
-        waitFor("Create identity")
+        tap("I already have a Nostr account")
+        waitFor("Connect a bunker ▾")
         check(!has("Sign in with Amber"))
     }
 
@@ -217,6 +219,8 @@ class NostrIdentityTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Nostr identity")
+        tap("I already have a Nostr account")
+        tap("Connect a bunker ▾")
         waitFor("Signer elsewhere (bunker)")
     }
 

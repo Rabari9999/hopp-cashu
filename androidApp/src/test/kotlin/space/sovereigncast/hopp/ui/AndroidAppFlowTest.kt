@@ -1503,7 +1503,7 @@ class AndroidAppFlowTest {
         repeat(4) { tap("Next") }
         waitFor("Nostr, if you like")
         tap("Set up Nostr now")
-        waitFor("Or make a new identity in Hopp")
+        waitFor("Join the conversation on Nostr")
         until { settings().onboardingDone }
     }
 

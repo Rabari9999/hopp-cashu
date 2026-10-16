@@ -147,6 +147,14 @@ not, nor does Damus. Hopp's working copy stays in the device-only store
 - The reminder after the first comment made with a key from Hopp stays; a
   key saved or copied counts as backed up.
 
+*Amended again 2026-10-16:* the page showed every way at once and read like
+a manual. Now a newcomer sees one line, a name and "Get started"; the ways in
+with an existing account (signer app, password manager, pasted key, bunker)
+sit behind "I already have a Nostr account". Signed in: the profile, one card
+with one button to back the key up (the password manager / iCloud Keychain,
+else copying the nsec), the other ways behind "Other ways", then the two
+switches.
+
 ### Stages
 
 1. **Identity:** a key made in Hopp, Amber (NIP-55), bunker (NIP-46); the

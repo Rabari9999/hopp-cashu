@@ -1,5 +1,15 @@
 package space.sovereigncast.hopp.ui.identity
 
+import androidx.compose.foundation.layout.height
+
+import androidx.compose.foundation.layout.Box
+
+import androidx.compose.material3.HorizontalDivider
+
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+import androidx.compose.material3.ModalBottomSheet
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -71,8 +81,6 @@ import space.sovereigncast.hopp.resources.nostr_sign_out_text_amber
 import space.sovereigncast.hopp.resources.nostr_via_amber
 import space.sovereigncast.hopp.resources.nostr_amber_failed
 import space.sovereigncast.hopp.resources.nostr_amber_rejected
-import space.sovereigncast.hopp.resources.nostr_or_new
-import space.sovereigncast.hopp.resources.nostr_amber_note
 import space.sovereigncast.hopp.resources.nostr_amber
 import space.sovereigncast.hopp.resources.nostr_anonymous_note
 import space.sovereigncast.hopp.resources.*
@@ -83,18 +91,11 @@ import space.sovereigncast.hopp.resources.nostr_boosts
 import space.sovereigncast.hopp.resources.nostr_boosts_note
 import space.sovereigncast.hopp.resources.nostr_backup
 import space.sovereigncast.hopp.resources.nostr_backup_button
-import space.sovereigncast.hopp.resources.nostr_backup_done
-import space.sovereigncast.hopp.resources.nostr_backup_missing
 import space.sovereigncast.hopp.resources.nostr_backup_mismatch
-import space.sovereigncast.hopp.resources.nostr_backup_note
 import space.sovereigncast.hopp.resources.nostr_copy
-import space.sovereigncast.hopp.resources.nostr_create
-import space.sovereigncast.hopp.resources.nostr_intro
 import space.sovereigncast.hopp.resources.nostr_name
 import space.sovereigncast.hopp.resources.nostr_password
 import space.sovereigncast.hopp.resources.nostr_password_again
-import space.sovereigncast.hopp.resources.nostr_permanent
-import space.sovereigncast.hopp.resources.nostr_published
 import space.sovereigncast.hopp.resources.nostr_publish_again
 import space.sovereigncast.hopp.resources.nostr_publish_failed
 import space.sovereigncast.hopp.resources.nostr_share
@@ -283,28 +284,84 @@ fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
     val busy by vm.busy.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val me = identity
-        if (me == null) {
-            // A signer app keeps the key out of Hopp: offered first where there is one (ADR 0021, stage 1b).
-            if (vm.signerApp) SignerLogin(busy, vm)
-            // A remote signer — on iOS the only way to keep the key outside Hopp (ADR 0006).
-            // An existing key: from the password manager / iCloud Keychain, or pasted (device feedback 2026-10-16).
-            ImportKey(busy, vm)
-            BunkerLogin(vm)
-            Text(stringResource(Res.string.nostr_or_new), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            Create(settings?.senderName.orEmpty(), busy, vm::create)
-        } else Signed(me, settings, busy, vm)
+        // Device feedback 2026-10-16: too much text, too many ways at once. One way in for
+        // the newcomer — a name and "Get started" —, everything for an existing account
+        // behind one link; once in, the profile, one backup card, two switches.
+        if (me == null) Welcome(settings?.senderName.orEmpty(), busy, vm) else Signed(me, settings, busy, vm)
     }
 }
 
+/** No identity yet: what it is, in a line, and one button. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SignerLogin(busy: Boolean, vm: NostrIdentityViewModel) {
-    val error by vm.signerError.collectAsState()
-    Text(stringResource(Res.string.nostr_amber_note), style = MaterialTheme.typography.bodyMedium)
-    Button(onClick = vm::signInWithSigner, enabled = !busy) { Text(stringResource(Res.string.nostr_amber)) }
-    error?.let {
-        Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
-            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel) {
+    var name by rememberSaveable(boostName) { mutableStateOf(boostName) }
+    var signIn by rememberSaveable { mutableStateOf(false) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Comment, null, Modifier.size(36.dp))
+        }
+        Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(stringResource(Res.string.nostr_hero_text), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
+    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
+    Button(onClick = { vm.create(name) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_start), fontWeight = FontWeight.Bold)
+    }
+    Text(stringResource(Res.string.nostr_public_line), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    TextButton(onClick = { signIn = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_have_account)) }
+    if (signIn) ModalBottomSheet(onDismissRequest = { signIn = false }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(Res.string.nostr_have_account), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            SignIn(busy, vm)
+        }
+    }
+}
+
+/** The ways in with an existing account, easiest first: a signer app, the password manager, the key, a bunker. */
+@Composable
+private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
+    val actions = LocalPlatformActions.current
+    val vault = actions.keyVault
+    val state by vm.vault.collectAsState()
+    val error by vm.importError.collectAsState()
+    val signerError by vm.signerError.collectAsState()
+    var text by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var bunker by rememberSaveable { mutableStateOf(false) }
+    val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
+    if (vm.signerApp) {
+        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_amber)) }
+        signerError?.let {
+            Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+    if (vault != null) {
+        val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
+        OutlinedButton(onClick = { vm.restoreFromVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(if (iCloud) Res.string.nostr_vault_load_ios else Res.string.nostr_vault_load_android))
+        }
+        if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
+        visualTransformation = PasswordVisualTransformation())
+    if (locked) OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true,
+        label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation())
+    error?.let {
+        Text(stringResource(when (it) {
+            space.sovereigncast.hopp.identity.KeyImportException.Reason.WrongPassword -> Res.string.nostr_import_wrong_password
+            space.sovereigncast.hopp.identity.KeyImportException.Reason.NeedsPassword -> Res.string.nostr_import_password
+            space.sovereigncast.hopp.identity.KeyImportException.Reason.Unreadable -> Res.string.nostr_import_unreadable
+        }), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    if (text.isNotBlank()) OutlinedButton(onClick = { vm.importKey(text, password.takeIf { locked }) }, enabled = !busy && (!locked || password.isNotEmpty()), modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(Res.string.nostr_import_button))
+    }
+    // A remote signer: for those who keep their key on a server or device (and on iOS the way to an outside signer).
+    TextButton(onClick = { bunker = !bunker }) { Text(stringResource(Res.string.nostr_bunker_row) + if (bunker) " ▴" else " ▾") }
+    if (bunker) BunkerLogin(vm)
 }
 
 @Composable
@@ -360,74 +417,42 @@ private fun Waiting(text: String, vm: NostrIdentityViewModel) = Row(verticalAlig
 }
 
 @Composable
-private fun Create(boostName: String, busy: Boolean, onCreate: (String) -> Unit) {
-    var name by rememberSaveable(boostName) { mutableStateOf(boostName) }
-    Text(stringResource(Res.string.nostr_intro), style = MaterialTheme.typography.bodyMedium)
-    Permanent()
-    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
-    Button(onClick = { onCreate(name) }, enabled = !busy && name.isNotBlank()) {
-        if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_create))
-    }
-}
-
-@Composable
-private fun Permanent() = Text(
-    stringResource(Res.string.nostr_permanent),
-    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
-    style = MaterialTheme.typography.bodySmall,
-)
-
-@Composable
 private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: NostrIdentityViewModel) {
     val actions = LocalPlatformActions.current
     val published by vm.published.collectAsState()
-    val exported by vm.exported.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     var confirmSignOut by remember { mutableStateOf(false) }
 
+    // Who: picture, name, the npub short with a copy button.
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        me.picture?.let {
-            coil3.compose.AsyncImage(it, null, Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        Box(Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            val picture = me.picture
+            if (picture != null) coil3.compose.AsyncImage(picture, null, Modifier.size(56.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            else Text((me.name ?: "N").take(1).uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        me.name?.let { Text(it, style = MaterialTheme.typography.titleLarge) }
-        val loading by vm.loadingProfile.collectAsState()
-        if (loading) {
-            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            if (me.name == null) Text(stringResource(Res.string.nostr_profile_loading), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-    SelectionContainer { Text(me.npub, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
-    }
-    if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-    when (val n = published) {
-        null -> Unit
-        0 -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = vm::publishAgain, enabled = !busy) { Text(stringResource(Res.string.nostr_publish_again)) }
-        }
-        else -> Text(stringResource(Res.string.nostr_published, n), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-    }
-
-    // A key Hopp holds lives only on this device and in no backup (ADR 0015): its export comes first.
-    if (me.holdsKey) Backup(me, busy, exported, vm)
-
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.nostr_anonymous))
-            Text(stringResource(Res.string.nostr_anonymous_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            val loading by vm.loadingProfile.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(me.name ?: stringResource(Res.string.nostr_profile_loading).takeIf { loading } ?: "Nostr", style = MaterialTheme.typography.titleLarge)
+                if (loading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
+            Text(me.npub.take(12) + "…" + me.npub.takeLast(6), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = muted)
         }
-        Switch(checked = settings?.scAnonymous == true, onCheckedChange = vm::setAnonymous)
+        TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
+    }
+    if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    // Only when something is wrong: the profile reached no relay.
+    if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = vm::publishAgain, enabled = !busy) { Text(stringResource(Res.string.nostr_publish_again)) }
     }
 
-    // Boosts as public comments too, as Fountain does (device feedback 2026-10-16).
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.nostr_boosts))
-            Text(stringResource(Res.string.nostr_boosts_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        }
-        Switch(checked = settings?.nostrBoosts == true, onCheckedChange = vm::setNostrBoosts)
-    }
+    // A key Hopp holds lives only on this device and in no backup (ADR 0015).
+    if (me.holdsKey) Backup(me, busy, vm)
+
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
+    SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
 
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {
         Text(stringResource(Res.string.nostr_sign_out), color = MaterialTheme.colorScheme.error)
@@ -441,115 +466,111 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     )
 }
 
-/**
- * Backing up a key Hopp holds (device feedback 2026-10-16: the ncryptsec was
- * the only way, and few apps read it). First the password manager (Android)
- * or the iCloud Keychain (iOS); the plain nsec, which every Nostr app reads,
- * after a warning; the password-locked ncryptsec under "more options".
- */
 @Composable
-private fun Backup(me: NostrIdentity, busy: Boolean, exported: String?, vm: NostrIdentityViewModel) {
+private fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title)
+            Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/**
+ * The backup of a key Hopp holds, as one card: not yet backed up, one button —
+ * the password manager (Android) or iCloud Keychain (iOS) where there is one,
+ * else copying the key; the other ways in a sheet. Backed up, one line.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Backup(me: NostrIdentity, busy: Boolean, vm: NostrIdentityViewModel) {
     val actions = LocalPlatformActions.current
-    val ios = koinInject<space.sovereigncast.hopp.platform.AppInfo>().isIos
     val vault = actions.keyVault
     val state by vm.vault.collectAsState()
+    var others by remember { mutableStateOf(false) }
     var warnCopy by remember { mutableStateOf(false) }
-    var more by remember { mutableStateOf(exported != null) }
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Text(stringResource(Res.string.nostr_backup), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-    if (!me.exported) Text(stringResource(Res.string.nostr_backup_missing), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-    Text(stringResource(Res.string.nostr_backup_note), color = muted, style = MaterialTheme.typography.bodySmall)
-    if (vault != null) {
-        val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
-        Button(onClick = { vm.saveToVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
-            if (state == NostrIdentityViewModel.Vault.Working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-            else Text(stringResource(if (iCloud) Res.string.nostr_vault_save_ios else Res.string.nostr_vault_save_android))
-        }
-        Text(stringResource(if (iCloud) Res.string.nostr_vault_note_ios else Res.string.nostr_vault_note_android), color = muted, style = MaterialTheme.typography.bodySmall)
-        when (state) {
-            NostrIdentityViewModel.Vault.Saved -> Text(stringResource(Res.string.nostr_vault_saved), color = space.sovereigncast.hopp.ui.theme.Hopp.colors.ok, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-            NostrIdentityViewModel.Vault.Failed -> Text(stringResource(if (iCloud) Res.string.nostr_vault_failed_ios else Res.string.nostr_vault_failed_android), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            else -> Unit
-        }
-    }
-    OutlinedButton(onClick = { warnCopy = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_copy_nsec)) }
-    Text(stringResource(Res.string.nostr_copy_nsec_note), color = muted, style = MaterialTheme.typography.bodySmall)
-    if (warnCopy) AlertDialog(
-        onDismissRequest = { warnCopy = false },
-        title = { Text(stringResource(Res.string.nostr_copy_nsec_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(Res.string.nostr_copy_nsec_text))
-                Text(stringResource(if (ios) Res.string.nostr_copy_nsec_clip_ios else Res.string.nostr_copy_nsec_clip_android), style = MaterialTheme.typography.bodySmall, color = muted)
-            }
-        },
-        confirmButton = { TextButton(onClick = { warnCopy = false; vm.nsecForCopy()?.let { actions.copySecret(it, "nsec") } }) { Text(stringResource(Res.string.nostr_copy_confirm)) } },
-        dismissButton = { TextButton(onClick = { warnCopy = false }) { Text(stringResource(Res.string.cancel)) } },
-    )
-
-    TextButton(onClick = { more = !more }) { Text(stringResource(Res.string.nostr_more_options) + if (more) " ▴" else " ▾") }
-    if (more) Column(
-        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).padding(14.dp),
+    val iCloud = vault?.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
+    if (!me.exported) Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.errorContainer).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(Res.string.nostr_ncryptsec_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Text(stringResource(Res.string.nostr_ncryptsec_note), color = muted, style = MaterialTheme.typography.bodySmall)
-        if (exported == null) {
-            var password by remember { mutableStateOf("") }
-            var again by remember { mutableStateOf("") }
-            OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password)) },
-                singleLine = true, visualTransformation = PasswordVisualTransformation())
-            OutlinedTextField(again, { again = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password_again)) },
-                singleLine = true, visualTransformation = PasswordVisualTransformation(),
-                isError = again.isNotEmpty() && again != password,
-                supportingText = { if (again.isNotEmpty() && again != password) Text(stringResource(Res.string.nostr_backup_mismatch)) })
-            OutlinedButton(onClick = { vm.export(password) }, enabled = !busy && password.length >= 8 && password == again) {
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_backup_button))
-            }
-        } else {
-            Text(stringResource(Res.string.nostr_backup_done), style = MaterialTheme.typography.bodySmall)
-            SelectionContainer { Text(exported, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { actions.copyText(exported, "ncryptsec") }) { Text(stringResource(Res.string.nostr_copy)) }
-                OutlinedButton(onClick = { actions.shareText(exported, "Nostr") }) { Text(stringResource(Res.string.nostr_share)) }
-            }
+        Text(stringResource(Res.string.nostr_backup_card_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+        Text(stringResource(Res.string.nostr_backup_card_text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+        if (vault != null) Button(onClick = { vm.saveToVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
+            if (state == NostrIdentityViewModel.Vault.Working) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Text(stringResource(if (iCloud) Res.string.nostr_vault_save_ios else Res.string.nostr_vault_save_android))
+        } else Button(onClick = { warnCopy = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_copy_nsec)) }
+        if (state == NostrIdentityViewModel.Vault.Failed) Text(stringResource(if (iCloud) Res.string.nostr_vault_failed_ios else Res.string.nostr_vault_failed_android),
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { others = true }) { Text(stringResource(Res.string.nostr_backup_other), color = MaterialTheme.colorScheme.onErrorContainer) }
+    } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("✓ " + stringResource(Res.string.nostr_backed_up), Modifier.weight(1f), color = space.sovereigncast.hopp.ui.theme.Hopp.colors.ok, fontWeight = FontWeight.Bold)
+        TextButton(onClick = { others = true }) { Text(stringResource(Res.string.nostr_backup_other)) }
+    }
+    if (others) ModalBottomSheet(onDismissRequest = { others = false }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(Res.string.nostr_backup), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            BackupWays(busy, vm, onCopy = { warnCopy = true })
+        }
+    }
+    if (warnCopy) CopyWarning(onDismiss = { warnCopy = false }) { warnCopy = false; vm.nsecForCopy()?.let { actions.copySecret(it, "nsec") } }
+}
+
+/** Every way to back the key up, each with a line on where it works. */
+@Composable
+private fun BackupWays(busy: Boolean, vm: NostrIdentityViewModel, onCopy: () -> Unit) {
+    val actions = LocalPlatformActions.current
+    val vault = actions.keyVault
+    val exported by vm.exported.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    if (vault != null) {
+        val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
+        Button(onClick = { vm.saveToVault(vault) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(if (iCloud) Res.string.nostr_vault_save_ios else Res.string.nostr_vault_save_android))
+        }
+        Text(stringResource(if (iCloud) Res.string.nostr_vault_note_ios else Res.string.nostr_vault_note_android), color = muted, style = MaterialTheme.typography.bodySmall)
+    }
+    OutlinedButton(onClick = onCopy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_copy_nsec)) }
+    Text(stringResource(Res.string.nostr_copy_nsec_note), color = muted, style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(Res.string.nostr_ncryptsec_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+    Text(stringResource(Res.string.nostr_ncryptsec_note), color = muted, style = MaterialTheme.typography.bodySmall)
+    val done = exported
+    if (done == null) {
+        var password by remember { mutableStateOf("") }
+        var again by remember { mutableStateOf("") }
+        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password)) },
+            singleLine = true, visualTransformation = PasswordVisualTransformation())
+        OutlinedTextField(again, { again = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.nostr_password_again)) },
+            singleLine = true, visualTransformation = PasswordVisualTransformation(),
+            isError = again.isNotEmpty() && again != password,
+            supportingText = { if (again.isNotEmpty() && again != password) Text(stringResource(Res.string.nostr_backup_mismatch)) })
+        OutlinedButton(onClick = { vm.export(password) }, enabled = !busy && password.length >= 8 && password == again) {
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_backup_button))
+        }
+    } else {
+        SelectionContainer { Text(done, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { actions.copyText(done, "ncryptsec") }) { Text(stringResource(Res.string.nostr_copy)) }
+            OutlinedButton(onClick = { actions.shareText(done, "Nostr") }) { Text(stringResource(Res.string.nostr_share)) }
         }
     }
 }
 
-/** An existing key: from where Hopp saved it, or pasted as nsec or ncryptsec. */
 @Composable
-private fun ImportKey(busy: Boolean, vm: NostrIdentityViewModel) {
-    val actions = LocalPlatformActions.current
-    val vault = actions.keyVault
-    val state by vm.vault.collectAsState()
-    val error by vm.importError.collectAsState()
-    var text by rememberSaveable { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Text(stringResource(Res.string.nostr_import_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-    if (vault != null) {
-        val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
-        OutlinedButton(onClick = { vm.restoreFromVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(if (iCloud) Res.string.nostr_vault_load_ios else Res.string.nostr_vault_load_android))
-        }
-        if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
-    OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
-        visualTransformation = PasswordVisualTransformation())
-    if (locked) OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true,
-        label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation())
-    error?.let {
-        Text(stringResource(when (it) {
-            space.sovereigncast.hopp.identity.KeyImportException.Reason.WrongPassword -> Res.string.nostr_import_wrong_password
-            space.sovereigncast.hopp.identity.KeyImportException.Reason.NeedsPassword -> Res.string.nostr_import_password
-            space.sovereigncast.hopp.identity.KeyImportException.Reason.Unreadable -> Res.string.nostr_import_unreadable
-        }), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
-    Text(stringResource(Res.string.nostr_import_note), color = muted, style = MaterialTheme.typography.bodySmall)
-    OutlinedButton(onClick = { vm.importKey(text, password.takeIf { locked }) }, enabled = !busy && text.isNotBlank() && (!locked || password.isNotEmpty())) {
-        Text(stringResource(Res.string.nostr_import_button))
-    }
+private fun CopyWarning(onDismiss: () -> Unit, onCopy: () -> Unit) {
+    val ios = koinInject<space.sovereigncast.hopp.platform.AppInfo>().isIos
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.nostr_copy_nsec_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(Res.string.nostr_copy_nsec_text))
+                Text(stringResource(if (ios) Res.string.nostr_copy_nsec_clip_ios else Res.string.nostr_copy_nsec_clip_android),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onCopy) { Text(stringResource(Res.string.nostr_copy_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+    )
 }
