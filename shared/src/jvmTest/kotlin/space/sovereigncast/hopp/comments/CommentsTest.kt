@@ -163,6 +163,26 @@ class CommentsTest {
         assertEquals(CommentAuthor("bob", null), names[bob.publicKeyHex], "http pictures are not loaded")
     }
 
+    /** Device feedback 2026-10-16: 30–40 s until comments and names were in — a relay
+     *  that never answers cost the full timeout at every step. */
+    @Test
+    fun aHangingRelayDoesNotHoldTheCommentsUp() = test {
+        relay.publish(feedNote)
+        val c = post(alice, 1, "Quick", listOf(listOf("i", item)), now - 10)
+        post(alice, 0, """{"name":"Alice"}""", emptyList(), now - 10)
+        val hanging = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            if (url == "wss://relay.damus.io") kotlinx.coroutines.awaitCancellation() else relay.connect(url)
+        }
+        val slow = CommentReader(RelayPublisher(hanging))
+        val started = System.nanoTime()
+        val thread = slow.load(comments.anchor(episode())!!)
+        val names = slow.authors(thread.people, thread.relays)
+        val seconds = (System.nanoTime() - started) / 1e9
+        assertEquals(listOf(c.id), thread.comments.map { it.id })
+        assertEquals("Alice", names[alice.publicKeyHex]?.name)
+        assertTrue(seconds < 8, "took $seconds s; the relay timeout is 10 s per step")
+    }
+
     @Test
     fun nip19ReferencesDecode() {
         // NIP-19's own examples.

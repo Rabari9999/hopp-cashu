@@ -21,6 +21,7 @@ import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.noteRef
 import space.sovereigncast.hopp.nostr.profileKey
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Where an episode's comments hang (ADR 0021, 1): its GUID as NIP-73 names it,
@@ -98,53 +99,65 @@ class CommentsRepository(
  */
 class CommentReader(private val publisher: RelayPublisher, private val listener: () -> String? = { null }) {
     private val json = Json { ignoreUnknownKeys = true }
+    /** Names already found, for the next episode's comments — kept while the app runs. */
+    private val cache = mutableMapOf<String, CommentAuthor>()
 
-    /** The comments on [anchor]; muted people (the listener's and the show's lists) never show. */
+    /**
+     * The comments on [anchor]; muted people (the listener's and the show's
+     * lists) never show. Asked of the relays at once, the show's own relays
+     * as soon as its list is in; each step waits only [SETTLE] for the rest
+     * once one relay has answered.
+     */
     suspend fun load(anchor: CommentAnchor): CommentThread = coroutineScope {
+        val base = (anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS)
         val showRelays = async {
             anchor.showKeys.firstOrNull()?.let { key ->
-                publisher.latest(10002, key, LOOKUP)?.tags.orEmpty()
+                publisher.latest(10002, key, LOOKUP, SETTLE)?.tags.orEmpty()
                     .filter { it.size >= 2 && it[0] == "r" && it[1].startsWith("wss://") && (it.size < 3 || it[2] == "write") }
                     .map { it[1].trimEnd('/') }
             }.orEmpty()
         }
-        val relays = (anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS + showRelays.await())
-            .distinct().take(MAX_RELAYS)
-        val muted = async { muted(anchor.showKeys + listOfNotNull(listener()), relays) }
+        val muted = async { muted(anchor.showKeys + listOfNotNull(listener()), base) }
 
         val roots = anchor.notes.map { it.id }
-        val first = publisher.query(buildList {
+        val filters = buildList {
             add(filter(KINDS) { putJsonArray("#i") { add(JsonPrimitive(anchor.itemTag)) } })
             add(filter(listOf(COMMENT)) { putJsonArray("#I") { add(JsonPrimitive(anchor.itemTag)) } })
             if (roots.isNotEmpty()) add(filter(KINDS) { putJsonArray("#e") { roots.forEach { add(JsonPrimitive(it)) } } })
-        }, relays)
+        }
+        val fromBase = async { publisher.query(filters, base, SETTLE) }
+        val extra = showRelays.await().filter { it !in base }.take(MAX_RELAYS - base.size)
+        val first = (fromBase.await() + if (extra.isEmpty()) emptyList() else publisher.query(filters, extra, SETTLE)).distinctBy { it.id }
+        val relays = base + extra
         // Replies to the comments found: a Fountain listener answering another names only that comment.
         val asked = roots.toSet()
         val more = first.map { it.id }.filter { it !in asked }.take(MAX_EVENTS)
         val second = if (more.isEmpty()) emptyList() else
-            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays)
+            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
         CommentThread(thread(first + second, anchor, muted.await()), relays)
     }
 
     /** Names and pictures (kind 0) of [people], newest profile each, also from the indexes and Fountain's relay; https pictures only. */
     suspend fun authors(people: Set<String>, relays: List<String>): Map<String, CommentAuthor> {
-        if (people.isEmpty()) return emptyMap()
-        val found = publisher.query(people.chunked(CHUNK).map { keys ->
+        val known = cache.filterKeys { it in people }
+        val missing = people - known.keys
+        if (missing.isEmpty()) return known
+        val found = publisher.query(missing.chunked(CHUNK).map { keys ->
             buildJsonObject {
                 putJsonArray("kinds") { add(JsonPrimitive(0)) }
                 putJsonArray("authors") { keys.forEach { add(JsonPrimitive(it)) } }
             }
-        }, (relays + IdentityRepository.INDEX_RELAYS + FOUNTAIN).distinct())
-        return found.filter { it.kind == 0 && it.pubkey in people }.groupBy { it.pubkey }.mapNotNull { (key, events) ->
+        }, (relays + IdentityRepository.INDEX_RELAYS + FOUNTAIN).distinct(), SETTLE_NAMES)
+        return known + found.filter { it.kind == 0 && it.pubkey in missing }.groupBy { it.pubkey }.mapNotNull { (key, events) ->
             val obj = runCatching { json.parseToJsonElement(events.maxBy { it.created_at }.content).jsonObject }.getOrNull() ?: return@mapNotNull null
             fun text(vararg names: String) = names.firstNotNullOfOrNull { n -> (obj[n] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } }
             key to CommentAuthor(text("display_name", "displayName", "name"), text("picture")?.takeIf { it.startsWith("https://") })
-        }.toMap()
+        }.toMap().also { cache += it }
     }
 
     /** The public entries of these people's mute lists (NIP-51, kind 10000). */
     private suspend fun muted(keys: Set<String>, relays: List<String>): Set<String> = coroutineScope {
-        keys.map { key -> async { publisher.latest(10000, key, (relays + IdentityRepository.DEFAULT_RELAYS).distinct()) } }.awaitAll()
+        keys.map { key -> async { publisher.latest(10000, key, relays, SETTLE) } }.awaitAll()
             .filterNotNull().flatMap { list -> list.tags.filter { it.size >= 2 && it[0] == "p" }.map { it[1] } }.toSet()
     }
 
@@ -159,6 +172,11 @@ class CommentReader(private val publisher: RelayPublisher, private val listener:
         private val KINDS = listOf(1, COMMENT)
         /** At most this many relays per episode (ADR 0021, 2). */
         const val MAX_RELAYS = 5
+        /** How long the other relays get once the first has answered. */
+        private val SETTLE = 1000.milliseconds
+        /** Longer for names: Fountain's relay, often the only one with a commenter's
+         *  profile, answers after the indexes (live 2026-10-16). Comments show meanwhile. */
+        private val SETTLE_NAMES = 3000.milliseconds
         private const val MAX_EVENTS = 500
         private const val CHUNK = 100
         private val LOOKUP = IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS

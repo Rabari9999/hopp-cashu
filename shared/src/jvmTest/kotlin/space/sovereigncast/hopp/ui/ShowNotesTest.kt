@@ -55,4 +55,20 @@ class ShowNotesTest {
         val numbered = notes("<ol><li><p>Eins</p><p>noch eins</p></li><li><p>Zwei</p></li></ol>")
         assertEquals("1. Eins\nnoch eins\n2. Zwei", numbered.text)
     }
+
+    /** Fountain ends each comment with the episode's link and its nevent (device feedback 2026-10-16). */
+    @Test
+    fun aCommentLosesFountainsTailAndShowsNames() {
+        val key = "7e7e9c42a91bfef19fa929e5fda1b72e0ebc1a4c1141673e2794234d86addf4e"
+        val text = space.sovereigncast.hopp.ui.components.commentText(
+            "Great at 12:34, nostr:npub10elfcs4fr0l0r8af98jlmgdh9c8tcxjvz9qkw038js35mp4dma8qzvjptg! See https://example.com/x \n\n" +
+                "https://fountain.fm/episode/yUUIctmvqiIO2fiWKLKI  nostr:nevent1qqsdtvfv5w5mu0g5c9kmxfhsy9wxq0xsr6pzz2pwr9wy5rpvjkeg2dqnm5uw6",
+            { if (it == key) "Alice" else "?" }, SpanStyle(), SpanStyle(), SpanStyle(),
+        ) { jumps += it }
+        assertEquals("Great at 12:34, @Alice! See https://example.com/x", text.text)
+        assertTrue(text.getLinkAnnotations(0, text.length).any { (it.item as? LinkAnnotation.Url)?.url == "https://example.com/x" })
+        // A Fountain link inside the text is the listener's own: it stays.
+        assertEquals("Listen https://fountain.fm/episode/abc too", space.sovereigncast.hopp.ui.components.commentText(
+            "Listen https://fountain.fm/episode/abc too", { "?" }, SpanStyle(), SpanStyle(), SpanStyle()) {}.text)
+    }
 }

@@ -175,7 +175,14 @@ boost, profile): this stays public and permanent.
    one names whom it answers. Names: the comment relays, the two indexes
    and relay.fountain.fm — Fountain listeners' profiles are often only
    there (live on 2026-10-16: 5 of 10 commenters). Embedded `nostr:nevent`
-   references are not shown. The player's chips show only what the
+   references are not shown, nor the Fountain episode link Fountain ends
+   its comments with. Speed (device feedback 2026-10-16: 30–40 s): each
+   step waited for its slowest relay, and a silent one cost the 10-s
+   timeout every time. Now the relays are asked at once, the show's own as
+   soon as its list is in, and the others get 1 s once the first has
+   answered (3 s for names — Fountain's relay is slower than the indexes);
+   names are kept while the app runs. Live on E297: comments in 3.7 s,
+   every name in 6.9 s. The player's chips show only what the
    episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

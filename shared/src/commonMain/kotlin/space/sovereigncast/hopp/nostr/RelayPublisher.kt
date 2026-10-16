@@ -3,6 +3,8 @@ package space.sovereigncast.hopp.nostr
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
@@ -15,6 +17,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 /** Sends an event to relays and says which of them took it (NIP-01 `OK`); reads
  *  an author's newest event of a kind back, or whatever matches a filter. */
@@ -26,25 +30,51 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         relays.distinct().map { url -> async { url.takeIf { publishTo(event, url) } } }.awaitAll().filterNotNull().toSet()
     }
 
-    /** The newest valid event of [kind] by [author] on any of [relays], or null. */
-    suspend fun latest(kind: Int, author: String, relays: List<String>): Event? = coroutineScope {
-        relays.distinct().map { url -> async { latestOn(kind, author, url) } }.awaitAll().filterNotNull().maxByOrNull { it.created_at }
-    }
+    /** The newest valid event of [kind] by [author] on any of [relays], or null. [settle]: see [query]. */
+    suspend fun latest(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Event? =
+        gather(relays, settle) { url -> latestOn(kind, author, url) }.flatten().maxByOrNull { it.created_at }
 
     /**
      * Every valid event matching any of [filters] (NIP-01 filters, one REQ) on
      * [relays], each once. A relay that is slow to say EOSE keeps what it sent
-     * until then; one that fails adds nothing.
+     * until then; one that fails adds nothing. With [settle], the others get
+     * that long once the first relay has answered — one that hangs costs the
+     * timeout otherwise (device feedback 2026-10-16: 30–40 s for comments).
      */
-    suspend fun query(filters: List<JsonObject>, relays: List<String>): List<Event> = coroutineScope {
-        relays.distinct().map { url -> async { queryOn(filters, url) } }.awaitAll().flatten()
-            .distinctBy { it.id }.filter { it.isValid() }
+    suspend fun query(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): List<Event> =
+        gather(relays, settle) { url -> queryOn(filters, url) }.flatten().distinctBy { it.id }.filter { it.isValid() }
+
+    /** [one] on every relay at once; what each answered — null from one that could not be reached.
+     *  An answer of nothing is an answer too: it starts the settle time. */
+    private suspend fun <T : Any> gather(relays: List<String>, settle: Duration?, one: suspend (String) -> T?): List<T> = coroutineScope {
+        val urls = relays.distinct()
+        // A box per relay: null inside is a relay without an answer, null outside the settle time running out.
+        val results = Channel<Answer<T>>(Channel.UNLIMITED)
+        val jobs = urls.map { url -> launch { results.send(Answer(runCatching { one(url) }.getOrNull())) } }
+        val out = mutableListOf<T>()
+        var until: TimeMark? = null
+        var received = 0
+        while (received < urls.size) {
+            val left = until?.let { -it.elapsedNow() }
+            val box = if (left == null) results.receive() else withTimeoutOrNull(left) { results.receive() } ?: break
+            received++
+            val r = box.value ?: continue
+            out += r
+            if (settle != null && until == null) until = TimeSource.Monotonic.markNow() + settle
+        }
+        jobs.forEach { it.cancel() }
+        out
     }
 
-    private suspend fun queryOn(filters: List<JsonObject>, url: String): List<Event> {
+    private class Answer<T>(val value: T?)
+
+    /** What [url] holds for [filters]; null when it could not be reached. */
+    private suspend fun queryOn(filters: List<JsonObject>, url: String): List<Event>? {
         val found = mutableListOf<Event>()
+        var reached = false
         withTimeoutOrNull(timeout) {
             val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull
+            reached = true
             try {
                 coroutineScope {
                     val sub = "hopp-query"
@@ -70,10 +100,11 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 runCatching { session.close() }
             }
         }
-        return found.toList()
+        return found.toList().takeIf { reached }
     }
 
-    private suspend fun latestOn(kind: Int, author: String, url: String): Event? = withTimeoutOrNull(timeout) {
+    /** The newest match on [url] (empty: none there); null when it could not be reached. */
+    private suspend fun latestOn(kind: Int, author: String, url: String): List<Event>? = withTimeoutOrNull(timeout) {
         val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull null
         try {
             coroutineScope {
@@ -94,7 +125,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 session.send("""["REQ","$sub",{"kinds":[$kind],"authors":["$author"],"limit":1}]""")
                 done.await()
                 runCatching { session.send("""["CLOSE","$sub"]""") }
-                found.maxByOrNull { it.created_at }
+                listOfNotNull(found.maxByOrNull { it.created_at })
             }
         } catch (e: Exception) {
             null

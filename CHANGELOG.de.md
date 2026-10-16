@@ -13,6 +13,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Kommentare zu einer Folge lesen** — von Nostr, im Player und auf der Folgenseite: Antworten auf die Posts der Show und was Fountain-Hörer dazu sagen. Erst geladen, wenn du sie öffnest.
 
 ### 🐛 Fixes
+- Kommentare brauchten 30–40 Sekunden, wenn ein Relay nicht antwortete; und Fountains Kommentare endeten mit einem Link auf die Folge, die du gerade hörst.
 - Die Chips im Player zeigten ausgegraut, was einer Folge fehlt; jetzt nur noch, was sie hat.
 - Shownotes, die jeden Listenpunkt in einen Absatz packen (Einundzwanzig), zeigten den Punkt allein und den Text zwei Zeilen darunter.
 - „Deine Shows“ konnte an der ersten Show vorbei gescrollt öffnen, sobald eine Show mit Release-Boosting-Runde nach vorn rückte.

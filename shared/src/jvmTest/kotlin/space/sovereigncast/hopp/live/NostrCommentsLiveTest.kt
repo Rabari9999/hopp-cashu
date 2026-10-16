@@ -30,9 +30,11 @@ class NostrCommentsLiveTest {
         println("live anchor: $anchor")
         val publisher = RelayPublisher(KtorRelayConnector(http))
         val repo = CommentReader(publisher)
+        val started = System.nanoTime()
         val thread = repo.load(anchor)
+        val loaded = (System.nanoTime() - started) / 1e9
         val names = repo.authors(thread.people, thread.relays)
-        println("live comments: ${thread.count} from ${thread.relays}")
+        println("live comments: ${thread.count} from ${thread.relays} in %.1f s, names after %.1f s".format(loaded, (System.nanoTime() - started) / 1e9))
         thread.comments.forEach { c ->
             println("- ${names[c.pubkey]?.name ?: c.pubkey.take(8)}: ${c.content.take(80).replace('\n', ' ')}")
             c.replies.forEach { r -> println("    ↪ ${names[r.pubkey]?.name ?: r.pubkey.take(8)}: ${r.content.take(70).replace('\n', ' ')}") }
