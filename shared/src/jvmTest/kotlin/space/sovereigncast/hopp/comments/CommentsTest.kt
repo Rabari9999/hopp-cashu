@@ -183,6 +183,35 @@ class CommentsTest {
         assertTrue(seconds < 8, "took $seconds s; the relay timeout is 10 s per step")
     }
 
+    /** Fountain posts a boost as a comment embedding its zap receipt (device feedback 2026-10-16). */
+    @Test
+    fun aFountainBoostShowsItsSatsOnlyWhenTheReceiptHoldsUp() = test {
+        relay.publish(feedNote)
+        val zapper = KeyPair.generate()
+        fun receipt(sender: KeyPair, msat: Long, invoiceMsat: Long = msat): Event {
+            val request = Event.sign(sender, 9734, "", listOf(listOf("amount", "$msat"), listOf("i", item)), now - 100)
+            val description = kotlinx.serialization.json.Json.encodeToString(Event.serializer(), request)
+            val bolt11 = space.sovereigncast.hopp.value.TestInvoices.make(invoiceMsat, space.sovereigncast.hopp.crypto.Sha256.digest(description.encodeToByteArray()))
+            return post(zapper, 9735, "", listOf(listOf("bolt11", bolt11), listOf("description", description), listOf("P", sender.publicKeyHex)), now - 99)
+        }
+        fun embed(e: Event) = "nostr:" + Bech32.encode("nevent", byteArrayOf(0, 32) + e.id.hexToBytes())
+        val tail = "\n\nhttps://fountain.fm/episode/yUUIctmvqiIO2fiWKLKI\n\n"
+        val bare = post(bob, 1, tail.trim() + "\n\n" + embed(receipt(bob, 600_000)), listOf(listOf("i", item)), now - 50)
+        val worded = post(bob, 1, "Glückwunsch!$tail" + embed(receipt(bob, 210_000)), listOf(listOf("i", item)), now - 40)
+        // Someone else's receipt, and one whose invoice says another amount: no sats.
+        val borrowed = post(alice, 1, "Me!$tail" + embed(receipt(bob, 21_000)), listOf(listOf("i", item)), now - 30)
+        val lying = post(alice, 1, "Big!$tail" + embed(receipt(alice, 1_000_000, invoiceMsat = 1_000)), listOf(listOf("i", item)), now - 20)
+        val empty = post(alice, 1, tail.trim(), listOf(listOf("i", item)), now - 10)
+
+        val thread = reader.load(comments.anchor(episode())!!)
+        val boosts = reader.boosts(thread)
+        assertEquals(mapOf(bare.id to 600L, worded.id to 210L), boosts)
+        assertEquals("", commentBody(bare.content), "a boost without a message: only the sats to show")
+        assertEquals("Glückwunsch!", commentBody(worded.content))
+        assertEquals("", commentBody(empty.content), "nothing to show — the list leaves it out")
+        assertTrue(borrowed.id !in boosts && lying.id !in boosts)
+    }
+
     @Test
     fun nip19ReferencesDecode() {
         // NIP-19's own examples.

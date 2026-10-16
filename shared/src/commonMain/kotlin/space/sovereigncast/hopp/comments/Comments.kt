@@ -22,6 +22,9 @@ import space.sovereigncast.hopp.nostr.noteRef
 import space.sovereigncast.hopp.nostr.profileKey
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import kotlin.time.Duration.Companion.milliseconds
+import space.sovereigncast.hopp.crypto.Sha256
+import space.sovereigncast.hopp.crypto.toHex
+import space.sovereigncast.hopp.value.Bolt11
 
 /**
  * Where an episode's comments hang (ADR 0021, 1): its GUID as NIP-73 names it,
@@ -43,6 +46,23 @@ data class Comment(
 )
 
 data class CommentAuthor(val name: String?, val picture: String?)
+
+private val EMBED = Regex("""nostr:(nevent|note|naddr)1[02-9ac-hj-np-z]+""")
+private val TRAILING_SPACE = Regex("""[ \t]+\n""")
+private val FOUNTAIN_TAIL = Regex("""\s*https://fountain\.fm/(episode|show)/\S+$""")
+
+/**
+ * What a comment says, as Hopp shows it: without embedded notes
+ * (`nostr:nevent…` — Hopp does not show them, the bare code says nothing) and
+ * without the link to the episode on Fountain that Fountain ends each comment
+ * with — the listener is on that episode. Empty for a Fountain boost without
+ * a message.
+ */
+fun commentBody(content: String): String =
+    EMBED.replace(content, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").trim()
+
+/** The notes a comment embeds — Fountain embeds the zap receipt of its boost. */
+internal fun embeddedNotes(content: String): List<NoteRef> = EMBED.findAll(content).mapNotNull { noteRef(it.value) }.toList()
 
 /** An episode's comments, newest thread first, and the relays they came from. */
 data class CommentThread(val comments: List<Comment>, val relays: List<String>) {
@@ -137,6 +157,40 @@ class CommentReader(private val publisher: RelayPublisher, private val listener:
         CommentThread(thread(first + second, anchor, muted.await()), relays)
     }
 
+    /**
+     * The sats behind comments, by comment id: Fountain posts a boost as a
+     * comment that embeds its zap receipt (NIP-57, kind 9735). Counted only
+     * when the receipt holds up: its zap request is by the comment's author and
+     * names the same amount, and an invoice with a description hash commits to
+     * that request (Fountain's have none). The amount is the invoice's.
+     */
+    suspend fun boosts(thread: CommentThread): Map<String, Long> {
+        val all = thread.comments.flatMap { listOf(it) + it.replies }
+        val refs = all.flatMap { c -> embeddedNotes(c.content).map { c to it } }
+        if (refs.isEmpty()) return emptyMap()
+        val receipts = publisher.query(refs.map { it.second.id }.distinct().chunked(CHUNK).map { ids ->
+            buildJsonObject {
+                putJsonArray("ids") { ids.forEach { add(JsonPrimitive(it)) } }
+                putJsonArray("kinds") { add(JsonPrimitive(ZAP_RECEIPT)) }
+            }
+        }, (thread.relays + refs.flatMap { it.second.relays } + FOUNTAIN).distinct(), SETTLE_NAMES).associateBy { it.id }
+        return refs.mapNotNull { (comment, ref) -> receipts[ref.id]?.let { zapSats(it, comment.pubkey) }?.let { comment.id to it } }
+            .groupBy({ it.first }, { it.second }).mapValues { (_, amounts) -> amounts.sum() }
+    }
+
+    private fun zapSats(receipt: Event, sender: String): Long? = runCatching {
+        if (receipt.kind != ZAP_RECEIPT) return null
+        val description = receipt.tag("description") ?: return null
+        val request = json.decodeFromString(Event.serializer(), description)
+        if (request.kind != 9734 || request.pubkey != sender || !request.isValid()) return null
+        val invoice = Bolt11.parse(receipt.tag("bolt11") ?: return null)
+        val msat = invoice.amountMsat ?: return null
+        // Fountain's invoices carry no description hash (live 2026-10-16); one that does must match.
+        invoice.descriptionHashHex?.let { if (it != Sha256.digest(description.encodeToByteArray()).toHex()) return null }
+        request.tag("amount")?.toLongOrNull()?.let { if (it != msat) return null }
+        (msat / 1000).takeIf { it > 0 }
+    }.getOrNull()
+
     /** Names and pictures (kind 0) of [people], newest profile each, also from the indexes and Fountain's relay; https pictures only. */
     suspend fun authors(people: Set<String>, relays: List<String>): Map<String, CommentAuthor> {
         val known = cache.filterKeys { it in people }
@@ -169,6 +223,7 @@ class CommentReader(private val publisher: RelayPublisher, private val listener:
 
     companion object {
         const val COMMENT = 1111
+        private const val ZAP_RECEIPT = 9735
         private val KINDS = listOf(1, COMMENT)
         /** At most this many relays per episode (ADR 0021, 2). */
         const val MAX_RELAYS = 5

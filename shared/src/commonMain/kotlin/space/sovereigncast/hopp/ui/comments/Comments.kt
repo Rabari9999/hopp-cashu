@@ -54,6 +54,9 @@ import space.sovereigncast.hopp.resources.comments_reload
 import space.sovereigncast.hopp.resources.comments_reply_to
 import space.sovereigncast.hopp.ui.components.commentText
 import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.ui.components.formatSats
+import space.sovereigncast.hopp.comments.commentBody
+import space.sovereigncast.hopp.resources.comments_boost
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** One episode's comments: nothing asked until [load] — relays see the IP address and the episode (ADR 0021, 2). */
@@ -70,6 +73,9 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
     private val _authors = MutableStateFlow<Map<String, CommentAuthor>>(emptyMap())
     /** Names and pictures — they follow the comments, which show at once with short npubs. */
     val authors: StateFlow<Map<String, CommentAuthor>> = _authors.asStateFlow()
+    private val _boosts = MutableStateFlow<Map<String, Long>>(emptyMap())
+    /** Sats behind comments (Fountain's boosts), by comment id — they follow too. */
+    val boosts: StateFlow<Map<String, Long>> = _boosts.asStateFlow()
 
     fun load() {
         if (_state.value == State.Loading) return
@@ -78,6 +84,7 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
             val thread = runCatching { repo.anchor(episodeId)?.let { repo.reader.load(it) } }.getOrNull()
             if (thread == null) { _state.value = State.Failed; return@launch }
             _state.value = State.Loaded(thread)
+            launch { runCatching { repo.reader.boosts(thread) }.getOrNull()?.let { _boosts.value = it } }
             val missing = thread.people - _authors.value.keys
             if (missing.isNotEmpty()) runCatching { repo.reader.authors(missing, thread.relays) }.getOrNull()?.let { _authors.value = _authors.value + it }
         }
@@ -89,6 +96,7 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
 fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier) {
     val state by vm.state.collectAsState()
     val authors by vm.authors.collectAsState()
+    val boosts by vm.boosts.collectAsState()
     val colors = MaterialTheme.colorScheme
     androidx.compose.runtime.LaunchedEffect(autoLoad) { if (autoLoad && vm.state.value == CommentsViewModel.State.Idle) vm.load() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -106,10 +114,17 @@ fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -
                 TextButton(onClick = vm::load) { Text(stringResource(Res.string.comments_reload)) }
             }
             is CommentsViewModel.State.Loaded -> {
-                if (s.thread.comments.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
-                s.thread.comments.forEach { c ->
-                    CommentRow(c, authors, onTimestamp)
-                    c.replies.forEach { r -> CommentRow(r, authors, onTimestamp, Modifier.padding(start = 40.dp)) }
+                // Nothing to read and no sats behind it (a Fountain boost before its
+                // amount is in, or a bare link): not shown.
+                fun says(c: Comment) = boosts[c.id] != null || commentBody(c.content).isNotEmpty()
+                val shown = s.thread.comments.mapNotNull { c ->
+                    val replies = c.replies.filter(::says)
+                    if (says(c) || replies.isNotEmpty()) c to replies else null
+                }
+                if (shown.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
+                shown.forEach { (c, replies) ->
+                    CommentRow(c, authors, boosts[c.id], onTimestamp)
+                    replies.forEach { r -> CommentRow(r, authors, boosts[r.id], onTimestamp, Modifier.padding(start = 40.dp)) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(Res.string.comments_from_relays, s.thread.relays.size), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
@@ -125,7 +140,7 @@ private fun nameOf(key: String, authors: Map<String, CommentAuthor>): String =
     authors[key]?.name ?: npub(key).let { it.take(10) + "…" + it.takeLast(4) }
 
 @Composable
-private fun CommentRow(c: Comment, authors: Map<String, CommentAuthor>, onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier) {
+private fun CommentRow(c: Comment, authors: Map<String, CommentAuthor>, sats: Long?, onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val author = authors[c.pubkey]
     val name = nameOf(c.pubkey, authors)
@@ -137,6 +152,10 @@ private fun CommentRow(c: Comment, authors: Map<String, CommentAuthor>, onTimest
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(name, Modifier.weight(1f, fill = false), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (sats != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.comments_boost, formatSats(sats)), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(formatDate(c.createdAt), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
@@ -147,7 +166,7 @@ private fun CommentRow(c: Comment, authors: Map<String, CommentAuthor>, onTimest
             val mark = SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
             val mention = SpanStyle(fontWeight = FontWeight.SemiBold)
             val text = remember(c.content, authors, link, mark) { commentText(c.content.trim(), { nameOf(it, authors) }, mention, link, mark, onTimestamp) }
-            SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
+            if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }

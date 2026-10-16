@@ -182,7 +182,13 @@ boost, profile): this stays public and permanent.
    soon as its list is in, and the others get 1 s once the first has
    answered (3 s for names — Fountain's relay is slower than the indexes);
    names are kept while the app runs. Live on E297: comments in 3.7 s,
-   every name in 6.9 s. The player's chips show only what the
+   every name in 6.9 s.
+   Fountain's boosts: Fountain posts each as a comment embedding its zap
+   receipt (kind 9735). Hopp fetches the receipts and shows "⚡ n sats" when
+   the zap request inside is by the comment's author, names the invoice's
+   amount, and — where the invoice has one — matches its description hash
+   (Fountain's have none). A comment with neither text nor sats is not
+   shown. The player's chips show only what the
    episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

@@ -3,6 +3,7 @@ package space.sovereigncast.hopp.live
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.comments.CommentAnchor
 import space.sovereigncast.hopp.comments.CommentReader
+import space.sovereigncast.hopp.comments.commentBody
 import space.sovereigncast.hopp.net.createHttpClient
 import space.sovereigncast.hopp.nostr.KtorRelayConnector
 import space.sovereigncast.hopp.nostr.RelayPublisher
@@ -34,10 +35,11 @@ class NostrCommentsLiveTest {
         val thread = repo.load(anchor)
         val loaded = (System.nanoTime() - started) / 1e9
         val names = repo.authors(thread.people, thread.relays)
+        val boosts = repo.boosts(thread)
         println("live comments: ${thread.count} from ${thread.relays} in %.1f s, names after %.1f s".format(loaded, (System.nanoTime() - started) / 1e9))
         thread.comments.forEach { c ->
-            println("- ${names[c.pubkey]?.name ?: c.pubkey.take(8)}: ${c.content.take(80).replace('\n', ' ')}")
-            c.replies.forEach { r -> println("    ↪ ${names[r.pubkey]?.name ?: r.pubkey.take(8)}: ${r.content.take(70).replace('\n', ' ')}") }
+            println("- ${names[c.pubkey]?.name ?: c.pubkey.take(8)}${boosts[c.id]?.let { " ⚡$it" } ?: ""}: ${commentBody(c.content).take(80).replace('\n', ' ')}")
+            c.replies.forEach { r -> println("    ↪ ${names[r.pubkey]?.name ?: r.pubkey.take(8)}${boosts[r.id]?.let { " ⚡$it" } ?: ""}: ${commentBody(r.content).take(70).replace('\n', ' ')}") }
         }
         println("live unnamed: ${(thread.people - names.keys)}")
         assertTrue(anchor.notes.isNotEmpty())

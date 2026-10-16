@@ -600,4 +600,5 @@
     <string name="comments_reload">Reload</string>
     <string name="comments_from_relays">From %1$d Nostr relays</string>
     <string name="comments_reply_to">replying to %1$s</string>
+    <string name="comments_boost">⚡ %1$s sats</string>
 </resources>

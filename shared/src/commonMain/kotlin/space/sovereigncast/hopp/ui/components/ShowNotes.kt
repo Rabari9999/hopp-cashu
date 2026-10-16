@@ -150,16 +150,14 @@ private val URL = Regex("https?://[^\\s<>\"]+")
 private val TIME = Regex("(?<![\\d:])(?:(\\d{1,2}):)?([0-5]?\\d):([0-5]\\d)(?![\\d:])")
 
 /**
- * A Nostr comment as text: `nostr:npub…` mentions as the person's name
- * ([name] gives it, or a short npub), plain URLs and time marks as links.
- * Embedded notes (`nostr:nevent…`) are left out — Hopp does not show them,
- * and the bare code says nothing; so is the link to the episode on Fountain
- * that Fountain ends each comment with: the listener is on that episode.
+ * A Nostr comment as text ([space.sovereigncast.hopp.comments.commentBody]):
+ * `nostr:npub…` mentions as the person's name ([name] gives it, or a short
+ * npub), plain URLs and time marks as links.
  */
 fun commentText(
     text: String, name: (String) -> String, mention: SpanStyle, link: SpanStyle, timestamp: SpanStyle, onTimestamp: (Long) -> Unit,
 ): AnnotatedString {
-    val content = EMBED.replace(text, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").trim()
+    val content = space.sovereigncast.hopp.comments.commentBody(text)
     val out = AnnotatedString.Builder()
     var at = 0
     fun plain(text: String) {
@@ -179,6 +177,3 @@ fun commentText(
     return out.toAnnotatedString()
 }
 
-private val EMBED = Regex("""nostr:(nevent|note|naddr)1[02-9ac-hj-np-z]+""")
-private val TRAILING_SPACE = Regex("""[ \t]+\n""")
-private val FOUNTAIN_TAIL = Regex("""\s*https://fountain\.fm/(episode|show)/\S+$""")
