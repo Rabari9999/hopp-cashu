@@ -16,6 +16,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Your Nostr key, safe and portable** — save it in your password manager (Android) or iCloud Keychain (iOS) and get it back with one tap, copy it as nsec for any Nostr app, or use a key you already have.
 
 ### 🐛 Fixes
+- The privacy page was a wall of cards: now what Hopp can check comes first, and who sees what is a short list, the details a tap away. The Nostr page too: one way in for newcomers, one button to back up the key.
 - A show without value for value still offered boosting and streaming in the player; a greyed bar says it takes no sats now. And a comment named the Release Boosting post's author instead of the show.
 - The tour has a page on Nostr: what it is, what Hopp does with it, and the sync to come; its wallet page names Zeus instead of Primal, whose NWC does not do what Hopp needs.
 - An answer to the last comment was typed under the keyboard; and comments and boosts went under a show's Release Boosting post instead of the episode's announcement.

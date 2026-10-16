@@ -1251,9 +1251,13 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
-        rule.waitUntil(10_000) { has("Hopp collects nothing itself", substring = true) }
+        rule.waitUntil(10_000) { has("Hopp collects nothing.", substring = true) }
         check(has("Podcast Index")) { screen().toString() }
         check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
+        // One line a party; the details on a tap (device feedback 2026-10-16: too much text).
+        check(!has("Tip")) { "details on the page itself" }
+        tap("Podcast Index")
+        waitFor("If you know a show's feed address", substring = true)
     }
 
     /** OPML import next to the export, in the settings (actionsslave, 2026-10-14). */
@@ -1286,23 +1290,35 @@ class AndroidAppFlowTest {
         rule.onNode(hasContentDescription("Settings")).performClick()
         rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
         waitFor("No VPN active · set one up")
-        check(has("2 of 4 points Hopp can check are optimised")) { screen().toString() }
-        check(has("Both switched off") && has("Background refresh every hour")) { screen().toString() }
-        // Up top, and again on the card of images, chapters and transcripts, whose tip it is.
-        check(rule.onAllNodes(hasText("No VPN active · set one up") and hasClickAction()).fetchSemanticsNodes().size == 2) { screen().toString() }
+        // What Hopp can check, together at the top (device feedback 2026-10-16).
+        check(has("2 of 4 done") && has("fyyd and Apple Podcasts switched off")) { screen().toString() }
         rule.onAllNodes(hasText("No VPN active · set one up") and hasClickAction()).onFirst().performClick()
         check(vpnOpened == 1) { "VPN settings opened $vpnOpened times" }
-
         // Back from the system's settings with a VPN on: VPN and DNS turn green.
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("VPN active").fetchSemanticsNodes().size == 2 }
-        check(has("DNS goes through your VPN") && has("✓  4 of 4 points Hopp can check are optimised")) { screen().toString() }
+        waitFor("VPN active")
+        check(has("DNS goes through your VPN") && has("✓ 4 of 4 done")) { screen().toString() }
 
         // A name goes along with boosts: said so, and a tap leads to where it is set.
         kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(senderName = "Satoshi") } }
         waitFor("Your name “Satoshi” is sent along")
-        check(has("3 of 4 points Hopp can check are optimised")) { screen().toString() }
-        rule.onAllNodes(hasText("Your name “Satoshi” is sent along") and hasClickAction()).onFirst().performScrollTo().performClick()
+        check(has("3 of 4 done")) { screen().toString() }
+        // The refresh setting is in the hosts' details, a tap from there.
+        tap("Podcast hosts")
+        waitFor("Background refresh every hour")
+        rule.onNode(hasText("Background refresh every hour") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { !has("Background refresh every hour") }
+    }
+
+    /** The name line leads to where the name is set. */
+    @Test
+    fun thePrivacyPageLeadsToTheName() {
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(senderName = "Satoshi") } }
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Your name “Satoshi” is sent along")
+        rule.onAllNodes(hasText("Your name “Satoshi” is sent along") and hasClickAction()).onFirst().performClick()
         waitFor("Wallet")
     }
 

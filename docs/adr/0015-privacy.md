@@ -41,6 +41,13 @@ nothing is red: the page helps, it does not scold. A tap leads to where the
 point is set (system VPN or network settings, Hopp's own settings, the wallet
 page). The OS backup cannot be read by an app, so that card stays a tip.
 
+**Amended 2026-10-16 (device feedback): too much text, no idea where to look.**
+The page opens with one line, then "Your protection": the four checks
+together ("2 of 4 done"), each a tap to where it is set. "Who sees what" is a
+list, one row a party with a single line; what, when, the tip and what Hopp
+sees of it open in a sheet on a tap. The User-Agent and what never leaves the
+device are two more rows.
+
 ### User-Agent
 
 `Hopp/<version> (<Android|iOS>; <Phone|Tablet>)`, e.g. `Hopp/1.2.0 (Android; Phone)`
