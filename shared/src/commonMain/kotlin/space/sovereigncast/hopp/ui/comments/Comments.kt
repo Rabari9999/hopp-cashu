@@ -57,6 +57,14 @@ import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.comments.commentBody
 import space.sovereigncast.hopp.resources.comments_boost
+import space.sovereigncast.hopp.resources.comments_vpn_on
+import space.sovereigncast.hopp.resources.privacy_vpn_off
+import space.sovereigncast.hopp.platform.NetworkPrivacy
+import space.sovereigncast.hopp.platform.NetworkPrivacySource
+import space.sovereigncast.hopp.ui.LocalPlatformActions
+import space.sovereigncast.hopp.ui.library.Check
+import space.sovereigncast.hopp.ui.library.CheckLine
+import org.koin.compose.koinInject
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** One episode's comments: nothing asked until [load] — relays see the IP address and the episode (ADR 0021, 2). */
@@ -64,11 +72,13 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
     sealed interface State {
         data object Idle : State
         data object Loading : State
-        data class Loaded(val thread: CommentThread) : State
+        /** [refreshing]: shown from before while the relays are asked what is new. */
+        data class Loaded(val thread: CommentThread, val refreshing: Boolean = false) : State
         data object Failed : State
     }
 
-    private val _state = MutableStateFlow<State>(State.Idle)
+    // Loaded before in this run: shown at once, without asking anyone.
+    private val _state = MutableStateFlow<State>(repo.cached(episodeId)?.let { State.Loaded(it) } ?: State.Idle)
     val state: StateFlow<State> = _state.asStateFlow()
     private val _authors = MutableStateFlow<Map<String, CommentAuthor>>(emptyMap())
     /** Names and pictures — they follow the comments, which show at once with short npubs. */
@@ -76,15 +86,28 @@ class CommentsViewModel(private val episodeId: Long, private val repo: CommentsR
     private val _boosts = MutableStateFlow<Map<String, Long>>(emptyMap())
     /** Sats behind comments (Fountain's boosts), by comment id — they follow too. */
     val boosts: StateFlow<Map<String, Long>> = _boosts.asStateFlow()
+    /** Asked the relays since this page opened. */
+    var asked = false
+        private set
+
+    init { (_state.value as? State.Loaded)?.let { details(it.thread) } }
 
     fun load() {
-        if (_state.value == State.Loading) return
-        _state.value = State.Loading
+        val shown = _state.value
+        if (shown == State.Loading || (shown as? State.Loaded)?.refreshing == true) return
+        asked = true
+        _state.value = (shown as? State.Loaded)?.copy(refreshing = true) ?: State.Loading
         viewModelScope.launch {
             val thread = runCatching { repo.anchor(episodeId)?.let { repo.reader.load(it) } }.getOrNull()
-            if (thread == null) { _state.value = State.Failed; return@launch }
+            if (thread == null) { _state.value = (shown as? State.Loaded)?.copy(refreshing = false) ?: State.Failed; return@launch }
             _state.value = State.Loaded(thread)
-            launch { runCatching { repo.reader.boosts(thread) }.getOrNull()?.let { _boosts.value = it } }
+            details(thread)
+        }
+    }
+
+    private fun details(thread: CommentThread) {
+        viewModelScope.launch { runCatching { repo.reader.boosts(thread) }.getOrNull()?.let { _boosts.value = it } }
+        viewModelScope.launch {
             val missing = thread.people - _authors.value.keys
             if (missing.isNotEmpty()) runCatching { repo.reader.authors(missing, thread.relays) }.getOrNull()?.let { _authors.value = _authors.value + it }
         }
@@ -98,11 +121,21 @@ fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -
     val authors by vm.authors.collectAsState()
     val boosts by vm.boosts.collectAsState()
     val colors = MaterialTheme.colorScheme
-    androidx.compose.runtime.LaunchedEffect(autoLoad) { if (autoLoad && vm.state.value == CommentsViewModel.State.Idle) vm.load() }
+    val net: NetworkPrivacySource = koinInject()
+    val privacy by remember(net) { net.observe() }.collectAsState(NetworkPrivacy())
+    val actions = LocalPlatformActions.current
+    // Opening the player's sheet is the listener's choice: ask (again) for what is new.
+    androidx.compose.runtime.LaunchedEffect(autoLoad) { if (autoLoad && !vm.asked) vm.load() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (val s = state) {
             CommentsViewModel.State.Idle -> {
                 Text(stringResource(Res.string.comments_intro), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                // As on the privacy page: with a VPN the relays do not see the address.
+                when (privacy.vpn) {
+                    true -> CheckLine(Check.Done, stringResource(Res.string.comments_vpn_on))
+                    false -> CheckLine(Check.Open, stringResource(Res.string.privacy_vpn_off)) { actions.openVpnSettings() }
+                    null -> Unit
+                }
                 FilledTonalButton(onClick = vm::load) { Text(stringResource(Res.string.comments_load)) }
             }
             CommentsViewModel.State.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -128,7 +161,8 @@ fun CommentsPane(vm: CommentsViewModel, autoLoad: Boolean, onTimestamp: (Long) -
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(Res.string.comments_from_relays, s.thread.relays.size), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                    TextButton(onClick = vm::load) { Text(stringResource(Res.string.comments_reload)) }
+                    if (s.refreshing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else TextButton(onClick = vm::load) { Text(stringResource(Res.string.comments_reload)) }
                 }
             }
         }

@@ -19,7 +19,7 @@ import space.sovereigncast.hopp.nostr.RelaySession
 /**
  * An in-memory Nostr relay for tests: stores events, answers REQ with stored
  * matches + EOSE and forwards new events to matching subscriptions. Enough of
- * NIP-01 for NIP-47 and comments (kinds, authors, ids, any #tag, limit,
+ * NIP-01 for NIP-47 and comments (kinds, authors, ids, any #tag, since, limit,
  * several filters in one REQ).
  */
 class FakeRelay : RelayConnector {
@@ -78,6 +78,7 @@ class FakeRelay : RelayConnector {
         list("kinds")?.let { if (e.kind.toString() !in it) return false }
         list("authors")?.let { if (e.pubkey !in it) return false }
         list("ids")?.let { if (e.id !in it) return false }
+        f["since"]?.jsonPrimitive?.content?.toLong()?.let { if (e.created_at < it) return false }
         for (key in f.keys.filter { it.startsWith("#") }) list(key)?.let { vals ->
             val tag = key.removePrefix("#")
             if (e.tags.none { it.size >= 2 && it[0] == tag && it[1] in vals }) return false

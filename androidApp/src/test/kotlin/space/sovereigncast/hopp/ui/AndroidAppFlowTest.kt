@@ -1017,6 +1017,10 @@ class AndroidAppFlowTest {
         tap("Comments")
         waitFor("Load comments")
         check(!has("No comments on this episode yet.")) { "loaded before asked" }
+        // Without a VPN the way to set one up; with one, the green check (device feedback 2026-10-16).
+        waitFor("No VPN active · set one up")
+        testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
+        waitFor("VPN active — the relays do not see your IP address")
         tap("Load comments")
         waitFor("No comments on this episode yet.")
     }

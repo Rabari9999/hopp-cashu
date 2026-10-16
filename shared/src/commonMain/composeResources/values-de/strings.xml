@@ -592,7 +592,7 @@
     <string name="nostr_bunker_auth_open">Bestätigung öffnen</string>
     <string name="nostr_bunker_failed">Verbindung fehlgeschlagen: %1$s</string>
     <string name="sheet_comments">Kommentare</string>
-    <string name="comments_intro">Kommentare kommen von Nostr – geschrieben in Hopp, Fountain, Damus oder einer anderen Nostr-App. Zum Laden fragt Hopp bis zu fünf Nostr-Relays; sie sehen deine IP-Adresse und diese Folge.</string>
+    <string name="comments_intro">Kommentare kommen von Nostr. Beim Laden sehen bis zu fünf Relays deine IP-Adresse und diese Folge.</string>
     <string name="comments_load">Kommentare laden</string>
     <string name="comments_loading">Frage die Relays…</string>
     <string name="comments_none">Noch keine Kommentare zu dieser Folge.</string>
@@ -601,4 +601,5 @@
     <string name="comments_from_relays">Von %1$d Nostr-Relays</string>
     <string name="comments_reply_to">an %1$s</string>
     <string name="comments_boost">⚡ %1$s sats</string>
+    <string name="comments_vpn_on">VPN aktiv – die Relays sehen deine IP-Adresse nicht</string>
 </resources>

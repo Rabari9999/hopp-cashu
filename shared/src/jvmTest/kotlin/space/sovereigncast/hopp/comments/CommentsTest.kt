@@ -86,7 +86,7 @@ class CommentsTest {
     private val sc = SovereigncastRepository(db, ListenerApi(http), podcasts, settings, wallet, value, { now })
     private val publisher = RelayPublisher(relay)
     private val identities = IdentityRepository(MemorySecretStore(), publisher, { now })
-    private val reader = CommentReader(publisher) { identities.identity.value?.pubkey }
+    private val reader = CommentReader(publisher, { now }) { identities.identity.value?.pubkey }
     private val comments = CommentsRepository(reader, episodes, podcasts, sc)
 
     private fun test(block: suspend () -> Unit) { runBlocking { withTimeout(30_000) { block() } } }
@@ -173,7 +173,7 @@ class CommentsTest {
         val hanging = space.sovereigncast.hopp.nostr.RelayConnector { url ->
             if (url == "wss://relay.damus.io") kotlinx.coroutines.awaitCancellation() else relay.connect(url)
         }
-        val slow = CommentReader(RelayPublisher(hanging))
+        val slow = CommentReader(RelayPublisher(hanging), { now })
         val started = System.nanoTime()
         val thread = slow.load(comments.anchor(episode())!!)
         val names = slow.authors(thread.people, thread.relays)
@@ -210,6 +210,36 @@ class CommentsTest {
         assertEquals("Glückwunsch!", commentBody(worded.content))
         assertEquals("", commentBody(empty.content), "nothing to show — the list leaves it out")
         assertTrue(borrowed.id !in boosts && lying.id !in boosts)
+    }
+
+    /** Device feedback 2026-10-16: loaded once, the comments are kept, and only what is new is asked for. */
+    @Test
+    fun aSecondLoadAsksOnlyForWhatIsNew() = test {
+        relay.publish(feedNote)
+        val old = post(alice, 1, "First", listOf(listOf("i", item)), now - 5000)
+        val sent = mutableListOf<String>()
+        val recording = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            val session = relay.connect(url)
+            object : space.sovereigncast.hopp.nostr.RelaySession by session {
+                override suspend fun send(message: String) { sent += message; session.send(message) }
+            }
+        }
+        var clock = now
+        val r = CommentReader(RelayPublisher(recording), { clock })
+        val anchor = comments.anchor(episode())!!
+        assertNull(r.cached(anchor))
+        assertEquals(listOf(old.id), r.load(anchor).comments.map { it.id })
+        assertTrue(sent.none { "\"since\"" in it })
+
+        clock = now + 3600
+        val answer = post(bob, 1, "Reply to an old one", listOf(listOf("e", old.id, "", "root")), now + 3000)
+        val fresh = post(bob, 1, "Second", listOf(listOf("i", item)), now + 3100)
+        sent.clear()
+        assertEquals(listOf(old.id), r.cached(anchor)?.comments?.map { it.id }, "shown at once")
+        val thread = r.load(anchor)
+        assertEquals(listOf(fresh.id, old.id), thread.comments.map { it.id }, "the old one from before, the new one asked for")
+        assertEquals(listOf(answer.id), thread.comments.first { it.id == old.id }.replies.map { it.id })
+        assertTrue(sent.filter { it.startsWith("[\"REQ\"") && "\"#" in it }.all { "\"since\":${now - 600}" in it }, "only since the last load (less the overlap)")
     }
 
     @Test

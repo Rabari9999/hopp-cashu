@@ -30,7 +30,7 @@ class NostrCommentsLiveTest {
         val anchor = CommentAnchor(episode, guid, notes.mapNotNull { noteRef(it.uri) }, notes.mapNotNull { it.authorNpub?.let(::profileKey) }.toSet())
         println("live anchor: $anchor")
         val publisher = RelayPublisher(KtorRelayConnector(http))
-        val repo = CommentReader(publisher)
+        val repo = CommentReader(publisher, { System.currentTimeMillis() / 1000 })
         val started = System.nanoTime()
         val thread = repo.load(anchor)
         val loaded = (System.nanoTime() - started) / 1e9

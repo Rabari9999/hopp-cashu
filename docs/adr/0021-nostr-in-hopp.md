@@ -188,7 +188,11 @@ boost, profile): this stays public and permanent.
    the zap request inside is by the comment's author, names the invoice's
    amount, and — where the invoice has one — matches its description hash
    (Fountain's have none). A comment with neither text nor sats is not
-   shown. The player's chips show only what the
+   shown. Loaded comments are kept while the app runs: shown at once when
+   opened again, and only what is new since the last load (less ten
+   minutes) is asked for — replies to old comments included. Before the
+   first load the page says what relays see, with the privacy page's VPN
+   line (a green check with a VPN on). The player's chips show only what the
    episode has (device feedback 2026-10-16).
 3. **Writing comments**, with moderation (3) — before any iOS release.
 4. **Public boosts**, opt-in.

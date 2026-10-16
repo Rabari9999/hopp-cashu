@@ -75,7 +75,7 @@ import space.sovereigncast.hopp.resources.pv_wallet_sees
 import space.sovereigncast.hopp.resources.pv_wallet_when
 import space.sovereigncast.hopp.resources.pv_wallet_who
 
-private enum class Check { Done, Open, Info }
+internal enum class Check { Done, Open, Info }
 
 private class Party(val who: StringResource, val sees: StringResource, val whenSeen: StringResource, val tip: StringResource)
 
@@ -204,7 +204,7 @@ private fun PartyCheck(p: Party, s: PrivacyState, onPage: (SettingsPage) -> Unit
 
 /** ✓ green when done, ○ when there is something to do, plain otherwise; › when a tap leads there. */
 @Composable
-private fun CheckLine(check: Check, text: String, onClick: (() -> Unit)? = null) {
+internal fun CheckLine(check: Check, text: String, onClick: (() -> Unit)? = null) {
     val colors = MaterialTheme.colorScheme
     val tint = when (check) { Check.Done -> Hopp.colors.ok; Check.Open -> colors.onSurface; Check.Info -> colors.onSurfaceVariant }
     Row(
