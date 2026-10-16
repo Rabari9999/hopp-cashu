@@ -15,6 +15,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Sofort veröffentlichen oder freischalten** — Release Boosting und Boost2Unlock bieten den Betrag an, der die Folge jetzt herausbringt (oder das Ziel auffüllt), berechnet wie auf der Community-Seite.
 
 ### 🐛 Fixes
+- Eine Show ohne Value for Value bot im Player trotzdem Boost und Streaming an; jetzt sagt eine ausgegraute Leiste, dass sie keine Sats annimmt. Und ein Kommentar nannte den Autor des Release-Boosting-Posts statt der Show.
 - Die Tour hat eine Seite zu Nostr: was es ist, was Hopp damit macht und der kommende Abgleich; die Wallet-Seite nennt Zeus statt Primal, dessen NWC nicht kann, was Hopp braucht.
 - Eine Antwort auf den letzten Kommentar tippte man unter der Tastatur; und Kommentare und Boosts landeten am Release-Boosting-Post der Show statt an der Ankündigung der Folge.
 - Die wechselnde Zeile mit den letzten Boosts der Show im Player ist weg: Sie verwirrte mehr, als sie half.

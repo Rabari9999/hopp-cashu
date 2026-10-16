@@ -650,4 +650,5 @@
     <string name="onboarding_nostr_how">Kommentare lesen geht auch ohne. Schlüssel in Hopp erstellen oder Amber bzw. Bunker nutzen – in den Einstellungen.</string>
     <string name="onboarding_soon">Bald</string>
     <string name="onboarding_nostr_soon">Abos, Hörstand und Einstellungen über Nostr zwischen deinen Geräten abgleichen – verschlüsselt, ohne Hopp-Server.</string>
+    <string name="np_no_value">Diese Show nimmt keine Sats an – ihr Feed nennt keine Empfänger.</string>
 </resources>

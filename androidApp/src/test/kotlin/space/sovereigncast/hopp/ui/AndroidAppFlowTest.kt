@@ -214,6 +214,8 @@ class TestApp : Application() {
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
                 // A show whose title sorts before Nodesignal's, with no round of its own.
                 req.url.encodedPath == "/alpha.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Alpha Show</title>"))
+                // A show without value for value: no podcast:value anywhere.
+                req.url.encodedPath == "/novalue.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Plain Show</title>").replace(Regex("<podcast:value.*?</podcast:value>", RegexOption.DOT_MATCHES_ALL), ""))
                 // One of Nodesignal's podroll, as the Podcast Index resolves it; the others it does not know.
                 req.url.host == "api.podcastindex.org" && req.url.encodedPath.endsWith("podcasts/byguid") ->
                     if (req.url.parameters["guid"] == ROLLED_GUID)
@@ -1028,6 +1030,20 @@ class AndroidAppFlowTest {
         testNetwork.value = space.sovereigncast.hopp.platform.NetworkPrivacy(vpn = true, privateDns = false)
         waitFor("VPN active — the relays do not see your IP address")
         waitFor("No comments on this episode yet.")
+    }
+
+    /** Device feedback 2026-10-16: a show without value for value has no boost or
+     *  streaming to offer — a greyed bar says why. */
+    @Test
+    fun thePlayerOffersNoBoostWithoutValue() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/novalue.xml")
+        tap("Ep 2"); waitFor("Play")
+        tap("Play")
+        until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
+        waitFor("This show takes no sats — its feed names no value recipients.")
+        check(rule.onAllNodes(hasText("Boost") and hasClickAction()).fetchSemanticsNodes().isEmpty()) { "a boost button that cannot work" }
     }
 
     /** Writing a comment (ADR 0021, stage 3): without an identity the way to one;

@@ -110,6 +110,7 @@ class CommentsTest {
         assertEquals(setOf(feedNote.id, preNote.id, postNote.id), anchor.notes.map { it.id }.toSet())
         // Device feedback 2026-10-16: a boost landed under the Release Boosting note.
         assertEquals(postNote.id, anchor.answerTo?.id, "new comments answer the announcement after the release")
+        assertEquals(show.publicKeyHex, anchor.notes.first { it.id == preNote.id }.author, "a bare note1 gets its author from the instance")
         assertEquals(listOf("wss://show.test"), anchor.notes.first { it.id == feedNote.id }.relays)
         assertEquals(setOf(show.publicKeyHex), anchor.showKeys)
     }

@@ -127,7 +127,12 @@ class ValueBarViewModel(
     /** Sats per minute for the episode playing: the listener's or the show's. */
     val rate: StateFlow<Int?> = _rate.asStateFlow()
 
+    private val _hasValue = MutableStateFlow<Boolean?>(null)
+    /** The episode or its show names recipients (a value block); null until known. */
+    val hasValue: StateFlow<Boolean?> = _hasValue.asStateFlow()
+
     fun forEpisode(item: EpisodeItem) = viewModelScope.launch {
+        _hasValue.value = runCatching { value.blockFor(item) != null }.getOrDefault(true)
         val own = settings.current().streamRateSats
         _rate.value = own.takeIf { it > 0 } ?: value.suggestedSatsPerMinute(value.blockFor(item)) ?: ValueService.DEFAULT_RATE
     }

@@ -127,7 +127,10 @@ class CommentsRepository(
             sovereigncast.layer(item.podcastId).first()?.let { sovereigncast.episodeNotes(it, item.guid) }
         }
         val fromInstance = asked.getOrNull().orEmpty()
-        val notes = (fromFeed.mapNotNull { noteRef(it.uri) } + fromInstance.mapNotNull { noteRef(it.uri) })
+        // A bare note1 names no author; the instance says who posted it (device feedback 2026-10-16:
+        // a comment tagged the Release Boosting note's author instead of the announcement's).
+        val notes = (fromFeed.mapNotNull { noteRef(it.uri)?.let { r -> r.copy(author = r.author ?: it.accountId?.let(::profileKey)) } } +
+            fromInstance.mapNotNull { noteRef(it.uri)?.let { r -> r.copy(author = r.author ?: it.authorNpub?.let(::profileKey)) } })
             .groupBy { it.id }.map { (id, refs) -> NoteRef(id, refs.flatMap { it.relays }.distinct(), refs.firstNotNullOfOrNull { it.author }) }
         val keys = buildSet {
             fromFeed.mapNotNull { it.accountId?.let(::profileKey) }.forEach(::add)

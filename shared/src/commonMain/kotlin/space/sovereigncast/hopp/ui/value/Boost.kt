@@ -118,6 +118,27 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     val colors = MaterialTheme.colorScheme
     LaunchedEffect(item.id, settings?.streamRateSats) { vm.forEpisode(item) }
     val streaming = settings?.streaming == true && wallet != null
+    val hasValue by vm.hasValue.collectAsState()
+    // No value block in the feed: nothing to boost or stream to (device feedback 2026-10-16).
+    // A greyed bar that says so, in the same place and height — no jump, and no button that cannot work.
+    if (hasValue == false) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp))
+                .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(colors.surfaceVariant).padding(horizontal = 15.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(HoppIcons.Hop, null, tint = colors.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(6.dp))
+                Text(stringResource(Res.string.np_boost), color = colors.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+            }
+            Text(stringResource(Res.string.np_no_value), Modifier.weight(1f).padding(horizontal = 12.dp), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+        }
+        return
+    }
 
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
