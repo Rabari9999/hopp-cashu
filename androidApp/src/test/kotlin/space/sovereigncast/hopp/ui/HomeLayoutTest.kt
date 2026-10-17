@@ -100,6 +100,20 @@ class HomeLayoutTest {
         rule.waitUntil(10_000) { screen().any { "Satoshi" in it } }
     }
 
+    /** Device feedback 2026-10-17: a long greeting shrinks to one line instead of running off. */
+    @Test @Config(qualifiers = "en-w360dp-h800dp")
+    fun aLongGreetingFitsOneLine() {
+        runBlocking { settings.update { it.copy(senderName = "Thorsten") } }
+        home()
+        rule.waitUntil(10_000) { screen().any { "Thorsten" in it } }
+        val node = rule.onAllNodes(androidx.compose.ui.test.hasText("Thorsten", substring = true)).fetchSemanticsNodes().first()
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+        val l = layouts.first()
+        check(l.lineCount == 1 && !l.isLineEllipsized(0) && l.getLineRight(0) <= l.size.width) { "the greeting is cut off" }
+        check(layouts.first().layoutInput.style.fontSize.value < 24f) { "not made smaller" }
+    }
+
     /**
      * Device feedback 2026-10-16: "Your shows" opened scrolled by one. The show
      * with a Release Boosting round moves to the front once its instance answers,

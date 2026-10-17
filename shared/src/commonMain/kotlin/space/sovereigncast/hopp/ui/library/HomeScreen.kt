@@ -55,7 +55,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -303,18 +306,32 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         // The logo, not the hop alone — that means boost (ADR 0019).
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
-            // One line, smaller where it must (device feedback 2026-10-17: "Guten Morgen, Thorsten"
-            // ran off the screen) — a second line would take too much of Home.
-            val headline = MaterialTheme.typography.headlineSmall
-            Text(
-                hello, style = headline, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = headline.fontSize, stepSize = 1.sp),
-            )
+            FittingLine(hello, MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
             Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
             Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)
         }
+    }
+}
+
+/**
+ * One line, smaller where it must (device feedback 2026-10-17: "Guten Morgen,
+ * Thorsten" ran off the screen) — a second line would take too much of Home.
+ * Measured here, not with Text's autoSize, which did not shrink it on iOS:
+ * the largest size from [style]'s down to [min] that fits, then an ellipsis.
+ */
+@Composable
+private fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints {
+        val width = constraints.maxWidth
+        val size = remember(text, style, width) {
+            var sp = style.fontSize.value
+            while (sp > min.value && measurer.measure(text, style.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width > width) sp -= 1f
+            sp.sp
+        }
+        Text(text, style = style.copy(fontSize = size), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
