@@ -1099,7 +1099,10 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Show notes")
-        // Show notes → transcript, the next tab of this episode.
+        // Show notes → transcript, the next tab of this episode. The tabs come all at once
+        // with the details (2026-10-17): wait for the notes themselves, laid out, first.
+        rule.waitUntil(10_000) { has("(12:34) Hauptteil", substring = true) }
+        rule.waitForIdle()
         rule.onNode(hasText("(12:34) Hauptteil", substring = true)).performTouchInput { swipeLeft() }
         waitFor("Willkommen zur zweiten Folge.")
         rule.waitUntil(10_000) { !has("(12:34) Hauptteil", substring = true) }
