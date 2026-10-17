@@ -61,7 +61,7 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         }
         listOfNotNull(stamp, sha).joinToString("-")
     }
-val appVersion = "0.1.1"
+val appVersion = "0.2.0"
 val betaKeystore: File? = System.getenv("HOPP_BETA_KEYSTORE")?.let(::File)?.takeIf { it.isFile && System.getenv("HOPP_BETA_KEYSTORE_PASSWORD") != null }
 
 // hopp-0.0.1-20261008-1012-fd61d90-foss-debug.apk; on a release tag the
@@ -78,7 +78,7 @@ android {
         applicationId = "space.sovereigncast.hopp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 2
+        versionCode = 3
         versionName = appVersion
     }
     buildFeatures {

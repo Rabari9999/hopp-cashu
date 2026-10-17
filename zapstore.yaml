@@ -17,6 +17,8 @@ description: |
     address or OPML
   - Chapters, transcripts, people, show notes
   - Sovereigncast shows: Release Boosting, Boost2Unlock, votes, top boosts
+  - Comments on every episode over Nostr — read, write and like them,
+    Fountain's too; an optional Nostr identity, boosts as notes if you like
   - Hopp collects nothing; a privacy page explains who sees what
 
   In English and German.
