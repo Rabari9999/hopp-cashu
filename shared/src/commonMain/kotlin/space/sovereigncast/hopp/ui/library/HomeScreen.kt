@@ -55,6 +55,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -66,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -206,12 +208,6 @@ fun HomeScreen(
                     HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav)
                 }
             }
-            // Also at the end, where a listener who scrolled through it all looks for it.
-            item(key = "h-customize") {
-                TextButton(onClick = onCustomize, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    Text(stringResource(Res.string.home_customize))
-                }
-            }
         }
     }
 }
@@ -307,7 +303,13 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         // The logo, not the hop alone — that means boost (ADR 0019).
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
-            Text(hello, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // One line, smaller where it must (device feedback 2026-10-17: "Guten Morgen, Thorsten"
+            // ran off the screen) — a second line would take too much of Home.
+            val headline = MaterialTheme.typography.headlineSmall
+            Text(
+                hello, style = headline, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = headline.fontSize, stepSize = 1.sp),
+            )
             Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {

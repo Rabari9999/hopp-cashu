@@ -16,9 +16,14 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Your Nostr key, safe and portable** — save it in your password manager (Android) or iCloud Keychain (iOS) and get it back with one tap, copy it as nsec for any Nostr app, or use a key you already have.
 
 ### 🐛 Fixes
+- Some Fountain comments were missing in Hopp for good when a relay was too slow on the first load; Hopp now asks in full each time, Fountain's relay included.
+- Your own comment stood in other Nostr apps with no reference to the episode; it now shows the show's announcement as a quote.
+- The episode page sometimes opened on the chapters instead of the show notes.
+- Episodes marked as heard but never played no longer show under "Recently played".
+- A long greeting like "Guten Morgen, Thorsten" ran off the screen; it now gets a little smaller and stays on one line.
 - A show in the library showed at most a "1", however many episodes waited; the number now counts every episode not heard yet.
 - Boosting with a share for Hopp, the split bar was in another order than the names below it; both are largest first now.
-- "Customize Home" was only at the very bottom; now also as a quiet icon beside the greeting.
+- "Customize Home" sat at the very bottom, hard to find below many sections; now a quiet icon beside the greeting.
 - Sovereigncast shows are refreshed on every start, and the scheduled search for new episodes asks their instances too.
 - Your comments now stand on their own, as Fountain's do (instead of answering the show's post), so they show up there too.
 - The privacy page was a wall of cards: now what Hopp can check comes first, and who sees what is a short list, the details a tap away. The Nostr page too: one way in for newcomers, one button to back up the key.

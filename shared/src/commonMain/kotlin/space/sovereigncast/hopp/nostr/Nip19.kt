@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.nostr
 
+import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.toHex
 
 /** A note as NIP-19 names it: its id, and from an `nevent` the relays that have it and its author. */
@@ -24,6 +25,17 @@ fun noteRef(text: String): NoteRef? = runCatching {
         else -> null
     }
 }.getOrNull()
+
+/** [ref] as an `nevent1…` (NIP-19): its id, its first relay, its author, kind 1. */
+fun nevent(ref: NoteRef): String {
+    val out = mutableListOf<Byte>()
+    fun put(type: Int, value: ByteArray) { out += type.toByte(); out += value.size.toByte(); out += value.toList() }
+    put(0, ref.id.hexToBytes())
+    ref.relays.firstOrNull()?.let { put(1, it.encodeToByteArray()) }
+    ref.author?.let { put(2, it.hexToBytes()) }
+    put(3, byteArrayOf(0, 0, 0, 1))
+    return Bech32.encode("nevent", out.toByteArray())
+}
 
 /** The hex key of an `npub1…` or `nprofile1…`, with or without `nostr:`; null otherwise. */
 fun profileKey(text: String): String? = runCatching {

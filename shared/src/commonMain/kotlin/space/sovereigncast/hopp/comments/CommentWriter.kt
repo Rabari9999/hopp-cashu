@@ -3,6 +3,8 @@ package space.sovereigncast.hopp.comments
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.NostrSigner
+import space.sovereigncast.hopp.nostr.NoteRef
+import space.sovereigncast.hopp.nostr.nevent
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import kotlin.time.Duration.Companion.milliseconds
@@ -23,8 +25,12 @@ enum class ReportType(val tag: String) { Spam("spam"), Profanity("profanity"), I
  * - A new comment stands on its own, as Fountain's do (device feedback
  *   2026-10-17: as a reply to the show's note Fountain did not show it): a
  *   kind-1 note with the episode's and the show's NIP-73 tags; the show's
- *   note, if there is one, quoted (`q`) and its author named (`p`), so the
- *   podcaster is told.
+ *   note, if there is one, quoted (`q`, and as `nostr:nevent…` at the end of
+ *   the text, NIP-18) and its author named (`p`), so the podcaster is told
+ *   and other clients show which episode it is about (device feedback
+ *   2026-10-17: without the mention it stood there with no reference, where
+ *   Fountain's own end in a link to the episode). Hopp leaves the mention out
+ *   when it shows the comment.
  * - An answer follows the kind of the comment it answers: kind 1 as a NIP-10
  *   reply, kind 1111 (NIP-22) with the episode as its root scope.
  */
@@ -57,11 +63,14 @@ class CommentWriter(
             }
             else -> {
                 val show = note?.author ?: anchor.showKeys.firstOrNull()
-                val quote = note?.let { listOf("q", it.id, it.relays.firstOrNull() ?: hint) + listOfNotNull(it.author) }
-                UnsignedEvent(1, body, episode + listOfNotNull(quote, show?.let { listOf("p", it) }), now())
+                val quoted = note?.let { NoteRef(it.id, listOfNotNull(it.relays.firstOrNull() ?: hint.takeIf(String::isNotEmpty)), it.author ?: show) }
+                val quote = quoted?.let { listOf("q", it.id, it.relays.firstOrNull().orEmpty()) + listOfNotNull(it.author) }
+                val text = if (quoted == null) body else "$body\n\nnostr:${nevent(quoted)}"
+                UnsignedEvent(1, text, episode + listOfNotNull(quote, show?.let { listOf("p", it) }), now())
             }
         }
-        val event = publish(unsigned, relays + anchor.notes.flatMap { it.relays })
+        // Fountain's relay too: where Fountain's listeners' comments are, Hopp's should be.
+        val event = publish(unsigned, listOf(FOUNTAIN) + relays + anchor.notes.flatMap { it.relays })
         keep(anchor, event, relays)
         return event
     }
@@ -134,6 +143,7 @@ class CommentWriter(
         private const val MUTE_LIST = 10000
         private const val REPORT = 1984
         private const val MAX_PUBLISH = 8
+        private const val FOUNTAIN = "wss://relay.fountain.fm"
         private val LOOKUP = IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS
     }
 }

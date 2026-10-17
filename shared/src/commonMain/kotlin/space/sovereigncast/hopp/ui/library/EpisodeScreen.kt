@@ -134,7 +134,11 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     // The episode's own people, else the show's (the namespace's fallback).
     val persons = details?.persons.orEmpty().ifEmpty { showPersons }
     val clips = details?.soundbites.orEmpty().filter { it.duration > 0 }
-    val tabs = buildList {
+    // All at once, when the details are in (device feedback 2026-10-17): the pager
+    // keeps its page by tab, so chapters known from the feed alone, with the show
+    // notes arriving a moment later in front of them, kept it on Chapters —
+    // depending on which was quicker. Now it always opens on the show notes.
+    val tabs = if (details == null) emptyList() else buildList {
         if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
         // From what the feed declares, not from what has loaded — a tab that
         // arrives late would push the others aside under the listener's thumb.
@@ -143,8 +147,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
         if (clips.isNotEmpty()) add(EpisodeTab.Clips)
         if (persons.isNotEmpty()) add(EpisodeTab.People)
         // Always: only the relays know whether there are any, and they are asked on a tap.
-        // Once the details are in — alone before them, the pager stayed on it as the others came.
-        if (details != null) add(EpisodeTab.Comments)
+        add(EpisodeTab.Comments)
     }
     val pager = rememberPagerState { tabs.size }
 

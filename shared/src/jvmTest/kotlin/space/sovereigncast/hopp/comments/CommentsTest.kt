@@ -142,7 +142,7 @@ class CommentsTest {
         assertEquals(listOf(fReply.id), thread.comments.first { it.id == f.id }.replies.map { it.id })
         assertEquals(listOf(cReply.id), thread.comments.first { it.id == c.id }.replies.map { it.id })
         assertEquals(8, thread.count)
-        assertTrue("wss://show.test" in thread.relays && thread.relays.size <= CommentReader.MAX_RELAYS)
+        assertTrue("wss://show.test" in thread.relays && thread.relays.size <= CommentReader.MAX_RELAYS + 1 && "wss://relay.fountain.fm" in thread.relays)
     }
 
     /** The podcaster's own comment from Hopp quotes their note: a comment, not one of the show's notes. */
@@ -226,9 +226,10 @@ class CommentsTest {
         assertTrue(borrowed.id !in boosts && lying.id !in boosts)
     }
 
-    /** Device feedback 2026-10-16: loaded once, the comments are kept, and only what is new is asked for. */
+    /** Device feedback 2026-10-16: loaded once, the comments are kept and show at once.
+     *  2026-10-17: and asked for in full again — one a relay held back is found next time. */
     @Test
-    fun aSecondLoadAsksOnlyForWhatIsNew() = test {
+    fun aSecondLoadShowsTheKeptOnesAndFindsWhatWasMissed() = test {
         relay.publish(feedNote)
         val old = post(alice, 1, "First", listOf(listOf("i", item)), now - 5000)
         val sent = mutableListOf<String>()
@@ -248,12 +249,14 @@ class CommentsTest {
         clock = now + 3600
         val answer = post(bob, 1, "Reply to an old one", listOf(listOf("e", old.id, "", "root")), now + 3000)
         val fresh = post(bob, 1, "Second", listOf(listOf("i", item)), now + 3100)
+        // Older than the last load, missing then (a slow relay): still found.
+        val late = post(KeyPair.generate(), 1, "Written before, arrived late", listOf(listOf("i", item)), now - 4000)
         sent.clear()
         assertEquals(listOf(old.id), r.cached(anchor)?.comments?.map { it.id }, "shown at once")
         val thread = r.load(anchor)
-        assertEquals(listOf(fresh.id, old.id), thread.comments.map { it.id }, "the old one from before, the new one asked for")
+        assertEquals(listOf(fresh.id, late.id, old.id), thread.comments.map { it.id }, "the old one, the new one and the late one")
         assertEquals(listOf(answer.id), thread.comments.first { it.id == old.id }.replies.map { it.id })
-        assertTrue(sent.filter { it.startsWith("[\"REQ\"") && "\"#" in it }.all { "\"since\":${now - 600}" in it }, "only since the last load (less the overlap)")
+        assertTrue(sent.none { "\"since\"" in it }, "asked in full")
     }
 
     /** Device feedback 2026-10-16: kept in the database, the comments outlive a restart,
@@ -294,7 +297,10 @@ class CommentsTest {
         val anchor = comments.anchor(episode())!!
         val posted = writer.comment(anchor, "  Great show!  ", listOf("wss://relay.damus.io"))
         assertEquals(1, posted.kind)
-        assertEquals("Great show!", posted.content)
+        assertEquals("Great show!", commentBody(posted.content))
+        val mention = noteRef(posted.content.substringAfterLast("\n\n"))!!
+        assertEquals(postNote.id, mention.id, "the announcement mentioned in the text, for other clients")
+        assertEquals(listOf("wss://post.test"), mention.relays)
         // Device feedback 2026-10-17: as Fountain's own — no reply, so Fountain shows it.
         assertTrue(posted.tags.none { it[0] == "e" }, "not a reply")
         assertEquals(listOf("q", postNote.id, "wss://post.test"), posted.tags.single { it[0] == "q" }.take(3), "the announcement quoted, with its relay")
@@ -378,9 +384,9 @@ class CommentsTest {
         identities.create("Me")
         val anchor = comments.anchor(episode())!!
         val posted = writer.boost(anchor, 2100, "  Danke! ", emptyList())
-        assertEquals("Danke!\n\n⚡ 2100 sats", posted.content)
+        assertTrue(posted.content.startsWith("Danke!\n\n⚡ 2100 sats\n\nnostr:nevent1"))
         assertTrue(posted.tags.any { it[0] == "q" && it[1] == postNote.id } && listOf("i", item) in posted.tags)
-        assertEquals("⚡ 21 sats", writer.boost(anchor, 21, "", emptyList()).content)
+        assertEquals("⚡ 21 sats", commentBody(writer.boost(anchor, 21, "", emptyList()).content))
         assertEquals(2, writeReader.cached(anchor)!!.comments.size)
     }
 

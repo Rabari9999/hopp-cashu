@@ -5,16 +5,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import kotlinx.coroutines.flow.first
@@ -75,9 +72,7 @@ class HomeLayoutTest {
     @Test
     fun aSectionSwitchedOffLeavesHome() {
         home()
-        // Home itself, not the row of covers in it.
-        rule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Customize Home"))
-        tap("Customize Home"); waitFor("Your shows")
+        rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).performClick(); waitFor("Your shows")
         rule.onNode(isToggleable() and hasContentDescription("Your shows")).performClick()
         rule.waitUntil(10_000) { runBlocking { HomeSections.YOUR_SHOWS in settings.settings.first().homeHidden } }
         rule.onNode(hasContentDescription("Back")).performClick()
@@ -86,12 +81,15 @@ class HomeLayoutTest {
         check(has("Ep 2")) { "New went too" }
     }
 
-    /** "Customize Home" also at the top, beside the greeting (device feedback 2026-10-17). */
+    /** "Customize Home" at the top, beside the greeting, not below everything (device feedback 2026-10-17). */
     @Test
-    fun customizeIsAtTheTopToo() {
+    fun customizeIsAtTheTop() {
         home()
         rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).assertIsDisplayed().performClick()
         rule.waitUntil(10_000) { rule.onAllNodes(isToggleable() and hasContentDescription("Your shows")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Back")).performClick()
+        waitFor("New")
+        check(!has("Customize Home")) { "the button below is still there" }
     }
 
     /** The name the listener boosts with greets them on Home (device feedback 2026-10-13). */

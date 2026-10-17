@@ -86,6 +86,20 @@ class RepositoryTest {
         assertTrue(episodes.inProgress.first().isEmpty())
     }
 
+    /** Device feedback 2026-10-17: marked heard without playing is put away, not "Recently played";
+     *  the badge counts what is not heard yet. */
+    @Test
+    fun onlyWhatWasPlayedIsRecentlyPlayed() = test {
+        val id = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        assertEquals(2, episodes.countsPerShow.first().getValue(id).unheard, "both unheard, though only one is in New")
+        val ep2 = episodes.ofPodcast(id).first().first { it.guid == "ep-2" }
+        episodes.savePosition(ep2.id, 60_000)
+        episodes.setPlayed(ep2.id, true)
+        episodes.setShowPlayed(id)
+        assertEquals(listOf("ep-2"), episodes.recentlyPlayed(5).first().map { it.guid })
+        assertEquals(0, episodes.countsPerShow.first().getValue(id).unheard)
+    }
+
     @Test
     fun aPermanentRedirectMovesTheSubscriptionATemporaryOneDoesNot() = test {
         val moved = podcasts.subscribe("https://pod.test/old.xml") as SubscribeResult.Subscribed

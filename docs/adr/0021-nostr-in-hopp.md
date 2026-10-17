@@ -56,6 +56,15 @@ What exists already:
   quote of it. Without a show note it is the same kind-1 note, not
   kind 1111. Answers to existing comments are unchanged; reading is
   unchanged (it already took both).
+  The same day, after the first test comment (E298): standing alone, it had
+  no visible reference in other clients — Fountain's end in a link to the
+  episode. The show's note is now also mentioned at the end of the text
+  (`nostr:nevent…`, NIP-18), which Primal and Damus show as the quoted
+  announcement; Hopp leaves it out when showing the comment. Comments go to
+  relay.fountain.fm too, and it is always asked when reading. Reading asks
+  in full on every load (the kept comments show meanwhile): asking only
+  since the last load lost for good what a relay too slow that once had held
+  — two Fountain comments on E298.
 
 **Reading** is the union, de-duplicated by event id: replies to the show's
 notes (`#e`), and kinds 1 and 1111 with `#i podcast:item:guid:<guid>`. So

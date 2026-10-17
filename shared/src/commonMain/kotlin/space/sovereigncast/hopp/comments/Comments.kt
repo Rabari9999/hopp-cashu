@@ -168,14 +168,16 @@ class CommentReader(
      * The comments on [anchor]; muted people (the listener's and the show's
      * lists) never show. Asked of the relays at once, the show's own relays
      * as soon as its list is in; each step waits only [SETTLE] for the rest
-     * once one relay has answered. Loaded before, only what came since is
-     * asked for (with [OVERLAP] for relays that take their time).
+     * once one relay has answered. Asked in full each time, not only since
+     * the last load (device feedback 2026-10-17: a relay too slow once, and
+     * what it held was never asked for again — two Fountain comments on E298);
+     * the kept ones show meanwhile. Fountain's relay always among them: its
+     * listeners' comments are sure to be there.
      */
     suspend fun load(anchor: CommentAnchor): CommentThread = coroutineScope {
         val before = store.seen(anchor.itemTag)
-        val since = before?.let { it.at - OVERLAP }
         val startedAt = now()
-        val base = (anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS)
+        val base = ((anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS) + FOUNTAIN).distinct()
         val showRelays = async {
             anchor.showKeys.firstOrNull()?.let { key ->
                 publisher.latest(10002, key, LOOKUP, SETTLE)?.tags.orEmpty()
@@ -187,12 +189,12 @@ class CommentReader(
 
         val roots = anchor.notes.map { it.id }
         val filters = buildList {
-            add(filter(KINDS, since) { putJsonArray("#i") { add(JsonPrimitive(anchor.itemTag)) } })
-            add(filter(listOf(COMMENT), since) { putJsonArray("#I") { add(JsonPrimitive(anchor.itemTag)) } })
-            if (roots.isNotEmpty()) add(filter(KINDS, since) { putJsonArray("#e") { roots.forEach { add(JsonPrimitive(it)) } } })
+            add(filter(KINDS) { putJsonArray("#i") { add(JsonPrimitive(anchor.itemTag)) } })
+            add(filter(listOf(COMMENT)) { putJsonArray("#I") { add(JsonPrimitive(anchor.itemTag)) } })
+            if (roots.isNotEmpty()) add(filter(KINDS) { putJsonArray("#e") { roots.forEach { add(JsonPrimitive(it)) } } })
         }
         val fromBase = async { publisher.query(filters, base, SETTLE) }
-        val extra = showRelays.await().filter { it !in base }.take(MAX_RELAYS - base.size)
+        val extra = showRelays.await().filter { it !in base }.take((MAX_RELAYS + 1 - base.size).coerceAtLeast(0))
         val first = (fromBase.await() + if (extra.isEmpty()) emptyList() else publisher.query(filters, extra, SETTLE)).distinctBy { it.id }
         val relays = base + extra
         // Replies to the comments found: a Fountain listener answering another names only that comment.
@@ -201,7 +203,7 @@ class CommentReader(
         val more = (before?.events.orEmpty() + first).filter { it.kind != REACTION }.map { it.id }.distinct().filter { it !in asked }.take(MAX_EVENTS)
         // Their likes (NIP-25) in the same request.
         val second = if (more.isEmpty()) emptyList() else
-            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION, since) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
+            publisher.query(more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } }, relays, SETTLE)
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
         val mutedNow = muted.await()
         store.save(anchor.itemTag, CommentStore.Seen(first + second, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt))
@@ -274,10 +276,9 @@ class CommentReader(
             .filterNotNull().flatMap { list -> list.tags.filter { it.size >= 2 && it[0] == "p" }.map { it[1] } }.toSet()
     }
 
-    private fun filter(kinds: List<Int>, since: Long? = null, more: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject {
+    private fun filter(kinds: List<Int>, more: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject {
         putJsonArray("kinds") { kinds.forEach { add(JsonPrimitive(it)) } }
         more()
-        since?.let { put("since", it) }
         put("limit", MAX_EVENTS)
     }
 
@@ -286,10 +287,8 @@ class CommentReader(
         const val REACTION = 7
         private const val ZAP_RECEIPT = 9735
         private val KINDS = listOf(1, COMMENT)
-        /** At most this many relays per episode (ADR 0021, 2). */
+        /** At most this many relays per episode (ADR 0021, 2), Fountain's besides. */
         const val MAX_RELAYS = 5
-        /** Asked again from this long before the last load: relays may get a comment late. */
-        private const val OVERLAP = 600L
         private const val AUTHOR_TTL = 7 * 24 * 3600L
         /** How long the other relays get once the first has answered. */
         private val SETTLE = 1000.milliseconds

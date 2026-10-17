@@ -16,9 +16,14 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Dein Nostr-Schlüssel, sicher und mitnehmbar** — im Passwortmanager (Android) oder iCloud-Schlüsselbund (iOS) sichern und mit einem Tipp zurückholen, als nsec für jede Nostr-App kopieren oder einen vorhandenen Schlüssel verwenden.
 
 ### 🐛 Fixes
+- Manche Fountain-Kommentare fehlten in Hopp für immer, wenn ein Relay beim ersten Laden zu langsam war; jetzt fragt Hopp jedes Mal vollständig, auch Fountains Relay.
+- Ein eigener Kommentar stand in anderen Nostr-Apps ohne Bezug zur Folge da; jetzt zeigt er die Ankündigung der Show als Zitat.
+- Die Folgenseite öffnete manchmal auf den Kapiteln statt auf den Shownotes.
+- Als gehört markierte, aber nie gespielte Folgen stehen nicht mehr unter „Zuletzt gehört“.
+- Eine lange Begrüßung wie „Guten Morgen, Thorsten“ lief aus dem Bild; jetzt wird sie etwas kleiner und bleibt in einer Zeile.
 - In der Bibliothek zeigte eine Show höchstens eine „1“, auch wenn mehr Folgen warteten; jetzt zählt die Zahl alle ungehörten Folgen.
 - Beim Boosten mit Hopp-Anteil passte die Reihenfolge im Split-Balken nicht zu den Namen darunter; jetzt beides größter Anteil zuerst.
-- „Home anpassen“ stand nur ganz unten; jetzt auch als dezentes Symbol neben der Begrüßung.
+- „Home anpassen“ stand ganz unten und war bei vielen Abschnitten kaum zu finden; jetzt ein dezentes Symbol neben der Begrüßung.
 - Sovereigncast-Shows werden bei jedem Start aktualisiert, und die eingestellte Suche nach neuen Folgen fragt auch ihre Instanzen.
 - Deine Kommentare stehen jetzt eigenständig wie die von Fountain (statt als Antwort auf den Post der Show), damit sie auch dort erscheinen.
 - Die Privatsphäre-Seite war eine Wand aus Karten: Jetzt steht oben, was Hopp prüfen kann, und wer was sieht ist eine kurze Liste, Details per Tipp. Ebenso die Nostr-Seite: ein Weg für Neue, ein Knopf zum Sichern des Schlüssels.
