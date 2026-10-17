@@ -6,7 +6,7 @@ import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
 import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import space.sovereigncast.hopp.resources.show_episodes
-import space.sovereigncast.hopp.resources.library_new
+import space.sovereigncast.hopp.resources.library_unheard
 import space.sovereigncast.hopp.resources.library_as_list
 import space.sovereigncast.hopp.resources.library_as_cards
 import space.sovereigncast.hopp.data.ShowCounts
@@ -143,7 +143,9 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit) {
 }
 
 /**
- * New episodes of a show, as a count on red; nothing when there are none. Device
+ * Episodes of a show not heard yet, as a count on red; nothing when there are
+ * none (device feedback 2026-10-17: it counted only those in "New", and stayed
+ * at 1 however many waited). Above 99 it says 99+. Device
  * feedback 2026-10-13, twice: in the primary colour — black on a light page — it
  * vanished on dark covers; then red with a ring in the page's colour it still had
  * little presence in the dark theme, where that ring is black too. Now a brighter
@@ -151,9 +153,9 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit) {
  * light or red — and the figure is a size larger.
  */
 @Composable
-private fun NewCount(n: Int) {
+private fun UnheardCount(n: Int) {
     if (n <= 0) return
-    val label = stringResource(Res.string.library_new, n)
+    val label = stringResource(Res.string.library_unheard, n)
     val shape = RoundedCornerShape(50)
     Box(
         Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(BADGE_RED)
@@ -161,14 +163,14 @@ private fun NewCount(n: Int) {
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text("$n", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
+        Text(if (n > 99) "99+" else "$n", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
     }
 }
 
 /** A bright red that white reads on at about 4.5 : 1. */
 private val BADGE_RED = Color(0xFFE5251F)
 
-/** A show as a card: the cover fills the cell, new episodes on it, title and author below. */
+/** A show as a card: the cover fills the cell, its unheard episodes on it, title and author below. */
 @Composable
 private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: () -> Unit) {
     val corner = if (large) 18.dp else 16.dp
@@ -180,7 +182,7 @@ private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: (
     ) {
         Box {
             CoverFill(show.imageUrl, corner = corner)
-            Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { NewCount(counts?.new ?: 0) }
+            Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) { UnheardCount(counts?.unheard ?: 0) }
         }
         Text(
             show.title, Modifier.padding(top = 6.dp),
@@ -212,7 +214,7 @@ private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () 
                 if (isSc) ScBadge()
             }
         }
-        NewCount(counts?.new ?: 0)
+        UnheardCount(counts?.unheard ?: 0)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = colors.onSurfaceVariant)
     }
 }

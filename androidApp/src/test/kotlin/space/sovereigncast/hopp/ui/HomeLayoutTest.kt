@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.ui
 
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -83,6 +84,14 @@ class HomeLayoutTest {
         waitFor("New")
         check(!has("Your shows")) { "the hidden section is still on Home: ${screen()}" }
         check(has("Ep 2")) { "New went too" }
+    }
+
+    /** "Customize Home" also at the top, beside the greeting (device feedback 2026-10-17). */
+    @Test
+    fun customizeIsAtTheTopToo() {
+        home()
+        rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).assertIsDisplayed().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(isToggleable() and hasContentDescription("Your shows")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     /** The name the listener boosts with greets them on Home (device feedback 2026-10-13). */

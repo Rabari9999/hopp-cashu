@@ -436,7 +436,9 @@ private fun BigButton(label: String, enabled: Boolean, busy: Boolean = false, on
 }
 
 /** The compact split of ADR 0019: one bar, the largest four by name, the rest
- *  behind "+N more", and a line for what cannot be reached. */
+ *  behind "+N more", and a line for what cannot be reached. Bar and names in
+ *  one order, largest first (device feedback 2026-10-17: the bar kept the
+ *  feed's order with Hopp's share at its end, the names below were sorted). */
 @Composable
 private fun SplitView(shares: List<PlannedShare>) {
     val colors = MaterialTheme.colorScheme
@@ -445,14 +447,14 @@ private fun SplitView(shares: List<PlannedShare>) {
     val greys = listOf(colors.onSurface, colors.onSurface.copy(alpha = 0.7f), colors.onSurface.copy(alpha = 0.5f), colors.onSurface.copy(alpha = 0.35f))
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(Res.string.boost_split, shares.size), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        val sorted = shares.sortedByDescending { it.amountMsat }
         Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
-            shares.forEachIndexed { i, s ->
+            sorted.forEachIndexed { i, s ->
                 val color = if (s.unpayable != null) Hopp.colors.value.copy(alpha = 0.55f) else greys[i % greys.size]
                 Box(Modifier.weight(s.amountMsat.toFloat().coerceAtLeast(1f)).height(10.dp).background(color))
-                if (i < shares.lastIndex) Spacer(Modifier.size(2.dp).background(Color.Transparent))
+                if (i < sorted.lastIndex) Spacer(Modifier.size(2.dp).background(Color.Transparent))
             }
         }
-        val sorted = shares.sortedByDescending { it.amountMsat }
         val shown = if (all) sorted else sorted.take(4)
         val line = shown.joinToString(" · ") { s -> "${s.recipient.name ?: s.recipient.address.take(12)} ${s.amountMsat * 100 / total} %" }
         Text(line, style = MaterialTheme.typography.bodySmall)

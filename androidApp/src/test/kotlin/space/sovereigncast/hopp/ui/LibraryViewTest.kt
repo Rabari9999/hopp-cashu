@@ -21,8 +21,8 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * The library's shows as cards or a list (device feedback 2026-10-13): cards by
- * default, the list one tap away and kept; both carry the show's numbers — new
- * episodes on the card, the episodes and the new ones in the list — on a phone
+ * default, the list one tap away and kept; both carry the show's numbers — unheard
+ * episodes on the card, the episodes and the unheard ones in the list — on a phone
  * as on a tablet.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -49,11 +49,11 @@ class LibraryViewTest {
     private fun cardsThenList() {
         library()
         rule.onNode(hasContentDescription("Cards")).assertIsSelected()
-        rule.onNode(hasContentDescription("1 new")).assertIsDisplayed()
+        rule.onNode(hasContentDescription("2 not heard yet")).assertIsDisplayed()
         check(!has("2 episodes")) { "the cards show the episode count" }
         rule.onNode(hasContentDescription("List")).performClick()
         waitFor("2 episodes")
-        rule.onNode(hasContentDescription("1 new")).assertIsDisplayed()
+        rule.onNode(hasContentDescription("2 not heard yet")).assertIsDisplayed()
         rule.waitUntil(10_000) { runBlocking { settings.settings.first().libraryAsList } }
     }
 

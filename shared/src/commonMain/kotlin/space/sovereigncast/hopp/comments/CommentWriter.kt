@@ -20,12 +20,13 @@ enum class ReportType(val tag: String) { Spam("spam"), Profanity("profanity"), I
  * Writing comments (ADR 0021, stage 3), signed with the listener's identity
  * and published to their write relays (NIP-65) and the relays the comments
  * came from, so readers of this episode find it.
- * - On an episode with a show note: a kind-1 reply to it (NIP-10) — the
- *   podcaster sees it in the thread of their own note, in any client.
- * - Without one: a kind-1111 comment (NIP-22) on the episode's GUID.
- * - An answer follows the kind of the comment it answers.
- * Kind-1 posts carry the episode's and the show's NIP-73 tags, kind 1111 the
- * episode's as its root and parent scope.
+ * - A new comment stands on its own, as Fountain's do (device feedback
+ *   2026-10-17: as a reply to the show's note Fountain did not show it): a
+ *   kind-1 note with the episode's and the show's NIP-73 tags; the show's
+ *   note, if there is one, quoted (`q`) and its author named (`p`), so the
+ *   podcaster is told.
+ * - An answer follows the kind of the comment it answers: kind 1 as a NIP-10
+ *   reply, kind 1111 (NIP-22) with the episode as its root scope.
  */
 class CommentWriter(
     private val publisher: RelayPublisher,
@@ -54,13 +55,11 @@ class CommentWriter(
                 val root = to.root ?: to.id
                 UnsignedEvent(1, body, listOf(listOf("e", root, hint, "root"), listOf("e", to.id, hint, "reply"), listOf("p", to.pubkey)) + episode, now())
             }
-            note != null -> {
-                val show = note.author ?: anchor.showKeys.firstOrNull()
-                UnsignedEvent(1, body, listOf(listOf("e", note.id, note.relays.firstOrNull() ?: hint, "root")) + listOfNotNull(show?.let { listOf("p", it) }) + episode, now())
+            else -> {
+                val show = note?.author ?: anchor.showKeys.firstOrNull()
+                val quote = note?.let { listOf("q", it.id, it.relays.firstOrNull() ?: hint) + listOfNotNull(it.author) }
+                UnsignedEvent(1, body, episode + listOfNotNull(quote, show?.let { listOf("p", it) }), now())
             }
-            else -> UnsignedEvent(CommentReader.COMMENT, body, listOf(
-                listOf("I", anchor.itemTag), listOf("K", "podcast:item:guid"), listOf("i", anchor.itemTag), listOf("k", "podcast:item:guid"),
-            ), now())
         }
         val event = publish(unsigned, relays + anchor.notes.flatMap { it.relays })
         keep(anchor, event, relays)
@@ -68,8 +67,8 @@ class CommentWriter(
     }
 
     /**
-     * A boost made public (ADR 0021, 6): a comment like any other — answering
-     * the show's note, with the episode's NIP-73 tags — with the amount in its
+     * A boost made public (ADR 0021, 6): a comment like any other — on its
+     * own, with the episode's NIP-73 tags — with the amount in its
      * text, as every client shows it. Nostr readers cannot check the amount;
      * it is the listener's word, as Fountain's own boost notes are.
      */

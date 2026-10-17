@@ -145,6 +145,14 @@ class CommentsTest {
         assertTrue("wss://show.test" in thread.relays && thread.relays.size <= CommentReader.MAX_RELAYS)
     }
 
+    /** The podcaster's own comment from Hopp quotes their note: a comment, not one of the show's notes. */
+    @Test
+    fun aQuotingNoteByThePodcasterIsAComment() = test {
+        relay.publish(feedNote)
+        val own = post(show, 1, "Thanks for listening", listOf(listOf("i", item), listOf("k", "podcast:item:guid"), listOf("q", feedNote.id, "")), now - 100)
+        assertEquals(listOf(own.id), reader.load(comments.anchor(episode())!!).comments.map { it.id })
+    }
+
     @Test
     fun theShowsMuteListHidesAPersonAndTheAnswersBelow() = test {
         relay.publish(feedNote)
@@ -280,27 +288,29 @@ class CommentsTest {
     private val writeReader = CommentReader(publisher, { now }, store)
 
     @Test
-    fun aCommentAnswersTheShowsNoteAndIsKeptAtOnce() = test {
+    fun aCommentStandsOnItsOwnQuotesTheShowsNoteAndIsKeptAtOnce() = test {
         relay.publish(feedNote)
         identities.create("Me")
         val anchor = comments.anchor(episode())!!
         val posted = writer.comment(anchor, "  Great show!  ", listOf("wss://relay.damus.io"))
         assertEquals(1, posted.kind)
         assertEquals("Great show!", posted.content)
-        assertTrue(listOf("e", postNote.id, "wss://post.test", "root") in posted.tags, "NIP-10 root: the show's announcement, with its relay")
-        assertTrue(listOf("p", show.publicKeyHex) in posted.tags)
+        // Device feedback 2026-10-17: as Fountain's own — no reply, so Fountain shows it.
+        assertTrue(posted.tags.none { it[0] == "e" }, "not a reply")
+        assertEquals(listOf("q", postNote.id, "wss://post.test"), posted.tags.single { it[0] == "q" }.take(3), "the announcement quoted, with its relay")
+        assertTrue(listOf("p", show.publicKeyHex) in posted.tags, "the podcaster told")
         assertTrue(listOf("i", item) in posted.tags && listOf("i", "podcast:guid:$guid") in posted.tags, "NIP-73: episode and show")
         assertEquals(listOf(posted.id), writeReader.cached(anchor)?.comments?.map { it.id }, "shown without asking the relays again")
         assertEquals(listOf(posted.id), writeReader.load(anchor).comments.map { it.id }, "and on the relays")
     }
 
     @Test
-    fun withoutAShowNoteItIsAKind1111CommentOnTheGuid() = test {
+    fun withoutAShowNoteItNamesOnlyTheEpisode() = test {
         identities.create("Me")
-        val anchor = comments.anchor(episode())!!.copy(notes = emptyList(), answerTo = null)
+        val anchor = comments.anchor(episode())!!.copy(notes = emptyList(), answerTo = null, showKeys = emptySet())
         val posted = writer.comment(anchor, "No note here", emptyList())
-        assertEquals(1111, posted.kind)
-        assertEquals(listOf(listOf("I", item), listOf("K", "podcast:item:guid"), listOf("i", item), listOf("k", "podcast:item:guid")), posted.tags)
+        assertEquals(1, posted.kind)
+        assertEquals(listOf(listOf("i", item), listOf("k", "podcast:item:guid"), listOf("i", "podcast:guid:$guid"), listOf("k", "podcast:guid")), posted.tags)
         assertEquals(listOf(posted.id), writeReader.load(anchor).comments.map { it.id })
     }
 
@@ -369,7 +379,7 @@ class CommentsTest {
         val anchor = comments.anchor(episode())!!
         val posted = writer.boost(anchor, 2100, "  Danke! ", emptyList())
         assertEquals("Danke!\n\n⚡ 2100 sats", posted.content)
-        assertTrue(listOf("e", postNote.id, "wss://post.test", "root") in posted.tags && listOf("i", item) in posted.tags)
+        assertTrue(posted.tags.any { it[0] == "q" && it[1] == postNote.id } && listOf("i", item) in posted.tags)
         assertEquals("⚡ 21 sats", writer.boost(anchor, 21, "", emptyList()).content)
         assertEquals(2, writeReader.cached(anchor)!!.comments.size)
     }

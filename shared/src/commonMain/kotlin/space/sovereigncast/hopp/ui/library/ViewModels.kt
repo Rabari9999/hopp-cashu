@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -73,19 +74,19 @@ class HomeViewModel(
     private val settings: SettingsRepository,
     private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository,
 ) : RefreshingViewModel(podcasts) {
-    private val _actions = MutableStateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>>(emptyList())
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
-    val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = _actions.asStateFlow()
+    val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
 
     init {
-        // New subscriptions get checked against their instance; whenever the set
-        // of verified shows changes — here or on a show page — the list follows.
-        viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().collectLatest { sc.verifyAll() } }
-        viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().collectLatest { loadActions() } }
+        // On start the Sovereigncast shows first (device feedback 2026-10-17); new
+        // subscriptions get checked against their instance; whenever the set of
+        // verified shows changes — here or on a show page — the list follows.
+        viewModelScope.launch { sc.refreshOnStart() }
+        viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().drop(1).collectLatest { sc.verifyAll() } }
+        viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().drop(1).collectLatest { sc.refresh() } }
     }
 
-    private suspend fun loadActions() { runCatching { sc.activeActions() }.onSuccess { _actions.value = it } }
-    override suspend fun afterRefresh() { sc.verifyAll(); loadActions() }
+    override suspend fun afterRefresh() { sc.refresh() }
 
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())

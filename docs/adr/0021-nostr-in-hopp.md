@@ -45,6 +45,17 @@ What exists already:
   (`podcast:guid:<guid>`), so apps that search by GUID find them either way.
 - A reply to a comment follows the kind of that comment (1 under 1, 1111
   under 1111).
+- **Amended 2026-10-17 (maintainer):** a new comment stands on its own, as
+  Fountain's do — a kind-1 note with the NIP-73 `i`/`k` tags of episode and
+  show, no `e`. The show's note, if there is one, is quoted (`q` with its
+  relay and author) and the show named (`p`), so the podcaster is still told.
+  As a reply to the show's note Fountain did not show Hopp's comments (it
+  likely treats them as answers to a note it does not know); a standalone
+  note is what Fountain itself writes. The price: in Primal or Damus the
+  comment no longer sits in the thread of the show's note but shows as a
+  quote of it. Without a show note it is the same kind-1 note, not
+  kind 1111. Answers to existing comments are unchanged; reading is
+  unchanged (it already took both).
 
 **Reading** is the union, de-duplicated by event id: replies to the show's
 notes (`#e`), and kinds 1 and 1111 with `#i podcast:item:guid:<guid>`. So

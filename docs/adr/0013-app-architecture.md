@@ -53,6 +53,11 @@ Dependency injection with Koin; navigation with Navigation Compose
   off, 1, 3, 6, 12 or 24 hours, hourly by default — and whether it runs on
   Wi-Fi only. Pacing by `updateFrequency` is dropped (maintainer, 2026-10-10):
   the listener's interval is the rule.
+  **Amended 2026-10-17 (device feedback):** each interval run asks the
+  Sovereigncast instances too (verification and what runs at the shows), and
+  on every start the Sovereigncast shows' feeds and instances are asked at
+  once — they change more often than a weekly podcast. Not when the listener
+  switched searching off.
 - **Optional, off by default:** a Podcast Index batch check (one request with all
   subscribed GUIDs, then fetch only changed feeds). The setting says plainly that
   the Podcast Index then sees the whole subscription list — more sensitive than

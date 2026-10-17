@@ -33,7 +33,7 @@
     <string name="library_shows">Shows</string>
     <string name="library_as_cards">Cards</string>
     <string name="library_as_list">List</string>
-    <string name="library_new">%1$d new</string>
+    <string name="library_unheard">%1$d not heard yet</string>
     <string name="library_empty">No subscriptions yet.</string>
     <string name="show_subscribed">Subscribed</string>
     <string name="show_pick_episode">Pick an episode to see it here.</string>
@@ -377,7 +377,7 @@
     <string name="refresh_hours">Every %1$d h</string>
     <string name="settings_refresh_wifi">Only on Wi-Fi</string>
     <string name="settings_refresh_wifi_note">No mobile data for looking</string>
-    <string name="settings_refresh_text">In the background, as often as set here. Pulling down on a list always looks right away.</string>
+    <string name="settings_refresh_text">In the background, as often as set here — Sovereigncast shows and their rounds also each time Hopp opens. Pulling down on a list always looks right away.</string>
     <string name="crash_title">Crash report</string>
     <string name="crash_ask">Hopp crashed last time. You can look at the report and share it yourself — nothing has been sent.</string>
     <string name="crash_view">Look at it</string>

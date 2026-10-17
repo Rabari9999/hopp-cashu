@@ -24,6 +24,7 @@ import space.sovereigncast.hopp.platform.CrashReports
 import android.os.Build
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import java.util.concurrent.TimeUnit
 
 class HoppApplication : Application() {
@@ -76,6 +77,8 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     override suspend fun doWork(): Result {
         val podcasts = KoinPlatform.getKoin().get<PodcastRepository>()
         val summary = podcasts.refreshAll()
+        // The Sovereigncast instances in the same go (device feedback 2026-10-17).
+        runCatching { KoinPlatform.getKoin().get<SovereigncastRepository>().refresh(force = true) }
         KoinPlatform.getKoin().get<DownloadRepository>().cleanup()
         return if (summary.failed == summary.checked && summary.checked > 0) Result.retry() else Result.success()
     }

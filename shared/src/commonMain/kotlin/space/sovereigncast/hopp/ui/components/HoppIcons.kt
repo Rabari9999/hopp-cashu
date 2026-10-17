@@ -109,4 +109,16 @@ object HoppIcons {
             moveTo(8.5f, 9f); lineTo(15.5f, 9f); moveTo(8.5f, 12f); lineTo(13f, 12f)
         }
     }
+    /** Three sliders: arranging something (Home's sections). */
+    val Tune = icon("tune") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(4f, 7f); lineTo(20f, 7f); moveTo(4f, 12f); lineTo(20f, 12f); moveTo(4f, 17f); lineTo(20f, 17f)
+        }
+        listOf(15f to 7f, 8f to 12f, 13f to 17f).forEach { (x, y) ->
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(x - 2.2f, y); quadTo(x - 2.2f, y - 2.2f, x, y - 2.2f); quadTo(x + 2.2f, y - 2.2f, x + 2.2f, y)
+                quadTo(x + 2.2f, y + 2.2f, x, y + 2.2f); quadTo(x - 2.2f, y + 2.2f, x - 2.2f, y); close()
+            }
+        }
+    }
 }

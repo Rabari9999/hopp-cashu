@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -124,9 +127,41 @@ class SovereigncastRepository(
         q.selectAllSovereigncast().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.id to it.sc_capabilities_json } }
 
     /** Every subscribed show checked against its instance (each at most once per
-     *  [REVERIFY_SECONDS]) — so Home knows them without each page being opened. */
-    suspend fun verifyAll() {
-        podcasts.shows.first().forEach { runCatching { verify(it.id) } }
+     *  [REVERIFY_SECONDS], unless [force]) — so Home knows them without each page being opened. */
+    suspend fun verifyAll(force: Boolean = false) {
+        podcasts.shows.first().forEach { runCatching { verify(it.id, force) } }
+    }
+
+    private val _actions = MutableStateFlow<List<ShowAction>?>(null)
+    /** What runs at the listener's Sovereigncast shows, as last asked ([refresh]); null before. */
+    val actions: StateFlow<List<ShowAction>?> = _actions.asStateFlow()
+
+    /**
+     * The instances asked again (device feedback 2026-10-17): each show
+     * verified — anew with [force] — and what runs there now. With the feed
+     * refresh, in the listener's interval, and on a pull on Home.
+     */
+    suspend fun refresh(force: Boolean = false) {
+        verifyAll(force)
+        runCatching { activeActions() }.onSuccess { _actions.value = it }
+    }
+
+    private var startDone = false
+
+    /**
+     * Once per start (device feedback 2026-10-17): the Sovereigncast shows
+     * change more often than a weekly podcast — an episode unlocked, a round
+     * over — so their feeds and instances are asked as Hopp opens, not only
+     * at the next interval. With searching switched off only what runs
+     * there now, as before.
+     */
+    suspend fun refreshOnStart() {
+        if (startDone) return
+        startDone = true
+        if (settings.current().refreshHours <= 0) { refresh(); return }
+        val ids = withContext(Dispatchers.IO) { q.selectAllSovereigncast().executeAsList().map { it.id } }.toSet()
+        if (ids.isNotEmpty()) runCatching { podcasts.refreshAll(only = ids) }
+        refresh(force = true)
     }
 
     /**

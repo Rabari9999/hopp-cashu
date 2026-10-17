@@ -16,6 +16,11 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Dein Nostr-Schlüssel, sicher und mitnehmbar** — im Passwortmanager (Android) oder iCloud-Schlüsselbund (iOS) sichern und mit einem Tipp zurückholen, als nsec für jede Nostr-App kopieren oder einen vorhandenen Schlüssel verwenden.
 
 ### 🐛 Fixes
+- In der Bibliothek zeigte eine Show höchstens eine „1“, auch wenn mehr Folgen warteten; jetzt zählt die Zahl alle ungehörten Folgen.
+- Beim Boosten mit Hopp-Anteil passte die Reihenfolge im Split-Balken nicht zu den Namen darunter; jetzt beides größter Anteil zuerst.
+- „Home anpassen“ stand nur ganz unten; jetzt auch als dezentes Symbol neben der Begrüßung.
+- Sovereigncast-Shows werden bei jedem Start aktualisiert, und die eingestellte Suche nach neuen Folgen fragt auch ihre Instanzen.
+- Deine Kommentare stehen jetzt eigenständig wie die von Fountain (statt als Antwort auf den Post der Show), damit sie auch dort erscheinen.
 - Die Privatsphäre-Seite war eine Wand aus Karten: Jetzt steht oben, was Hopp prüfen kann, und wer was sieht ist eine kurze Liste, Details per Tipp. Ebenso die Nostr-Seite: ein Weg für Neue, ein Knopf zum Sichern des Schlüssels.
 - Eine Show ohne Value for Value bot im Player trotzdem Boost und Streaming an; jetzt sagt eine ausgegraute Leiste, dass sie keine Sats annimmt. Und ein Kommentar nannte den Autor des Release-Boosting-Posts statt der Show.
 - Die Tour hat eine Seite zu Nostr: was es ist, was Hopp damit macht und der kommende Abgleich; die Wallet-Seite nennt Zeus statt Primal, dessen NWC nicht kann, was Hopp braucht.

@@ -33,7 +33,7 @@
     <string name="library_shows">Shows</string>
     <string name="library_as_cards">Karten</string>
     <string name="library_as_list">Liste</string>
-    <string name="library_new">%1$d neu</string>
+    <string name="library_unheard">%1$d ungehört</string>
     <string name="library_empty">Noch keine Abos.</string>
     <string name="show_subscribed">Abonniert</string>
     <string name="show_pick_episode">Wähle eine Folge, um sie hier zu sehen.</string>
@@ -377,7 +377,7 @@
     <string name="refresh_hours">Alle %1$d Std.</string>
     <string name="settings_refresh_wifi">Nur im WLAN</string>
     <string name="settings_refresh_wifi_note">Keine mobilen Daten fürs Suchen</string>
-    <string name="settings_refresh_text">Im Hintergrund, so oft wie hier eingestellt. Nach unten ziehen in einer Liste sucht immer sofort.</string>
+    <string name="settings_refresh_text">Im Hintergrund, so oft wie hier eingestellt – Sovereigncast-Shows samt ihren Aktionen zusätzlich bei jedem Start. Nach unten ziehen in einer Liste sucht immer sofort.</string>
     <string name="crash_title">Absturzbericht</string>
     <string name="crash_ask">Hopp ist beim letzten Mal abgestürzt. Du kannst dir den Bericht ansehen und selbst teilen – gesendet wurde nichts.</string>
     <string name="crash_view">Ansehen</string>

@@ -55,6 +55,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -126,7 +127,7 @@ fun HomeScreen(
         LazyColumn {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12):
             // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName) }
+            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize) }
             // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
             HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
                 when (key) {
@@ -205,6 +206,7 @@ fun HomeScreen(
                     HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav)
                 }
             }
+            // Also at the end, where a listener who scrolled through it all looks for it.
             item(key = "h-customize") {
                 TextButton(onClick = onCustomize, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                     Text(stringResource(Res.string.home_customize))
@@ -276,10 +278,12 @@ private fun ShowActionRow(a: ShowAction, modifier: Modifier = Modifier, onClick:
 @OptIn(kotlin.time.ExperimentalTime::class)
 private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
 
-/** "Good evening" and what the last refresh brought — Home's first line (device feedback 2026-10-12). */
+/** "Good evening" and what the last refresh brought — Home's first line (device feedback 2026-10-12) —
+ *  with "Customize Home" as a quiet icon at its end (device feedback 2026-10-17: at the bottom
+ *  alone it was out of sight below six sections). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     // By name when the listener gave one for their boosts (device feedback 2026-10-13).
@@ -302,9 +306,12 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
     ) {
         // The logo, not the hop alone — that means boost (ADR 0019).
         HoppSymbol(Modifier.size(48.dp))
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(hello, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
+            Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)
         }
     }
 }

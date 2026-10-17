@@ -48,7 +48,7 @@ data class Show(
 )
 
 /** A show's numbers in the library: all its episodes, and the new ones among them. */
-data class ShowCounts(val episodes: Int, val new: Int)
+data class ShowCounts(val episodes: Int, val unheard: Int)
 
 /** An episode as the UI lists it — the parsed feed data stays in the database
  *  until it is needed ([EpisodeRepository.details]). */
@@ -206,8 +206,9 @@ class PodcastRepository(
         return added
     }
 
-    suspend fun refreshAll(parallel: Int = 4): RefreshSummary = coroutineScope {
-        val ids = withContext(Dispatchers.IO) { q.selectAll().executeAsList().map { it.id } }
+    /** Every subscription — or of them only [only] — looked at again, [parallel] at a time. */
+    suspend fun refreshAll(parallel: Int = 4, only: Set<Long>? = null): RefreshSummary = coroutineScope {
+        val ids = withContext(Dispatchers.IO) { q.selectAll().executeAsList().map { it.id } }.filter { only == null || it in only }
         val gate = Semaphore(parallel)
         val results = ids.map { id ->
             async { gate.withPermit { runCatching { refresh(id) } } }
@@ -272,7 +273,7 @@ class EpisodeRepository(
 
     /** Per show: how many episodes it has, and how many of them are new — the library's numbers. */
     val countsPerShow: Flow<Map<Long, ShowCounts>> = eq.countsPerPodcast().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.associate { it.podcast_id to ShowCounts(it.total.toInt(), (it.fresh ?: 0L).toInt()) }
+        rows.associate { it.podcast_id to ShowCounts(it.total.toInt(), (it.unheard ?: 0L).toInt()) }
     }
 
     val inProgress: Flow<List<EpisodeItem>> = eq.selectInProgress().asFlow().mapToList(Dispatchers.IO).map { rows ->

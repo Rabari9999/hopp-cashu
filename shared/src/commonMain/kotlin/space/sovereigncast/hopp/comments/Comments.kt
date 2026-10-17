@@ -324,7 +324,9 @@ internal fun thread(events: List<Event>, anchor: CommentAnchor, muted: Set<Strin
     val all = events.filter { it.kind == 1 || it.kind == CommentReader.COMMENT }.distinctBy { it.id }.sortedBy { it.created_at }
     val roots = anchor.notes.map { it.id }.toMutableSet()
     fun namesEpisode(e: Event) = e.tags.any { it.size >= 2 && (it[0] == "i" || it[0] == "I") && it[1] == anchor.itemTag }
-    all.filter { it.kind == 1 && it.pubkey in anchor.showKeys && parentOf(it) == null && namesEpisode(it) }.forEach { roots += it.id }
+    // A note quoting another (`q`) is a comment, even the podcaster's own from Hopp.
+    fun quotes(e: Event) = e.tags.any { it.size >= 2 && it[0] == "q" }
+    all.filter { it.kind == 1 && it.pubkey in anchor.showKeys && parentOf(it) == null && namesEpisode(it) && !quotes(it) }.forEach { roots += it.id }
 
     val parent = all.associate { it.id to parentOf(it) }
     val kept = linkedMapOf<String, Event>()
