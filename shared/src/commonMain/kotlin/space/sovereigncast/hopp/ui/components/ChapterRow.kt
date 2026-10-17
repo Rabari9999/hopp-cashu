@@ -17,11 +17,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import org.jetbrains.compose.resources.stringResource
+import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.image_full
 import space.sovereigncast.hopp.feed.Chapter
 import space.sovereigncast.hopp.ui.theme.Hopp
 
@@ -45,10 +50,16 @@ fun ChapterRow(
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // When some chapters have a picture, the others keep its place, so the times line up.
-        if (ch.imageUrl != null) AsyncImage(
-            ch.imageUrl, null, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(colors.surfaceVariant),
-            contentScale = ContentScale.Crop,
-        ) else if (withImages) Spacer(Modifier.size(48.dp))
+        // Whole, not cut to the square; a tap shows it full screen (device feedback 2026-10-17).
+        if (ch.imageUrl != null) {
+            var viewing by remember { mutableStateOf(false) }
+            FittedImage(
+                ch.imageUrl, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                    .clickable(onClickLabel = stringResource(Res.string.image_full)) { viewing = true },
+                blur = 8.dp,
+            )
+            if (viewing) ImageViewer(ch.imageUrl) { viewing = false }
+        } else if (withImages) Spacer(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(formatTime((ch.startSeconds * 1000).toLong()), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)

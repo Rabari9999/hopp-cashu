@@ -111,7 +111,8 @@ class HomeLayoutTest {
         node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
         val l = layouts.first()
         check(l.lineCount == 1 && !l.isLineEllipsized(0) && l.getLineRight(0) <= l.size.width) { "the greeting is cut off" }
-        check(layouts.first().layoutInput.style.fontSize.value < 24f) { "not made smaller" }
+        // The greeting goes with the hour: "Hello Thorsten" fits as it is, "Good morning, Thorsten" does not.
+        check(l.layoutInput.text.length <= 16 || l.layoutInput.style.fontSize.value < 24f) { "not made smaller: ${l.layoutInput.text}" }
     }
 
     /**

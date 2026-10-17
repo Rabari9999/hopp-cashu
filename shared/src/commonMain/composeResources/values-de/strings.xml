@@ -692,4 +692,6 @@
     <string name="pv_share_title">Geteilte Links</string>
     <string name="pv_share_line">Show, Folge, Zeitpunkt – nichts über dich</string>
     <string name="pv_backup_line">Bibliothek und Einstellungen, wenn Backups an sind</string>
+    <string name="image_full">Bild im Vollbild zeigen</string>
+    <string name="image_close">Bild schließen</string>
 </resources>

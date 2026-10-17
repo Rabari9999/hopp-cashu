@@ -1401,6 +1401,21 @@ class AndroidAppFlowTest {
         waitFor("github.com ↗")
     }
 
+    /** Device feedback 2026-10-17: a chapter's picture full screen from its thumbnail, closed again. */
+    @Test
+    fun aChapterPictureOpensFullScreen() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Ep 1"); waitFor("Die Node")
+        val full = androidx.compose.ui.test.SemanticsMatcher("opens the picture") {
+            it.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsActions.OnClick) { null }?.label == "Show the picture full screen"
+        }
+        rule.onAllNodes(full).onFirst().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Close the picture")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Close the picture")).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Close the picture")).fetchSemanticsNodes().isEmpty() }
+    }
+
     /** A crash last time: the report is offered, read, and deleted — never sent by itself. */
     @Test
     fun aCrashReportIsOfferedToShare() {

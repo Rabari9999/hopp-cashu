@@ -692,4 +692,6 @@
     <string name="pv_share_title">Shared links</string>
     <string name="pv_share_line">Show, episode, time — nothing about you</string>
     <string name="pv_backup_line">Library and settings, if backups are on</string>
+    <string name="image_full">Show the picture full screen</string>
+    <string name="image_close">Close the picture</string>
 </resources>

@@ -16,6 +16,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Your Nostr key, safe and portable** — save it in your password manager (Android) or iCloud Keychain (iOS) and get it back with one tap, copy it as nsec for any Nostr app, or use a key you already have.
 
 ### 🐛 Fixes
+- Chapter images other than square were cut in the player; now whole, the rest filled with the picture blurred — and full screen with zoom on a tap, from the chapter list too.
 - Shows that announce an episode only with a plain Nostr note (Einundzwanzig, say) had no comments in Hopp; Hopp now finds the announcement through the show's website and shows the answers to it.
 - Zaps with a message on an episode's announcement now show as comments with their amount.
 - Some Fountain comments were missing in Hopp for good when a relay was too slow on the first load; Hopp now asks in full each time, Fountain's relay included.

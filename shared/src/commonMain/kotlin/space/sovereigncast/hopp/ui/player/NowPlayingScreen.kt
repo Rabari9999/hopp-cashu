@@ -128,6 +128,11 @@ import space.sovereigncast.hopp.resources.sheet_people
 import space.sovereigncast.hopp.resources.sheet_transcript
 import space.sovereigncast.hopp.ui.components.ChapterProgressBar
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.FittedImage
+import space.sovereigncast.hopp.ui.components.ImageViewer
+import space.sovereigncast.hopp.resources.image_full
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.semantics.onClick
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
 
@@ -195,7 +200,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         // The cover's chapter swipe, kept while the layout switches.
         var dragX by remember { mutableStateOf(0f) }
         val cover: @Composable (Modifier) -> Unit = { m ->
-            // Cover — the chapter image replaces it while a chapter has one.
+            // Cover — the chapter image replaces it while a chapter has one; whole, not cut
+            // to the square, and full screen on a tap (device feedback 2026-10-17).
+            val picture = chapters.imageAt(position) ?: playing.artworkUrl
+            var viewing by remember { mutableStateOf(false) }
+            val fullLabel = stringResource(Res.string.image_full)
             Box(
                 m.clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
                     .pointerInput(chapters) {
@@ -206,12 +215,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                             },
                             onDragCancel = { dragX = 0f },
                         ) { _, dx -> dragX += dx }
-                    },
+                    }
+                    .pointerInput(picture) { detectTapGestures(onTap = { if (picture != null) viewing = true }) }
+                    .semantics { onClick(fullLabel) { viewing = picture != null; true } },
             ) {
-                AsyncImage(
-                    model = chapters.imageAt(position) ?: playing.artworkUrl,
-                    contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
-                )
+                FittedImage(picture, Modifier.fillMaxSize())
+                if (viewing) ImageViewer(picture) { viewing = false }
                 if (current != null) {
                     Row(
                         Modifier.align(Alignment.BottomCenter).padding(10.dp).fillMaxWidth()
