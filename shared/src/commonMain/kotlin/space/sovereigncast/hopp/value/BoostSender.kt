@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.value
 
+import kotlinx.coroutines.CancellationException
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.model.ValueBlock
 import space.sovereigncast.hopp.model.ValueRecipient
@@ -109,6 +110,8 @@ class BoostSender(
             val invoice = lnAddress.invoice(request, msat, comment(ctx, prefix))
             val paid = nwc.payInvoice(invoice)
             ShareResult.Paid(share.copy(amountMsat = msat), route, paid.preimage, paid.feesPaidMsat)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             val reason = e.message ?: e::class.simpleName ?: "error"
             ShareResult.Failed(share, route, keysendFailure?.let { "$reason (keysend: $it)" } ?: reason, outcomeUnknown = (e as? NwcException)?.outcomeUnknown == true)
@@ -132,6 +135,8 @@ class BoostSender(
         )
         val paid = nwc.payKeysend(share.amountMsat, pubkey, keysendRecords(boostagram, customKey, customValue))
         ShareResult.Paid(share, route, paid.preimage, paid.feesPaidMsat)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         ShareResult.Failed(share, route, e.message ?: e::class.simpleName ?: "error", outcomeUnknown = (e as? NwcException)?.outcomeUnknown == true)
     }

@@ -13,6 +13,12 @@ interface KeyVault {
     val kind: Kind
     /** Saves [secret] (an nsec) under [account]; false when the listener cancelled or nothing took it. */
     suspend fun save(account: String, secret: String): Boolean
-    /** The nsec saved before, or null — none there, or the listener cancelled. */
+    /** The nsec saved last, or null — none there, or the listener cancelled. */
     suspend fun load(): String?
+    /**
+     * Every nsec still saved, the one [load] returns first. A password manager
+     * offers one credential. The iCloud Keychain can hold an older key beside
+     * the latest; this is how the existing restore reaches it.
+     */
+    suspend fun saved(): List<String> = listOfNotNull(load())
 }

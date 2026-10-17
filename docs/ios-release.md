@@ -12,6 +12,12 @@ ID belongs to the first team that registers it, and that one is kept for an
 App Store build in Nodesignal's own account. `scripts/release-ios.sh` sets
 the `.pal` ID itself; archive only through it.
 
+The PAL build carries every payment, as on Android (`HOPP_DISTRIBUTION=altstore`,
+the default in `iosApp/Configuration/Config.xcconfig`). The App Store build is
+prepared, not released (ADR 0009): `HOPP_DISTRIBUTION=appstore` on the
+`xcodebuild` command line, or `-xcconfig iosApp/Configuration/AppStore.xcconfig`,
+leaves out unlocking, publishing sooner, paid suggestions and the app split.
+
 ## Once: the Mac
 
 1. Xcode, opened once (licence, components); Kotlin/Native needs the full

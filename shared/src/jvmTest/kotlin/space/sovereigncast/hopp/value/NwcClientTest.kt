@@ -1,6 +1,9 @@
 package space.sovereigncast.hopp.value
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -98,5 +101,26 @@ class NwcClientTest {
         val c = NwcClient(NwcConnection.parse(uri), dropping, now = { 1_780_000_000 }, timeout = 5.seconds)
         val e = assertFailsWith<NwcException> { c.payKeysend(1_000, "02d0fd6c", emptyList()) }
         assertTrue(e.outcomeUnknown, e.toString())
+    }
+
+    /** Cancelled after the request went out (M1): the same unknown outcome as a
+     *  dropped connection, so the caller does not pay the share again. */
+    @Test
+    fun aCancellationAfterSendingIsAnUnknownOutcome() = runBlocking {
+        wallet.silentMethod = "pay_keysend"
+        val c = NwcClient(NwcConnection.parse(uri), relay, now = { 1_780_000_000 }, timeout = 5.seconds)
+        var thrown: Throwable? = null
+        val job = launch {
+            try {
+                c.payKeysend(1_000, "02d0fd6c", emptyList())
+            } catch (t: Throwable) {
+                thrown = t
+            }
+        }
+        withTimeout(5.seconds) { while (wallet.requests.none { it.first == "pay_keysend" }) yield() }
+        job.cancel()
+        job.join()
+        val e = thrown
+        assertTrue(e is NwcException && e.outcomeUnknown, "was ${e?.let { it::class.simpleName + ": " + it.message }}")
     }
 }

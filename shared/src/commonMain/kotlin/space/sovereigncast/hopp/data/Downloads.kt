@@ -85,8 +85,6 @@ class DownloadRepository(
     private val client = http.config { install(HttpRedirect) { allowHttpsDowngrade = true } }
     private val running = Mutex()
     private val cancelled = MutableStateFlow<Set<Long>>(emptySet())
-    /** Episode id → failed tries in a row that were no refusal (only touched under [running]). */
-    private val failures = mutableMapOf<Long, Int>()
 
     private val _progress = MutableStateFlow<Map<Long, Float>>(emptyMap())
     /** Episode id → 0..1 while it downloads (missing when the size is unknown). */
@@ -150,7 +148,7 @@ class DownloadRepository(
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
-                failures -= next.id
+                withContext(Dispatchers.IO) { eq.setDownloadFailures(0, next.id) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
@@ -163,15 +161,17 @@ class DownloadRepository(
                 // A host that keeps failing (down, its domain gone, an expired
                 // certificate) would hold up every download behind it: after a few
                 // tries in a row it fails, and the listener can ask again (code
-                // review 2026-10-17, H5).
-                val tries = (failures[next.id] ?: 0) + 1
+                // review 2026-10-17, H5). The count is in the row, so a restart
+                // does not start those tries over.
+                val tries = next.download_failures.toInt() + 1
                 if (tries < MAX_TRIES) {
-                    failures[next.id] = tries
-                    withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id) }
+                    withContext(Dispatchers.IO) {
+                        eq.setDownloadFailures(tries.toLong(), next.id)
+                        eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id)
+                    }
                     ok = false
                     break
                 }
-                failures -= next.id
                 withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } finally {
                 _progress.update { it - next.id }

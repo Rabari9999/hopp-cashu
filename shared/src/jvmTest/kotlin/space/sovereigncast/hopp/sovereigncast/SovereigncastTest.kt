@@ -7,8 +7,12 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.data.EpisodeRepository
@@ -20,6 +24,8 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
+import space.sovereigncast.hopp.ui.sovereigncast.ScPay
 import space.sovereigncast.hopp.value.FakeRelay
 import space.sovereigncast.hopp.value.FakeWallet
 import space.sovereigncast.hopp.value.LnAddressClient
@@ -52,6 +58,8 @@ class SovereigncastTest {
     /** The hash the instance names for its invoice; the test invoice's own unless a test lies. */
     private var hashInJson = "0101010101010101010101010101010101010101010101010101010101010101"
     private var statusCalls = 0
+    /** When set, the instance reports this status instead of pending-then-paid. */
+    private var paymentStatus: String? = null
     private val bodies = mutableListOf<String>()
 
     private fun feed() = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
@@ -84,7 +92,7 @@ class SovereigncastTest {
             path.endsWith("/release-boosting/invoices") -> respond(
                 """{"payment_hash":"$hashInJson","bolt11":"${TestInvoices.make(invoiceAmountMsat ?: 210_000, ByteArray(32))}","amount_sats":210,"expires_at":"2026-10-09T22:00:00Z"}""",
                 HttpStatusCode.Created)
-            path == "/api/listener/v1/payments/0101010101010101010101010101010101010101010101010101010101010101" -> respond("""{"payment_hash":"0101010101010101010101010101010101010101010101010101010101010101","status":"${if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
+            path == "/api/listener/v1/payments/0101010101010101010101010101010101010101010101010101010101010101" -> respond("""{"payment_hash":"0101010101010101010101010101010101010101010101010101010101010101","status":"${paymentStatus ?: if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
@@ -266,5 +274,88 @@ class SovereigncastTest {
         val b2u = Boost2UnlockEpisode(UpcomingEpisode("e1", 1, "E1"), goalSats = 1000, raisedSats = 400, unlocked = false)
         assertEquals(ScFill(600, publishesNow = true), unlockFill(b2u))
         assertNull(unlockFill(b2u.copy(unlocked = true)))
+    }
+
+    /** M3: after the wallet's answer is missing, a second tap does not pay that invoice again. */
+    @Test
+    fun anUnknownInvoiceIsLoggedAndNotPaidAgain() = onMain {
+        val id = subscribe()
+        wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        withTimeout(5_000) { while (vm.layer.value == null || !vm.hasWallet.value) delay(10) }
+        fake.silentMethod = "pay_invoice"
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(15_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
+        assertEquals("unknown", (vm.pay.value as ScPay.Failed).code)
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
+        val payment = value.payments.first().single()
+        assertEquals("unknown", payment.lines.single().status)
+        assertEquals(0L, payment.amountMsat, "not counted as spent")
+        vm.resetPay()
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        delay(200)
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" }, "the same invoice was paid again")
+        assertEquals("unknown", (vm.pay.value as ScPay.Failed).code)
+    }
+
+    /** M3, code review 2026-10-17: the wallet paid, the instance did not confirm in
+     *  time — sent and counted, with the reason in the history; that invoice is not
+     *  sent to the wallet again. */
+    @Test
+    fun aPaymentTheWalletMadeCountsEvenUnconfirmed() = onMain {
+        paymentStatus = "expired"
+        val id = subscribe()
+        wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        withTimeout(5_000) { while (vm.layer.value == null || !vm.hasWallet.value) delay(10) }
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
+        val payment = value.payments.first().single()
+        assertEquals("paid" to CommunityViewModel.UNCONFIRMED, payment.lines.single().let { it.status to it.reason })
+        assertEquals(211_000L, db.paymentQueries.spentSince(0).executeAsOne(), "counted against the budget: 210 sats and the wallet's fee")
+        vm.resetPay()
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(5_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" }, "the same invoice was paid again")
+    }
+
+    /** Code review 2026-10-17: without a wallet the listener pays in another app;
+     *  an invoice that expires there was not paid — nothing in the history, and a
+     *  new one can be asked for. */
+    @Test
+    fun anExternalInvoiceThatExpiresIsNoPayment() = onMain {
+        paymentStatus = "expired"
+        val id = subscribe()
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        withTimeout(5_000) { while (vm.layer.value == null) delay(10) }
+        repeat(2) {
+            vm.resetPay()
+            vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+            withTimeout(10_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
+            assertEquals("expired", (vm.pay.value as ScPay.Failed).code)
+        }
+        assertEquals(2, bodies.count { "\"amount_sats\":210" in it }, "the second tap asked for a new invoice")
+        assertTrue(value.payments.first().isEmpty(), "an invoice nobody paid is no payment")
+    }
+
+    /** ADR 0009: the App Store binary does not pay the instance at all. */
+    @Test
+    fun theAppStoreBinaryAsksForNoInvoice() = onMain {
+        val id = subscribe()
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes, paysForContent = false)
+        withTimeout(5_000) { while (vm.layer.value == null) delay(10) }
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        delay(200)
+        assertEquals(ScPay.Idle, vm.pay.value)
+        assertTrue(bodies.none { "\"amount_sats\"" in it }, "an invoice was asked for")
+    }
+
+    private fun onMain(block: suspend () -> Unit) {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            test(block)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 }

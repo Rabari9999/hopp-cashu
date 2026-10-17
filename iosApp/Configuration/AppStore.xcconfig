@@ -1,0 +1,6 @@
+#include "Config.xcconfig"
+
+// The App Store binary (ADR 0009): no payments that unlock, publish sooner
+// or pay for a suggestion, and no Support Hopp. Episode boosts and streaming stay.
+HOPP_DISTRIBUTION=appstore
+BUNDLE_ID=space.sovereigncast.hopp

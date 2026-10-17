@@ -165,7 +165,13 @@ class NwcClient(
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 throw NwcException(NwcException.OUTCOME_UNKNOWN, "no answer from the wallet within $timeout")
             } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
+                // The EVENT is already on the relay. A parent cancel here is the
+                // same as a dropped connection: the wallet may have paid (M1).
+                // Reported as that, not as the cancellation: a caller tells
+                // "cancelled before sending" (CancellationException, nothing
+                // sent) from this, and settles or keeps the share accordingly.
+                // The scope finishes with this exception, not the cancellation.
+                throw NwcException(NwcException.OUTCOME_UNKNOWN, "cancelled after sending")
             } ?: throw NwcException(NwcException.OUTCOME_UNKNOWN, "connection lost after sending")
             if (msg.type == "OK") throw NwcException("RELAY_REJECTED", msg.message ?: "relay refused the request")
             val body = runCatching {
@@ -183,7 +189,11 @@ class NwcClient(
     private suspend fun <T> withSession(block: suspend CoroutineScope.(RelaySession) -> T): T {
         var lastError: Exception? = null
         for (relay in connection.relays) {
-            val session = try { connector.connect(relay) } catch (e: Exception) { lastError = e; continue }
+            val session = try {
+                connector.connect(relay)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // cancelled, not unreachable: the next relay would not help
+            } catch (e: Exception) { lastError = e; continue }
             try {
                 return coroutineScope { block(session) }
             } finally {

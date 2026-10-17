@@ -378,6 +378,85 @@ class ValueServiceTest {
         assertEquals(listOf(PendingShare("Cohost", 250)), value.pendingFor(ep.id))
     }
 
+    /** A process killed after the payment was marked and before the answer came
+     *  back (M1): the next launch settles what was on the way and does not
+     *  keysend it again. */
+    @Test
+    fun aShareLeftInFlightIsNotPaidAgain() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        value.accrue(ep, 2_500, 2_500)
+        wallet.disconnect()
+        value.settle() // splits the debt, and with no wallet sends nothing
+        markInFlight(host, 2_000)
+        wallet.connect(uri())
+        value.settle()
+        assertEquals(0, keysends().count { it.first == host }, "paid a share that was already in flight")
+        assertEquals("unknown", value.payments.first().single().lines.single { it.address == host }.status)
+        assertEquals(250L, owed(host), "only what was on the way is settled")
+    }
+
+    /** Code review 2026-10-17: what was heard after the crash is not written off
+     *  with the share that was in flight — it is paid in the next batch. */
+    @Test
+    fun whatWasHeardSinceTheCrashIsStillPaid() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
+        val ep = episode()
+        value.accrue(ep, 2_500, 2_500) // 2.25 to the host
+        wallet.disconnect()
+        value.settle()
+        markInFlight(host, 2_000)
+        wallet.connect(uri())
+        value.accrue(ep, 12_500, 10_000) // 9 more to the host, heard after the crash
+        value.settle()
+        assertEquals(9_250L, owed(host))
+        value.settle()
+        assertEquals(listOf(9L), keysends().filter { it.first == host }.map { it.second })
+    }
+
+    /** Code review 2026-10-17: a batch cancelled before the request went out
+     *  (here while the relay connects) leaves no marker — the share stays owed
+     *  and is paid, not written off as maybe paid. */
+    @Test
+    fun aBatchCancelledBeforeSendingKeepsTheShareOwed() = test {
+        var hang = false
+        val connector = space.sovereigncast.hopp.nostr.RelayConnector { url -> if (hang) kotlinx.coroutines.awaitCancellation() else relay.connect(url) }
+        val w = WalletRepository(MemorySecretStore(), http, { now }, connector, timeout = kotlin.time.Duration.parse("5s"))
+        val v = ValueService(db, w, episodes, podcasts, settings, LnAddressClient(http), FeedFetcher(http), null, { now }, AppInfo("0.0.1", "JVM", "Test"))
+        w.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        v.accrue(ep, 2_500, 2_500)
+        hang = true
+        val batch = scope.async { v.settle() }
+        withTimeout(5_000) { while (rows().none { ValueService.inFlightMsat(it.last_error) != null }) delay(10) }
+        batch.cancel()
+        runCatching { batch.await() }
+        assertTrue(rows().none { it.last_error != null }, "the marker stayed: ${rows().map { it.last_error }}")
+        hang = false
+        v.settle()
+        assertEquals(listOf(host to 2L), keysends())
+    }
+
+    /** ADR 0009: the App Store binary has no app split, even with a percent saved. */
+    @Test
+    fun theAppStoreBinaryLeavesTheAppSplitOut() = test {
+        wallet.connect(uri())
+        val ep = episode()
+        settings.update { it.copy(supportHoppPercent = 5) }
+        val appStore = ValueService(db, wallet, episodes, podcasts, settings, LnAddressClient(http), FeedFetcher(http), null, { now }, AppInfo("0.0.1", "JVM", "Test"), paysForContent = false)
+        val plan = appStore.plan(ep, 30, 100_000) as BoostPlan.Ready
+        assertTrue(plan.shares.none { it.recipient.name == ValueService.SUPPORT_NAME })
+        assertEquals(100_000L, plan.shares.sumOf { it.amountMsat }, "the whole amount to the show")
+    }
+
+    private fun rows() = db.streamingQueries.owedWithHeard("lightning").executeAsList()
+    private fun owed(node: String) = rows().filter { node in it.recipient_json }.sumOf { it.owed_msat }
+    private fun markInFlight(node: String, msat: Long) = rows().filter { node in it.recipient_json }
+        .forEach { db.streamingQueries.markSending(ValueService.inFlightMarker(msat), it.episode_id, it.recipient_key, it.rail) }
+
     /** Security report 2026-10-10, H-03: ten quick boosts at once, budget for one — one is paid. */
     @Test
     fun parallelQuickBoostsStayWithinTheBudget() = test {

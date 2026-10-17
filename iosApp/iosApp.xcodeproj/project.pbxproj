@@ -179,7 +179,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n# Linking the release framework needs more than gradle.properties' 3 GB,\n# which fit the Linux build box; this runs only on a Mac.\n./gradlew -Dorg.gradle.jvmargs=\"-Xmx6g -Dfile.encoding=UTF-8\" :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n# Linking the release framework needs more than gradle.properties' 3 GB,\n# which fit the Linux build box; this runs only on a Mac.\n# HOPP_DISTRIBUTION is the flavor (ADR 0009): altstore, or appstore.\nHOPP_DIST=\"${HOPP_DISTRIBUTION:-altstore}\"\n./gradlew -Dorg.gradle.jvmargs=\"-Xmx6g -Dfile.encoding=UTF-8\" -Phopp.distribution=\"$HOPP_DIST\" :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

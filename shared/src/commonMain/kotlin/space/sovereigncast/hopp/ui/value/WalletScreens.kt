@@ -189,16 +189,18 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             }
             Text(stringResource(Res.string.wallet_quick_boost_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
-            Text(stringResource(Res.string.wallet_support), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Settings.supportChoices.forEach { p ->
-                    FilterChip(
-                        selected = s.supportHoppPercent == p, onClick = { vm.update { it.copy(supportHoppPercent = p) } },
-                        label = { Text(if (p == 0) stringResource(Res.string.wallet_quick_boost_off) else "$p %") },
-                    )
+            if (space.sovereigncast.hopp.storePaysForContent()) {
+                Text(stringResource(Res.string.wallet_support), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Settings.supportChoices.forEach { p ->
+                        FilterChip(
+                            selected = s.supportHoppPercent == p, onClick = { vm.update { it.copy(supportHoppPercent = p) } },
+                            label = { Text(if (p == 0) stringResource(Res.string.wallet_quick_boost_off) else "$p %") },
+                        )
+                    }
                 }
+                Text(stringResource(Res.string.wallet_support_note, Settings.SUPPORT_ADDRESS), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
-            Text(stringResource(Res.string.wallet_support_note, Settings.SUPPORT_ADDRESS), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
             var name by remember(s.senderName) { mutableStateOf(s.senderName) }
             OutlinedTextField(

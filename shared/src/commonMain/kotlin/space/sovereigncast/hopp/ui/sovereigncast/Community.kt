@@ -11,6 +11,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import space.sovereigncast.hopp.resources.sc_all
+import space.sovereigncast.hopp.storePaysForContent
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.unit.sp
@@ -90,6 +91,7 @@ import space.sovereigncast.hopp.resources.sc_done
 import space.sovereigncast.hopp.resources.sc_external
 import space.sovereigncast.hopp.resources.sc_failed
 import space.sovereigncast.hopp.resources.sc_failed_expired
+import space.sovereigncast.hopp.resources.sc_failed_unknown
 import space.sovereigncast.hopp.resources.sc_failed_mismatch
 import space.sovereigncast.hopp.resources.sc_failed_no_round
 import space.sovereigncast.hopp.resources.sc_minutes
@@ -250,7 +252,7 @@ fun ReleaseBoostingCard(round: ReleaseBoostingRound, onOpen: () -> Unit, onBoost
     raised = round.raisedSats, goal = round.goalSats,
     line = stringResource(Res.string.sc_progress, formatSats(round.raisedSats), formatSats(round.goalSats)) + " · " +
         stringResource(Res.string.sc_publish_at, formatIsoShort(round.publishAt)),
-    action = stringResource(Res.string.np_boost), onAction = onBoost, onOpen = onOpen,
+    action = if (storePaysForContent()) stringResource(Res.string.np_boost) else null, onAction = onBoost, onOpen = onOpen,
 )
 
 /** One episode waiting to be unlocked by boosts. */
@@ -261,7 +263,7 @@ fun UnlockCard(item: Boost2UnlockEpisode, onOpen: () -> Unit, onUnlock: () -> Un
     raised = item.raisedSats, goal = item.goalSats,
     line = if (item.unlocked) stringResource(Res.string.sc_unlocked)
         else stringResource(Res.string.sc_progress, formatSats(item.raisedSats), formatSats(item.goalSats)),
-    action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), onAction = onUnlock, onOpen = onOpen,
+    action = if (item.unlocked || !storePaysForContent()) null else stringResource(Res.string.sc_unlock), onAction = onUnlock, onOpen = onOpen,
 )
 
 /**
@@ -363,7 +365,8 @@ private fun ChainView(chain: Chain) {
 @Composable
 fun ReleaseBoostingSheet(round: ReleaseBoostingRound, show: ScShow?, onBoost: () -> Unit, onDismiss: () -> Unit) = ActionSheet(
     label = stringResource(Res.string.sc_rb_label), episode = round.episode, raised = round.raisedSats, goal = round.goalSats,
-    action = stringResource(Res.string.np_boost), communityUrl = show?.communityPageUrl, onAction = onBoost, onDismiss = onDismiss,
+    action = if (storePaysForContent()) stringResource(Res.string.np_boost) else null,
+    communityUrl = if (storePaysForContent()) show?.communityPageUrl else null, onAction = onBoost, onDismiss = onDismiss,
 ) {
     Text(stringResource(Res.string.sc_publish_long, formatIsoShort(round.publishAt)), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(Res.string.sc_per_minute, round.satsPerMinute), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -376,7 +379,8 @@ fun UnlockSheet(item: Boost2UnlockEpisode, show: ScShow?, onUnlock: () -> Unit, 
     val uri = LocalUriHandler.current
     ActionSheet(
         label = stringResource(Res.string.sc_b2u_label), episode = item.episode, raised = item.raisedSats, goal = item.goalSats,
-        action = if (item.unlocked) null else stringResource(Res.string.sc_unlock), communityUrl = show?.communityPageUrl, onAction = onUnlock, onDismiss = onDismiss,
+        action = if (item.unlocked || !storePaysForContent()) null else stringResource(Res.string.sc_unlock),
+        communityUrl = if (storePaysForContent()) show?.communityPageUrl else null, onAction = onUnlock, onDismiss = onDismiss,
     ) {
         if (item.unlocked) Text(stringResource(Res.string.sc_unlocked), style = MaterialTheme.typography.titleSmall, color = Hopp.colors.valueText)
         item.link?.takeIf { item.unlocked }?.let { link -> TextButton(onClick = { runCatching { uri.openUri(link) } }) { Text(stringResource(Res.string.sc_open_episode)) } }
@@ -401,7 +405,7 @@ fun SuggestionRow(s: Suggestion, voted: Boolean, onOpen: () -> Unit, onBoost: ((
         }
         Spacer(Modifier.size(8.dp))
         // Boosting it without opening it first (device feedback 2026-10-15).
-        if (onBoost != null) {
+        if (onBoost != null && storePaysForContent()) {
             space.sovereigncast.hopp.ui.value.BoostIconButton(onBoost)
             Spacer(Modifier.size(8.dp))
         }
@@ -441,7 +445,7 @@ fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onBoost: 
                     stringResource(Res.string.sc_votes, s.voteCount) + if (s.amountSats > 0) " · ${formatSats(s.amountSats)} sats" else "",
                     Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant,
                 )
-                if (onBoost != null) {
+                if (onBoost != null && storePaysForContent()) {
                     ActionPill(stringResource(Res.string.np_boost), onBoost)
                     Spacer(Modifier.size(8.dp))
                 }
@@ -454,8 +458,11 @@ fun SuggestionSheet(s: Suggestion, voted: Boolean, onVote: () -> Unit, onBoost: 
 
 /** Under the open suggestions: a new one, paid as its spam filter (phase 2). */
 @Composable
-fun SuggestButton(onClick: () -> Unit) = OutlinedButton(onClick = onClick, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-    Text("+ " + stringResource(Res.string.sc_suggest))
+fun SuggestButton(onClick: () -> Unit) {
+    if (!storePaysForContent()) return
+    OutlinedButton(onClick = onClick, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text("+ " + stringResource(Res.string.sc_suggest))
+    }
 }
 
 /** One of the show's most popular episodes, by its rank (phase 2). */
@@ -629,7 +636,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                 }
                 is ScPay.External -> {
                     Text(stringResource(Res.string.sc_external), color = colors.onSurfaceVariant)
-                    TextButton(onClick = { runCatching { uri.openUri("lightning:" + p.invoice.bolt11) } }) { Text(stringResource(Res.string.sc_open_wallet_app)) }
+                    if (storePaysForContent()) TextButton(onClick = { runCatching { uri.openUri("lightning:" + p.invoice.bolt11) } }) { Text(stringResource(Res.string.sc_open_wallet_app)) }
                     CircularProgressIndicator(Modifier.padding(bottom = 24.dp))
                     return@Column
                 }
@@ -648,6 +655,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                     when (p.code) {
                         "mismatch" -> stringResource(Res.string.sc_failed_mismatch)
                         "expired" -> stringResource(Res.string.sc_failed_expired)
+                        "unknown" -> stringResource(Res.string.sc_failed_unknown)
                         "no_active_round" -> stringResource(Res.string.sc_failed_no_round)
                         else -> stringResource(Res.string.sc_failed, p.detail ?: p.code)
                     },
@@ -711,7 +719,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
             // a suggestion carries its topic instead.
             if (!suggesting) OutlinedTextField(message, { message = it.take(100) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_message)) })
             OutlinedTextField(name, { name = it.take(60) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.boost_name)) }, singleLine = true)
-            Box(
+            if (storePaysForContent()) Box(
                 Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(if (ready) Hopp.colors.value else colors.surfaceVariant)
                     .clickable(enabled = ready) {
                         if (target is ScTarget.NewSuggestion) vm.pay(ScTarget.NewSuggestion(topic, about, links), amount, "", name, topic.trim())

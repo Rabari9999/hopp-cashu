@@ -197,6 +197,7 @@
     <string name="stream_notice">Nachgezahlt, was offline anfiel: %1$s sats für %2$d Folge(n)</string>
     <string name="reason_self">das bist du – deine eigene Wallet</string>
     <string name="reason_dust">weniger als 1 Sat</string>
+    <string name="reason_unconfirmed">von der Instanz noch nicht bestätigt</string>
     <string name="boost_none_payable">Deine Wallet kann keinen Empfänger dieser Show erreichen.</string>
     <string name="boost_not_paid">%1$s: %2$s</string>
     <string name="wallet_can_invoice">Rechnungen zahlen (Lightning-Adressen)</string>
@@ -249,6 +250,7 @@
     <string name="sc_done">%1$s sats gesendet – danke!</string>
     <string name="sc_failed_mismatch">Die Rechnung passte nicht zum Betrag – es wurde nichts bezahlt.</string>
     <string name="sc_failed_expired">Keine Bestätigung – die Rechnung ist abgelaufen.</string>
+    <string name="sc_failed_unknown">Keine Antwort von der Wallet – vielleicht wurde bezahlt. Schau in den Zahlungsverlauf, bevor du noch einmal zahlst.</string>
     <string name="sc_failed_no_round">Die Runde ist gerade zu Ende gegangen.</string>
     <string name="sc_failed">Hat nicht geklappt: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>

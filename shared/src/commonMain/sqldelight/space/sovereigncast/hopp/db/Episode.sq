@@ -28,6 +28,9 @@ CREATE TABLE episode (
     -- Version 4 (migrations/3.sqm): when the listener made it a favourite;
     -- null = not one (device feedback 2026-10-11).
     favorite_at INTEGER,
+    -- Version 8 (migrations/7.sqm): failed tries of this download, so a restart
+    -- does not grant the same host another four blocking rounds (H5).
+    download_failures INTEGER NOT NULL DEFAULT 0,
     UNIQUE (podcast_id, guid)
 );
 
@@ -123,7 +126,7 @@ DELETE FROM episode WHERE podcast_id = ?;
 -- Downloads (ADR 0012) ------------------------------------------------------
 
 requestDownload:
-UPDATE episode SET download_state = 1, download_manual = ? WHERE id = ? AND download_state IN (0, 4);
+UPDATE episode SET download_state = 1, download_manual = ?, download_failures = 0 WHERE id = ? AND download_state IN (0, 4);
 
 -- A waiting download made a requested one: any network from now on
 -- (device feedback 2026-10-15). One episode, or every one that waits.
@@ -139,11 +142,14 @@ SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
 setDownloadState:
 UPDATE episode SET download_state = ? WHERE id = ?;
 
+setDownloadFailures:
+UPDATE episode SET download_failures = ? WHERE id = ?;
+
 setDownloaded:
 UPDATE episode SET download_state = 3, download_path = ?, download_size = ? WHERE id = ?;
 
 clearDownload:
-UPDATE episode SET download_state = 0, download_path = NULL, download_size = NULL, download_manual = 0 WHERE id = ?;
+UPDATE episode SET download_state = 0, download_path = NULL, download_size = NULL, download_manual = 0, download_failures = 0 WHERE id = ?;
 
 -- An app killed mid-download left it "downloading"; the .part file resumes.
 resetInterrupted:

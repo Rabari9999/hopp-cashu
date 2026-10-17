@@ -211,6 +211,9 @@ class NostrIdentityViewModel(
     enum class Vault { Idle, Working, Saved, Failed, NotFound }
     private val _vault = MutableStateFlow(Vault.Idle)
     val vault: StateFlow<Vault> = _vault.asStateFlow()
+    /** Every key in the vault, the latest first, when it holds more than one; empty once one is chosen. */
+    private val _vaultKeys = MutableStateFlow<List<String>>(emptyList())
+    val vaultKeys: StateFlow<List<String>> = _vaultKeys.asStateFlow()
     private val _importError = MutableStateFlow<space.sovereigncast.hopp.identity.KeyImportException.Reason?>(null)
     val importError: StateFlow<space.sovereigncast.hopp.identity.KeyImportException.Reason?> = _importError.asStateFlow()
 
@@ -231,12 +234,21 @@ class NostrIdentityViewModel(
 
     fun restoreFromVault(vault: space.sovereigncast.hopp.platform.KeyVault) {
         _vault.value = Vault.Working
+        _vaultKeys.value = emptyList()
         viewModelScope.launch {
-            val nsec = runCatching { vault.load() }.getOrNull()
-            if (nsec == null) { _vault.value = Vault.NotFound; return@launch }
-            useKey(nsec, null)
-            _vault.value = Vault.Idle
+            val keys = runCatching { vault.saved() }.getOrDefault(emptyList())
+            when {
+                keys.isEmpty() -> _vault.value = Vault.NotFound
+                keys.size == 1 -> { useKey(keys.single(), null); _vault.value = Vault.Idle }
+                else -> { _vaultKeys.value = keys; _vault.value = Vault.Idle }
+            }
         }
+    }
+
+    /** One of the keys [restoreFromVault] found beside the latest. */
+    fun restoreVaultKey(nsec: String) {
+        _vaultKeys.value = emptyList()
+        viewModelScope.launch { useKey(nsec, null) }
     }
 
     fun importKey(text: String, password: String?) = viewModelScope.launch { useKey(text, password) }
@@ -344,8 +356,14 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     }
     if (vault != null) {
         val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
+        val saved by vm.vaultKeys.collectAsState()
         OutlinedButton(onClick = { vm.restoreFromVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (iCloud) Res.string.nostr_vault_load_ios else Res.string.nostr_vault_load_android))
+        }
+        // The npub is worked out once per list, not at every recomposition.
+        val labelled = remember(saved) { saved.map { it to vaultKeyLabel(it) } }
+        labelled.forEach { (nsec, label) ->
+            OutlinedButton(onClick = { vm.restoreVaultKey(nsec) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
         if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
@@ -579,3 +597,11 @@ private fun CopyWarning(onDismiss: () -> Unit, onCopy: () -> Unit) {
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
     )
 }
+
+/** The npub of a saved nsec, shortened — the secret itself stays off the button. */
+private fun vaultKeyLabel(nsec: String): String = runCatching {
+    val (hrp, data) = space.sovereigncast.hopp.nostr.Bech32.decode(nsec)
+    require(hrp == "nsec" && data.size == 32)
+    val pub = space.sovereigncast.hopp.nostr.npub(space.sovereigncast.hopp.nostr.KeyPair(data).publicKeyHex)
+    pub.take(12) + "…" + pub.takeLast(4)
+}.getOrDefault("nsec")
