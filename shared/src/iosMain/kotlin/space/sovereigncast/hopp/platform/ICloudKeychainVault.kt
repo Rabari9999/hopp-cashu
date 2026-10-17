@@ -56,11 +56,25 @@ class ICloudKeychainVault : KeyVault {
         return q
     }
 
-    override suspend fun save(account: String, secret: String): Boolean {
-        SecItemDelete(query(null))
+    // One item per key: a backup replaces only the same key's earlier copy, so
+    // backing up a new identity leaves the last one's backup in place — deleting
+    // by service alone took every Hopp key off every device (code review
+    // 2026-10-17, H3). A second item names the key backed up last, which a
+    // restore takes.
+    override suspend fun save(account: String, secret: String): Boolean =
+        write(account, secret) && write(LATEST, account)
+
+    override suspend fun load(): String? {
+        // Backups from before the LATEST item: the one key there was.
+        val nsec = read(LATEST)?.let { read(it) } ?: read(null)
+        return nsec?.takeIf { it.startsWith("nsec1") }
+    }
+
+    private fun write(account: String, value: String): Boolean {
+        SecItemDelete(query(account))
         val q = query(account)
         @Suppress("CAST_NEVER_SUCCEEDS")
-        val data = (secret as NSString).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
+        val data = (value as NSString).dataUsingEncoding(NSUTF8StringEncoding) ?: return false
         CFDictionaryAddValue(q, kSecValueData, CFBridgingRetain(data))
         CFDictionaryAddValue(q, kSecAttrLabel, CFBridgingRetain("Hopp · Nostr"))
         // Synchronizable items cannot be "this device only".
@@ -68,17 +82,19 @@ class ICloudKeychainVault : KeyVault {
         return SecItemAdd(q, null) == errSecSuccess
     }
 
-    override suspend fun load(): String? = memScoped {
-        val q = query(null)
+    private fun read(account: String?): String? = memScoped {
+        val q = query(account)
         CFDictionaryAddValue(q, kSecReturnData, kCFBooleanTrue)
         CFDictionaryAddValue(q, kSecMatchLimit, kSecMatchLimitOne)
         val result = alloc<CFTypeRefVar>()
         if (SecItemCopyMatching(q, result.ptr) != errSecSuccess) return null
         val data = CFBridgingRelease(result.value) as? NSData ?: return null
-        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()?.takeIf { it.startsWith("nsec1") }
+        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
     }
 
     private companion object {
         const val SERVICE = "space.sovereigncast.hopp.nostr-backup"
+        /** The account of the item that holds the npub backed up last — never an npub itself. */
+        const val LATEST = "latest"
     }
 }

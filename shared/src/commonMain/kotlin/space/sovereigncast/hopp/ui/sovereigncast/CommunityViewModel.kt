@@ -76,16 +76,24 @@ class CommunityViewModel(
         viewModelScope.launch {
             sc.verify(podcastId)
             load()
-            // The round moves while the page is open (others boost too), and the
-            // player shows the latest boosts: those every five minutes.
-            var minutes = 0
-            while (true) {
-                delay(60_000)
-                minutes++
-                layer.value?.let { l ->
-                    if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
-                    if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }
-                }
+        }
+    }
+
+    /**
+     * The round moves while the page is open (others boost too), and the
+     * player shows the latest boosts: those every five minutes. Runs only while
+     * the page or the sheet is on screen ([PollCommunity]) — not for the view
+     * model's whole life, which in the player is the activity's (code review
+     * 2026-10-17, H8; ADR 0013).
+     */
+    suspend fun poll() {
+        var minutes = 0
+        while (true) {
+            delay(60_000)
+            minutes++
+            layer.value?.let { l ->
+                if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
+                if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }
             }
         }
     }

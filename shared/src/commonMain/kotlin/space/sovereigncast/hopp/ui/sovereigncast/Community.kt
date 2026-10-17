@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.sovereigncast
 
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -553,6 +556,13 @@ fun BoosterRow(b: Booster) {
     }
 }
 
+/** Asks the instance again while [vm]'s page or sheet is on screen, never behind it (code review 2026-10-17, H8). */
+@Composable
+fun PollCommunity(vm: CommunityViewModel) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(vm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.poll() } }
+}
+
 /**
  * Paying the instance's invoice (ADR 0005, 0018): amounts, message, name,
  * then each step shown — through the connected wallet, or a wallet app
@@ -571,7 +581,8 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
     val min = if (suggesting) vm.suggestionMinSats else 1L
     val presets: List<Long> = when {
         suggesting -> (listOf(min) + listOf(210L, 1_000L, 2_100L).filter { it > min }).take(4)
-        satsPerMinute != null -> listOf(1L, 10L, 60L).map { it * satsPerMinute }
+        // An instance that says 0 sats a minute gets the plain amounts (code review 2026-10-17, M25).
+        satsPerMinute != null && satsPerMinute > 0 -> listOf(1L, 10L, 60L).map { it * satsPerMinute }
         else -> listOf(100L, 500L, 1_000L, 2_100L)
     }
     var amount by remember { mutableLongStateOf(if (suggesting) presets[0] else presets[1]) }
@@ -678,7 +689,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.forEach { a ->
-                    val label = formatSats(a) + (satsPerMinute?.let { m -> " · " + stringResource(Res.string.sc_minutes, (a / m).toInt()) } ?: "")
+                    val label = formatSats(a) + (satsPerMinute?.takeIf { it > 0 }?.let { m -> " · " + stringResource(Res.string.sc_minutes, (a / m).toInt()) } ?: "")
                     Box(
                         Modifier.clip(RoundedCornerShape(50)).background(if (!custom && !filling && amount == a) Hopp.colors.value else colors.surfaceVariant)
                             .clickable { custom = false; filling = false; amount = a }.padding(horizontal = 14.dp, vertical = 10.dp),

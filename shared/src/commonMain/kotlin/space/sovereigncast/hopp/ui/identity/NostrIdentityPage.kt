@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.identity
 
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
 
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -327,7 +329,9 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     val state by vm.vault.collectAsState()
     val error by vm.importError.collectAsState()
     val signerError by vm.signerError.collectAsState()
-    var text by rememberSaveable { mutableStateOf("") }
+    // Not saveable: a pasted key stays out of the saved state, as the wallet's
+    // connection string does (code review 2026-10-17, H9).
+    var text by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var bunker by rememberSaveable { mutableStateOf(false) }
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
@@ -346,9 +350,10 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
         if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
     OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
-        visualTransformation = PasswordVisualTransformation())
+        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
     if (locked) OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true,
-        label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation())
+        label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
     error?.let {
         Text(stringResource(when (it) {
             space.sovereigncast.hopp.identity.KeyImportException.Reason.WrongPassword -> Res.string.nostr_import_wrong_password
@@ -370,7 +375,7 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
     val authUrl by vm.authUrl.collectAsState()
     val actions = LocalPlatformActions.current
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
-    var address by rememberSaveable { mutableStateOf("") }
+    var address by remember { mutableStateOf("") } // may carry the bunker's secret (H9)
     Text(stringResource(Res.string.nostr_bunker_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
     Text(stringResource(Res.string.nostr_bunker_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     when (val s = state) {

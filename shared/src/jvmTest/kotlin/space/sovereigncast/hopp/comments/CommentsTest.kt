@@ -422,6 +422,24 @@ class CommentsTest {
         assertEquals(emptyList(), listening.load(comments.anchor(episode())!!).comments)
     }
 
+    /** Code review 2026-10-17, H4: the index relays say "none" at once, the
+     *  relay that holds the list answers after the settle time — the list must
+     *  still be read, not replaced by one that holds only the new entry. */
+    @Test
+    fun aSlowRelayWithTheListIsWaitedForBeforeMuting() = test {
+        identities.create("Me")
+        val me = identities.signer()!!
+        relay.publish(me.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(10000, "encrypted-private-part", listOf(listOf("p", alice.publicKeyHex)), now - 100)))
+        val empty = FakeRelay()
+        val slow = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            if (url == "wss://relay.damus.io") { kotlinx.coroutines.delay(3_500); relay.connect(url) } else empty.connect(url)
+        }
+        CommentWriter(RelayPublisher(slow), identities, store, { now }).mute(troll.publicKeyHex)
+        val list = publisher.latest(10000, me.pubkey, listOf("wss://relay.damus.io"))!!
+        assertEquals("encrypted-private-part", list.content)
+        assertEquals(listOf(listOf("p", alice.publicKeyHex), listOf("p", troll.publicKeyHex)), list.tags)
+    }
+
     /** Device feedback 2026-10-16: boosts as comments, as Fountain does. */
     @Test
     fun aPublicBoostIsACommentWithItsAmount() = test {

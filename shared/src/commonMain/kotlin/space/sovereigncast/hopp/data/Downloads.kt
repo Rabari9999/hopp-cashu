@@ -85,6 +85,8 @@ class DownloadRepository(
     private val client = http.config { install(HttpRedirect) { allowHttpsDowngrade = true } }
     private val running = Mutex()
     private val cancelled = MutableStateFlow<Set<Long>>(emptySet())
+    /** Episode id → failed tries in a row that were no refusal (only touched under [running]). */
+    private val failures = mutableMapOf<Long, Int>()
 
     private val _progress = MutableStateFlow<Map<Long, Float>>(emptyMap())
     /** Episode id → 0..1 while it downloads (missing when the size is unknown). */
@@ -148,6 +150,7 @@ class DownloadRepository(
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
+                failures -= next.id
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
@@ -157,9 +160,19 @@ class DownloadRepository(
                 // remove() has already cleared it.
             } catch (e: Exception) {
                 // Network gone: back in the queue, the .part file stays for the retry.
-                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id) }
-                ok = false
-                break
+                // A host that keeps failing (down, its domain gone, an expired
+                // certificate) would hold up every download behind it: after a few
+                // tries in a row it fails, and the listener can ask again (code
+                // review 2026-10-17, H5).
+                val tries = (failures[next.id] ?: 0) + 1
+                if (tries < MAX_TRIES) {
+                    failures[next.id] = tries
+                    withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id) }
+                    ok = false
+                    break
+                }
+                failures -= next.id
+                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } finally {
                 _progress.update { it - next.id }
             }
@@ -255,7 +268,9 @@ class DownloadRepository(
         }
     }
 
-    private companion object {
+    internal companion object {
+        /** Tries in a row before a download that keeps failing stops holding up the queue. */
+        const val MAX_TRIES = 5
         /** Larger than any audio episode, room for video ones. */
         const val MAX_EPISODE_BYTES = 4L shl 30
         val NOT_MEDIA = setOf("text/html", "application/xhtml+xml", "application/json", "text/xml")

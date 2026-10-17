@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,6 +43,7 @@ import space.sovereigncast.hopp.resources.sc_suggestions
 import space.sovereigncast.hopp.resources.sheet_people
 import space.sovereigncast.hopp.sovereigncast.ScTarget
 import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
+import space.sovereigncast.hopp.ui.sovereigncast.PollCommunity
 import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingCard
 import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingSheet
 import space.sovereigncast.hopp.ui.sovereigncast.ScPaySheet
@@ -74,6 +76,7 @@ fun PeopleSheet(persons: List<Person>, onDismiss: () -> Unit) {
 @Composable
 fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
     val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
+    PollCommunity(community)
     val layer by community.layer.collectAsState()
     val round by community.round.collectAsState()
     val unlocks by community.unlocks.collectAsState()
@@ -86,7 +89,7 @@ fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(Modifier.heightIn(max = 640.dp)) {
             round?.let { r -> item(key = "rb") { ReleaseBoostingCard(r, onOpen = { details = r }) { paying = ScTarget.ReleaseBoosting to r.episode.title } } }
-            items(unlocks.filterNot { it.unlocked }, key = { "b2u" + it.episode.episodeGuid }) { u ->
+            itemsIndexed(unlocks.filterNot { it.unlocked }, key = { i, _ -> "b2u$i" }) { _, u ->
                 UnlockCard(u, onOpen = { details = u }) { paying = ScTarget.Boost2Unlock(u.episode.episodeGuid) to u.episode.title }
             }
             if (layer?.show?.capabilities?.suggestions == true) {

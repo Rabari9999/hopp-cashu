@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -143,8 +145,11 @@ class NwcClient(
             putJsonArray("#e") { add(JsonPrimitive(request.id)) }
         }
         coroutineScope {
+            // A dropped connection ends or fails the flow: null, never a failed
+            // child — that would cancel this scope with its own exception, past
+            // the OUTCOME_UNKNOWN below (code review 2026-10-17, H1).
             val response = async(start = CoroutineStart.UNDISPATCHED) {
-                session.incoming.mapNotNull { parseRelayMessage(it) }.first { m ->
+                session.incoming.catch { }.mapNotNull { parseRelayMessage(it) }.firstOrNull { m ->
                     (m.type == "EVENT" && m.subscription == sub && m.event?.tag("e") == request.id) ||
                         (m.type == "OK" && m.subscription == request.id && m.ok == false)
                 }
@@ -161,9 +166,7 @@ class NwcClient(
                 throw NwcException(NwcException.OUTCOME_UNKNOWN, "no answer from the wallet within $timeout")
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
-            } catch (e: Exception) {
-                throw NwcException(NwcException.OUTCOME_UNKNOWN, "connection lost after sending: ${e.message ?: e::class.simpleName}")
-            }
+            } ?: throw NwcException(NwcException.OUTCOME_UNKNOWN, "connection lost after sending")
             if (msg.type == "OK") throw NwcException("RELAY_REJECTED", msg.message ?: "relay refused the request")
             val body = runCatching {
                 val event = msg.event!!

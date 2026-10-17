@@ -18,12 +18,19 @@ data class Event(
 ) {
     fun tag(name: String): String? = tags.firstOrNull { it.size >= 2 && it[0] == name }?.get(1)
 
-    /** Id matches content and the signature matches the id. */
+    /** Id matches content and the signature matches the id. Key and signature
+     *  in lowercase hex only (NIP-01): anything else a relay sends is false, not
+     *  an exception that fails the whole query — and an uppercase key would slip
+     *  past the mute list (code review 2026-10-17, M12). */
     fun isValid(): Boolean =
-        id == computeId(pubkey, created_at, kind, tags, content) &&
+        HEX_64.matches(pubkey) && HEX_128.matches(sig) &&
+            id == computeId(pubkey, created_at, kind, tags, content) &&
             verifySchnorr(sig.hexToBytes(), id.hexToBytes(), pubkey.hexToBytes())
 
     companion object {
+        private val HEX_64 = Regex("[0-9a-f]{64}")
+        private val HEX_128 = Regex("[0-9a-f]{128}")
+
         fun sign(keys: KeyPair, kind: Int, content: String, tags: List<List<String>> = emptyList(), createdAt: Long): Event {
             val pubkey = keys.publicKeyHex
             val id = computeId(pubkey, createdAt, kind, tags, content)

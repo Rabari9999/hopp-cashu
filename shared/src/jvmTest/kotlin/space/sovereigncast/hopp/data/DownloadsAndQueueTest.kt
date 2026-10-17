@@ -204,6 +204,20 @@ class DownloadsAndQueueTest {
         assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
     }
 
+    /** Code review 2026-10-17, H5: a host that keeps failing — down, its domain
+     *  gone — does not hold up the downloads behind it for ever. */
+    @Test
+    fun aDownloadThatKeepsFailingStopsHoldingUpTheQueue() = test {
+        val id = subscribe()
+        failAudio = { it == "/1.mp3" }
+        downloads.request(byTitle(id, "Ep 1").id) // asked for: first in line
+        repeat(DownloadRepository.MAX_TRIES - 1) { assertFalse(downloads.runPending(includeAuto = true)) }
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 2").downloadState, "still waiting behind it")
+        downloads.runPending(includeAuto = true)
+        assertEquals(DownloadState.FAILED, byTitle(id, "Ep 1").downloadState)
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+    }
+
     /** Security review 2026-10-10, M-03: a download stops at the storage limit —
      *  announced or not — and a web page is no episode; nothing is left behind. */
     @Test
