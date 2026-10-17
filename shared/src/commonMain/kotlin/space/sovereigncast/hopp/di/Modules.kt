@@ -102,7 +102,11 @@ fun sharedModule(platform: Platform) = module {
     single { SovereigncastRepository(get(), get(), get(), get(), get(), get(), get()) }
     single { space.sovereigncast.hopp.sovereigncast.ScDirectory(get(), get()) }
     single<space.sovereigncast.hopp.comments.CommentStore> { space.sovereigncast.hopp.comments.DbCommentStore(get()) }
-    single { space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, get()) { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey } }
+    single { space.sovereigncast.hopp.nostr.Nip05(get()) }
+    single {
+        space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, get(),
+            { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey)
+    }
     single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }

@@ -65,6 +65,22 @@ What exists already:
   in full on every load (the kept comments show meanwhile): asking only
   since the last load lost for good what a relay too slow that once had held
   — two Fountain comments on E298.
+- **Amended 2026-10-17 (maintainer): the show's announcement where nothing
+  names it, and zaps as comments.** Einundzwanzig announces an episode with a
+  plain note (no NIP-73 tag; Fountain links it by its own page), and its feed
+  names no key. Hopp now takes the show's website's NIP-05 key (`_`) when the
+  feed gives none, and asks for the show's notes from two days before the
+  release to a week after — in the first request when the key is known, else
+  beside it as soon as the website answered (2 s at most, once per site). A
+  note that names the episode, links one of its pages or gives its title
+  (also without a leading number: "#336 - …" is announced as "News Episode
+  336 - …") is a root, kept with the comments; the show's other notes are
+  dropped. Answers to it come with the second request, as do zap receipts on
+  every root: a zap whose request carries a message shows as a comment with
+  its sats (request signed, amount equal to the invoice's) — one a comment
+  embeds already (Fountain's boosts) is not shown twice; a zap takes no
+  answers or likes. Live: Einundzwanzig #336 in 2.7 s with the website
+  asked, Nodesignal E298 in 4.3 s.
 
 **Reading** is the union, de-duplicated by event id: replies to the show's
 notes (`#e`), and kinds 1 and 1111 with `#i podcast:item:guid:<guid>`. So

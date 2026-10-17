@@ -98,7 +98,7 @@ class CommentWriter(
     /** What the listener published, among the episode's comments — the next load needs not find it. */
     private suspend fun keep(anchor: CommentAnchor, event: Event, relays: List<String>) {
         val before = store.seen(anchor.itemTag)
-        store.save(anchor.itemTag, CommentStore.Seen(listOf(event), before?.relays ?: relays, before?.muted.orEmpty(), before?.at ?: 0))
+        store.save(anchor.itemTag, CommentStore.Seen(listOf(event), before?.relays ?: relays, before?.muted.orEmpty(), before?.at ?: 0, before?.roots.orEmpty()))
     }
 
     /**

@@ -89,7 +89,7 @@ class CommentsTest {
     private val sc = SovereigncastRepository(db, ListenerApi(http), podcasts, settings, wallet, value, { now })
     private val publisher = RelayPublisher(relay)
     private val identities = IdentityRepository(MemorySecretStore(), publisher, { now })
-    private val reader = CommentReader(publisher, { now }) { identities.identity.value?.pubkey }
+    private val reader = CommentReader(publisher, { now }, listener = { identities.identity.value?.pubkey })
     private val comments = CommentsRepository(reader, episodes, podcasts, sc)
 
     private fun test(block: suspend () -> Unit) { runBlocking { withTimeout(30_000) { block() } } }
@@ -195,6 +195,51 @@ class CommentsTest {
         assertEquals(listOf(c.id), thread.comments.map { it.id })
         assertEquals("Alice", names[alice.publicKeyHex]?.name)
         assertTrue(seconds < 8, "took $seconds s; the relay timeout is 10 s per step")
+    }
+
+    /**
+     * Device feedback 2026-10-17 (Einundzwanzig): no note names the episode and the feed no key —
+     * the website's NIP-05 key, its note giving the title is the announcement; answers to it and
+     * zaps on it with a message are the comments, the show's other notes are not.
+     */
+    @Test
+    fun theWebsitesKeyFindsTheAnnouncementItsAnswersAndZaps() = test {
+        val e21 = KeyPair.generate()
+        val released = now - 20_000
+        val announcement = post(e21, 1, "News Episode 336 - Et is kalt, schmeiß die Miner an - von und mit nostr:npub1x", listOf(listOf("r", "https://fountain.fm/episode/x")), released + 3600)
+        val other = post(e21, 1, "GM! Heute Meetup in Köln", emptyList(), released + 7200)
+        val answer = post(alice, 1, "Starke Folge", listOf(listOf("e", announcement.id, "", "root"), listOf("p", e21.publicKeyHex)), released + 8000)
+        val zapper = KeyPair.generate()
+        fun zap(sender: KeyPair, text: String, msat: Long): Event {
+            val request = Event.sign(sender, 9734, text, listOf(listOf("amount", "$msat"), listOf("e", announcement.id), listOf("p", e21.publicKeyHex)), released + 9000)
+            val description = kotlinx.serialization.json.Json.encodeToString(Event.serializer(), request)
+            val bolt11 = space.sovereigncast.hopp.value.TestInvoices.make(msat, space.sovereigncast.hopp.crypto.Sha256.digest(description.encodeToByteArray()))
+            return post(zapper, 9735, "", listOf(listOf("e", announcement.id), listOf("p", e21.publicKeyHex), listOf("bolt11", bolt11), listOf("description", description)), released + 9001)
+        }
+        val worded = zap(bob, "Sehr gute Episode!", 500_000)
+        zap(alice, "", 21_000) // no message: no comment
+        val asked = mutableListOf<String>()
+        val r = CommentReader(publisher, { now }, store, siteKey = { host -> asked += host; e21.publicKeyHex.takeIf { host == "einundzwanzig.test" } })
+        val anchor = CommentAnchor("e336", null, emptyList(), emptySet(), null,
+            title = "#336 - Et is kalt, schmeiß die Miner an", publishedAt = released, site = "einundzwanzig.test")
+        val thread = r.load(anchor)
+        assertEquals(listOf("einundzwanzig.test"), asked)
+        assertEquals(listOf(worded.id, answer.id), thread.comments.map { it.id }, "the zap with words and the answer; not the announcement, not the other note")
+        val z = thread.comments.first()
+        assertEquals(bob.publicKeyHex to "Sehr gute Episode!", z.pubkey to z.content)
+        assertEquals(500L, r.boosts(thread)[worded.id])
+        assertTrue(other.id !in thread.comments.map { it.id })
+        // Next time at once, from what was kept.
+        assertEquals(thread.comments.map { it.id }, CommentReader(publisher, { now }, store).cached(anchor)?.comments?.map { it.id })
+    }
+
+    @Test
+    fun anAnnouncementGivesTheTitleOrThePage() {
+        val k = KeyPair.generate()
+        val a = CommentAnchor("x", null, emptyList(), emptySet(), title = "E297 - Bitcoin und Bier", links = setOf("https://show.test/e297"))
+        assertTrue(announces(Event.sign(k, 1, "Neue Folge: E297 – Bitcoin und Bier!", emptyList(), now), a))
+        assertTrue(announces(Event.sign(k, 1, "Hört rein", listOf(listOf("r", "https://show.test/e297")), now), a))
+        assertTrue(!announces(Event.sign(k, 1, "Bitcoin am Abend", emptyList(), now), a))
     }
 
     /** Fountain posts a boost as a comment embedding its zap receipt (device feedback 2026-10-16). */
@@ -373,7 +418,7 @@ class CommentsTest {
         // And the next load hides the muted person.
         relay.publish(feedNote)
         post(troll, 1, "spam", listOf(listOf("i", item)), now - 10)
-        val listening = CommentReader(publisher, { now }) { me.pubkey }
+        val listening = CommentReader(publisher, { now }, listener = { me.pubkey })
         assertEquals(emptyList(), listening.load(comments.anchor(episode())!!).comments)
     }
 

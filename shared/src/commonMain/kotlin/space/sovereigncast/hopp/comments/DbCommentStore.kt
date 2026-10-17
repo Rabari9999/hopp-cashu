@@ -22,13 +22,14 @@ class DbCommentStore(private val db: HoppDatabase) : CommentStore {
     override suspend fun seen(itemTag: String): CommentStore.Seen? = withContext(Dispatchers.IO) {
         val fetch = q.fetch(itemTag).executeAsOneOrNull() ?: return@withContext null
         val events = q.events(itemTag).executeAsList().mapNotNull { runCatching { json.decodeFromString(Event.serializer(), it) }.getOrNull() }
-        CommentStore.Seen(events, json.decodeFromString(strings, fetch.relays_json), json.decodeFromString(strings, fetch.muted_json).toSet(), fetch.fetched_at)
+        CommentStore.Seen(events, json.decodeFromString(strings, fetch.relays_json), json.decodeFromString(strings, fetch.muted_json).toSet(), fetch.fetched_at,
+            json.decodeFromString(strings, fetch.roots_json).toSet())
     }
 
     override suspend fun save(itemTag: String, seen: CommentStore.Seen) = withContext(Dispatchers.IO) {
         db.transaction {
             seen.events.forEach { q.insertEvent(itemTag, it.id, json.encodeToString(Event.serializer(), it)) }
-            q.upsertFetch(itemTag, seen.at, json.encodeToString(strings, seen.relays), json.encodeToString(strings, seen.muted.toList()))
+            q.upsertFetch(itemTag, seen.at, json.encodeToString(strings, seen.relays), json.encodeToString(strings, seen.muted.toList()), json.encodeToString(strings, seen.roots.toList()))
         }
     }
 

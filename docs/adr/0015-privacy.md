@@ -103,3 +103,8 @@ the "who sees what" page says so.
   in the system's Files app (named after show and episode) — only the system
   binds to it (MANAGE_DOCUMENTS), and a file leaves only when the listener
   picks it there. Deleting stays in Hopp ("Delete all downloads").
+- **A show's website when comments load (amended 2026-10-17):** for a show
+  whose feed names no Nostr key, loading its comments asks the show's website
+  for its NIP-05 key (`/.well-known/nostr.json?name=_`), once per site while
+  the app runs. Only after the listener chose to load comments — the website
+  then sees the IP address, as the relays do, and the feed host mostly is it.

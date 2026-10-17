@@ -16,6 +16,8 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Dein Nostr-Schlüssel, sicher und mitnehmbar** — im Passwortmanager (Android) oder iCloud-Schlüsselbund (iOS) sichern und mit einem Tipp zurückholen, als nsec für jede Nostr-App kopieren oder einen vorhandenen Schlüssel verwenden.
 
 ### 🐛 Fixes
+- Shows, die ihre Folgen nur mit einer normalen Nostr-Notiz ankündigen (etwa Einundzwanzig), hatten in Hopp keine Kommentare; jetzt findet Hopp die Ankündigung über die Website der Show und zeigt die Antworten darauf.
+- Zaps mit Nachricht auf die Ankündigung einer Folge erscheinen jetzt als Kommentar mit Betrag.
 - Manche Fountain-Kommentare fehlten in Hopp für immer, wenn ein Relay beim ersten Laden zu langsam war; jetzt fragt Hopp jedes Mal vollständig, auch Fountains Relay.
 - Ein eigener Kommentar stand in anderen Nostr-Apps ohne Bezug zur Folge da; jetzt zeigt er die Ankündigung der Show als Zitat.
 - Die Folgenseite öffnete manchmal auf den Kapiteln statt auf den Shownotes.

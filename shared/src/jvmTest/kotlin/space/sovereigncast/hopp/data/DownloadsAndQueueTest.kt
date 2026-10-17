@@ -102,6 +102,9 @@ class DownloadsAndQueueTest {
         // Version 6: Nostr comments kept.
         migrated.commentQueries.upsertBoost("c", 21)
         assertEquals(21L, migrated.commentQueries.boosts(listOf("c")).executeAsOne().sats)
+        // Version 7: the show's notes found on the relays.
+        migrated.commentQueries.upsertFetch("t", 1, "[]", "[]", "[\"r\"]")
+        assertEquals("[\"r\"]", migrated.commentQueries.fetch("t").executeAsOne().roots_json)
     }
 
     @Test

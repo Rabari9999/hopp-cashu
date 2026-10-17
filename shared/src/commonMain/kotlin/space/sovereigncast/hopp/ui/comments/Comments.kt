@@ -312,14 +312,14 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 // Nothing to read and no sats behind it (a Fountain boost before its
                 // amount is in, or a bare link): not shown. Nor what the listener
                 // hid, reported or muted here.
-                fun says(c: Comment) = c.id !in hidden && c.pubkey !in mutedHere && (boosts[c.id] != null || commentBody(c.content).isNotEmpty())
+                fun says(c: Comment) = c.id !in hidden && c.pubkey !in mutedHere && ((boosts[c.id] ?: c.sats) != null || commentBody(c.content).isNotEmpty())
                 val shown = s.thread.comments.filter { it.pubkey !in mutedHere && it.id !in hidden }.mapNotNull { c ->
                     val replies = c.replies.filter(::says)
                     if (says(c) || replies.isNotEmpty()) c to replies else null
                 }
                 if (shown.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
                 shown.forEach { (c, replies) ->
-                    CommentRow(c, authors, boosts[c.id], me?.pubkey, c.id in liking, vm, onTimestamp)
+                    CommentRow(c, authors, boosts[c.id] ?: c.sats, me?.pubkey, c.id in liking, vm, onTimestamp)
                     if (to?.id == c.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
                     replies.forEach { r ->
                         CommentRow(r, authors, boosts[r.id], me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp))
@@ -459,8 +459,10 @@ private fun CommentRow(
             val mention = SpanStyle(fontWeight = FontWeight.SemiBold)
             val text = remember(c.content, authors, link, mark) { commentText(c.content.trim(), { nameOf(it, authors) }, mention, link, mark, onTimestamp) }
             if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
-            // Like, answer, more — small, under the text.
+            // Like, answer, more — small, under the text. A zap is no note: nothing to like or answer.
+            val zap = c.kind == space.sovereigncast.hopp.comments.CommentReader.ZAP_RECEIPT
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (!zap) {
                 val liked = me != null && (me in c.likes || liking)
                 val count = c.likes.size + if (liking && me !in c.likes) 1 else 0
                 val likeLabel = stringResource(Res.string.comments_like)
@@ -475,13 +477,14 @@ private fun CommentRow(
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable { if (me == null) openIdentity() else vm.replyTo.value = c }.padding(vertical = 6.dp, horizontal = 2.dp),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                 )
+                }
                 Box {
                     val more = stringResource(Res.string.comments_more)
                     Text("⋯", Modifier.clip(RoundedCornerShape(6.dp)).clickable { menu = true }.padding(vertical = 6.dp, horizontal = 6.dp)
                         .semantics { contentDescription = more }, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
                         if (c.pubkey != me) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_mute, name)) }, onClick = { menu = false; vm.mute(c.pubkey) })
-                        if (c.pubkey != me) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_report)) }, onClick = { menu = false; reporting = true })
+                        if (c.pubkey != me && !zap) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_report)) }, onClick = { menu = false; reporting = true })
                         DropdownMenuItem(text = { Text(stringResource(Res.string.comments_hide)) }, onClick = { menu = false; vm.hide(c) })
                     }
                 }

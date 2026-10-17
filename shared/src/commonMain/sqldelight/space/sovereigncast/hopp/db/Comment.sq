@@ -2,7 +2,7 @@
 -- again, and only what is new is asked for. By the episode's NIP-73 tag, so
 -- they outlive a deleted download; they go with the show's subscription.
 
--- The events found for an episode (kinds 1 and 1111), as received.
+-- The events found for an episode (kinds 1 and 1111, reactions, zap receipts), as received.
 CREATE TABLE comment_event (
     item_tag TEXT NOT NULL,
     id TEXT NOT NULL,
@@ -10,12 +10,14 @@ CREATE TABLE comment_event (
     PRIMARY KEY (item_tag, id)
 );
 
--- When an episode's comments were last asked for, where, and who was muted then.
+-- When an episode's comments were last asked for, where, who was muted then,
+-- and the show's notes on it found on the relays (roots, not comments).
 CREATE TABLE comment_fetch (
     item_tag TEXT PRIMARY KEY NOT NULL,
     fetched_at INTEGER NOT NULL,
     relays_json TEXT NOT NULL,
-    muted_json TEXT NOT NULL
+    muted_json TEXT NOT NULL,
+    roots_json TEXT NOT NULL DEFAULT '[]'
 );
 
 -- Commenters' names and pictures (kind 0), looked up again after a while.
@@ -42,7 +44,7 @@ fetch:
 SELECT * FROM comment_fetch WHERE item_tag = ?;
 
 upsertFetch:
-INSERT OR REPLACE INTO comment_fetch (item_tag, fetched_at, relays_json, muted_json) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO comment_fetch (item_tag, fetched_at, relays_json, muted_json, roots_json) VALUES (?, ?, ?, ?, ?);
 
 authors:
 SELECT * FROM comment_author WHERE pubkey IN ?;

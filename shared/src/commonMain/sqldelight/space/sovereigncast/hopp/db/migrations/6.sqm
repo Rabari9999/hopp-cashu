@@ -1,0 +1,4 @@
+-- Version 6 → 7 (device feedback 2026-10-17): the show's announcements found
+-- on the relays (no NIP-73 tag, found by author and title), kept with the
+-- episode's comments so their answers and zaps show at once next time.
+ALTER TABLE comment_fetch ADD COLUMN roots_json TEXT NOT NULL DEFAULT '[]';
