@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -103,12 +104,16 @@ fun ImageViewer(model: Any?, onDismiss: () -> Unit) {
                                 val zoom = event.calculateZoom()
                                 val pan = event.calculatePan()
                                 val pointers = event.changes.count { it.pressed }
+                                // The last event lifts every finger: no centroid then (NaN), and an
+                                // offset from it took the picture away (device feedback 2026-10-17).
+                                val centroid = event.calculateCentroid(useCurrent = true)
+                                if (pointers == 0 || !centroid.isSpecified) continue
                                 if (pointers > 1 || scale > 1f) {
-                                    val centroid = event.calculateCentroid(useCurrent = true)
                                     val next = (scale * zoom).coerceIn(1f, 5f)
                                     // Zoom about the fingers: the point under them stays put.
                                     val focus = centroid - Offset(w / 2, h / 2)
-                                    offset = clamp((offset - focus) * (next / scale) + focus + pan, next)
+                                    val moved = clamp((offset - focus) * (next / scale) + focus + pan, next)
+                                    if (moved.isValid()) offset = moved
                                     scale = next
                                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                                 } else if (pan.y != 0f && (dragging || pan.y > 0f)) {
