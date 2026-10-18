@@ -37,6 +37,13 @@ Builds:
     gradle:
       - foss
 
+  - versionName: 0.2.1
+    versionCode: 4
+    commit: b16148003295ec9b6ef65b19f157f4780deefaeb
+    subdir: androidApp
+    gradle:
+      - foss
+
 AllowedAPKSigningKeys: c80fdec5f98a0aaf4954405e3c52c17a78db40f7bd05d2ac2585324003dca3d1
 
 AutoUpdateMode: Version
@@ -44,5 +51,5 @@ UpdateCheckMode: Tags ^v[0-9.]+$
 # versionName is the variable appVersion in build.gradle.kts, which
 # checkupdates' own regex does not read.
 UpdateCheckData: androidApp/build.gradle.kts|versionCode\s*=\s*(\d+)|.|val appVersion\s*=\s*"([^"]+)"
-CurrentVersion: 0.2.0
-CurrentVersionCode: 3
+CurrentVersion: 0.2.1
+CurrentVersionCode: 4
