@@ -31,6 +31,10 @@ CREATE TABLE episode (
     -- Version 8 (migrations/7.sqm): failed tries of this download, so a restart
     -- does not grant the same host another four blocking rounds (H5).
     download_failures INTEGER NOT NULL DEFAULT 0,
+    -- Version 10 (migrations/9.sqm): the enclosure's size the feed states, in
+    -- bytes — to choose between download, stream or wait for Wi-Fi (user
+    -- request 2026-10-18). 0 = the feed states none; null = not read yet.
+    enclosure_length INTEGER,
     UNIQUE (podcast_id, guid)
 );
 
@@ -39,12 +43,19 @@ CREATE INDEX episode_inbox_idx ON episode(in_inbox, published_at);
 
 -- Only what the feed knows; a known episode keeps the listener's state.
 insertIfNew:
-INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, chapters_url, meta_json, in_inbox, first_seen_at, download_state)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, enclosure_length, chapters_url, meta_json, in_inbox, first_seen_at, download_state)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateFromFeed:
-UPDATE episode SET title = ?, published_at = ?, duration_seconds = ?, image_url = ?, enclosure_url = ?, chapters_url = ?, meta_json = ?
+UPDATE episode SET title = ?, published_at = ?, duration_seconds = ?, image_url = ?, enclosure_url = ?, enclosure_length = ?, chapters_url = ?, meta_json = ?
 WHERE podcast_id = ? AND guid = ?;
+
+-- Episodes from before version 10, whose size is still in meta_json only.
+withoutLength:
+SELECT id, meta_json FROM episode WHERE enclosure_length IS NULL LIMIT ?;
+
+setEnclosureLength:
+UPDATE episode SET enclosure_length = ? WHERE id = ?;
 
 guidsOfPodcast:
 SELECT guid FROM episode WHERE podcast_id = ?;

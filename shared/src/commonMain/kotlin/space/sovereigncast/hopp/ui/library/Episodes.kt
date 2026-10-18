@@ -72,6 +72,7 @@ import space.sovereigncast.hopp.resources.menu_remove_download
 import space.sovereigncast.hopp.resources.queue_drag
 import space.sovereigncast.hopp.resources.queue_remove
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.components.formatBytes
 
 /** Episode id → download progress 0..1, provided once by the app frame. */
 val LocalDownloadProgress = compositionLocalOf<Map<Long, Float>> { emptyMap() }
@@ -87,6 +88,20 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
     DownloadState.FAILED -> stringResource(Res.string.dl_failed)
     else -> null
 }
+
+/**
+ * The file's size the feed states, for an episode not on the device and not
+ * waiting for its download (user request 2026-10-18): to choose between
+ * downloading it now, streaming it, or waiting for Wi-Fi. Feeds that state a
+ * few bytes — placeholders — show nothing.
+ */
+fun episodeSize(item: EpisodeItem): String? {
+    val bytes = item.enclosureLength?.takeIf { item.downloadState == DownloadState.NONE && it in PLAUSIBLE_SIZE } ?: return null
+    return if (bytes < 1024L * 1024) "< 1 MB" else formatBytes(bytes)
+}
+
+/** Smaller than a short clip or larger than Hopp downloads: not the file's size. */
+private val PLAUSIBLE_SIZE = 100_000L..(4L shl 30)
 
 /** What tapping an episode does (device feedback 2026-10-08, as in Pocket
  *  Casts): the row opens the episode's page; its round button plays. */

@@ -1,0 +1,3 @@
+-- Version 9 → 10 (user request 2026-10-18): the enclosure's size from the
+-- feed, for the episode lists. Filled from meta_json when a show is opened.
+ALTER TABLE episode ADD COLUMN enclosure_length INTEGER;

@@ -82,6 +82,8 @@ class HomeViewModel(
         // subscriptions get checked against their instance; whenever the set of
         // verified shows changes — here or on a show page — the list follows.
         viewModelScope.launch { sc.refreshOnStart() }
+        // Sizes of episodes from before schema version 10, for the lists (user request 2026-10-18).
+        viewModelScope.launch { runCatching { episodes.fillEnclosureLengths() } }
         viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().drop(1).collectLatest { sc.verifyAll() } }
         viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().drop(1).collectLatest { sc.refresh() } }
     }

@@ -6,6 +6,9 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Wie groß eine Folge ist** — die Folgenlisten zeigen bei noch nicht geladenen Folgen die Dateigröße, damit du entscheiden kannst: jetzt laden, streamen oder aufs WLAN warten; geladene zeigen „Geladen“.
+
 ### 🐛 Fixes
 - Ein Relay, das eine Zahlungsanfrage ablehnte, konnte sie trotzdem an die Wallet weitergegeben haben; Hopp zahlte diesen Anteil dann auf einem anderen Weg oder im nächsten Streaming-Durchgang noch einmal. Eine solche Zahlung gilt jetzt als „Ausgang unbekannt“ und geht nie zweimal raus.
 - Eine Zahlung zählt nur noch als bezahlt, wenn die Antwort der Wallet sie belegt (ein Preimage, das zur Rechnung passt); eine unvollständige Antwort zeigt „Ausgang unbekannt“.

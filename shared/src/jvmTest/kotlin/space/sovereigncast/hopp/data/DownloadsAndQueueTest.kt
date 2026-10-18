@@ -112,6 +112,10 @@ class DownloadsAndQueueTest {
         // Version 9: unknown outcomes count against the budget.
         migrated.paymentQueries.insert(2, "stream", 1, 1, "Old", "Kept", 0, null, 0, 5_000, "[]")
         assertEquals(28_000L, migrated.paymentQueries.spentSince(0).executeAsOne())
+        // Version 10: the enclosure's size, read once from the stored feed data.
+        assertNull(migrated.episodeQueries.selectById(1).executeAsOne().enclosure_length)
+        EpisodeRepository(migrated, http, clock).fillEnclosureLengths()
+        assertEquals(0L, migrated.episodeQueries.selectById(1).executeAsOne().enclosure_length, "the old row states no size")
     }
 
     @Test
