@@ -9,7 +9,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [0.2.1] - 2026-10-18
 
 ### 🆕 New Features
-- **Wie groß eine Folge ist** — die Folgenlisten zeigen bei noch nicht geladenen Folgen die Dateigröße, damit du entscheiden kannst: jetzt laden, streamen oder aufs WLAN warten; geladene zeigen „Geladen“.
+- **Wie groß eine Folge ist** — die Folgenlisten und die Detailseite einer Folge zeigen bei noch nicht geladenen Folgen die Dateigröße, damit du entscheiden kannst: jetzt laden, streamen oder aufs WLAN warten; geladene zeigen „Geladen“.
 
 ### 🐛 Fixes
 - Ein Relay, das eine Zahlungsanfrage ablehnte, konnte sie trotzdem an die Wallet weitergegeben haben; Hopp zahlte diesen Anteil dann auf einem anderen Weg oder im nächsten Streaming-Durchgang noch einmal. Eine solche Zahlung gilt jetzt als „Ausgang unbekannt“ und geht nie zweimal raus.

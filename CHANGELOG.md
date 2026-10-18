@@ -9,7 +9,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [0.2.1] - 2026-10-18
 
 ### 🆕 New Features
-- **How large an episode is** — the episode lists show the file's size for episodes not downloaded yet, so you can choose between downloading now, streaming, or waiting for Wi-Fi; downloaded ones say "Downloaded".
+- **How large an episode is** — the episode lists and the episode page show the file's size for episodes not downloaded yet, so you can choose between downloading now, streaming, or waiting for Wi-Fi; downloaded ones say "Downloaded".
 
 ### 🐛 Fixes
 - A relay that refused a payment request could have passed it on to the wallet anyway; Hopp then paid that share again by another route or in the next streaming batch. Such a payment is now "outcome unknown" and never sent twice.

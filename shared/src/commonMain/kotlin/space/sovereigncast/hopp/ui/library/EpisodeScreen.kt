@@ -169,7 +169,9 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                             formatDate(e.publishedAt).takeIf { it.isNotEmpty() },
                             duration.takeIf { it > 0 }?.let { formatTime(it) },
                             details?.let { d -> listOfNotNull(d.season?.let { "S$it" }, d.episodeNumber?.let { "E${it.toLong()}" }).joinToString("").takeIf { it.isNotEmpty() } },
-                            downloadLabel(e),
+                            // Downloaded (or on the way), else how large it is (user request
+                            // 2026-10-18) — from the feed data loaded here when the row has none yet.
+                            downloadLabel(e) ?: episodeSize(if (e.enclosureLength != null) e else e.copy(enclosureLength = details?.enclosure?.length)),
                         )
                         Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     } }

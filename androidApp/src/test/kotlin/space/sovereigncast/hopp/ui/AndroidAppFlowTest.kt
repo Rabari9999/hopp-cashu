@@ -63,7 +63,7 @@ private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcas
 <podcast:person role="host">Thorsten</podcast:person>
 <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Host" type="node" address="02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" split="100"/></podcast:value>
 <item><title>Ep 2</title><guid>ep-2</guid><pubDate>Tue, 02 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/2.mp3" type="audio/mpeg"/><description><![CDATA[<p>Mehr bei <a href="https://x.test">X</a>.</p><p>(12:34) Hauptteil</p>]]></description><podcast:person role="host" group="cast" href="https://primal.net/p/karsten">Karsten</podcast:person><podcast:transcript url="https://cdn.test/2.vtt" type="text/vtt" language="de"/><podcast:soundbite startTime="754" duration="30">Der Kern</podcast:soundbite></item>
-<item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/><podcast:chapters url="https://cdn.test/1.json" type="application/json+chapters"/></item>
+<item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" length="48000000" type="audio/mpeg"/><podcast:chapters url="https://cdn.test/1.json" type="application/json+chapters"/></item>
 </channel></rss>"""
 
 private class FakeEngine : PlaybackEngine {
@@ -631,7 +631,7 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("Ep 1") and hasClickAction()).performClick()
         // Now playing steps aside for Ep 1's page.
         until { !koin.get<space.sovereigncast.hopp.player.PlayerController>().expanded.value }
-        waitFor("01.06.2026") // Ep 1's page: its date, its own Play
+        waitFor("01.06.2026", substring = true) // Ep 1's page: its date (and size), its own Play
         check(has("Ep 1") && has("Play")) { screen().toString() }
     }
 
@@ -803,6 +803,19 @@ class AndroidAppFlowTest {
         val mark = notes.getLinkAnnotations(0, notes.length).map { it.item }.filterIsInstance<androidx.compose.ui.text.LinkAnnotation.Clickable>().single()
         rule.runOnUiThread { mark.linkInteractionListener!!.onClick(mark) }
         until { engine().state.value.positionMs == 754_000L }
+    }
+
+    /** User request 2026-10-18: an episode not downloaded says how large it is,
+     *  in the show's list and on its own page — download, stream or wait for Wi-Fi. */
+    @Test
+    fun anEpisodeNotDownloadedShowsItsSize() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Library"); tap("Test Show")
+        waitFor("45 MB", substring = true)
+        tap("Ep 1"); waitFor("Chapters") // the episode page's tab (Ep 1 has chapters, no notes)
+        check(!has("Episodes")) { "still on the show page: ${screen()}" }
+        check(has("01.06.2026 · 45 MB")) { screen().toString() }
     }
 
     /** The round button in the row plays without opening the player. */
