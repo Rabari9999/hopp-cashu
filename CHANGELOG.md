@@ -6,6 +6,8 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-18
+
 ### 🆕 New Features
 - **How large an episode is** — the episode lists show the file's size for episodes not downloaded yet, so you can choose between downloading now, streaming, or waiting for Wi-Fi; downloaded ones say "Downloaded".
 
@@ -13,6 +15,14 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - A relay that refused a payment request could have passed it on to the wallet anyway; Hopp then paid that share again by another route or in the next streaming batch. Such a payment is now "outcome unknown" and never sent twice.
 - A payment counts as made only when the wallet's answer proves it (a preimage that matches the invoice); an incomplete answer shows as "outcome unknown".
 - Payments whose outcome is unknown now count against the daily budget, and every payment leaves room for its routing fee, so the budget is not exceeded.
+- A wallet connection that dropped, or a payment cancelled after it went out, is now "outcome unknown" too: never paid again by another route or the next streaming batch. A streaming payment the app was killed during is settled, not sent again.
+- Release Boosting, Boost2Unlock and suggestions: what the wallet paid counts as paid, even before the instance confirms it, and an invoice is never sent to the wallet twice.
+- A download that keeps failing no longer holds up the others; after five tries it shows as failed and can be started again.
+- Two episodes or chapters with the same title or start time could crash a list; they no longer do.
+- Backing up a second Nostr key to the iCloud Keychain no longer removes the first; restoring offers every key saved.
+- A pasted nsec or bunker address is no longer kept in the app's saved state, and those fields use the password keyboard.
+- An "&" in a feed's CDATA text stayed "&amp;"; it is shown as written now.
+- An unexpected month or a rate of zero from a Sovereigncast instance no longer crashes the show page or the pay sheet; the community page asks the instance only while it is on screen.
 
 ## [0.2.0] - 2026-10-17
 

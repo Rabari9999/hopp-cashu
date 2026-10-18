@@ -6,6 +6,8 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-18
+
 ### 🆕 New Features
 - **Wie groß eine Folge ist** — die Folgenlisten zeigen bei noch nicht geladenen Folgen die Dateigröße, damit du entscheiden kannst: jetzt laden, streamen oder aufs WLAN warten; geladene zeigen „Geladen“.
 
@@ -13,6 +15,14 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - Ein Relay, das eine Zahlungsanfrage ablehnte, konnte sie trotzdem an die Wallet weitergegeben haben; Hopp zahlte diesen Anteil dann auf einem anderen Weg oder im nächsten Streaming-Durchgang noch einmal. Eine solche Zahlung gilt jetzt als „Ausgang unbekannt“ und geht nie zweimal raus.
 - Eine Zahlung zählt nur noch als bezahlt, wenn die Antwort der Wallet sie belegt (ein Preimage, das zur Rechnung passt); eine unvollständige Antwort zeigt „Ausgang unbekannt“.
 - Zahlungen mit unbekanntem Ausgang zählen jetzt gegen das Tagesbudget, und jede Zahlung lässt Platz für ihre Routing-Gebühr – so wird das Budget nicht überschritten.
+- Eine abgebrochene Wallet-Verbindung oder eine Zahlung, die nach dem Senden abgebrochen wurde, gilt jetzt ebenfalls als „Ausgang unbekannt“: Sie wird weder auf einem anderen Weg noch im nächsten Streaming-Durchgang erneut bezahlt. Eine Streaming-Zahlung, bei der die App beendet wurde, wird verbucht und nicht noch einmal gesendet.
+- Release Boosting, Boost2Unlock und Vorschläge: Was die Wallet bezahlt hat, zählt als bezahlt, auch bevor die Instanz es bestätigt, und keine Rechnung geht zweimal an die Wallet.
+- Ein Download, der immer wieder scheitert, hält die anderen nicht mehr auf; nach fünf Versuchen gilt er als fehlgeschlagen und lässt sich neu starten.
+- Zwei Folgen oder Kapitel mit gleichem Titel oder gleicher Startzeit konnten eine Liste abstürzen lassen; das passiert nicht mehr.
+- Ein zweiter Nostr-Schlüssel im iCloud-Schlüsselbund löscht den ersten nicht mehr; beim Wiederherstellen stehen alle gesicherten zur Wahl.
+- Ein eingefügter nsec oder eine Bunker-Adresse landet nicht mehr im gespeicherten Zustand der App, und diese Felder nutzen die Passwort-Tastatur.
+- Ein „&“ im CDATA-Text eines Feeds blieb als „&amp;“ stehen; jetzt erscheint es wie geschrieben.
+- Ein unerwarteter Monat oder ein Satz von null Sats von einer Sovereigncast-Instanz bringt die Show-Seite oder das Bezahlfenster nicht mehr zum Absturz; die Community-Seite fragt die Instanz nur, solange sie zu sehen ist.
 
 ## [0.2.0] - 2026-10-17
 
