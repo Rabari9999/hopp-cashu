@@ -56,7 +56,7 @@ class SovereigncastTest {
     private var showKnown = true
     private var invoiceAmountMsat: Long? = null
     /** The hash the instance names for its invoice; the test invoice's own unless a test lies. */
-    private var hashInJson = "0101010101010101010101010101010101010101010101010101010101010101"
+    private var hashInJson = TestInvoices.PAYMENT_HASH
     private var statusCalls = 0
     /** When set, the instance reports this status instead of pending-then-paid. */
     private var paymentStatus: String? = null
@@ -92,7 +92,7 @@ class SovereigncastTest {
             path.endsWith("/release-boosting/invoices") -> respond(
                 """{"payment_hash":"$hashInJson","bolt11":"${TestInvoices.make(invoiceAmountMsat ?: 210_000, ByteArray(32))}","amount_sats":210,"expires_at":"2026-10-09T22:00:00Z"}""",
                 HttpStatusCode.Created)
-            path == "/api/listener/v1/payments/0101010101010101010101010101010101010101010101010101010101010101" -> respond("""{"payment_hash":"0101010101010101010101010101010101010101010101010101010101010101","status":"${paymentStatus ?: if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
+            path == "/api/listener/v1/payments/${TestInvoices.PAYMENT_HASH}" -> respond("""{"payment_hash":"${TestInvoices.PAYMENT_HASH}","status":"${paymentStatus ?: if (++statusCalls < 2) "pending" else "paid"}","poll_after_seconds":1}""")
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
@@ -290,7 +290,9 @@ class SovereigncastTest {
         assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
         val payment = value.payments.first().single()
         assertEquals("unknown", payment.lines.single().status)
-        assertEquals(0L, payment.amountMsat, "not counted as spent")
+        assertEquals(0L, payment.amountMsat, "not counted as sent")
+        // It may have left the wallet: against the budget (security audit 2026-10-18, M-03).
+        assertEquals(210_000L, db.paymentQueries.spentSince(0).executeAsOne())
         vm.resetPay()
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         delay(200)

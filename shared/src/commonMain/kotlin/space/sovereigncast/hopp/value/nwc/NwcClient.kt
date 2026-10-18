@@ -21,11 +21,15 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.JsonNull
+import space.sovereigncast.hopp.crypto.Sha256
 import space.sovereigncast.hopp.crypto.hexToBytes
+import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.Nip44
 import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.nostr.RelaySession
+import space.sovereigncast.hopp.value.Bolt11
 import space.sovereigncast.hopp.value.TlvRecord
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -107,11 +111,12 @@ class NwcClient(
     }
 
     suspend fun payInvoice(invoice: String, amountMsat: Long? = null): PaymentResult {
+        val paymentHash = runCatching { Bolt11.parse(invoice).paymentHash }.getOrNull()
         val result = request("pay_invoice", buildJsonObject {
             put("invoice", invoice)
             amountMsat?.let { put("amount", it) }
         })
-        return PaymentResult(result["preimage"]?.jsonPrimitive?.contentOrNull, result["fees_paid"]?.jsonPrimitive?.longOrNull)
+        return proof(result, paymentHash)
     }
 
     suspend fun payKeysend(amountMsat: Long, pubkey: String, tlvRecords: List<TlvRecord>): PaymentResult {
@@ -122,8 +127,31 @@ class NwcClient(
                 tlvRecords.forEach { r -> add(buildJsonObject { put("type", r.type); put("value", r.valueHex) }) }
             }
         })
-        return PaymentResult(result["preimage"]?.jsonPrimitive?.contentOrNull, result["fees_paid"]?.jsonPrimitive?.longOrNull)
+        return proof(result, null)
     }
+
+    /**
+     * What a payment's answer has to show before Hopp counts it as paid
+     * (security audit 2026-10-18, M-02): a 32-byte preimage — for an invoice,
+     * the one its payment hash commits to — and fees that are a number of msat,
+     * not below zero. The wallet's signature says who answered, not that the
+     * answer is complete; an answer short of this is an unknown outcome, never
+     * paid and never failed.
+     */
+    private fun proof(result: JsonObject, paymentHash: String?): PaymentResult {
+        val preimage = (result["preimage"] as? JsonPrimitive)?.contentOrNull?.lowercase()
+            ?.takeIf { HEX_32.matches(it) } ?: throw unknown("answer without a preimage")
+        if (paymentHash != null && Sha256.digest(preimage.hexToBytes()).toHex() != paymentHash.lowercase()) {
+            throw unknown("the preimage is not the invoice's")
+        }
+        val fees = when (val f = result["fees_paid"]) {
+            null, JsonNull -> null
+            else -> (f as? JsonPrimitive)?.longOrNull?.takeIf { it >= 0 } ?: throw unknown("fees_paid is not a number of msat")
+        }
+        return PaymentResult(preimage, fees)
+    }
+
+    private fun unknown(why: String) = NwcException(NwcException.OUTCOME_UNKNOWN, why)
 
     suspend fun balanceMsat(): Long =
         request("get_balance", JsonObject(emptyMap()))["balance"]?.jsonPrimitive?.longOrNull
@@ -155,11 +183,18 @@ class NwcClient(
                 }
             }
             session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); add(filter) }.toString())
-            session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), request)) }.toString())
+            // Cancelled while the EVENT goes out, it may be out: unknown, as
+            // after it (security audit 2026-10-18) — not a cancellation, which
+            // tells the caller nothing was sent and the share may be paid again.
+            try {
+                session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), request)) }.toString())
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw unknown("cancelled while sending")
+            }
             // From here on the wallet may have the request: only its own answer —
-            // a result, or an error it reports — or the relay's refusal says what
-            // happened. A timeout, a dropped connection or an answer that cannot
-            // be read do not mean "not paid".
+            // a result, or an error it reports — says what happened. A timeout, a
+            // dropped connection, the relay's refusal or an answer that cannot be
+            // read do not mean "not paid".
             val msg = try {
                 withTimeout(timeout) { response.await() }
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
@@ -173,12 +208,18 @@ class NwcClient(
                 // The scope finishes with this exception, not the cancellation.
                 throw NwcException(NwcException.OUTCOME_UNKNOWN, "cancelled after sending")
             } ?: throw NwcException(NwcException.OUTCOME_UNKNOWN, "connection lost after sending")
-            if (msg.type == "OK") throw NwcException("RELAY_REJECTED", msg.message ?: "relay refused the request")
+            // A relay's "refused" is not the wallet's word and is not signed: a
+            // relay may pass the request on and say it refused it. Not a reason
+            // to pay again (security audit 2026-10-18, H-01).
+            if (msg.type == "OK") throw unknown("relay refused the request (${msg.message ?: "no reason"}); it may have passed it on")
             val body = runCatching {
                 val event = msg.event!!
                 check(event.isValid() && event.pubkey == connection.walletPubkey) { "invalid response event" }
                 json.parseToJsonElement(Nip44.decrypt(event.content, conversationKey)).jsonObject
             }.getOrElse { throw NwcException(NwcException.OUTCOME_UNKNOWN, "unreadable answer: ${it.message}") }
+            // An answer to another method proves nothing about this one (M-02).
+            val type = (body["result_type"] as? JsonPrimitive)?.contentOrNull
+            if (type != method) throw unknown("answer for ${type ?: "no method"}, not $method")
             body["error"]?.takeIf { it is JsonObject }?.jsonObject?.let { err ->
                 throw NwcException(err["code"]?.jsonPrimitive?.contentOrNull ?: "ERROR", err["message"]?.jsonPrimitive?.contentOrNull ?: "")
             }
@@ -201,6 +242,10 @@ class NwcClient(
             }
         }
         throw NwcException("RELAY_UNREACHABLE", lastError?.message ?: "no relay reachable")
+    }
+
+    private companion object {
+        val HEX_32 = Regex("[0-9a-f]{64}")
     }
 
     private data class RelayMessage(val type: String, val subscription: String?, val event: Event?, val ok: Boolean?, val message: String?)

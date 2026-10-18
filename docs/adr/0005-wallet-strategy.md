@@ -173,8 +173,8 @@ four held and are fixed, each with a regression test:
   the logged payment (`ValueServiceTest.parallelQuickBoostsStayWithinTheBudget`).
 - **H-04 — an unanswered payment counted as failed.** Once a request has gone
   to the wallet, only the wallet's answer — a result or an error it reports —
-  or the relay's refusal decide; a timeout, a dropped connection or an
-  unreadable answer is `OUTCOME_UNKNOWN`. Such a share is not followed by an
+  decides; a timeout, a dropped connection, an unreadable answer or (since
+  2026-10-18) the relay's refusal is `OUTCOME_UNKNOWN`. Such a share is not followed by an
   invoice after a keysend, not retried by the next streaming batch, and shows
   as "outcome unknown" in the history. Clearing it up through NIP-47
   `lookup_invoice` (with a preimage Hopp chooses for keysends) is a later step.
@@ -214,3 +214,28 @@ The medium findings, 2026-10-12:
   wait for a runner.
 
 The low findings are still open.
+
+### Payment safety, audit of 2026-10-18 (Zetti, Astra audit of Hopp 0.2.0)
+
+The three payment findings held; fixed with regression tests that fail on
+the code before:
+
+- **H-01 — a relay's refusal counted as "not paid".** A relay could pass the
+  request on to the wallet and still answer `OK false`; Hopp then paid the
+  share again (an invoice after a keysend, the next streaming batch). The
+  refusal is not signed by the wallet, so it is `OUTCOME_UNKNOWN` now
+  (`NwcClientTest`, `BoostSenderTest`). The cost: a share an honest relay
+  refused is not tried again and shows as unknown. A cancellation while the
+  request goes out is unknown too, not "nothing sent".
+- **M-02 — any answer with a `result` counted as paid.** A payment needs a
+  `result_type` that is the method asked, a 32-byte preimage — for an invoice
+  the one its payment hash commits to — and fees that are not negative;
+  anything less is unknown. Wallets that leave the preimage out would show
+  every payment as unknown: to check with the wallets of the device tests.
+- **M-03 — unknown outcomes cost no budget, fees were counted afterwards.**
+  An unknown outcome may have left the wallet: its amount goes into
+  `payment.unknown_msat` (schema 9) and counts against the daily budget, also
+  for an instance's invoice and a share left in flight. A payment leaves room
+  for its fee first (`ValueService.feeReserve`: 1 %, at least a sat) — a
+  reserve, not a cap; the wallet's own budget on the connection is the cap.
+  An instance payment is logged even when its page closes mid-payment.

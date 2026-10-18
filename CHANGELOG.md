@@ -6,6 +6,11 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- A relay that refused a payment request could have passed it on to the wallet anyway; Hopp then paid that share again by another route or in the next streaming batch. Such a payment is now "outcome unknown" and never sent twice.
+- A payment counts as made only when the wallet's answer proves it (a preimage that matches the invoice); an incomplete answer shows as "outcome unknown".
+- Payments whose outcome is unknown now count against the daily budget, and every payment leaves room for its routing fee, so the budget is not exceeded.
+
 ## [0.2.0] - 2026-10-17
 
 ### 🆕 New Features

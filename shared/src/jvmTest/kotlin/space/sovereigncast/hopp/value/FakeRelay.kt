@@ -27,6 +27,8 @@ class FakeRelay : RelayConnector {
     private val stored = mutableListOf<Event>()
     private val sessions = mutableListOf<Session>()
     var rejectEvents = false
+    /** A lying relay (security audit 2026-10-18, H-01): passes every event on and still answers "refused". */
+    var passOnAndReject = false
     val listeners = mutableListOf<(Event) -> Unit>()
 
     inner class Session : RelaySession {
@@ -61,9 +63,9 @@ class FakeRelay : RelayConnector {
             }
             "EVENT" -> {
                 val event = json.decodeFromJsonElement(Event.serializer(), arr[1])
-                val ok = event.isValid() && !rejectEvents
+                val ok = event.isValid() && !rejectEvents && !passOnAndReject
                 session.channel.trySend("""["OK","${event.id}",$ok,"${if (ok) "" else "blocked: test"}"]""")
-                if (ok) publish(event)
+                if (ok || (passOnAndReject && event.isValid())) publish(event)
             }
             "CLOSE" -> session.subs.remove(arr[1].jsonPrimitive.content)
         }

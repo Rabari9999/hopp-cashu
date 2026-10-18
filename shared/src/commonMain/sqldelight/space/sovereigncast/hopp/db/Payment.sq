@@ -15,6 +15,10 @@ CREATE TABLE payment (
     -- Routing fees the wallet paid on top, as far as it said: they leave the
     -- wallet too and count against the daily budget (device feedback 2026-10-15).
     fees_msat INTEGER NOT NULL DEFAULT 0,
+    -- Version 9 (migrations/8.sqm): sent, but no answer said whether it was
+    -- paid. Not in amount_msat, but against the budget: it may have left the
+    -- wallet (security audit 2026-10-18, M-03).
+    unknown_msat INTEGER NOT NULL DEFAULT 0,
     -- Per recipient: name, address, msat, paid / skipped / failed, route, reason.
     results_json TEXT NOT NULL
 );
@@ -23,15 +27,15 @@ CREATE INDEX payment_created_idx ON payment(created_at);
 CREATE INDEX payment_episode_idx ON payment(episode_id);
 
 insert:
-INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, results_json)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, unknown_msat, results_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 recent:
 SELECT * FROM payment ORDER BY created_at DESC, id DESC LIMIT 200;
 
--- What left the wallet: amounts and routing fees.
+-- What left the wallet, or may have: amounts, routing fees, unknown outcomes.
 spentSince:
-SELECT CAST(coalesce(sum(amount_msat + fees_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ?;
+SELECT CAST(coalesce(sum(amount_msat + fees_msat + unknown_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ?;
 
 spentSinceOfKind:
 SELECT CAST(coalesce(sum(amount_msat), 0) AS INTEGER) FROM payment WHERE created_at >= ? AND kind = ?;

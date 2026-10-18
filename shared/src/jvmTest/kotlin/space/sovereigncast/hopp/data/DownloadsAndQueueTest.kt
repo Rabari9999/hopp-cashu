@@ -97,7 +97,7 @@ class DownloadsAndQueueTest {
         SettingsRepository(migrated).update { it.copy(skipBackSeconds = 15) }
         assertEquals(15, SettingsRepository(migrated).current().skipBackSeconds)
         // Version 5: routing fees count against the budget.
-        migrated.paymentQueries.insert(1, "boost", 1, 1, "Old", "Kept", 21_000, null, 2_000, "[]")
+        migrated.paymentQueries.insert(1, "boost", 1, 1, "Old", "Kept", 21_000, null, 2_000, 0, "[]")
         assertEquals(23_000L, migrated.paymentQueries.spentSince(0).executeAsOne())
         // Version 6: Nostr comments kept.
         migrated.commentQueries.upsertBoost("c", 21)
@@ -109,6 +109,9 @@ class DownloadsAndQueueTest {
         assertEquals(0L, migrated.episodeQueries.selectById(1).executeAsOne().download_failures)
         migrated.episodeQueries.setDownloadFailures(2, 1)
         assertEquals(2L, migrated.episodeQueries.selectById(1).executeAsOne().download_failures)
+        // Version 9: unknown outcomes count against the budget.
+        migrated.paymentQueries.insert(2, "stream", 1, 1, "Old", "Kept", 0, null, 0, 5_000, "[]")
+        assertEquals(28_000L, migrated.paymentQueries.spentSince(0).executeAsOne())
     }
 
     @Test

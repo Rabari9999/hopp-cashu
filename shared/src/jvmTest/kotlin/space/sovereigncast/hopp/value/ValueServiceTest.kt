@@ -374,6 +374,8 @@ class ValueServiceTest {
         value.settle()
         assertEquals(1, fake.requests.count { it.first == "pay_keysend" }, "paid again: ${fake.requests.map { it.first }}")
         assertEquals("unknown", value.payments.first().single().lines.single().status)
+        // Perhaps paid, so off today's budget (security audit 2026-10-18, M-03).
+        assertEquals(2_000L, value.spentTodayMsat.first())
         // Only the cohost's quarter sat still waits.
         assertEquals(listOf(PendingShare("Cohost", 250)), value.pendingFor(ep.id))
     }
@@ -395,6 +397,7 @@ class ValueServiceTest {
         assertEquals(0, keysends().count { it.first == host }, "paid a share that was already in flight")
         assertEquals("unknown", value.payments.first().single().lines.single { it.address == host }.status)
         assertEquals(250L, owed(host), "only what was on the way is settled")
+        assertEquals(2_000L, value.spentTodayMsat.first(), "what was on the way counts against the budget")
     }
 
     /** Code review 2026-10-17: what was heard after the crash is not written off
@@ -456,6 +459,18 @@ class ValueServiceTest {
     private fun owed(node: String) = rows().filter { node in it.recipient_json }.sumOf { it.owed_msat }
     private fun markInFlight(node: String, msat: Long) = rows().filter { node in it.recipient_json }
         .forEach { db.streamingQueries.markSending(ValueService.inFlightMarker(msat), it.episode_id, it.recipient_key, it.rail) }
+
+    /** Security audit 2026-10-18, M-03: the routing fee is known only after a
+     *  payment, so a payment leaves room for it — the budget is not exceeded by it. */
+    @Test
+    fun aPaymentLeavesRoomForItsFee() = test {
+        val ep = episode()
+        wallet.connect(uri())
+        settings.update { it.copy(quickBoostSats = 100, dailyBudgetSats = 100) }
+        assertEquals(QuickBoost.OverBudget, value.quickBoost(ep, 30), "100 sats and the fee do not fit 100")
+        settings.update { it.copy(dailyBudgetSats = 101) }
+        assertTrue(value.quickBoost(ep, 30) is QuickBoost.Sent)
+    }
 
     /** Security report 2026-10-10, H-03: ten quick boosts at once, budget for one — one is paid. */
     @Test

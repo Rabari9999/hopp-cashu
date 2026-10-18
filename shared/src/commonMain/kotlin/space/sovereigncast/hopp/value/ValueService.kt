@@ -292,7 +292,9 @@ class ValueService(
         val line = PaymentLine(recipientName, recipientAddress, amountMsat, status, feesMsat = feesMsat, route = "invoice", reason = reason)
         val counted = if (status == "paid") amountMsat else 0L
         val fees = if (status == "paid") feesMsat ?: 0 else 0L
-        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, json.encodeToString(lineList, listOf(line)))
+        // An unknown outcome may have left the wallet: against the budget (M-03).
+        val unknown = if (status == "unknown") amountMsat else 0L
+        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, unknown, json.encodeToString(lineList, listOf(line)))
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -320,7 +322,7 @@ class ValueService(
         if (s.quickBoostSats <= 0) return@withLock QuickBoost.Off
         if (wallet.wallet.value == null) return@withLock QuickBoost.NoWallet
         val amount = s.quickBoostSats * 1000L
-        if (amount > budgetLeftMsat.first()) return@withLock QuickBoost.OverBudget
+        if (amount + feeReserve(amount) > budgetLeftMsat.first()) return@withLock QuickBoost.OverBudget
         if (blockFor(item) == null) return@withLock QuickBoost.NoValue
         try {
             outcome(item.podcastId, s.quickBoostSats.toLong(), boostLocked(item, positionSeconds, amount, null), item.podcastTitle)
@@ -363,8 +365,11 @@ class ValueService(
             }
         }
         val paid = results.filterIsInstance<ShareResult.Paid>()
+        // Sent with no answer: perhaps paid, so it counts against the budget —
+        // not in what went out (security audit 2026-10-18, M-03).
+        val unknown = results.filterIsInstance<ShareResult.Failed>().filter { it.outcomeUnknown }.sumOf { it.share.amountMsat }
         pq.insert(clock.now(), kind, podcastId, episodeId, podcastTitle, episodeTitle, paid.sumOf { it.share.amountMsat }, message,
-            paid.sumOf { it.feesMsat ?: 0 }, json.encodeToString(lineList, lines))
+            paid.sumOf { it.feesMsat ?: 0 }, unknown, json.encodeToString(lineList, lines))
     }
 
     // ── streaming ─────────────────────────────────────────────────────────
@@ -429,10 +434,12 @@ class ValueService(
                 inFlightMsat(row.last_error)?.let { sent ->
                     results += ShareResult.Failed(Share(recipient, sent), "keysend", "in flight when the app stopped", outcomeUnknown = true)
                     withContext(Dispatchers.IO) { sq.paid(minOf(sent, row.owed_msat), episodeId, row.recipient_key, RAIL_LIGHTNING) }
+                    left -= sent
                     continue
                 }
                 val amount = if (done) (row.owed_msat + 999) / 1000 * 1000 else row.owed_msat / 1000 * 1000
-                if (amount > left) { over = true; continue }
+                // Room for the routing fee too: it is only known afterwards (M-03).
+                if (amount + feeReserve(amount) > left) { over = true; continue }
                 val share = Share(recipient, amount)
                 val ctx = item?.let { context(it, "stream", null, null) } ?: BoostContext("stream", app.version, null, null, null, null, null, null, null, null)
                 // Committed before the request leaves, so a kill mid pay_keysend
@@ -458,8 +465,9 @@ class ValueService(
                             if (row.attempts > 0) { caughtUp += amount; caughtUpEpisodes += episodeId }
                         }
                         is ShareResult.Skipped -> sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)
-                        // May have been paid: settled as it is, never tried again, and in the history as "unknown".
-                        is ShareResult.Failed -> if (result.outcomeUnknown) sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING)
+                        // May have been paid: settled as it is, never tried again, in the history
+                        // as "unknown" and off the budget like a payment (M-03).
+                        is ShareResult.Failed -> if (result.outcomeUnknown) { sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING); left -= amount }
                             else sq.failed(result.reason, episodeId, row.recipient_key, RAIL_LIGHTNING)
                     }
                 }
@@ -571,6 +579,13 @@ class ValueService(
         internal fun inFlightMsat(lastError: String?): Long? = lastError?.takeIf { it.startsWith(IN_FLIGHT) }?.removePrefix(IN_FLIGHT)?.toLongOrNull()
         /** When neither the listener nor the show sets a rate. */
         const val DEFAULT_RATE = 10
+        /**
+         * What a payment of [msat] keeps free of the budget for its routing fee,
+         * which the wallet reports only afterwards (security audit 2026-10-18,
+         * M-03): 1 %, at least a sat. A reserve, not a cap — the wallet's own
+         * budget on the connection is that.
+         */
+        internal fun feeReserve(msat: Long): Long = maxOf(1_000L, msat / 100)
         /** Not heard for this long, an episode's parts of a sat are rounded up and paid. */
         const val ROUND_UP_AFTER_SECONDS = 24 * 3600L
         const val SUPPORT_NAME = "Hopp"

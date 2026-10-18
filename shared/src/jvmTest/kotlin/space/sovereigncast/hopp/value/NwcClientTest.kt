@@ -1,9 +1,12 @@
 package space.sovereigncast.hopp.value
 
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -71,11 +74,59 @@ class NwcClientTest {
         assertEquals("INSUFFICIENT_BALANCE", e.code)
     }
 
+    /** A relay's "refused" is not signed by the wallet (security audit
+     *  2026-10-18, H-01): it says nothing about the payment. */
     @Test
-    fun aRelayRejectionIsReported() = runBlocking {
+    fun aRelayRejectionIsAnUnknownOutcome() = runBlocking {
         relay.rejectEvents = true
-        val e = assertFailsWith<NwcException> { client.balanceMsat() }
-        assertEquals("RELAY_REJECTED", e.code)
+        val e = assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertTrue(e.outcomeUnknown, e.toString())
+    }
+
+    /** H-01: the relay passed the request on — the wallet paid — and said it refused it. */
+    @Test
+    fun aRelayThatPassesARequestOnAndRefusesItLeavesTheOutcomeUnknown() = runBlocking {
+        relay.passOnAndReject = true
+        val e = assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertTrue(e.outcomeUnknown, e.toString())
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first }, "the wallet had it")
+    }
+
+    private fun answer(change: (MutableMap<String, kotlinx.serialization.json.JsonElement>) -> Unit) {
+        wallet.tamper = { response -> JsonObject(response.toMutableMap().also(change)) }
+    }
+
+    private fun result(change: (MutableMap<String, kotlinx.serialization.json.JsonElement>) -> Unit) = answer { r ->
+        r["result"] = JsonObject((r["result"] as JsonObject).toMutableMap().also(change))
+    }
+
+    /** M-02: an authentic answer that does not prove the payment is unknown — not paid, not failed. */
+    @Test
+    fun anAnswerForAnotherMethodIsAnUnknownOutcome() = runBlocking {
+        answer { it["result_type"] = JsonPrimitive("get_balance") }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
+    }
+
+    @Test
+    fun anAnswerWithoutAPreimageIsAnUnknownOutcome() = runBlocking {
+        result { it.remove("preimage") }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
+        result { it["preimage"] = JsonPrimitive("paid") }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
+    }
+
+    @Test
+    fun anInvoiceIsPaidOnlyWithItsOwnPreimage() = runBlocking {
+        val invoice = TestInvoices.make(21_000, ByteArray(32))
+        assertEquals("00".repeat(32), client.payInvoice(invoice).preimage)
+        result { it["preimage"] = JsonPrimitive("11".repeat(32)) }
+        assertTrue(assertFailsWith<NwcException> { client.payInvoice(invoice) }.outcomeUnknown)
+    }
+
+    @Test
+    fun negativeFeesAreNotAPayment() = runBlocking {
+        result { it["fees_paid"] = JsonPrimitive(-5_000) }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
     }
 
     @Test
@@ -117,6 +168,31 @@ class NwcClientTest {
                 thrown = t
             }
         }
+        withTimeout(5.seconds) { while (wallet.requests.none { it.first == "pay_keysend" }) yield() }
+        job.cancel()
+        job.join()
+        val e = thrown
+        assertTrue(e is NwcException && e.outcomeUnknown, "was ${e?.let { it::class.simpleName + ": " + it.message }}")
+    }
+
+    /** Cancelled while the request goes out to the relay (security audit
+     *  2026-10-18): it may be out — unknown, not a cancellation that has the
+     *  caller pay the share again. */
+    @Test
+    fun aCancellationWhileSendingIsAnUnknownOutcome() = runBlocking {
+        val hanging = RelayConnector { url ->
+            val session = relay.connect(url) as FakeRelay.Session
+            object : RelaySession by session {
+                override suspend fun send(message: String) {
+                    session.send(message)
+                    if (message.startsWith("[\"EVENT\"")) awaitCancellation()
+                }
+            }
+        }
+        wallet.silentMethod = "pay_keysend"
+        val c = NwcClient(NwcConnection.parse(uri), hanging, now = { 1_780_000_000 }, timeout = 5.seconds)
+        var thrown: Throwable? = null
+        val job = launch { try { c.payKeysend(1_000, "02d0fd6c", emptyList()) } catch (t: Throwable) { thrown = t } }
         withTimeout(5.seconds) { while (wallet.requests.none { it.first == "pay_keysend" }) yield() }
         job.cancel()
         job.join()

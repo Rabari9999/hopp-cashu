@@ -1,0 +1,3 @@
+-- Version 8 → 9 (security audit 2026-10-18, M-03): payments whose outcome is
+-- unknown count against the daily budget.
+ALTER TABLE payment ADD COLUMN unknown_msat INTEGER NOT NULL DEFAULT 0;

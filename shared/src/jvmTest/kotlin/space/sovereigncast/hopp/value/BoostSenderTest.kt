@@ -111,6 +111,19 @@ class BoostSenderTest {
         assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
     }
 
+    /** Security audit 2026-10-18, H-01: a relay passes the keysend on and says
+     *  it refused it. The wallet paid, so no invoice may follow. */
+    @Test
+    fun aKeysendTheRelayClaimsToRefuseIsNotFollowedByAnInvoice() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Cutting", "lnaddress", "withroute@w.test", 100)))
+        relay.passOnAndReject = true
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2")))
+        val result = sender.send(block, 10_000, ctx).single()
+        assertIs<ShareResult.Failed>(result)
+        assertTrue(result.outcomeUnknown)
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
+    }
+
     /** The paying wallet's own Lightning address is not paid — wallets refuse
      *  a payment to themselves, and podcasters often boost their own show. */
     @Test

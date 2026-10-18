@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.ui.sovereigncast
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.SettingsRepository
@@ -180,12 +182,20 @@ class CommunityViewModel(
             sc.payWithWallet(invoice)
         } catch (e: NwcException) {
             if (!e.outcomeUnknown) { handedToWallet -= hash; throw e }
-            sc.log(podcastId, l, target, episodeTitle, amountSats, message, null, status = "unknown")
+            // Logged even when the page is left mid-payment (the view model's
+            // scope cancelled): it may have left the wallet (security audit
+            // 2026-10-18, M-03).
+            withContext(NonCancellable) { sc.log(podcastId, l, target, episodeTitle, amountSats, message, null, status = "unknown") }
             return ScPay.Failed("unknown", e.message)
         }
         _pay.value = ScPay.Confirming
-        val confirmed = sc.awaitPaid(l, invoice, timeoutMinutes = 2)
-        sc.log(podcastId, l, target, episodeTitle, amountSats, message, fees, reason = if (confirmed) null else UNCONFIRMED)
+        var confirmed = false
+        try {
+            confirmed = sc.awaitPaid(l, invoice, timeoutMinutes = 2)
+        } finally {
+            // Paid is paid, also when the page closes while the instance is asked.
+            withContext(NonCancellable) { sc.log(podcastId, l, target, episodeTitle, amountSats, message, fees, reason = if (confirmed) null else UNCONFIRMED) }
+        }
         load()
         return ScPay.Done(amountSats)
     }

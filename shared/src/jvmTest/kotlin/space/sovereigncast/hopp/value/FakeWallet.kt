@@ -27,6 +27,8 @@ class FakeWallet(
     var silentMethod: String? = null
     /** What get_info names as the wallet's node. */
     var nodePubkey: String? = null
+    /** Changes an answer before it is signed — a wallet that answers wrongly but authentically. */
+    var tamper: ((JsonObject) -> JsonObject)? = null
     private val json = Json
 
     init {
@@ -53,7 +55,7 @@ class FakeWallet(
                 "get_info" -> buildJsonObject { put("alias", "Fake Hub"); nodePubkey?.let { put("pubkey", it) } }
                 else -> buildJsonObject { put("preimage", "00".repeat(32)); put("fees_paid", 1000) }
             })
-        }.toString()
+        }.let { tamper?.invoke(it) ?: it }.toString()
         relay.publish(Event.sign(keys, 23195, Nip44.encrypt(response, ck),
             listOf(listOf("p", request.pubkey), listOf("e", request.id)), createdAt = request.created_at))
     }

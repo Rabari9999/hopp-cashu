@@ -6,6 +6,11 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- Ein Relay, das eine Zahlungsanfrage ablehnte, konnte sie trotzdem an die Wallet weitergegeben haben; Hopp zahlte diesen Anteil dann auf einem anderen Weg oder im nächsten Streaming-Durchgang noch einmal. Eine solche Zahlung gilt jetzt als „Ausgang unbekannt“ und geht nie zweimal raus.
+- Eine Zahlung zählt nur noch als bezahlt, wenn die Antwort der Wallet sie belegt (ein Preimage, das zur Rechnung passt); eine unvollständige Antwort zeigt „Ausgang unbekannt“.
+- Zahlungen mit unbekanntem Ausgang zählen jetzt gegen das Tagesbudget, und jede Zahlung lässt Platz für ihre Routing-Gebühr – so wird das Budget nicht überschritten.
+
 ## [0.2.0] - 2026-10-17
 
 ### 🆕 New Features

@@ -102,6 +102,11 @@ class LnAddressTest {
  *  bech32 checksum, amount and `h` field; the signature is zeros. */
 object TestInvoices {
     private const val CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+    /** What [FakeWallet] answers a payment with: 32 zero bytes. */
+    val PREIMAGE = ByteArray(32)
+    /** Every test invoice's payment hash: SHA-256 of [PREIMAGE], so a paid
+     *  invoice's preimage checks out (security audit 2026-10-18, M-02). */
+    val PAYMENT_HASH: String = Sha256.digest(PREIMAGE).toHex()
 
     fun make(amountMsat: Long, descriptionHash: ByteArray): String {
         val hrp = "lnbc" + (amountMsat * 10) + "p"
@@ -110,7 +115,7 @@ object TestInvoices {
         fun field(tag: Char, bytes: ByteArray) {
             val w = toWords(bytes); words += CHARSET.indexOf(tag); words += w.size / 32; words += w.size % 32; words += w
         }
-        field('p', ByteArray(32) { 1 })
+        field('p', Sha256.digest(PREIMAGE))
         field('h', descriptionHash)
         repeat(104) { words += 0 }                                 // signature
         val checksum = checksum(hrp, words)
