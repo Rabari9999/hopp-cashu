@@ -70,6 +70,18 @@ class FeedCorpusTest {
         assertEquals("Gast: Müller — © 2026", feed.episodes[0].description)
     }
 
+    /** Code review 2026-10-17, M14: an "&" inside CDATA is text as it stands. */
+    @Test
+    fun anAmpersandInCdataStaysAsItIs() {
+        val feed = FeedParser.parse("""<?xml version="1.0"?><rss version="2.0"><channel><title><![CDATA[Tom & Jerry]]></title>
+            <description>Q&A live</description><link><![CDATA[https://x.test/?a=1&b=2]]></link>
+            <item><title><![CDATA[Fragen & Antworten]]></title><guid>1</guid></item></channel></rss>""")
+        assertEquals("Tom & Jerry", feed.podcast.title)
+        assertEquals("Q&A live", feed.podcast.description)
+        assertEquals("https://x.test/?a=1&b=2", feed.podcast.link)
+        assertEquals("Fragen & Antworten", feed.episodes.single().title)
+    }
+
     @Test
     fun parsingTheBigFeedAgainIsFast() {
         val bytes = load("nodesignal-podhome.xml")

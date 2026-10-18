@@ -42,7 +42,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * timeout otherwise (device feedback 2026-10-16: 30–40 s for comments).
      */
     suspend fun query(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): List<Event> =
-        gather(relays, settle) { url -> queryOn(filters, url) }.flatten().distinctBy { it.id }.filter { it.isValid() }
+        // Checked before made unique: a forged copy from a fast relay must not hide the real event.
+        gather(relays, settle) { url -> queryOn(filters, url) }.flatten().filter { it.isValid() }.distinctBy { it.id }
 
     /** [one] on every relay at once; what each answered — null from one that could not be reached.
      *  An answer of nothing is an answer too: it starts the settle time. */

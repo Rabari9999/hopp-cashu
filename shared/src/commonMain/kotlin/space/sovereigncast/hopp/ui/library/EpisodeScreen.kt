@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AssistChip
@@ -245,12 +246,13 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 } else {
                     item { Text(stringResource(Res.string.share_long_press), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant) }
-                    items(chapters, key = { "ch${it.startSeconds}" }) { ch ->
+                    // By index: start times from a feed can repeat, and a repeated key crashes (code review 2026-10-17, H7).
+                    itemsIndexed(chapters, key = { i, _ -> "ch$i" }) { _, ch ->
                         ChapterRow(ch, active = false, onSeek = { player.playAt(e, (ch.startSeconds * 1000).toLong()) }, withImages = chapters.any { it.imageUrl != null },
                             onShare = { sharing = ShareTarget.AtChapter(e, ch) })
                     }
                 }
-                EpisodeTab.Clips -> items(clips, key = { "clip${it.startTime}" }) { c ->
+                EpisodeTab.Clips -> itemsIndexed(clips, key = { i, _ -> "clip$i" }) { _, c ->
                     val start = (c.startTime * 1000).toLong()
                     val length = (c.duration * 1000).toLong()
                     Row(

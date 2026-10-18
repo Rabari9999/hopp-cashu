@@ -264,15 +264,17 @@ class SovereigncastRepository(
         } ?: false
 
     /** Into the payment history, once the instance confirmed it. */
-    suspend fun log(podcastId: Long, layer: ScLayer, target: ScTarget, episodeTitle: String?, amountSats: Long, message: String?, feesMsat: Long?) =
-        value.logInvoicePayment(
-            when (target) {
-                ScTarget.ReleaseBoosting -> ValueService.KIND_RELEASE_BOOSTING
-                is ScTarget.Boost2Unlock -> ValueService.KIND_BOOST2UNLOCK
-                is ScTarget.NewSuggestion, is ScTarget.SuggestionBoost -> ValueService.KIND_SUGGESTION
-            },
-            podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host, feesMsat,
-        )
+    suspend fun log(
+        podcastId: Long, layer: ScLayer, target: ScTarget, episodeTitle: String?, amountSats: Long, message: String?, feesMsat: Long?,
+        status: String = "paid", reason: String? = null,
+    ) = value.logInvoicePayment(
+        when (target) {
+            ScTarget.ReleaseBoosting -> ValueService.KIND_RELEASE_BOOSTING
+            is ScTarget.Boost2Unlock -> ValueService.KIND_BOOST2UNLOCK
+            is ScTarget.NewSuggestion, is ScTarget.SuggestionBoost -> ValueService.KIND_SUGGESTION
+        },
+        podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host, feesMsat, status, reason,
+    )
 
     companion object {
         /** Re-ask the instance at most once a day (ADR 0002 verification is cheap but not free). */

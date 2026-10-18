@@ -1,12 +1,17 @@
 package space.sovereigncast.hopp.value
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.nostr.KeyPair
+import space.sovereigncast.hopp.nostr.RelayConnector
+import space.sovereigncast.hopp.nostr.RelaySession
 import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.NwcConnection
 import space.sovereigncast.hopp.value.nwc.NwcException
@@ -76,5 +81,46 @@ class NwcClientTest {
     @Test
     fun theBalanceIsRead() = runBlocking {
         assertEquals(21_000_000, client.balanceMsat())
+    }
+
+    /** The relay closes the connection right after the request went out (code
+     *  review 2026-10-17, H1): the wallet may have paid — never a plain failure
+     *  that the LNURL fallback or the next streaming batch would pay again over. */
+    @Test
+    fun aConnectionLostAfterSendingIsAnUnknownOutcome() = runBlocking {
+        wallet.silentMethod = "pay_keysend"
+        val dropping = RelayConnector { url ->
+            val session = relay.connect(url) as FakeRelay.Session
+            object : RelaySession by session {
+                override suspend fun send(message: String) {
+                    session.send(message)
+                    if (message.startsWith("[\"EVENT\"")) session.channel.close()
+                }
+            }
+        }
+        val c = NwcClient(NwcConnection.parse(uri), dropping, now = { 1_780_000_000 }, timeout = 5.seconds)
+        val e = assertFailsWith<NwcException> { c.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertTrue(e.outcomeUnknown, e.toString())
+    }
+
+    /** Cancelled after the request went out (M1): the same unknown outcome as a
+     *  dropped connection, so the caller does not pay the share again. */
+    @Test
+    fun aCancellationAfterSendingIsAnUnknownOutcome() = runBlocking {
+        wallet.silentMethod = "pay_keysend"
+        val c = NwcClient(NwcConnection.parse(uri), relay, now = { 1_780_000_000 }, timeout = 5.seconds)
+        var thrown: Throwable? = null
+        val job = launch {
+            try {
+                c.payKeysend(1_000, "02d0fd6c", emptyList())
+            } catch (t: Throwable) {
+                thrown = t
+            }
+        }
+        withTimeout(5.seconds) { while (wallet.requests.none { it.first == "pay_keysend" }) yield() }
+        job.cancel()
+        job.join()
+        val e = thrown
+        assertTrue(e is NwcException && e.outcomeUnknown, "was ${e?.let { it::class.simpleName + ": " + it.message }}")
     }
 }

@@ -148,6 +148,7 @@ class DownloadRepository(
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
+                withContext(Dispatchers.IO) { eq.setDownloadFailures(0, next.id) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
@@ -157,9 +158,21 @@ class DownloadRepository(
                 // remove() has already cleared it.
             } catch (e: Exception) {
                 // Network gone: back in the queue, the .part file stays for the retry.
-                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id) }
-                ok = false
-                break
+                // A host that keeps failing (down, its domain gone, an expired
+                // certificate) would hold up every download behind it: after a few
+                // tries in a row it fails, and the listener can ask again (code
+                // review 2026-10-17, H5). The count is in the row, so a restart
+                // does not start those tries over.
+                val tries = next.download_failures.toInt() + 1
+                if (tries < MAX_TRIES) {
+                    withContext(Dispatchers.IO) {
+                        eq.setDownloadFailures(tries.toLong(), next.id)
+                        eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id)
+                    }
+                    ok = false
+                    break
+                }
+                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } finally {
                 _progress.update { it - next.id }
             }
@@ -255,7 +268,9 @@ class DownloadRepository(
         }
     }
 
-    private companion object {
+    internal companion object {
+        /** Tries in a row before a download that keeps failing stops holding up the queue. */
+        const val MAX_TRIES = 5
         /** Larger than any audio episode, room for video ones. */
         const val MAX_EPISODE_BYTES = 4L shl 30
         val NOT_MEDIA = setOf("text/html", "application/xhtml+xml", "application/json", "text/xml")

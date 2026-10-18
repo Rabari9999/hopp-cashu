@@ -7,6 +7,8 @@ import space.sovereigncast.hopp.nostr.NoteRef
 import space.sovereigncast.hopp.nostr.nevent
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration.Companion.milliseconds
 
 /** No relay took the event — nothing was published. */
@@ -41,6 +43,8 @@ class CommentWriter(
     private val now: () -> Long,
 ) {
     private var writeRelays: Pair<String, List<String>>? = null
+    /** One mute at a time: each reads the list the one before it wrote. */
+    private val muting = Mutex()
 
     /** A comment on the episode, or an answer to [to]; kept at once, so it shows without asking again. */
     suspend fun comment(anchor: CommentAnchor, text: String, relays: List<String>, to: Comment? = null): Event {
@@ -107,12 +111,18 @@ class CommentWriter(
      * held — the encrypted private part untouched: Hopp cannot read it, and
      * overwriting it would unmute everyone in it.
      */
-    suspend fun mute(pubkey: String) {
+    suspend fun mute(pubkey: String) = muting.withLock<Unit> {
         val me = identity.identity.value ?: throw NoIdentity()
         val mine = mine()
-        val current = publisher.latest(MUTE_LIST, me.pubkey, (mine + LOOKUP).distinct(), 3000.milliseconds)
+        val relays = (mine + LOOKUP).distinct()
+        // Nothing within the settle time may only mean that the relay holding the
+        // list is slow — an index relay says "none" at once. Every relay is asked
+        // to the end before a new list goes out over the old one (code review
+        // 2026-10-17, H4).
+        val current = publisher.latest(MUTE_LIST, me.pubkey, relays, 3000.milliseconds)
+            ?: publisher.latest(MUTE_LIST, me.pubkey, relays)
         val tags = current?.tags.orEmpty()
-        if (tags.any { it.size >= 2 && it[0] == "p" && it[1] == pubkey }) return
+        if (tags.any { it.size >= 2 && it[0] == "p" && it[1] == pubkey }) return@withLock
         publish(UnsignedEvent(MUTE_LIST, current?.content.orEmpty(), tags + listOf(listOf("p", pubkey)), now()), mine + LOOKUP)
     }
 

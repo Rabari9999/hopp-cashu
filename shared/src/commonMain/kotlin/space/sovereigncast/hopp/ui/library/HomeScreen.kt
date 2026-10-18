@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
@@ -169,7 +170,8 @@ fun HomeScreen(
                         item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, actions.size, { vm.toggle("shows") }) }
                         if (open) {
                             val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
-                            items(shown, key = { "a${it.podcastId}${it.kind}${it.episodeTitle}" }) { a ->
+                            // By index: two episodes of a show can share a title, and a repeated key crashes (code review 2026-10-17, H7).
+                            itemsIndexed(shown, key = { i, _ -> "a$i" }) { _, a ->
                                 // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
                                 if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
                                 else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }

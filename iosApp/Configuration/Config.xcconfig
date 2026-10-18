@@ -2,6 +2,11 @@ TEAM_ID=
 BUNDLE_ID=space.sovereigncast.hopp
 APP_NAME=Hopp
 
+// ADR 0009, same idea as the Android distribution flavors: altstore keeps
+// every payment. The App Store binary sets HOPP_DISTRIBUTION=appstore
+// (iosApp/Configuration/AppStore.xcconfig, or the xcodebuild setting).
+HOPP_DISTRIBUTION=altstore
+
 // MARKETING_VERSION, CURRENT_PROJECT_VERSION: written by Gradle from
 // androidApp/build.gradle.kts (syncIosVersion), so both apps say the same.
 #include "Version.xcconfig"

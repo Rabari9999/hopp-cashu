@@ -59,6 +59,12 @@ failed:
 UPDATE settlement SET attempts = attempts + 1, last_error = :error
 WHERE episode_id = :episodeId AND recipient_key = :key AND rail = :rail;
 
+-- Written before the wallet is asked, so a process killed mid pay_keysend
+-- leaves the row marked and the next launch does not pay it again (M1).
+markSending:
+UPDATE settlement SET last_error = :error
+WHERE episode_id = :episodeId AND recipient_key = :key AND rail = :rail;
+
 owedTotal:
 SELECT CAST(coalesce(sum(owed_msat), 0) AS INTEGER) FROM settlement;
 

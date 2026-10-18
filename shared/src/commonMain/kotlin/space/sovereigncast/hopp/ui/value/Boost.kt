@@ -84,6 +84,7 @@ import space.sovereigncast.hopp.resources.reason_keysend
 import space.sovereigncast.hopp.resources.reason_remote
 import space.sovereigncast.hopp.resources.reason_self
 import space.sovereigncast.hopp.resources.reason_dust
+import space.sovereigncast.hopp.resources.reason_unconfirmed
 import space.sovereigncast.hopp.resources.boost_none_payable
 import space.sovereigncast.hopp.resources.boost_not_paid
 import space.sovereigncast.hopp.resources.stream_invite_on
@@ -480,6 +481,7 @@ internal fun reasonText(reason: String): String = when (reason) {
     "invoice", SkipReason.INVOICE -> stringResource(Res.string.reason_invoice)
     "self", SkipReason.SELF -> stringResource(Res.string.reason_self)
     SkipReason.DUST -> stringResource(Res.string.reason_dust)
+    space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel.UNCONFIRMED -> stringResource(Res.string.reason_unconfirmed)
     else -> reason
 }
 

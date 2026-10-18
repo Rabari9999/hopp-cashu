@@ -26,7 +26,9 @@ import space.sovereigncast.hopp.sovereigncast.ScTarget
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import space.sovereigncast.hopp.sovereigncast.Suggestion
 import space.sovereigncast.hopp.sovereigncast.TopEpisode
+import space.sovereigncast.hopp.storePaysForContent
 import space.sovereigncast.hopp.value.WalletRepository
+import space.sovereigncast.hopp.value.nwc.NwcException
 
 /** A payment to the instance, step by step — the listener sees where it is. */
 sealed interface ScPay {
@@ -37,7 +39,7 @@ sealed interface ScPay {
     data class External(val invoice: Invoice) : ScPay
     data object Confirming : ScPay
     data class Done(val sats: Long) : ScPay
-    /** [code]: an API error code, "mismatch", "expired" or "wallet". */
+    /** [code]: an API error code, "mismatch", "expired", "unknown" (the wallet may have paid) or "wallet". */
     data class Failed(val code: String, val detail: String? = null) : ScPay
 }
 
@@ -53,6 +55,8 @@ class CommunityViewModel(
     private val settings: SettingsRepository,
     wallet: WalletRepository,
     private val episodes: EpisodeRepository,
+    /** False in the App Store binary (ADR 0009); a parameter so tests reach both. */
+    private val paysForContent: Boolean = storePaysForContent(),
 ) : ViewModel() {
     val layer: StateFlow<ScLayer?> = sc.layer(podcastId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val hasWallet: StateFlow<Boolean> = wallet.wallet.map { it != null }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -71,21 +75,31 @@ class CommunityViewModel(
     val topEpisodes: StateFlow<List<TopEpisode>?> = _top.asStateFlow()
     private val _pay = MutableStateFlow<ScPay>(ScPay.Idle)
     val pay: StateFlow<ScPay> = _pay.asStateFlow()
+    /** Payment hashes handed to the wallet that may be paid: never sent to it twice (M3). */
+    private val handedToWallet = mutableSetOf<String>()
 
     init {
         viewModelScope.launch {
             sc.verify(podcastId)
             load()
-            // The round moves while the page is open (others boost too), and the
-            // player shows the latest boosts: those every five minutes.
-            var minutes = 0
-            while (true) {
-                delay(60_000)
-                minutes++
-                layer.value?.let { l ->
-                    if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
-                    if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }
-                }
+        }
+    }
+
+    /**
+     * The round moves while the page is open (others boost too), and the
+     * player shows the latest boosts: those every five minutes. Runs only while
+     * the page or the sheet is on screen ([PollCommunity]) — not for the view
+     * model's whole life, which in the player is the activity's (code review
+     * 2026-10-17, H8; ADR 0013).
+     */
+    suspend fun poll() {
+        var minutes = 0
+        while (true) {
+            delay(60_000)
+            minutes++
+            layer.value?.let { l ->
+                if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
+                if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }
             }
         }
     }
@@ -123,20 +137,22 @@ class CommunityViewModel(
     }
 
     fun pay(target: ScTarget, amountSats: Long, message: String, name: String, episodeTitle: String?) {
+        if (!paysForContent) return
         val l = layer.value ?: return
         _pay.value = ScPay.Requesting
         viewModelScope.launch {
             _pay.value = try {
                 settings.update { it.copy(senderName = name.trim()) }
                 val invoice = sc.invoice(l, target, amountSats, message, name)
-                if (hasWallet.value) {
+                if (invoice.paymentHash.lowercase() in handedToWallet) {
+                    // An invoice the wallet already has, with no answer then: it may be paid.
+                    ScPay.Failed("unknown")
+                } else if (hasWallet.value) {
                     _pay.value = ScPay.Paying
-                    val fees = sc.payWithWallet(invoice)
-                    _pay.value = ScPay.Confirming
-                    if (sc.awaitPaid(l, invoice, timeoutMinutes = 2)) {
-                        sc.log(podcastId, l, target, episodeTitle, amountSats, message, fees); load(); ScPay.Done(amountSats)
-                    } else ScPay.Failed("expired")
+                    payWithWallet(l, target, invoice, amountSats, message, episodeTitle)
                 } else {
+                    // Paid, if at all, in another app: an invoice that expires there was not paid,
+                    // and a new one may be asked for (code review 2026-10-17).
                     _pay.value = ScPay.External(invoice)
                     if (sc.awaitPaid(l, invoice)) {
                         sc.log(podcastId, l, target, episodeTitle, amountSats, message, null); load(); ScPay.Done(amountSats)
@@ -152,5 +168,32 @@ class CommunityViewModel(
         }
     }
 
+    /**
+     * The wallet's answer decides (M3, code review 2026-10-17): paid is paid —
+     * counted and shown as sent even before the instance confirms it; no
+     * answer may be a payment, kept as unknown and never sent again.
+     */
+    private suspend fun payWithWallet(l: ScLayer, target: ScTarget, invoice: Invoice, amountSats: Long, message: String, episodeTitle: String?): ScPay {
+        val hash = invoice.paymentHash.lowercase()
+        handedToWallet += hash
+        val fees = try {
+            sc.payWithWallet(invoice)
+        } catch (e: NwcException) {
+            if (!e.outcomeUnknown) { handedToWallet -= hash; throw e }
+            sc.log(podcastId, l, target, episodeTitle, amountSats, message, null, status = "unknown")
+            return ScPay.Failed("unknown", e.message)
+        }
+        _pay.value = ScPay.Confirming
+        val confirmed = sc.awaitPaid(l, invoice, timeoutMinutes = 2)
+        sc.log(podcastId, l, target, episodeTitle, amountSats, message, fees, reason = if (confirmed) null else UNCONFIRMED)
+        load()
+        return ScPay.Done(amountSats)
+    }
+
     fun resetPay() { _pay.value = ScPay.Idle }
+
+    companion object {
+        /** The reason in the history: the wallet paid, the instance had not said so yet. */
+        const val UNCONFIRMED = "unconfirmed"
+    }
 }

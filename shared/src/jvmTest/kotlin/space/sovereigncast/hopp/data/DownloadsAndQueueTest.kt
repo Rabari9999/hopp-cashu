@@ -105,6 +105,10 @@ class DownloadsAndQueueTest {
         // Version 7: the show's notes found on the relays.
         migrated.commentQueries.upsertFetch("t", 1, "[]", "[]", "[\"r\"]")
         assertEquals("[\"r\"]", migrated.commentQueries.fetch("t").executeAsOne().roots_json)
+        // Version 8: a download's failed tries survive a restart.
+        assertEquals(0L, migrated.episodeQueries.selectById(1).executeAsOne().download_failures)
+        migrated.episodeQueries.setDownloadFailures(2, 1)
+        assertEquals(2L, migrated.episodeQueries.selectById(1).executeAsOne().download_failures)
     }
 
     @Test
@@ -202,6 +206,41 @@ class DownloadsAndQueueTest {
         downloads.request(byTitle(id, "Ep 2").id) // try again by hand
         assertTrue(downloads.runPending(includeAuto = false))
         assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+    }
+
+    /** Code review 2026-10-17, H5: a host that keeps failing — down, its domain
+     *  gone — does not hold up the downloads behind it for ever. */
+    @Test
+    fun aDownloadThatKeepsFailingStopsHoldingUpTheQueue() = test {
+        val id = subscribe()
+        failAudio = { it == "/1.mp3" }
+        downloads.request(byTitle(id, "Ep 1").id) // asked for: first in line
+        repeat(DownloadRepository.MAX_TRIES - 1) { assertFalse(downloads.runPending(includeAuto = true)) }
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 2").downloadState, "still waiting behind it")
+        downloads.runPending(includeAuto = true)
+        assertEquals(DownloadState.FAILED, byTitle(id, "Ep 1").downloadState)
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+    }
+
+    /** The failure count is in the row (H5): a new process does not grant the
+     *  same download another four blocking rounds. Asking for it again resets it. */
+    @Test
+    fun aRestartKeepsTheFailureCountAndARequestResetsIt() = test {
+        val id = subscribe()
+        failAudio = { it == "/1.mp3" }
+        downloads.request(byTitle(id, "Ep 1").id)
+        repeat(2) { assertFalse(downloads.runPending(includeAuto = true)) }
+        val again = DownloadRepository(db, http, clock, files, scheduler, settings)
+        repeat(DownloadRepository.MAX_TRIES - 3) { assertFalse(again.runPending(includeAuto = true)) }
+        again.runPending(includeAuto = true)
+        assertEquals(DownloadState.FAILED, byTitle(id, "Ep 1").downloadState)
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 2").downloadState)
+        again.request(byTitle(id, "Ep 1").id)
+        assertFalse(again.runPending(includeAuto = true), "the request started the count over")
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 1").downloadState)
+        failAudio = { false }
+        assertTrue(again.runPending(includeAuto = true))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 1").downloadState)
     }
 
     /** Security review 2026-10-10, M-03: a download stops at the storage limit —

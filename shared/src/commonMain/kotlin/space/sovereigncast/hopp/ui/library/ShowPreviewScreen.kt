@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -141,7 +141,8 @@ fun ShowPreviewScreen(
             }
         }
         if (all.isNotEmpty()) item(key = "search") { EpisodeSearchField(query, { query = it }, found?.size) }
-        items(episodes, key = { it.guid }) { e ->
+        // By index: a feed can repeat a guid, and a repeated key crashes (code review 2026-10-17, H7).
+        itemsIndexed(episodes, key = { i, _ -> "e$i" }) { _, e ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Text(e.title ?: "", style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(

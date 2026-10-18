@@ -3,6 +3,8 @@ package space.sovereigncast.hopp.value
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import space.sovereigncast.hopp.data.Clock
+import space.sovereigncast.hopp.storePaysForContent
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
@@ -118,6 +121,8 @@ class ValueService(
     private val app: AppInfo,
     /** Boost metadata at a Sovereigncast instance, for Lightning-address shares. */
     private val metadata: space.sovereigncast.hopp.sovereigncast.PaymentMetadataSource? = null,
+    /** False in the App Store binary (ADR 0009): no app split. A parameter so tests reach both. */
+    private val paysForContent: Boolean = storePaysForContent(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val lineList = ListSerializer(PaymentLine.serializer())
@@ -178,6 +183,8 @@ class ValueService(
      * any recipient and never adds to what the listener chose to give.
      */
     private suspend fun withSupport(block: ValueBlock): ValueBlock {
+        // The App Store binary has no app split (ADR 0009), even if a percent was saved.
+        if (!paysForContent) return block
         val percent = settings.current().supportHoppPercent
         if (percent <= 0) return block
         return block.copy(recipients = block.recipients + ValueRecipient(SUPPORT_NAME, "lnaddress", Settings.SUPPORT_ADDRESS, percent, fee = true))
@@ -280,10 +287,12 @@ class ValueService(
      *  Release Boosting or Boost2Unlock — kept in the same history. */
     suspend fun logInvoicePayment(
         kind: String, podcastId: Long, podcastTitle: String?, episodeTitle: String?, amountMsat: Long,
-        message: String?, recipientName: String?, recipientAddress: String, feesMsat: Long?,
+        message: String?, recipientName: String?, recipientAddress: String, feesMsat: Long?, status: String = "paid", reason: String? = null,
     ) = withContext(Dispatchers.IO) {
-        val line = PaymentLine(recipientName, recipientAddress, amountMsat, "paid", feesMsat = feesMsat, route = "invoice")
-        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, amountMsat, message, feesMsat ?: 0, json.encodeToString(lineList, listOf(line)))
+        val line = PaymentLine(recipientName, recipientAddress, amountMsat, status, feesMsat = feesMsat, route = "invoice", reason = reason)
+        val counted = if (status == "paid") amountMsat else 0L
+        val fees = if (status == "paid") feesMsat ?: 0 else 0L
+        pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, json.encodeToString(lineList, listOf(line)))
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -411,15 +420,37 @@ class ValueService(
         for ((episodeId, group) in rows.groupBy { it.first.episode_id }) {
             val item = episodes.item(episodeId)
             val results = mutableListOf<ShareResult>()
-            for ((row, done) in group) {
+            try { for ((row, done) in group) {
+                val recipient = json.decodeFromString(ValueRecipient.serializer(), row.recipient_json)
+                // A previous launch died after this row was marked and before the
+                // answer came back. The wallet may have paid what was sent then —
+                // that is settled, not sent again; what was heard since stays owed
+                // (code review 2026-10-17).
+                inFlightMsat(row.last_error)?.let { sent ->
+                    results += ShareResult.Failed(Share(recipient, sent), "keysend", "in flight when the app stopped", outcomeUnknown = true)
+                    withContext(Dispatchers.IO) { sq.paid(minOf(sent, row.owed_msat), episodeId, row.recipient_key, RAIL_LIGHTNING) }
+                    continue
+                }
                 val amount = if (done) (row.owed_msat + 999) / 1000 * 1000 else row.owed_msat / 1000 * 1000
                 if (amount > left) { over = true; continue }
-                val recipient = json.decodeFromString(ValueRecipient.serializer(), row.recipient_json)
                 val share = Share(recipient, amount)
                 val ctx = item?.let { context(it, "stream", null, null) } ?: BoostContext("stream", app.version, null, null, null, null, null, null, null, null)
-                val result = sender.payShare(share, amount, ctx)
+                // Committed before the request leaves, so a kill mid pay_keysend
+                // is the unknown-outcome path on the next launch (M1).
+                withContext(Dispatchers.IO) { sq.markSending(inFlightMarker(amount), episodeId, row.recipient_key, RAIL_LIGHTNING) }
+                val result = try {
+                    sender.payShare(share, amount, ctx)
+                } catch (e: CancellationException) {
+                    // Cancelled before the request went out — after it, the client
+                    // answers "outcome unknown" instead: nothing was sent, the share
+                    // stays owed for the next batch.
+                    withContext(NonCancellable + Dispatchers.IO) { sq.markSending(null, episodeId, row.recipient_key, RAIL_LIGHTNING) }
+                    throw e
+                }
                 results += result
-                withContext(Dispatchers.IO) {
+                // Written even when the batch is being cancelled: the wallet has
+                // answered, or may have paid.
+                withContext(NonCancellable + Dispatchers.IO) {
                     when (result) {
                         is ShareResult.Paid -> {
                             // Rounded up: what was owed is settled, the extra is a gift.
@@ -432,9 +463,11 @@ class ValueService(
                             else sq.failed(result.reason, episodeId, row.recipient_key, RAIL_LIGHTNING)
                     }
                 }
+            } } finally {
+                // In the history even when the batch was cancelled half way.
+                val logged = results.filterNot { it is ShareResult.Failed && !it.outcomeUnknown }
+                if (item != null && logged.isNotEmpty()) withContext(NonCancellable) { log(KIND_STREAM, item, logged, null) }
             }
-            val logged = results.filterNot { it is ShareResult.Failed && !it.outcomeUnknown }
-            if (item != null && logged.isNotEmpty()) log(KIND_STREAM, item, logged, null)
         }
         _overBudget.value = over
         if (caughtUp > 0) _notices.tryEmit(StreamNotice(caughtUp / 1000, caughtUpEpisodes.size))
@@ -530,6 +563,12 @@ class ValueService(
         /** A new topic suggestion or a boost for one (phase 2). */
         const val KIND_SUGGESTION = "suggestion"
         const val RAIL_LIGHTNING = "lightning"
+        /** [last_error] prefix while a settlement payment has been handed to the wallet and not answered. */
+        private const val IN_FLIGHT = "hopp:in_flight:"
+        /** The marker for [msat] on the way to the wallet. */
+        internal fun inFlightMarker(msat: Long) = IN_FLIGHT + msat
+        /** What a marker says was on the way, or null when the row is not in flight. */
+        internal fun inFlightMsat(lastError: String?): Long? = lastError?.takeIf { it.startsWith(IN_FLIGHT) }?.removePrefix(IN_FLIGHT)?.toLongOrNull()
         /** When neither the listener nor the show sets a rate. */
         const val DEFAULT_RATE = 10
         /** Not heard for this long, an episode's parts of a sat are rounded up and paid. */

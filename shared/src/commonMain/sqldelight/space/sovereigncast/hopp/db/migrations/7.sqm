@@ -1,0 +1,2 @@
+-- Version 7 → 8: a download's failed tries survive a restart (H5).
+ALTER TABLE episode ADD COLUMN download_failures INTEGER NOT NULL DEFAULT 0;

@@ -197,6 +197,7 @@
     <string name="stream_notice">Paid what accrued offline: %1$s sats for %2$d episode(s)</string>
     <string name="reason_self">that's you — your own wallet</string>
     <string name="reason_dust">less than 1 sat</string>
+    <string name="reason_unconfirmed">not yet confirmed by the instance</string>
     <string name="boost_none_payable">Your wallet cannot reach any recipient of this show.</string>
     <string name="boost_not_paid">%1$s: %2$s</string>
     <string name="wallet_can_invoice">Pay invoices (Lightning addresses)</string>
@@ -249,6 +250,7 @@
     <string name="sc_done">%1$s sats sent — thank you!</string>
     <string name="sc_failed_mismatch">The invoice did not match the amount — nothing was paid.</string>
     <string name="sc_failed_expired">No confirmation — the invoice expired.</string>
+    <string name="sc_failed_unknown">No answer from the wallet — it may have paid. Look in the payment history before you pay again.</string>
     <string name="sc_failed_no_round">The round has just ended.</string>
     <string name="sc_failed">Did not work: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>

@@ -66,8 +66,23 @@ object FeedParser {
     // mangle it into "&A;live"; escaping it first keeps the text as written.
     private val BARE_AMPERSAND = Regex("""&(?!#[0-9]+;|#[xX][0-9a-fA-F]+;|[A-Za-z][A-Za-z0-9]*;)""")
 
-    internal fun escapeBareAmpersands(text: String): String =
-        if ('&' !in text) text else BARE_AMPERSAND.replace(text, "&amp;")
+    // Only outside CDATA: an "&" in a CDATA section is text already, and escaped
+    // it would stay "&amp;" — "Tom &amp; Jerry", broken links (code review
+    // 2026-10-17, M14).
+    internal fun escapeBareAmpersands(text: String): String {
+        if ('&' !in text) return text
+        return buildString(text.length) {
+            var i = 0
+            while (i < text.length) {
+                val start = text.indexOf("<![CDATA[", i).let { if (it < 0) text.length else it }
+                append(BARE_AMPERSAND.replace(text.substring(i, start), "&amp;"))
+                if (start == text.length) break
+                val end = text.indexOf("]]>", start).let { if (it < 0) text.length else it + 3 }
+                append(text, start, end)
+                i = end
+            }
+        }
+    }
 
     private enum class Ns { NONE, ITUNES, PODCAST, CONTENT, ATOM, OTHER }
 

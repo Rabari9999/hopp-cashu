@@ -96,6 +96,7 @@ import space.sovereigncast.hopp.ui.components.TabbedPage
 import space.sovereigncast.hopp.ui.sovereigncast.BoosterRow
 import space.sovereigncast.hopp.ui.sovereigncast.CommunityBoostRow
 import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
+import space.sovereigncast.hopp.ui.sovereigncast.PollCommunity
 import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingCard
 import space.sovereigncast.hopp.ui.sovereigncast.ReleaseBoostingSheet
 import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
@@ -141,6 +142,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     LaunchedEffect(gone) { if (gone) onGone() }
     // The Sovereigncast layer (ADR 0018, phase 1) — only once the instance confirmed the show.
     val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
+    PollCommunity(community)
     val layer by community.layer.collectAsState()
     val round by community.round.collectAsState()
     val unlocks by community.unlocks.collectAsState()
@@ -270,7 +272,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                     } else {
                         // All of them (at most 25) — the tab is theirs.
-                        items(list, key = { "top" + it.rank }) { e ->
+                        itemsIndexed(list, key = { i, _ -> "top$i" }) { _, e ->
                             TopEpisodeRow(e) {
                                 // In Hopp when the feed has it, else on the show's website.
                                 community.episodeFor(e) { item -> item?.let { nav.open(it) } ?: e.websiteUrl?.let { runCatching { uri.openUri(it) } } }
@@ -409,13 +411,15 @@ private fun LazyListScope.leaderboard(b: Leaderboard) {
     }
     item(key = "top-h") {
         val months = stringArrayResource(Res.array.months)
-        val name = b.month.split("-").let { (y, m) -> months.getOrNull(m.toInt() - 1)?.let { "$it $y" } }
+        // The instance's word for it: a month that is not "yyyy-mm" shows as sent (code review 2026-10-17, M25).
+        val name = b.month.split("-").let { p -> p.getOrNull(1)?.toIntOrNull()?.let { m -> months.getOrNull(m - 1)?.let { "$it ${p[0]}" } } }
         BoardTitle(stringResource(Res.string.sc_top_month, name ?: b.month), first = b.recentBoosts.isEmpty())
     }
     if (b.topBoosts.isEmpty()) item(key = "top-none") {
         Text(stringResource(Res.string.sc_no_boosts), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    items(b.topBoosts, key = { "top" + it.rank + it.amountSats + it.sender }) { CommunityBoostRow(it, showRank = true) }
+    // By index, as the latest boosts: rank, amount and name can repeat (code review 2026-10-17, H7).
+    itemsIndexed(b.topBoosts, key = { i, _ -> "board$i" }) { _, r -> CommunityBoostRow(r, showRank = true) }
     if (b.alltimeBoosters.isNotEmpty()) {
         item(key = "all-h") {
             BoardTitle(stringResource(Res.string.sc_alltime))
