@@ -39,7 +39,7 @@ Builds:
 
   - versionName: 0.2.1
     versionCode: 4
-    commit: b16148003295ec9b6ef65b19f157f4780deefaeb
+    commit: 8f05a48d5a090bf1113b834af1cb65bbbc4fab98
     subdir: androidApp
     gradle:
       - foss
