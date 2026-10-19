@@ -604,6 +604,7 @@
     <string name="comments_more">Mehr</string>
     <string name="comments_mute">%1$s stummschalten</string>
     <string name="comments_report">Melden</string>
+    <string name="comments_open_profile">Profil in Nostr-App öffnen</string>
     <string name="comments_copy_npub">npub kopieren</string>
     <string name="comments_copy_nevent">Note-Link kopieren (nevent)</string>
     <string name="comments_hide">Ausblenden</string>

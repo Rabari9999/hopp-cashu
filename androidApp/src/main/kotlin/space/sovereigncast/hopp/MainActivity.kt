@@ -112,6 +112,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
         runCatching { startActivity(intent) }
     }
 
+    /** Whatever app takes `nostr:` (Amethyst, Primal …) — the system asks which when there are several. */
+    override fun openNostr(entity: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("nostr:$entity"))) }
+            .onFailure { runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://njump.me/$entity"))) } }
+    }
+
     override val canPickLanguage: Boolean get() = Build.VERSION.SDK_INT >= 33
 
     override fun openLanguageSettings() {

@@ -16,6 +16,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Downloads:** Finished downloads go to "Up next" automatically (can be turned off).
 - **Comments:** Zap comments – public, private or anonymous.
 - **Comments:** Copy the author's npub and the note's nevent.
+- **Comments:** Open the author's profile in your Nostr app.
 - **Nostr:** Add and remove your own relays (relays that need a login, NIP-42, not yet).
 - **Wallet:** Your own values for daily budget, streaming rate, quick boost and "Support Hopp"; 210 instead of 500 sats suggested.
 - **Notifications:** Set separately for quick boost, boost and zap.

@@ -604,6 +604,7 @@
     <string name="comments_more">More</string>
     <string name="comments_mute">Mute %1$s</string>
     <string name="comments_report">Report</string>
+    <string name="comments_open_profile">Open profile in Nostr app</string>
     <string name="comments_copy_npub">Copy npub</string>
     <string name="comments_copy_nevent">Copy note link (nevent)</string>
     <string name="comments_hide">Hide</string>

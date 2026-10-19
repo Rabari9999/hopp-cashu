@@ -12,6 +12,9 @@ interface PlatformActions {
     fun shareText(text: String, subject: String) = Unit
     /** Puts text on the clipboard (device feedback 2026-10-12: nothing could be copied). */
     fun copyText(text: String, label: String) = Unit
+    /** Opens [entity] (`npub1…`, NIP-19) as a NIP-21 `nostr:` link in the listener's Nostr app;
+     *  without one, on njump.me in the browser. */
+    fun openNostr(entity: String) = Unit
     /** Opens the system's notification settings for Hopp. */
     fun openNotificationSettings() = Unit
     /** Whether the system lets Hopp's language differ from its own (Android 13+). */

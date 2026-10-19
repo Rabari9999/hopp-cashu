@@ -46,6 +46,14 @@ class IosPlatformActions : PlatformActions {
         UIApplication.sharedApplication.openURL(url, emptyMap<Any?, Any?>(), null)
     }
 
+    /** Damus, Primal and others take `nostr:`; none installed, njump.me in Safari. */
+    override fun openNostr(entity: String) {
+        val app = NSURL.URLWithString("nostr:$entity") ?: return
+        UIApplication.sharedApplication.openURL(app, emptyMap<Any?, Any?>()) { opened ->
+            if (!opened) NSURL.URLWithString("https://njump.me/$entity")?.let { UIApplication.sharedApplication.openURL(it, emptyMap<Any?, Any?>(), null) }
+        }
+    }
+
     /** iOS shows no confirmation of its own; the clipboard is the confirmation. */
     override fun copyText(text: String, label: String) {
         UIPasteboard.generalPasteboard.string = text

@@ -1092,6 +1092,7 @@ class AndroidAppFlowTest {
             override fun pickOpml(onText: (String) -> Unit) = Unit
             override fun exportOpml(text: String) = Unit
             override fun copyText(text: String, label: String) { copied += text }
+            override fun openNostr(entity: String) { copied += "open:$entity" }
         }
         rule.setContent { App(actions) }
         tap("Discover"); subscribe()
@@ -1120,6 +1121,11 @@ class AndroidAppFlowTest {
         tap("Copy note link (nevent)")
         until { copied.size == 2 }
         check(copied[0].startsWith("npub1") && copied[1].startsWith("nevent1")) { copied.toString() }
+        // Straight into the listener's Nostr app, at the author's profile (device feedback 2026-10-19).
+        rule.onAllNodes(hasContentDescription("More") and hasClickAction()).onLast().performClick()
+        tap("Open profile in Nostr app")
+        until { copied.size == 3 }
+        check(copied[2] == "open:" + copied[0]) { copied.toString() }
         check(kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current().nostrPublicNoted })
         // An answer's field opens right under the comment, in view (device feedback 2026-10-16).
         tap("Reply")

@@ -629,6 +629,9 @@ private fun CommentRow(
                         DropdownMenuItem(text = { Text(stringResource(Res.string.comments_hide)) }, onClick = { menu = false; vm.hide(c) })
                         // To find the author or the note in another Nostr app (device feedback 2026-10-19:
                         // searching the name there and clicking through look-alikes).
+                        DropdownMenuItem(text = { Text(stringResource(Res.string.comments_open_profile)) }, onClick = {
+                            menu = false; actions.openNostr(space.sovereigncast.hopp.nostr.npub(c.pubkey))
+                        })
                         DropdownMenuItem(text = { Text(stringResource(Res.string.comments_copy_npub)) }, onClick = {
                             menu = false; copy(space.sovereigncast.hopp.nostr.npub(c.pubkey), name)
                         })

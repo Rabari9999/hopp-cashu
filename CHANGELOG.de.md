@@ -16,6 +16,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Downloads:** Fertige Downloads kommen automatisch in „Als Nächstes“ (abschaltbar).
 - **Kommentare:** Kommentare zappen – öffentlich, privat oder anonym.
 - **Kommentare:** npub des Autors und nevent der Note kopieren.
+- **Kommentare:** Profil des Autors in deiner Nostr-App öffnen.
 - **Nostr:** Eigene Relays hinzufügen und entfernen (Relays mit Anmeldung, NIP-42, noch nicht).
 - **Wallet:** Eigene Werte für Tagesbudget, Streaming-Rate, Schnellboost und „Hopp unterstützen“; 210 statt 500 sats als Vorschlag.
 - **Benachrichtigungen:** Für Schnellboost, Boost und Zap getrennt einstellbar.
