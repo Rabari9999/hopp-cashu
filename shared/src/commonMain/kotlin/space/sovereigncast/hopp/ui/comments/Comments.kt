@@ -45,6 +45,7 @@ import space.sovereigncast.hopp.comments.ZapPrivacy
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.value.OverBudgetException
+import space.sovereigncast.hopp.value.LnAddressException
 import space.sovereigncast.hopp.value.nwc.NwcException
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -75,6 +76,8 @@ import space.sovereigncast.hopp.resources.zap_anonymous
 import space.sovereigncast.hopp.resources.zap_anonymous_switch
 import space.sovereigncast.hopp.resources.zap_anonymous_note
 import space.sovereigncast.hopp.resources.zap_public
+import space.sovereigncast.hopp.resources.zap_no_invoice
+import space.sovereigncast.hopp.resources.zap_not_paid
 import space.sovereigncast.hopp.resources.zap_vpn_on
 import space.sovereigncast.hopp.resources.zap_vpn_off
 import space.sovereigncast.hopp.resources.zap_ip
@@ -287,10 +290,14 @@ class CommentsViewModel(
         val target: ZapTarget? = null,
         val sending: Boolean = false,
         val failure: ZapFailure? = null,
+        /** What the Lightning server or the wallet said (device feedback 2026-10-19: "did not go
+         *  through" alone left the listener guessing). */
+        val reason: String? = null,
         /** Paid: the sats. */
         val done: Long? = null,
     )
-    enum class ZapFailure { OverBudget, Unknown, Failed }
+    /** [NoInvoice]: the author's Lightning server gave none; [NotPaid]: the wallet did not pay it. */
+    enum class ZapFailure { OverBudget, Unknown, NoInvoice, NotPaid, Failed }
     val zapping = MutableStateFlow<Zapping?>(null)
     /** Zaps paid here, shown on the comment until the receipt comes with the next load. */
     val zappedHere = MutableStateFlow<Map<String, Long>>(emptyMap())
@@ -322,7 +329,7 @@ class CommentsViewModel(
         if (z.sending || z.done != null) return
         val privacy = zapPrivacy()
         val send = {
-            zapping.value = z.copy(sending = true, failure = null)
+            zapping.value = z.copy(sending = true, failure = null, reason = null)
             viewModelScope.launch {
                 val item = runCatching { episodes.item(episodeId) }.getOrNull()
                 runCatching {
@@ -334,9 +341,11 @@ class CommentsViewModel(
                     val why = when {
                         e is OverBudgetException -> ZapFailure.OverBudget
                         (e as? NwcException)?.outcomeUnknown == true -> ZapFailure.Unknown
+                        e is LnAddressException -> ZapFailure.NoInvoice
+                        e is NwcException -> ZapFailure.NotPaid
                         else -> ZapFailure.Failed
                     }
-                    zapping.update { it?.copy(sending = false, failure = why) }
+                    zapping.update { it?.copy(sending = false, failure = why, reason = e.message?.take(200)) }
                 }
             }
             Unit
@@ -588,9 +597,10 @@ private fun CommentRow(
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable { if (me == null) openIdentity() else vm.replyTo.value = c }.padding(vertical = 6.dp, horizontal = 2.dp),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                 )
-                // Zapping it from the connected wallet (device feedback 2026-10-19) — not one's own.
+                // Zapping it from the connected wallet (device feedback 2026-10-19) — not one's own:
+                // there the symbol shows only what others zapped.
                 val zapLabel = stringResource(Res.string.comments_zap)
-                Text(
+                if (c.pubkey != me || zapped > 0) Text(
                     "⚡" + if (zapped > 0) " ${formatSats(zapped)}" else "",
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = c.pubkey != me) { if (hasWallet) vm.openZap(c) else openWallet() }
                         .padding(vertical = 6.dp, horizontal = 2.dp).semantics { contentDescription = zapLabel },
@@ -722,11 +732,14 @@ private fun ZapSheet(vm: CommentsViewModel) {
                         null -> Text(stringResource(Res.string.zap_ip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                     zapping.failure?.let { f ->
-                        Text(stringResource(when (f) {
-                            CommentsViewModel.ZapFailure.OverBudget -> Res.string.zap_over_budget
-                            CommentsViewModel.ZapFailure.Unknown -> Res.string.zap_unknown
-                            CommentsViewModel.ZapFailure.Failed -> Res.string.zap_failed
-                        }), color = colors.error, style = MaterialTheme.typography.bodySmall)
+                        val why = zapping.reason ?: "?"
+                        Text(when (f) {
+                            CommentsViewModel.ZapFailure.OverBudget -> stringResource(Res.string.zap_over_budget)
+                            CommentsViewModel.ZapFailure.Unknown -> stringResource(Res.string.zap_unknown)
+                            CommentsViewModel.ZapFailure.NoInvoice -> stringResource(Res.string.zap_no_invoice, name, why)
+                            CommentsViewModel.ZapFailure.NotPaid -> stringResource(Res.string.zap_not_paid, why)
+                            CommentsViewModel.ZapFailure.Failed -> stringResource(Res.string.zap_failed, why)
+                        }, color = colors.error, style = MaterialTheme.typography.bodySmall)
                     }
                     androidx.compose.material3.Button(
                         onClick = { vm.zap(amount, message) }, Modifier.fillMaxWidth(),

@@ -712,7 +712,7 @@
     <string name="zap_close">Schließen</string>
     <string name="zap_over_budget">Mehr, als das Tagesbudget erlaubt (Einstellungen → Wallet &amp; Zahlungen).</string>
     <string name="zap_unknown">Die Wallet hat nicht gesagt, ob sie gezahlt hat. Bitte dort prüfen, bevor du erneut zappst.</string>
-    <string name="zap_failed">Der Zap ist nicht durchgegangen.</string>
+    <string name="zap_failed">Der Zap ist nicht durchgegangen: %1$s</string>
     <string name="history_zap">Zap auf einen Kommentar</string>
     <string name="zap_anonymous_switch">Anonym</string>
     <string name="zap_anonymous_note">Niemand sieht, dass er von dir kommt.</string>
@@ -728,4 +728,6 @@
     <string name="zap_vpn_on">VPN aktiv – der Lightning-Server sieht deine IP-Adresse nicht</string>
     <string name="zap_vpn_off">Der Lightning-Server sieht deine IP-Adresse · VPN einrichten</string>
     <string name="zap_ip">Der Lightning-Server sieht deine IP-Adresse.</string>
+    <string name="zap_no_invoice">Der Lightning-Server von %1$s hat keine Rechnung ausgestellt: %2$s</string>
+    <string name="zap_not_paid">Deine Wallet konnte nicht zahlen: %1$s. Gerade ältere getalby.com-Adressen sind oft nicht erreichbar.</string>
 </resources>

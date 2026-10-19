@@ -19,7 +19,6 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -1082,8 +1081,8 @@ class AndroidAppFlowTest {
         tap("Later")
         waitFor("Great episode")
         check(has("Me")) { "the comment shows under the listener's name" }
-        // Beside like and reply a zap (device feedback 2026-10-19) — not on one's own comment.
-        rule.onNodeWithContentDescription("Zap").assertIsNotEnabled()
+        // Beside like and reply a zap (device feedback 2026-10-19) — none on one's own comment.
+        rule.onNodeWithContentDescription("Zap").assertDoesNotExist()
         check(kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current().nostrPublicNoted })
         // An answer's field opens right under the comment, in view (device feedback 2026-10-16).
         tap("Reply")
