@@ -778,4 +778,16 @@
     <string name="discover_language">Language of the shows</string>
     <string name="discover_language_all">All languages</string>
     <string name="discover_language_device">%1$s (this device)</string>
+    <string name="nostr_relays">Relays</string>
+    <string name="nostr_relays_note">Where your comments, likes and boosts go</string>
+    <string name="nostr_relays_text">Hopp publishes to these relays and reads comments from them too. It is your relay list (NIP-65) – other Nostr apps use the same one. Relays that ask you to log in (NIP-42) do not work yet.</string>
+    <string name="nostr_relay_both">Read and write</string>
+    <string name="nostr_relay_read">Read only</string>
+    <string name="nostr_relay_write">Write only</string>
+    <string name="nostr_relay_remove">Remove %1$s</string>
+    <string name="nostr_relay_add">Add</string>
+    <string name="nostr_relay_add_anyway">Add anyway</string>
+    <string name="nostr_relay_bad">That is no relay address. It starts with wss://.</string>
+    <string name="nostr_relay_unreachable">This relay does not answer.</string>
+    <string name="nostr_relay_not_published">The list could not be saved on any relay. Try again later.</string>
 </resources>

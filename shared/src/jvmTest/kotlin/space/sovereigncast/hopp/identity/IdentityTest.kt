@@ -221,6 +221,55 @@ class IdentityTest {
         assertEquals("https://img.example/a.png", me.picture)
     }
 
+    /** Device feedback 2026-10-19: one's own relay on the list — written as every client reads it. */
+    @Test
+    fun aRelayAddressIsKeptOneWay() {
+        assertEquals("wss://relay.example.com", IdentityRepository.relayAddress(" relay.Example.com/ "))
+        assertEquals("wss://relay.example.com", IdentityRepository.relayAddress("wss://relay.example.com:443"))
+        assertEquals("wss://relay.example.com:7777/nostr", IdentityRepository.relayAddress("wss://relay.example.com:7777/nostr/"))
+        assertNull(IdentityRepository.relayAddress("ws://relay.example.com"), "no TLS: not for the list")
+        assertNull(IdentityRepository.relayAddress("https://relay.example.com"))
+        assertNull(IdentityRepository.relayAddress("umbrel"))
+    }
+
+    /** An imported key brought its relay list with it — Hopp writes there, not to its own three. */
+    @Test
+    fun anImportedKeyWritesToItsOwnRelays() = runBlocking<Unit> {
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        relay.publish(Event.sign(keys, 10002, "", listOf(listOf("r", "wss://mine.example/"), listOf("r", "wss://read.example", "read")), now - 50))
+        identities.importKey(space.sovereigncast.hopp.nostr.Bech32.encode("nsec", keys.secretKey))
+        assertEquals(listOf("wss://mine.example"), identities.writeRelays())
+        assertEquals(listOf("wss://mine.example", "wss://read.example"), identities.readRelays())
+    }
+
+    /**
+     * A relay added in Hopp joins the list as it stands on the relays — one
+     * another app changed meanwhile keeps what it added — and the last relay
+     * written to cannot be removed.
+     */
+    @Test
+    fun aRelayJoinsTheListAsItStands() = runBlocking<Unit> {
+        identities.create("X")
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.fromHex(secrets.get("nostr_identity_key")!!)
+        // The other app's list is newer than Hopp's.
+        relay.publish(Event.sign(keys, 10002, "", listOf(listOf("r", "wss://other.example"), listOf("r", "wss://nos.lol", "write")), now + 10))
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        val list = identities.addRelay("my.relay.example")
+        assertEquals(listOf("wss://other.example", "wss://nos.lol", "wss://my.relay.example"), list.map { it.url })
+        assertTrue(list[1].write && !list[1].read, "a marker stays")
+        assertEquals(list.map { it.url }, published.filter { it.kind == 10002 }.distinctBy { it.id }.single().tags.map { it[1] })
+        assertEquals(list, identities.identity.value!!.relays)
+        assertTrue("wss://my.relay.example" in identities.writeRelays())
+        removingAllLeavesOneToWriteTo(identities)
+    }
+
+    private suspend fun removingAllLeavesOneToWriteTo(repo: IdentityRepository) {
+        var list = repo.relays()
+        for (r in list.toList()) list = repo.removeRelay(r.url)
+        assertEquals(1, list.count { it.write }, "one relay to write to stays: $list")
+    }
+
     @Test
     fun aPictureThatIsNotHttpsIsLeftOut() = runBlocking<Unit> {
         val app = FakeSignerApp()

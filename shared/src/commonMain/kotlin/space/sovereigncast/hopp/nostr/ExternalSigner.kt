@@ -37,7 +37,7 @@ interface ExternalSigner {
         /** Hopp's requests the listener can allow once: NIP-98 for votes and suggestions. */
         /** NIP-98 for Sovereigncast; comments, answers (1, 1111), likes (7), the mute list (10000)
          *  and reports (1984) since stage 3 — the signer app lets the listener choose. */
-        val SIGNED_KINDS = listOf(Nip98.KIND, 1, 1111, 7, 10000, 1984)
+        val SIGNED_KINDS = listOf(Nip98.KIND, 1, 1111, 7, 10000, 1984, 10002)
         val PERMISSIONS = SIGNED_KINDS.map { SignerPermission("sign_event", it) }
 
         fun permissionsJson(permissions: List<SignerPermission>): String = buildJsonArray {

@@ -106,7 +106,8 @@ fun sharedModule(platform: Platform) = module {
     single { space.sovereigncast.hopp.nostr.Nip05(get()) }
     single {
         space.sovereigncast.hopp.comments.CommentReader(get(), get<Clock>()::now, get(),
-            { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey)
+            { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey,
+            { get<space.sovereigncast.hopp.identity.IdentityRepository>().readRelays() })
     }
     single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }

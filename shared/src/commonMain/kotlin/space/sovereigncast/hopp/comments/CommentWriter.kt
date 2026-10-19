@@ -45,7 +45,6 @@ class CommentWriter(
     private val store: CommentStore,
     private val now: () -> Long,
 ) {
-    private var writeRelays: Pair<String, List<String>>? = null
     /** One mute at a time: each reads the list the one before it wrote. */
     private val muting = Mutex()
 
@@ -143,14 +142,10 @@ class CommentWriter(
         return event
     }
 
-    /** The listener's write relays (NIP-65), looked up once; Hopp's own for a key made here or none found. */
+    /** The listener's write relays (NIP-65) — their own list, which they can change in Hopp (device feedback 2026-10-19). */
     private suspend fun mine(): List<String> {
-        val me = identity.identity.value ?: throw NoIdentity()
-        writeRelays?.takeIf { it.first == me.pubkey }?.let { return it.second }
-        val found = if (me.holdsKey) emptyList() else publisher.latest(10002, me.pubkey, LOOKUP, 2000.milliseconds)?.tags.orEmpty()
-            .filter { it.size >= 2 && it[0] == "r" && it[1].startsWith("wss://") && (it.size < 3 || it[2] == "write") }
-            .map { it[1].trimEnd('/') }.take(4)
-        return found.ifEmpty { IdentityRepository.DEFAULT_RELAYS }.also { writeRelays = me.pubkey to it }
+        if (identity.identity.value == null) throw NoIdentity()
+        return identity.writeRelays()
     }
 
     companion object {

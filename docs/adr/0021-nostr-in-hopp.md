@@ -126,6 +126,14 @@ Hopp shows what Fountain's listeners say about the same episode.
   replace. At most five relays per episode.
 - **Writing:** the listener's NIP-65 write relays; a key made in Hopp
   publishes the default list as its kind 10002.
+- **The listener's own list (amended 2026-10-19, device feedback):** under
+  Nostr → Relays the listener sees their kind 10002 and adds or removes
+  relays (wss:// only, checked for an answer first). Hopp reads the newest
+  list before changing it, so what another client set stays, and publishes
+  it to the relays before and after the change and to the index relays. The
+  listener's read relays are asked for comments too. An imported key uses
+  its own list, as a signer app's identity always did. Relays that require
+  NIP-42 authentication are not supported yet.
 - **Privacy:** reading contacts relays, which see the IP address and which
   episode is asked about. Comments therefore load only when the listener opens
   them, never with the episode page, and the privacy page (ADR 0015) lists

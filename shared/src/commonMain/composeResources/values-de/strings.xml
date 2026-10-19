@@ -778,4 +778,16 @@
     <string name="discover_language">Sprache der Shows</string>
     <string name="discover_language_all">Alle Sprachen</string>
     <string name="discover_language_device">%1$s (wie das Gerät)</string>
+    <string name="nostr_relays">Relays</string>
+    <string name="nostr_relays_note">Wo deine Kommentare, Likes und Boosts landen</string>
+    <string name="nostr_relays_text">Hopp veröffentlicht auf diesen Relays und liest Kommentare auch von ihnen. Es ist deine Relay-Liste (NIP-65) – andere Nostr-Apps nutzen dieselbe. Relays, die eine Anmeldung verlangen (NIP-42), funktionieren noch nicht.</string>
+    <string name="nostr_relay_both">Lesen und schreiben</string>
+    <string name="nostr_relay_read">Nur lesen</string>
+    <string name="nostr_relay_write">Nur schreiben</string>
+    <string name="nostr_relay_remove">%1$s entfernen</string>
+    <string name="nostr_relay_add">Hinzufügen</string>
+    <string name="nostr_relay_add_anyway">Trotzdem hinzufügen</string>
+    <string name="nostr_relay_bad">Das ist keine Relay-Adresse. Sie beginnt mit wss://.</string>
+    <string name="nostr_relay_unreachable">Dieses Relay antwortet nicht.</string>
+    <string name="nostr_relay_not_published">Die Liste konnte auf keinem Relay gespeichert werden. Versuch es später noch einmal.</string>
 </resources>

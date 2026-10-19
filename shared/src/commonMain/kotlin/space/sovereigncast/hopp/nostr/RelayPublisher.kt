@@ -104,6 +104,10 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         return found.toList().takeIf { reached }
     }
 
+    /** Whether [url] takes a connection and answers a request at all. */
+    suspend fun reachable(url: String): Boolean =
+        runCatching { latestOn(10002, "0".repeat(64), url) }.getOrNull() != null
+
     /** The newest match on [url] (empty: none there); null when it could not be reached. */
     private suspend fun latestOn(kind: Int, author: String, url: String): List<Event>? = withTimeoutOrNull(timeout) {
         val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull null

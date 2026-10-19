@@ -18,8 +18,10 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Benachrichtigungen je Fall** — unter Einstellungen → Benachrichtigungen wählst du getrennt, was ein Schnellboost vom Sperrbildschirm, ein Boost in der App und ein Zap melden: nichts, nur Fehler oder immer. Zaps haben einen eigenen Benachrichtigungskanal.
 - **Jede Geschwindigkeit per Tipp** — ein Tipp auf die Geschwindigkeit im Player schaltet jetzt durch alle Stufen, die der lange Druck anbietet, auch 1,1×, 1,3×, 2,5× und 3×.
 - **npub und nevent kopieren** — das ⋯-Menü eines Kommentars kopiert die npub des Autors und das nevent der Note, um beide in jeder anderen Nostr-App zu finden.
+- **Deine Relays** — Einstellungen → Nostr → Relays zeigt deine Relay-Liste (NIP-65); du kannst dein eigenes Relay hinzufügen oder eins entfernen. Hopp veröffentlicht dort und liest auch Kommentare von dort. Es ist dieselbe Liste, die andere Nostr-Apps nutzen. Relays mit Anmeldung (NIP-42) gehen noch nicht.
 
 ### 🐛 Fixes
+- Mit einem importierten Schlüssel veröffentlichte Hopp nur auf seinen eigenen drei Relays, nicht auf denen deiner Relay-Liste; jetzt nutzt es deine Liste.
 - Einen Kommentar zu zappen löste keine Benachrichtigung aus, auch mit „Immer“; jetzt meldet er sich wie ein Boost.
 - Ein Stream, der etwas braucht, bis er startet, zeigt einen drehenden Ring um den Play-Button, der so lange Pause zeigt; ein zweiter Tipp stoppt ihn, statt ihn neu zu starten.
 - Ein Kommentar oder öffentlicher Boost zu einer Show, die keine Nostr-Notes postet, nennt jetzt Show und Folge samt Link, damit andere Nostr-Apps zeigen, worum es geht.

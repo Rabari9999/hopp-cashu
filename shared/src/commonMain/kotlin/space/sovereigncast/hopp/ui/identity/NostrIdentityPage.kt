@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.identity
 
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
 
@@ -10,6 +11,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.clickable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -269,6 +274,49 @@ class NostrIdentityViewModel(
     fun publishAgain() = work { _published.value = identities.publishProfile().size }
     fun export(password: String) = work { _exported.value = identities.export(password) }
     fun setAnonymous(on: Boolean) = viewModelScope.launch { settings.update { it.copy(scAnonymous = on) } }
+
+    /** The listener's relays (NIP-65), to look at and change (device feedback 2026-10-19). */
+    sealed interface Relays {
+        data object Loading : Relays
+        data class Shown(val list: List<space.sovereigncast.hopp.identity.RelayEntry>, val working: Boolean = false, val problem: RelayProblem? = null, val pending: String? = null) : Relays
+    }
+    /** [Unreachable]: offered anyway; [NotPublished]: no relay took the new list. */
+    enum class RelayProblem { BadAddress, Unreachable, NotPublished }
+    private val _relays = MutableStateFlow<Relays>(Relays.Loading)
+    val relays: StateFlow<Relays> = _relays.asStateFlow()
+
+    fun loadRelays() = viewModelScope.launch {
+        _relays.value = Relays.Shown(runCatching { identities.relays() }.getOrDefault(emptyList()))
+    }
+
+    /** Checked first: an address that does not answer is added only when asked again ([force]). */
+    fun addRelay(text: String, force: Boolean = false) = changeRelays(text) {
+        val url = space.sovereigncast.hopp.identity.IdentityRepository.relayAddress(text) ?: throw space.sovereigncast.hopp.identity.BadRelayAddress()
+        if (!force && !identities.reachable(url)) throw Unreachable()
+        identities.addRelay(url)
+    }
+
+    fun removeRelay(url: String) = changeRelays(null) { identities.removeRelay(url) }
+
+    private class Unreachable : Exception()
+
+    private fun changeRelays(pending: String?, change: suspend () -> List<space.sovereigncast.hopp.identity.RelayEntry>) {
+        val shown = _relays.value as? Relays.Shown ?: return
+        if (shown.working) return
+        _relays.value = shown.copy(working = true, problem = null, pending = pending)
+        viewModelScope.launch {
+            _relays.value = runCatching { change() }.fold(
+                { Relays.Shown(it) },
+                { e ->
+                    shown.copy(working = false, pending = pending, problem = when (e) {
+                        is space.sovereigncast.hopp.identity.BadRelayAddress -> RelayProblem.BadAddress
+                        is Unreachable -> RelayProblem.Unreachable
+                        else -> RelayProblem.NotPublished
+                    })
+                },
+            )
+        }
+    }
     fun setNostrBoosts(on: Boolean) = viewModelScope.launch { settings.update { it.copy(nostrBoosts = on) } }
     fun signOut() {
         _exported.value = null; _published.value = null
@@ -476,6 +524,15 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
+    var relaysOpen by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(Res.string.nostr_relays))
+            Text(stringResource(Res.string.nostr_relays_note), color = muted, style = MaterialTheme.typography.bodySmall)
+        }
+        Text("›", color = muted, style = MaterialTheme.typography.titleLarge)
+    }
+    if (relaysOpen) RelaysSheet(vm) { relaysOpen = false }
 
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {
         Text(stringResource(Res.string.nostr_sign_out), color = MaterialTheme.colorScheme.error)
@@ -487,6 +544,67 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/**
+ * The listener's relays (NIP-65): what Hopp writes to and reads comments
+ * from too — the same list other Nostr apps use. Relays that ask to log in
+ * (NIP-42) do not work yet.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
+    val state by vm.relays.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    var address by remember { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.nostr_relays), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.nostr_relays_text), color = muted, style = MaterialTheme.typography.bodySmall)
+            when (val s = state) {
+                NostrIdentityViewModel.Relays.Loading -> CircularProgressIndicator(Modifier.padding(8.dp))
+                is NostrIdentityViewModel.Relays.Shown -> {
+                    val writers = s.list.count { it.write }
+                    s.list.forEach { r ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(r.url.removePrefix("wss://"), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(when {
+                                    r.read && r.write -> Res.string.nostr_relay_both
+                                    r.write -> Res.string.nostr_relay_write
+                                    else -> Res.string.nostr_relay_read
+                                }), color = muted, style = MaterialTheme.typography.bodySmall)
+                            }
+                            // The last one written to stays: without it nothing could be published.
+                            val remove = stringResource(Res.string.nostr_relay_remove, r.url)
+                            IconButton(onClick = { vm.removeRelay(r.url) }, enabled = !s.working && !(r.write && writers <= 1)) {
+                                Icon(androidx.compose.material.icons.Icons.Rounded.Close, remove)
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        address, { address = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        placeholder = { Text("wss://relay.example.com") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri),
+                    )
+                    if (s.problem != null) Text(stringResource(when (s.problem) {
+                        NostrIdentityViewModel.RelayProblem.BadAddress -> Res.string.nostr_relay_bad
+                        NostrIdentityViewModel.RelayProblem.Unreachable -> Res.string.nostr_relay_unreachable
+                        NostrIdentityViewModel.RelayProblem.NotPublished -> Res.string.nostr_relay_not_published
+                    }), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = { vm.addRelay(address) }, enabled = !s.working && address.isNotBlank()) { Text(stringResource(Res.string.nostr_relay_add)) }
+                        if (s.problem == NostrIdentityViewModel.RelayProblem.Unreachable && s.pending == address)
+                            TextButton(onClick = { vm.addRelay(address, force = true) }, enabled = !s.working) { Text(stringResource(Res.string.nostr_relay_add_anyway)) }
+                        if (s.working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                }
+            }
+        }
+    }
+    // Added: the field empties for the next one.
+    val shown = state as? NostrIdentityViewModel.Relays.Shown
+    LaunchedEffect(shown?.list?.size) { if (shown != null && shown.problem == null && !shown.working) address = "" }
 }
 
 @Composable

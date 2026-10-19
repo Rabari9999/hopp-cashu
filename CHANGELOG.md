@@ -18,8 +18,10 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Notifications for each case** — under Settings → Notifications you choose separately what a quick boost from the lock screen, a boost in the app and a zap report: nothing, only failures, or always. Zaps have a notification channel of their own.
 - **Every speed with a tap** — tapping the speed in the player now steps through all speeds the long press offers, 1.1×, 1.3×, 2.5× and 3× included.
 - **Copy npub and nevent** — a comment's ⋯ menu copies its author's npub and the note's nevent, to find both in any other Nostr app.
+- **Your relays** — Settings → Nostr → Relays shows your relay list (NIP-65) and lets you add your own relay or remove one; Hopp publishes there and reads comments from it too. The list is the same one other Nostr apps use. Relays that require a login (NIP-42) do not work yet.
 
 ### 🐛 Fixes
+- With an imported key Hopp published to its own three relays only, not to those in your relay list; it now uses your list.
 - Zapping a comment sent no notification, even with "Always" chosen; it now reports as boosts do.
 - A stream that takes a while to start shows a turning ring round the play button, which shows pause meanwhile; a second tap stops it instead of starting again.
 - A comment or public boost on a show that posts no Nostr notes now names the show and the episode, with a link, so other Nostr apps show what it is about.

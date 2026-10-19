@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -54,6 +56,8 @@ data class NostrIdentity(
     /** A remote signer's key and relays, for an identity behind a bunker (NIP-46). */
     val remoteSigner: String? = null,
     val signerRelays: List<String> = emptyList(),
+    /** The listener's relays (NIP-65) as last read or set; empty: not known yet. */
+    val relays: List<RelayEntry> = emptyList(),
 ) {
     val npub: String get() = npub(pubkey)
     /** Whether Hopp holds the key — and so is responsible for its backup. */
@@ -63,6 +67,13 @@ data class NostrIdentity(
      *  Bunker: a remote signer keeps it (NIP-46, stage 1c) — on iOS the only external one. */
     enum class Source { Local, Amber, Bunker }
 }
+
+/** One relay of the listener's list (NIP-65 `r` tag): read from, written to, or both. */
+@Serializable
+data class RelayEntry(val url: String, val read: Boolean = true, val write: Boolean = true)
+
+/** A relay to add that is no `wss://` address. */
+class BadRelayAddress : Exception("not a wss:// relay address")
 
 /**
  * The optional Nostr identity (ADR 0021, stage 1). Without one, nothing
@@ -167,9 +178,10 @@ class IdentityRepository(
     suspend fun refreshProfile(): NostrIdentity? {
         val me = _identity.value ?: return null
         val lookup = DEFAULT_RELAYS + INDEX_RELAYS
-        val theirs = publisher.latest(10002, me.pubkey, lookup)?.tags.orEmpty()
-            .filter { it.size >= 2 && it[0] == "r" && it[1].startsWith("wss://") && (it.size < 3 || it[2] == "write") }
-            .map { it[1].trimEnd('/') }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
+        val list = relayEntries(publisher.latest(10002, me.pubkey, lookup))
+        // Their own relays from now on — an imported key's too (device feedback 2026-10-19).
+        if (list.isNotEmpty()) _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = list)) }
+        val theirs = list.filter { it.write }.map { it.url }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
         val profile = publisher.latest(0, me.pubkey, lookup + theirs) ?: return null
         val obj = runCatching { json.parseToJsonElement(profile.content).jsonObject }.getOrNull() ?: return null
         fun text(vararg keys: String) = keys.firstNotNullOfOrNull { key -> (obj[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } }
@@ -178,7 +190,8 @@ class IdentityRepository(
         if (name == null && picture == null) return null
         // Still the same identity — the listener may have signed out meanwhile.
         if (_identity.value?.pubkey != me.pubkey) return _identity.value
-        return me.copy(name = name ?: me.name, picture = picture ?: me.picture).also(::save)
+        val now = _identity.value ?: me
+        return now.copy(name = name ?: now.name, picture = picture ?: now.picture).also(::save)
     }
 
     /**
@@ -189,7 +202,7 @@ class IdentityRepository(
     suspend fun create(name: String): Set<String> {
         val keys = KeyPair.generate()
         secrets.put(KEY, keys.secretKey.toHex())
-        save(NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, name.trim().ifEmpty { null }))
+        save(NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, name.trim().ifEmpty { null }, relays = DEFAULT_RELAYS.map { RelayEntry(it) }))
         return publishProfile()
     }
 
@@ -199,11 +212,72 @@ class IdentityRepository(
         val signer = signer() ?: return emptySet()
         val now = clock.now()
         val profile = signer.sign(UnsignedEvent(0, buildJsonObject { me.name?.let { put("name", it) } }.toString(), emptyList(), now))
-        val relays = signer.sign(UnsignedEvent(10002, "", DEFAULT_RELAYS.map { listOf("r", it) }, now))
+        // The listener's own list once there is one — published again, never overwritten with Hopp's.
+        val list = me.relays.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
+        val relays = signer.sign(UnsignedEvent(10002, "", tags(list), now))
+        val to = (list.filter { it.write }.map { it.url } + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
         // To the indexes too: other clients look a new profile up there.
-        val took = publisher.publish(profile, DEFAULT_RELAYS + INDEX_RELAYS)
-        publisher.publish(relays, DEFAULT_RELAYS + INDEX_RELAYS)
+        val took = publisher.publish(profile, to)
+        publisher.publish(relays, to)
         return took
+    }
+
+    /**
+     * The listener's relays (NIP-65): as kept, else looked up — the person's
+     * list where they have one, Hopp's three where not. Not kept when nothing
+     * answered, so the next call asks again.
+     */
+    suspend fun relays(): List<RelayEntry> {
+        val me = _identity.value ?: return emptyList()
+        if (me.relays.isNotEmpty()) return me.relays
+        val found = relayEntries(publisher.latest(10002, me.pubkey, DEFAULT_RELAYS + INDEX_RELAYS, 2000.milliseconds))
+        if (found.isNotEmpty()) _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = found)) }
+        return found.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
+    }
+
+    /** Where the listener's events go: their write relays. */
+    suspend fun writeRelays(): List<String> = relays().filter { it.write }.map { it.url }.take(MAX_WRITE_RELAYS)
+
+    /** Where the listener reads, as kept — for comments asked of them too; nothing until known. */
+    fun readRelays(): List<String> = _identity.value?.relays.orEmpty().filter { it.read }.map { it.url }.take(MAX_THEIR_RELAYS)
+
+    /** Whether [url] answers at all — before it goes onto the list. */
+    suspend fun reachable(url: String): Boolean = publisher.reachable(url)
+
+    /** [url] onto the listener's list, for reading and writing; [BadRelayAddress] for anything but wss://. */
+    suspend fun addRelay(url: String): List<RelayEntry> {
+        val clean = relayAddress(url) ?: throw BadRelayAddress()
+        return changeRelays { list -> if (list.any { it.url == clean }) list else list + RelayEntry(clean) }
+    }
+
+    /** [url] off the list — never the last one written to. */
+    suspend fun removeRelay(url: String): List<RelayEntry> = changeRelays { list ->
+        val next = list.filterNot { it.url == url }
+        if (next.none { it.write }) list else next
+    }
+
+    private val relayLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * The list (kind 10002) changed and published, as the mute list is
+     * (ADR 0021): the newest one read first — every relay asked to the end
+     * when the quick look finds none, as a slow relay may hold it — so what
+     * another client set is kept. Published to the relays before and after
+     * the change and to the indexes, where other clients look it up.
+     */
+    private suspend fun changeRelays(change: (List<RelayEntry>) -> List<RelayEntry>): List<RelayEntry> = relayLock.withLock {
+        val me = _identity.value ?: throw space.sovereigncast.hopp.comments.NoIdentity()
+        val signer = signer() ?: throw space.sovereigncast.hopp.comments.NoIdentity()
+        val lookup = (me.relays.map { it.url } + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
+        val current = publisher.latest(10002, me.pubkey, lookup, 3000.milliseconds) ?: publisher.latest(10002, me.pubkey, lookup)
+        val before = relayEntries(current).ifEmpty { me.relays }.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
+        val after = change(before)
+        if (after == before && current != null) return@withLock after.also { list -> _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = list)) } }
+        val event = signer.sign(UnsignedEvent(10002, current?.content.orEmpty(), tags(after), clock.now()))
+        val to = ((before + after).filter { it.write }.map { it.url } + INDEX_RELAYS).distinct()
+        if (publisher.publish(event, to).isEmpty()) throw space.sovereigncast.hopp.comments.NotPublished()
+        _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = after)) }
+        after
     }
 
     /** The key Hopp holds, as NIP-19 nsec — for the password manager or another app; null for a key held elsewhere. */
@@ -282,5 +356,32 @@ class IdentityRepository(
 
         /** A person's own relays asked at most, for one profile. */
         private const val MAX_THEIR_RELAYS = 4
+        /** Write relays an event goes to at most, besides the ones it needs to reach. */
+        private const val MAX_WRITE_RELAYS = 6
+
+        /** The `r` tags of a relay list (NIP-65): wss:// only, each once; no marker means both. */
+        fun relayEntries(list: space.sovereigncast.hopp.nostr.Event?): List<RelayEntry> =
+            list?.tags.orEmpty().filter { it.size >= 2 && it[0] == "r" }.mapNotNull { tag ->
+                val url = relayAddress(tag[1]) ?: return@mapNotNull null
+                val marker = tag.getOrNull(2)
+                RelayEntry(url, read = marker != "write", write = marker != "read")
+            }.distinctBy { it.url }
+
+        private fun tags(list: List<RelayEntry>) = list.map { r ->
+            listOfNotNull("r", r.url, when { r.read && r.write -> null; r.read -> "read"; else -> "write" })
+        }
+
+        /** A relay address as Hopp keeps it — `wss://host[:port][/path]`, lower-case host, no trailing slash;
+         *  "relay.example.com" alone is taken for wss://. Null for anything else, ws:// included: a phone
+         *  on mobile data and other people's clients reach a relay only over TLS. */
+        fun relayAddress(text: String): String? {
+            val t = text.trim().trimEnd('/')
+            val withScheme = if ("://" in t) t else "wss://$t"
+            val url = runCatching { io.ktor.http.Url(withScheme) }.getOrNull() ?: return null
+            if (!withScheme.startsWith("wss://", ignoreCase = true) || url.host.isBlank() || '.' !in url.host || ' ' in t) return null
+            val port = if (url.specifiedPort > 0 && url.specifiedPort != 443) ":${url.specifiedPort}" else ""
+            val path = url.encodedPath.trimEnd('/')
+            return "wss://${url.host.lowercase()}$port$path"
+        }
     }
 }

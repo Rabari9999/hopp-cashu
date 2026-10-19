@@ -191,6 +191,8 @@ class CommentReader(
     private val listener: () -> String? = { null },
     /** The key a website names for itself (NIP-05 `_`); none asked without it. */
     private val siteKey: suspend (String) -> String? = { null },
+    /** The listener's own read relays (NIP-65) — their comments are sure to be there. */
+    private val listenerRelays: () -> List<String> = { emptyList() },
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -219,7 +221,7 @@ class CommentReader(
     suspend fun load(anchor: CommentAnchor): CommentThread = coroutineScope {
         val before = store.seen(anchor.itemTag)
         val startedAt = now()
-        val base = ((anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS) + FOUNTAIN).distinct()
+        val base = ((anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS) + listenerRelays() + FOUNTAIN).distinct()
         val showRelays = async {
             anchor.showKeys.firstOrNull()?.let { key ->
                 publisher.latest(10002, key, LOOKUP, SETTLE)?.tags.orEmpty()
