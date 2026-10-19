@@ -19,7 +19,7 @@ A settings page lists it plainly:
 | Who | Sees | When |
 |---|---|---|
 | Feed hosts (PodHome, self-hosted instances, …) | IP address, User-Agent, which episode is fetched | every refresh and download |
-| Podcast Index | search queries; the subscription list if the batch check is on (ADR 0013) | search, podroll, optional refresh |
+| Podcast Index | search queries; the subscription list if the batch check is on (ADR 0013); the device's language and a category (added 2026-10-19) | search, podroll, Discover's popular and new value shows, optional refresh |
 | Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features |
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |

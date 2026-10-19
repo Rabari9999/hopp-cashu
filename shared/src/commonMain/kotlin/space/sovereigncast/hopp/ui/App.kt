@@ -183,6 +183,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Images through the shared client: Hopp's User-Agent on them too (ADR 0015).
     setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(KtorNetworkFetcherFactory(http)); addAnimatedImages() }.build() }
     val player: PlayerController = koinInject()
+    val directory: space.sovereigncast.hopp.directory.DirectoryRepository = koinInject()
     val expanded by player.expanded.collectAsState()
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
@@ -300,6 +301,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
             space.sovereigncast.hopp.ui.comments.LocalOpenIdentity provides { player.minimize(); nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name)) },
             space.sovereigncast.hopp.ui.comments.LocalOpenWallet provides { player.minimize(); nav.navigate(WalletRoute) },
+            // A show's category, opened in Discover (device feedback 2026-10-19).
+            space.sovereigncast.hopp.ui.library.LocalOpenCategory provides { c -> directory.requested.value = c; selectTab(tabs[2]) },
         ) {
           ProvideDownloadProgress {
             // Space, ← →, Escape for a keyboard (ADR 0020, step 3) — only with an episode loaded.

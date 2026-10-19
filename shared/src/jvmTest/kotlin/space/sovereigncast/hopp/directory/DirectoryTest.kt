@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.directory
 
+import kotlinx.coroutines.flow.first
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -30,8 +31,9 @@ class DirectoryTest {
     private fun piFeed(title: String, url: String, guid: String? = null, dead: Int = 0) =
         """{"id":1,"title":"$title","url":"$url","author":"A","artwork":"https://img.test/$title.jpg","dead":$dead${guid?.let { ",\"podcastGuid\":\"$it\"" } ?: ""}}"""
 
-    private val show = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+    private val show = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel>
         <title>Mine</title><podcast:guid>guid-mine</podcast:guid>
+        <itunes:category text="Education"><itunes:category text="How To"/></itunes:category><itunes:category text="Technology"/>
         <podcast:podroll>
           <podcast:remoteItem feedGuid="guid-friend"/>
           <podcast:remoteItem feedGuid="guid-mine"/>
@@ -64,6 +66,13 @@ class DirectoryTest {
                         "guid-impostor" -> respond("""{"status":"true","feed":${piFeed("Other", "https://other.test/rss", "guid-something-else")}}""")
                         else -> respond("""{"status":"true","feed":[]}""")
                     }
+                    path.endsWith("podcasts/trending") -> respond(pi(
+                        """{"id":2,"title":"Hot","url":"https://hot.test/rss","categories":{"102":"Technology","55":"News"}}""",
+                        """{"id":3,"title":"Copy","url":"https://copy.test/rss","duplicateOf":2}""",
+                    ))
+                    path.endsWith("recent/newvaluefeeds") -> respond(if (req.url.parameters["lang"] == "de")
+                        pi("""{"id":4,"title":"Wert","url":"https://wert.test/rss","language":"de","categories":{"53":"Music"}}""")
+                        else pi("""{"id":5,"title":"Value","url":"https://value.test/rss"}""", """{"id":4,"title":"Wert","url":"https://wert.test/rss"}"""))
                     else -> respondError(HttpStatusCode.NotFound)
                 }
             }
@@ -140,7 +149,41 @@ class DirectoryTest {
         val sub = podcasts.subscribe("https://pod.test/mine.xml")
         assertTrue(sub is SubscribeResult.Subscribed)
         // Itself, an unknown GUID and an index answer for a different GUID are left out.
-        assertEquals(listOf("Friend"), directory().podroll().map { it.title })
+        assertEquals(listOf("Friend"), directory().podroll().map { it.show.title })
+    }
+
+    /** Device feedback 2026-10-19: Discover's popular and new value shows, with their categories. */
+    @Test
+    fun trendingAndNewValueFeedsWithTheirCategories() = test {
+        val d = directory()
+        val hot = d.trending("de", Category.Technology)
+        assertEquals(listOf("Hot"), hot.map { it.title }, "a duplicate is left out")
+        assertEquals(listOf(Category.Technology, Category.News), Category.of(hot.single().categories))
+        assertTrue(seen.any { "podcasts/trending" in it && "lang=de" in it && "cat=Technology" in it })
+        val asked = seen.size
+        d.trending("de", Category.Technology)
+        assertEquals(asked, seen.size, "kept for an hour")
+        // Few in the listener's language: topped up from all, each once, all with value.
+        val value = d.newValue("de", null, max = 4)
+        assertEquals(listOf("Wert", "Value"), value.map { it.title })
+        assertTrue(value.all { it.hasValue == true })
+        // A show's own categories, from its feed.
+        val id = (podcasts.subscribe("https://pod.test/mine.xml") as SubscribeResult.Subscribed).podcastId
+        assertEquals(listOf("Education", "How To", "Technology"), podcasts.show(id).first()!!.categories)
+        assertEquals(listOf(Category.Education, Category.Technology), Category.of(podcasts.show(id).first()!!.categories))
+    }
+
+    @Test
+    fun indexAndAppleNamesComeToTheMainCategories() {
+        assertEquals(Category.Health, Category.of("Mental Health"))
+        assertEquals(Category.Health, Category.of("Fitness"))
+        assertEquals(Category.Society, Category.of("Society & Culture"))
+        assertEquals(Category.Education, Category.of("Self-Improvement"))
+        assertEquals(Category.Sports, Category.of("Soccer"))
+        assertEquals(Category.Film, Category.of("After-Shows"))
+        assertEquals(Category.Technology, Category.of("Cryptocurrency"))
+        assertEquals(null, Category.of("Unheard Of"))
+        assertEquals(listOf(Category.Kids, Category.Health), Category.of(listOf("Kids", "Family", "Health", "Fitness", "Mental")))
     }
 
     @Test

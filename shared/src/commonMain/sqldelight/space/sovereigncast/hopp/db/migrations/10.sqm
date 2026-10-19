@@ -1,0 +1,5 @@
+-- Version 10 → 11 (device feedback 2026-10-19): the feed's categories, for the
+-- library and Discover. Feeds are fetched in full once more — an unchanged one
+-- answers 304 and would never be parsed for them.
+ALTER TABLE podcast ADD COLUMN categories TEXT NOT NULL DEFAULT '';
+UPDATE podcast SET etag = NULL, last_modified = NULL;

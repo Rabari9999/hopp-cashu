@@ -162,6 +162,9 @@ object FeedParser {
                 el.ns == Ns.NONE && el.name == "enclosure" && inItem -> attrs["url"]?.takeIf { it.isNotEmpty() }?.let {
                     episode!!.enclosure = Enclosure(it, attrs["length"]?.toLongOrNull()?.takeIf { n -> n > 0 }, attrs["type"]?.ifEmpty { null })
                 }
+                el.ns == Ns.ITUNES && el.name == "category" && !inItem -> attrs["text"]?.takeIf { it.isNotEmpty() }?.let {
+                    if (it !in podcast.categories) podcast.categories += it
+                }
                 el.ns == Ns.ITUNES && el.name == "image" -> attrs["href"]?.takeIf { it.isNotEmpty() }?.let {
                     if (inItem) episode!!.imageUrl = episode!!.imageUrl ?: it else podcast.itunesImage = it
                 }
@@ -278,12 +281,14 @@ object FeedParser {
         val funding = mutableListOf<Funding>(); val txt = mutableListOf<TxtRecord>()
         val persons = mutableListOf<Person>(); var value: ValueBlock? = null
         val podroll = mutableListOf<RemoteItem>(); val trailers = mutableListOf<Trailer>()
+        val categories = mutableListOf<String>()
 
         fun build() = Podcast(
             title = title, link = link, description = description, language = language, author = author,
             imageUrl = podcastImage ?: itunesImage ?: rssImage, explicit = explicit, podcastGuid = guid,
             locked = locked, medium = medium, updateFrequency = updateFrequency, usesPodping = usesPodping,
             funding = funding, txt = txt, persons = persons, value = value, podroll = podroll, trailers = trailers,
+            categories = categories,
         )
     }
 

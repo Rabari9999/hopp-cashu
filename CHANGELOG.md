@@ -7,6 +7,9 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Discover, with more to discover** — category chips, "For you" (your shows' recommendations plus what is popular in your categories), "Popular right now" from the Podcast Index in your language, and new shows with ⚡ Value; every category one tap away.
+- **Categories** — a show's page names its categories; a tap opens them in Discover.
+- **Library order** — newest episode first (the new default), A–Z or most unheard; the list shows when the newest episode came out.
 - **Default speed** — set one playback speed for every show under Settings → Playback; a show you give its own speed in the player keeps it.
 - **Zap comments** — beside like and reply, ⚡ zaps a comment from your connected wallet, within your daily budget; the sats others zapped show on each comment. Public, private (only the author sees it is from you) or anonymous, as in Amethyst; without a Nostr profile it is anonymous.
 - **Downloads go to "Up next"** — as in AntennaPod, each finished download joins the end of the queue, so you can listen straight through (Settings → Downloads, on by default).

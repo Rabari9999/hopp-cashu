@@ -37,6 +37,9 @@ data class Podcast(
     val value: ValueBlock? = null,
     val podroll: List<RemoteItem> = emptyList(),
     val trailers: List<Trailer> = emptyList(),
+    /** `itunes:category` as the feed names them, top level and below, in order — what the
+     *  Podcast Index files the show under too (device feedback 2026-10-19). */
+    val categories: List<String> = emptyList(),
 )
 
 @Serializable

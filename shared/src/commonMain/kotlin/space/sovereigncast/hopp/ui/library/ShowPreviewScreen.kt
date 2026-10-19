@@ -95,6 +95,7 @@ fun ShowPreviewScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SelectionContainer { Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
+                    CategoryTags(p?.categories ?: known?.categories.orEmpty())
                     if (loaded != null) Text(
                         listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,

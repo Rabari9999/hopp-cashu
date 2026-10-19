@@ -441,8 +441,9 @@ class AndroidAppFlowTest {
         back()
         // The recommendations show while nothing is typed.
         rule.onNode(hasSetTextAction()).performTextClearance()
-        // Below the fold on a phone: scroll to it once it has been resolved.
-        val discover = rule.onNode(androidx.compose.ui.test.hasScrollToNodeAction())
+        // Below the fold on a phone: scroll to it once it has been resolved. The page, not one of
+        // its carousels (device feedback 2026-10-19): the list that holds the search field.
+        val discover = rule.onNode(androidx.compose.ui.test.hasScrollToNodeAction() and androidx.compose.ui.test.hasAnyDescendant(hasSetTextAction()))
         rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isSuccess }
         tap("Münzweg 21"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
@@ -450,6 +451,20 @@ class AndroidAppFlowTest {
         waitFor("Search or feed address")
         // Gone from the list — not merely scrolled out of view.
         rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isFailure }
+    }
+
+    /** Device feedback 2026-10-19: Discover without a term — what is popular, and every category. */
+    @Test
+    fun discoverShowsWhatIsPopularAndOpensACategory() {
+        rule.setContent { App() }
+        tap("Discover")
+        waitFor("Popular right now")
+        waitFor("Test Show")
+        tap("All categories ›")
+        waitFor("Categories")
+        tap("Technology")
+        waitFor("Technology · today")
+        rule.onNode(hasText("Technology") and androidx.compose.ui.test.isSelected()).assertIsDisplayed()
     }
 
     /** A term goes to the Podcast Index; a result opens its page first. */

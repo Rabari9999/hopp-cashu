@@ -45,10 +45,12 @@ data class Show(
     val autoDownload: Boolean = true,
     val playbackSpeed: Float? = null,
     val podcastGuid: String? = null,
+    /** The feed's categories, as it names them (itunes:category). */
+    val categories: List<String> = emptyList(),
 )
 
 /** A show's numbers in the library: all its episodes, and the new ones among them. */
-data class ShowCounts(val episodes: Int, val unheard: Int)
+data class ShowCounts(val episodes: Int, val unheard: Int, val latestAt: Long? = null)
 
 /** An episode as the UI lists it — the parsed feed data stays in the database
  *  until it is needed ([EpisodeRepository.details]). */
@@ -119,11 +121,11 @@ class PodcastRepository(
     val lastChecked: Flow<Long?> = q.lastChecked().asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.last }
 
     val shows: Flow<List<Show>> = q.selectAll().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat(), it.podcast_guid) }
+        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat(), it.podcast_guid, it.categories.lines().filter(String::isNotBlank)) }
     }
 
     fun show(id: Long): Flow<Show?> = q.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.let { r ->
-        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat(), r.podcast_guid)
+        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat(), r.podcast_guid, r.categories.lines().filter(String::isNotBlank))
     } }
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(Dispatchers.IO) {
@@ -164,7 +166,7 @@ class PodcastRepository(
             db.transactionWithResult {
                 val p = feed.podcast
                 q.insert(feedUrl, p.podcastGuid, p.title ?: feedUrl, p.author, p.imageUrl,
-                    json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now)
+                    json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"))
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
                 for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)
@@ -196,7 +198,7 @@ class PodcastRepository(
                 result.movedTo?.let { moved -> if (q.selectByFeedUrl(moved).executeAsOneOrNull() == null) q.updateFeedUrl(moved, id) }
                 val p = feed.podcast
                 q.updateFromFeed(p.podcastGuid, p.title ?: row.title, p.author, p.imageUrl,
-                    json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, id)
+                    json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, p.categories.joinToString("\n"), id)
                 val known = eq.guidsOfPodcast(id).executeAsList().toSet()
                 var added = 0
                 for (e in feed.episodes) {
@@ -282,7 +284,7 @@ class EpisodeRepository(
 
     /** Per show: how many episodes it has, and how many of them are new — the library's numbers. */
     val countsPerShow: Flow<Map<Long, ShowCounts>> = eq.countsPerPodcast().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.associate { it.podcast_id to ShowCounts(it.total.toInt(), (it.unheard ?: 0L).toInt()) }
+        rows.associate { it.podcast_id to ShowCounts(it.total.toInt(), (it.unheard ?: 0L).toInt(), it.latest) }
     }
 
     val inProgress: Flow<List<EpisodeItem>> = eq.selectInProgress().asFlow().mapToList(Dispatchers.IO).map { rows ->

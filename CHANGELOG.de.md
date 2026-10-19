@@ -7,6 +7,9 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Entdecken mit mehr zu entdecken** — Kategorie-Chips, „Für dich“ (die Empfehlungen deiner Shows plus Beliebtes aus deinen Kategorien), „Gerade beliebt“ aus dem Podcast Index in deiner Sprache und neue Shows mit ⚡ Value; jede Kategorie ist einen Tipp entfernt.
+- **Kategorien** — die Show-Seite nennt die Kategorien einer Show; ein Tipp öffnet sie in Entdecken.
+- **Sortierung der Bibliothek** — neueste Folge zuerst (neuer Standard), A–Z oder meiste ungehört; die Liste zeigt, wann die neueste Folge erschien.
 - **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.
 - **Kommentare zappen** — neben Like und Antwort zappt ⚡ einen Kommentar aus deiner verbundenen Wallet, im Rahmen deines Tagesbudgets; die Sats, die andere gezappt haben, stehen an jedem Kommentar. Öffentlich, privat (nur der Autor sieht, dass er von dir kommt) oder anonym, wie in Amethyst; ohne Nostr-Profil ist er anonym.
 - **Downloads in „Als Nächstes“** — wie bei AntennaPod kommt jede fertig geladene Folge ans Ende der Warteschlange, so hörst du einfach durch (Einstellungen → Downloads, standardmäßig an).

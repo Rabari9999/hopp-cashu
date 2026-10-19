@@ -85,6 +85,8 @@ class DownloadsAndQueueTest {
         old.execute(null, "INSERT INTO episode (podcast_id, guid, title, meta_json, first_seen_at, position_ms) VALUES (1, 'g', 'Kept', '{\"guid\":\"g\"}', 1, 4200)", 0)
         HoppDatabase.Schema.migrate(old, 1, HoppDatabase.Schema.version)
         val migrated = HoppDatabase(old)
+        // Version 11: categories, and the feed asked for in full once more to fill them.
+        assertEquals("" to null, migrated.podcastQueries.selectAll().executeAsOne().let { it.categories to it.etag })
         val item = EpisodeRepository(migrated, http, clock).item(1)!!
         assertEquals("Kept" to 4200L, item.title to item.positionMs)
         assertEquals(DownloadState.NONE, item.downloadState)

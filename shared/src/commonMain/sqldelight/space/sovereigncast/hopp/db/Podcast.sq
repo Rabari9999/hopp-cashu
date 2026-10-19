@@ -19,14 +19,17 @@ CREATE TABLE podcast (
     sc_capabilities_json TEXT,
     subscribed_at INTEGER NOT NULL,
     playback_speed REAL,
-    auto_download INTEGER NOT NULL DEFAULT 1
+    auto_download INTEGER NOT NULL DEFAULT 1,
+    -- Version 11 (migrations/10.sqm): the feed's itunes:category, one per line —
+    -- the library shows the first and Discover counts them (device feedback 2026-10-19).
+    categories TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
 
 insert:
-INSERT INTO podcast (feed_url, podcast_guid, title, author, image_url, meta_json, etag, last_modified, last_checked_at, subscribed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO podcast (feed_url, podcast_guid, title, author, image_url, meta_json, etag, last_modified, last_checked_at, subscribed_at, categories)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertId:
 SELECT last_insert_rowid();
@@ -42,7 +45,7 @@ SELECT * FROM podcast WHERE feed_url = ?;
 
 updateFromFeed:
 UPDATE podcast SET podcast_guid = ?, title = ?, author = ?, image_url = ?, meta_json = ?,
-    etag = ?, last_modified = ?, last_checked_at = ?, last_error = NULL
+    etag = ?, last_modified = ?, last_checked_at = ?, last_error = NULL, categories = ?
 WHERE id = ?;
 
 markChecked:

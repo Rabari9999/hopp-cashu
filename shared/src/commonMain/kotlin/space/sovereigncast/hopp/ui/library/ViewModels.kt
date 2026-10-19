@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.library
 
+import kotlinx.coroutines.flow.flow
+import space.sovereigncast.hopp.directory.Recommendation
+import space.sovereigncast.hopp.directory.Category
 import kotlinx.coroutines.flow.mapLatest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -127,6 +130,16 @@ class HomeViewModel(
     companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2 }
 }
 
+/** [shows] in the library's [sort]; A–Z among equals, and shows without episodes last. */
+internal fun sorted(shows: List<Show>, counts: Map<Long, space.sovereigncast.hopp.data.ShowCounts>, sort: String): List<Show> {
+    val byTitle = compareBy<Show, String>(String.CASE_INSENSITIVE_ORDER) { it.title }
+    return when (sort) {
+        Settings.SORT_TITLE -> shows.sortedWith(byTitle)
+        Settings.SORT_UNHEARD -> shows.sortedWith(compareByDescending<Show> { counts[it.id]?.unheard ?: 0 }.thenByDescending { counts[it.id]?.latestAt ?: Long.MIN_VALUE }.then(byTitle))
+        else -> shows.sortedWith(compareByDescending<Show> { counts[it.id]?.latestAt ?: Long.MIN_VALUE }.then(byTitle))
+    }
+}
+
 class LibraryViewModel(
     podcasts: PodcastRepository,
     episodes: EpisodeRepository,
@@ -134,7 +147,13 @@ class LibraryViewModel(
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
 ) : RefreshingViewModel(podcasts) {
-    val shows: StateFlow<List<Show>?> = state(podcasts.shows, null)
+    /** The listener's order (device feedback 2026-10-19): the show with the newest episode first by default. */
+    val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
+    fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }
+    val shows: StateFlow<List<Show>?> = state(
+        combine(podcasts.shows, episodes.countsPerShow, settings.settings.map { it.librarySort }.distinctUntilChanged()) { shows, counts, sort -> sorted(shows, counts, sort) },
+        null,
+    )
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
     /** Episodes and new ones per show, for the cards and the list. */
@@ -351,6 +370,9 @@ sealed interface SearchUi {
 /** A term, not an address: search. An address goes to the show page. */
 private const val SUGGESTIONS = 5
 private const val SEEN = 300
+/** "For you": at most this many, of them this many per category. */
+private const val FOR_YOU = 12
+private const val FOR_YOU_PER_CATEGORY = 3
 
 internal fun searchable(q: String) = q.length >= 2 && "://" !in q && '/' !in q
 
@@ -400,13 +422,66 @@ class DiscoverViewModel(
      *  only, a recommendation just subscribed stayed in the list (device feedback
      *  2026-10-13): this page outlives the show's page opened from it. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val podroll: StateFlow<List<DirectoryShow>> = state(
+    val podroll: StateFlow<List<Recommendation>> = state(
         combine(
             subscribedKeys.mapLatest { runCatching { directory.podroll() }.getOrDefault(emptyList()) },
             subscribedKeys,
         ) { list, subscribed ->
-            list.filter { feedKey(it.feedUrl) !in subscribed && it.podcastGuid?.lowercase() !in subscribed }
+            list.filter { feedKey(it.show.feedUrl) !in subscribed && it.show.podcastGuid?.lowercase() !in subscribed }
         },
+        emptyList(),
+    )
+
+    // ── Discover before a search (device feedback 2026-10-19) ────────────────
+
+    /** The language the trending shows are in: the device's. */
+    private val language = androidx.compose.ui.text.intl.Locale.current.language.takeIf { it.length == 2 }
+
+    /** The categories of the subscribed shows, the most subscribed first (each show by its first). */
+    val myCategories: StateFlow<List<Category>> = state(
+        podcasts.shows.map { shows ->
+            shows.mapNotNull { Category.of(it.categories).firstOrNull() }.groupingBy { it }.eachCount()
+                .entries.sortedByDescending { it.value }.map { it.key }
+        }.distinctUntilChanged(),
+        emptyList(),
+    )
+
+    private val _category = MutableStateFlow<Category?>(null)
+    /** The category chosen; null: "For you". */
+    val category: StateFlow<Category?> = _category.asStateFlow()
+    fun selectCategory(c: Category?) { _category.value = c }
+
+    /** What is popular right now, in the chosen category; null while it loads. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val trending: StateFlow<List<DirectoryShow>?> = state(
+        _category.flatMapLatest { c -> flow { emit(null); emit(runCatching { directory.trending(language, c) }.getOrDefault(emptyList())) } },
+        null,
+    )
+
+    /** Shows newly with a value block, in the chosen category; null while it loads. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val newValue: StateFlow<List<DirectoryShow>?> = state(
+        _category.flatMapLatest { c -> flow { emit(null); emit(runCatching { directory.newValue(language, c) }.getOrDefault(emptyList())) } },
+        null,
+    )
+
+    /**
+     * "For you": what the subscribed shows recommend, then what is popular in
+     * the two categories the listener subscribed most — each with its reason,
+     * nothing subscribed and nothing twice.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val forYou: StateFlow<List<Recommendation>> = state(
+        combine(podroll, myCategories.map { it.take(2) }.distinctUntilChanged(), subscribedKeys) { rolled, cats, subscribed -> Triple(rolled, cats, subscribed) }
+            .mapLatest { (rolled, cats, subscribed) ->
+                val seen = rolled.map { feedKey(it.show.feedUrl) }.toMutableSet()
+                val popular = cats.flatMap { c ->
+                    runCatching { directory.trending(language, c) }.getOrDefault(emptyList())
+                        .filter { s -> feedKey(s.feedUrl) !in subscribed && s.podcastGuid?.lowercase() !in subscribed && seen.add(feedKey(s.feedUrl)) }
+                        .take(FOR_YOU_PER_CATEGORY).map { Recommendation(it, category = c) }
+                }
+                (rolled.take(FOR_YOU - popular.size.coerceAtMost(FOR_YOU / 2)) + popular).take(FOR_YOU)
+            },
         emptyList(),
     )
     private val _import = MutableStateFlow<AddState>(AddState.Idle)
@@ -415,6 +490,8 @@ class DiscoverViewModel(
     val subscribed: StateFlow<Set<String>> = state(podcasts.shows.map { list -> list.map { feedKey(it.feedUrl) }.toSet() }, emptySet())
 
     init {
+        // A category tapped on a show's page opens here.
+        viewModelScope.launch { directory.requested.collect { c -> if (c != null) { _category.value = c; _query.value = ""; directory.requested.value = null } } }
         viewModelScope.launch {
             combine(_query, _valueOnly, _scOnly, _scShows) { q, v, sc, list -> listOf(q.trim(), v, sc, list) }
                 .debounce(400)
@@ -472,7 +549,7 @@ class DiscoverViewModel(
             val term = q.trim()
             if (!searchable(term)) return@combine emptyList()
             val known = sc.orEmpty().map { it.asDirectoryShow() } + subscribed.map { DirectoryShow(it.title, it.feedUrl, it.author, it.imageUrl, it.podcastGuid) } +
-                rolled + found
+                rolled.map { it.show } + found
             known.filter { titleMatches(it.title, term) }.distinctBy { feedKey(it.feedUrl) }.take(SUGGESTIONS)
         },
         emptyList(),

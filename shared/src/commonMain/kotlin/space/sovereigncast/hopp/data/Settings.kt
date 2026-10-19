@@ -58,6 +58,8 @@ data class Settings(
     val onboardingDone: Boolean = false,
     /** The library's shows as a list rather than cards (device feedback 2026-10-13). */
     val libraryAsList: Boolean = false,
+    /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
+    val librarySort: String = SORT_NEWEST,
     /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own
      *  (device feedback 2026-10-13). */
     val homeOrder: List<String> = emptyList(),
@@ -99,6 +101,10 @@ data class Settings(
         const val FEEDBACK_ERRORS = "errors"
         const val FEEDBACK_ALWAYS = "always"
         val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
+        const val SORT_NEWEST = "newest"
+        const val SORT_TITLE = "title"
+        const val SORT_UNHEARD = "unheard"
+        val sortChoices = listOf(SORT_NEWEST, SORT_TITLE, SORT_UNHEARD)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"
@@ -129,6 +135,7 @@ data class Settings(
                 boostFeedback = values["boost_feedback"]?.takeIf { it in feedbackChoices } ?: d.boostFeedback,
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
+                librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
@@ -173,6 +180,7 @@ data class Settings(
         "boost_feedback" to boostFeedback,
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
+        "library_sort" to librarySort,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),

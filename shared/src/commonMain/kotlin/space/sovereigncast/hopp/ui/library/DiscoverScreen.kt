@@ -1,5 +1,43 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import space.sovereigncast.hopp.directory.Category
+import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.resources.discover_for_you
+import space.sovereigncast.hopp.resources.discover_for_you_note
+import space.sovereigncast.hopp.resources.discover_recommended_by
+import space.sovereigncast.hopp.resources.discover_because
+import space.sovereigncast.hopp.resources.discover_trending
+import space.sovereigncast.hopp.resources.discover_today
+import space.sovereigncast.hopp.resources.discover_new_value
+import space.sovereigncast.hopp.resources.discover_new_value_note
+import space.sovereigncast.hopp.resources.discover_all_categories
+import space.sovereigncast.hopp.resources.discover_categories_title
+import space.sovereigncast.hopp.resources.discover_categories_note
+import space.sovereigncast.hopp.resources.discover_explore_empty
+import space.sovereigncast.hopp.resources.discover_mine
 import space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -58,7 +96,6 @@ import space.sovereigncast.hopp.resources.discover_failed
 import space.sovereigncast.hopp.resources.discover_field
 import space.sovereigncast.hopp.resources.discover_no_results
 import space.sovereigncast.hopp.resources.discover_open_feed
-import space.sovereigncast.hopp.resources.discover_podroll
 import space.sovereigncast.hopp.resources.discover_results
 import space.sovereigncast.hopp.resources.discover_suggestions
 import space.sovereigncast.hopp.resources.discover_recent
@@ -87,7 +124,12 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
     val scShows by vm.scShows.collectAsState()
     val search by vm.search.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
-    val podroll by vm.podroll.collectAsState()
+    val forYou by vm.forYou.collectAsState()
+    val myCategories by vm.myCategories.collectAsState()
+    val category by vm.category.collectAsState()
+    val trending by vm.trending.collectAsState()
+    val newValue by vm.newValue.collectAsState()
+    var allCategories by remember { mutableStateOf(false) }
     val subscribed by vm.subscribed.collectAsState()
     val subscribing by vm.subscribing.collectAsState()
     val importState by vm.import.collectAsState()
@@ -101,6 +143,7 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
 
     // Larger rows from a tablet's width (device feedback 2026-10-13, ADR 0020).
     BoxWithConstraints(Modifier.fillMaxWidth()) {
+      if (allCategories) CategorySheet(myCategories, onSelect = { vm.selectCategory(it); allCategories = false }, onDismiss = { allCategories = false })
       CompositionLocalProvider(LocalLargeRows provides (maxWidth >= MEDIUM_WIDTH)) {
         LazyColumn(Modifier.fillMaxWidth()) {
             item {
@@ -176,9 +219,39 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                             }
                         }
                     }
-                    if (podroll.isNotEmpty()) {
-                        item { Header(stringResource(Res.string.discover_podroll)) }
-                        items(podroll, key = { "p" + it.feedUrl }) { show -> DirectoryRow(show, false, sovereigncast = vm.isSovereigncast(show)) { onPreview(show.feedUrl, show) } }
+                    // Categories, "For you", what is popular and new with value (device feedback 2026-10-19).
+                    item { CategoryChips(myCategories, category, vm::selectCategory) { allCategories = true } }
+                    if (category == null && forYou.isNotEmpty()) {
+                        item { Header(stringResource(Res.string.discover_for_you), stringResource(Res.string.discover_for_you_note)) }
+                        item {
+                            Carousel(forYou.map { it.show }, key = "f") { i, show ->
+                                val r = forYou[i]
+                                Card(show, when {
+                                    r.recommendedBy != null -> stringResource(Res.string.discover_recommended_by, r.recommendedBy)
+                                    r.category != null -> stringResource(Res.string.discover_because, categoryLabel(r.category))
+                                    else -> null
+                                }) { onPreview(show.feedUrl, show) }
+                            }
+                        }
+                    }
+                    item { Header(stringResource(Res.string.discover_trending), listOfNotNull(category?.let { categoryLabel(it) }, stringResource(Res.string.discover_today)).joinToString(" · ")) }
+                    when (val list = trending) {
+                        null -> item { Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(24.dp)) } }
+                        else -> {
+                            if (list.isEmpty()) item { Note(stringResource(Res.string.discover_explore_empty)) }
+                            itemsIndexed(list.take(TRENDING), key = { _, it -> "t" + it.feedUrl }) { i, show ->
+                                DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show), rank = i + 1,
+                                    busy = feedKey(show.feedUrl) in subscribing, onSubscribe = { vm.subscribe(show) { onPreview(show.feedUrl, show) } }) { onPreview(show.feedUrl, show) }
+                            }
+                        }
+                    }
+                    newValue?.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { Header(stringResource(Res.string.discover_new_value), stringResource(Res.string.discover_new_value_note)) }
+                        item {
+                            Carousel(list, key = "v") { _, show ->
+                                Card(show, Category.of(show.categories).firstOrNull()?.let { "⚡ " + categoryLabel(it) } ?: "⚡ V4V", value = true) { onPreview(show.feedUrl, show) }
+                            }
+                        }
                     }
                     item {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -204,7 +277,78 @@ private val Source.label get() = when (this) { Source.PodcastIndex -> "Podcast I
 private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
 
 @Composable
-private fun Header(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+private fun Header(text: String, note: String? = null) = Row(
+    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom,
+) {
+    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+    if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** How many popular shows the list shows. */
+private const val TRENDING = 10
+
+/** "For you" and the listener's categories first, then "All categories". */
+@Composable
+private fun CategoryChips(mine: List<Category>, selected: Category?, onSelect: (Category?) -> Unit, onAll: () -> Unit) {
+    val shown = (mine.take(4) + listOfNotNull(selected)).distinct()
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(Res.string.discover_for_you)) })
+        shown.forEach { c -> FilterChip(selected = selected == c, onClick = { onSelect(if (selected == c) null else c) }, label = { Text(categoryLabel(c)) }) }
+        AssistChip(onClick = onAll, label = { Text(stringResource(Res.string.discover_all_categories) + " ›") })
+    }
+}
+
+/** Shows side by side, scrolled sideways. */
+@Composable
+private fun Carousel(shows: List<DirectoryShow>, key: String, card: @Composable (Int, DirectoryShow) -> Unit) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(shows, key = { _, it -> key + it.feedUrl }) { i, show -> card(i, show) }
+    }
+}
+
+/** A large cover, the title and why it is here. */
+@Composable
+private fun Card(show: DirectoryShow, why: String?, value: Boolean = false, onClick: () -> Unit) {
+    val large = LocalLargeRows.current
+    val size = if (large) 148.dp else 116.dp
+    Column(Modifier.width(size).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(bottom = 4.dp)) {
+        Cover(show.imageUrl, size, corner = 16.dp)
+        Text(show.title, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (why != null) Text(why, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            color = if (value) Hopp.colors.valueText else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Every main category; the listener's first, with an orange dot. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySheet(mine: List<Category>, onSelect: (Category) -> Unit, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.discover_categories_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.discover_categories_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            val ordered = mine + Category.entries.filter { it !in mine }
+            ordered.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { c ->
+                        val dot = stringResource(Res.string.discover_mine)
+                        Row(
+                            Modifier.weight(1f).heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerLow)
+                                .border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp)).clickable { onSelect(c) }.padding(horizontal = 14.dp, vertical = 12.dp)
+                                .semantics(mergeDescendants = true) { if (c in mine) stateDescription = dot },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(categoryLabel(c), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                            if (c in mine) Box(Modifier.size(8.dp).clip(CircleShape).background(Hopp.colors.value))
+                        }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
 
 /** Search results and the podroll a size larger from a tablet's width. */
 private val LocalLargeRows = staticCompositionLocalOf { false }
@@ -212,6 +356,8 @@ private val LocalLargeRows = staticCompositionLocalOf { false }
 @Composable
 private fun DirectoryRow(
     show: DirectoryShow, subscribed: Boolean, sovereigncast: Boolean = false,
+    /** Its place among the popular shows. */
+    rank: Int? = null,
     /** Subscribe from the list (device feedback 2026-10-15); null: no button. */
     busy: Boolean = false, onSubscribe: (() -> Unit)? = null,
     onClick: () -> Unit,
@@ -222,11 +368,13 @@ private fun DirectoryRow(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = if (large) 12.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (large) 16.dp else 12.dp),
     ) {
+        if (rank != null) Text("$rank", Modifier.widthIn(min = 18.dp), style = MaterialTheme.typography.titleSmall, color = colors.onSurfaceVariant)
         if (large) Cover(show.imageUrl, 80.dp, corner = 14.dp) else Cover(show.imageUrl, 56.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (large) 2.dp else 0.dp)) {
             Text(show.title, style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val meta = listOfNotNull(
-                show.author,
+                // Popular shows by their categories, the rest by author.
+                (if (rank != null) Category.of(show.categories).take(2).map { categoryLabel(it) }.joinToString(" · ").ifEmpty { null } else null) ?: show.author,
                 "⚡ V4V".takeIf { show.hasValue == true },
                 show.source.label.takeIf { show.source != Source.PodcastIndex },
                 stringResource(Res.string.show_subscribed).takeIf { subscribed },

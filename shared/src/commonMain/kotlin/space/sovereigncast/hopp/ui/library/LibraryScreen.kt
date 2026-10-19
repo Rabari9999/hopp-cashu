@@ -1,5 +1,23 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.home_days_ago
+import space.sovereigncast.hopp.resources.library_yesterday
+import space.sovereigncast.hopp.resources.library_today
+import space.sovereigncast.hopp.resources.library_sort_newest
+import space.sovereigncast.hopp.resources.library_sort_unheard
+import space.sovereigncast.hopp.resources.library_sort_title
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
+import kotlinx.datetime.daysUntil
+import space.sovereigncast.hopp.ui.components.formatDate
+import space.sovereigncast.hopp.directory.Category
+import space.sovereigncast.hopp.data.Settings
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.ui.draw.shadow
 import space.sovereigncast.hopp.ui.sovereigncast.ScBadge
@@ -86,6 +104,7 @@ fun LibraryScreen(
     val refreshing by vm.refreshing.collectAsState()
     val counts by vm.counts.collectAsState()
     val asList by vm.asList.collectAsState()
+    val sort by vm.sort.collectAsState()
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
         if (list.isEmpty()) {
@@ -106,7 +125,7 @@ fun LibraryScreen(
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
                 item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
                 item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
-                item(span = { GridItemSpan(maxLineSpan) }) { ShowsHeader(asList, vm::showAsList) }
+                item(span = { GridItemSpan(maxLineSpan) }) { ShowsHeader(asList, vm::showAsList, sort, vm::sortBy) }
                 items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
                     if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp) { onShow(show.id) }
@@ -117,15 +136,28 @@ fun LibraryScreen(
     }
 }
 
-/** "Shows", and the switch between cards and a list. */
+/** "Shows", the order (device feedback 2026-10-19), and the switch between cards and a list. */
 @Composable
-private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit) {
+private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(Res.string.library_shows), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        var open by remember { mutableStateOf(false) }
+        Box {
+            TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
+            DropdownMenu(open, onDismissRequest = { open = false }) {
+                Settings.sortChoices.forEach { s ->
+                    DropdownMenuItem(
+                        text = { Text(sortLabel(s), fontWeight = if (s == sort) FontWeight.Bold else null) },
+                        leadingIcon = { if (s == sort) Icon(Icons.Rounded.Check, null) },
+                        onClick = { open = false; onSort(s) },
+                    )
+                }
+            }
+        }
         val shape = RoundedCornerShape(50)
         Row(Modifier.clip(shape).border(1.dp, colors.outlineVariant, shape)) {
             listOf(false to (HoppIcons.Grid to Res.string.library_as_cards), true to (Icons.AutoMirrored.Rounded.List to Res.string.library_as_list))
@@ -209,8 +241,13 @@ private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () 
         Column(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(show.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             show.author?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            // When its newest episode came out and its category, quietly (device feedback 2026-10-19).
+            val line = listOfNotNull(
+                counts?.latestAt?.let { latestLabel(it) },
+                Category.of(show.categories).firstOrNull()?.let { categoryLabel(it) },
+            ).joinToString(" · ").ifEmpty { counts?.let { stringResource(Res.string.show_episodes, it.episodes) }.orEmpty() }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                counts?.let { Text(stringResource(Res.string.show_episodes, it.episodes), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                if (line.isNotEmpty()) Text(line, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (isSc) ScBadge()
             }
         }
@@ -235,5 +272,26 @@ private fun EntryRow(icon: ImageVector, label: String, count: Int, onClick: () -
         Spacer(Modifier.width(16.dp))
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         if (count > 0) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun sortLabel(sort: String): String = stringResource(when (sort) {
+    Settings.SORT_TITLE -> Res.string.library_sort_title
+    Settings.SORT_UNHEARD -> Res.string.library_sort_unheard
+    else -> Res.string.library_sort_newest
+})
+
+/** "Today", "Yesterday", "3 days ago" — calendar days on the listener's clock — then the date. */
+@Composable
+private fun latestLabel(epochSeconds: Long): String {
+    val zone = kotlinx.datetime.TimeZone.currentSystemDefault()
+    val today = kotlin.time.Clock.System.todayIn(zone)
+    val day = kotlin.time.Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(zone).date
+    return when (val days = day.daysUntil(today)) {
+        0 -> stringResource(Res.string.library_today)
+        1 -> stringResource(Res.string.library_yesterday)
+        in 2..13 -> stringResource(Res.string.home_days_ago, days)
+        else -> formatDate(epochSeconds)
     }
 }

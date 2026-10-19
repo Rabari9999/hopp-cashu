@@ -50,9 +50,10 @@ class LibraryViewTest {
         library()
         rule.onNode(hasContentDescription("Cards")).assertIsSelected()
         rule.onNode(hasContentDescription("2 not heard yet")).assertIsDisplayed()
-        check(!has("2 episodes")) { "the cards show the episode count" }
+        check(!has("02.06.2026")) { "the cards show no date" }
         rule.onNode(hasContentDescription("List")).performClick()
-        waitFor("2 episodes")
+        // The newest episode's date, quietly (device feedback 2026-10-19).
+        waitFor("02.06.2026")
         rule.onNode(hasContentDescription("2 not heard yet")).assertIsDisplayed()
         rule.waitUntil(10_000) { runBlocking { settings.settings.first().libraryAsList } }
     }
@@ -69,6 +70,6 @@ class LibraryViewTest {
         runBlocking { settings.update { it.copy(libraryAsList = true) } }
         library()
         rule.onNode(hasContentDescription("List")).assertIsSelected()
-        waitFor("2 episodes")
+        waitFor("02.06.2026")
     }
 }

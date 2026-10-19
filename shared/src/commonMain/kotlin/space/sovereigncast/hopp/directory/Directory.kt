@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -42,7 +43,13 @@ data class DirectoryShow(
     /** Known to have a Lightning value block; null = the directory does not say. */
     val hasValue: Boolean? = null,
     val source: Source = Source.PodcastIndex,
+    /** As the Podcast Index files it (from the feed's itunes:category); empty when it does not say. */
+    val categories: List<String> = emptyList(),
 )
+
+/** A show Discover suggests, and why: a subscribed show recommends it in its podroll
+ *  ([recommendedBy]), or it is popular in a category the listener hears most ([category]). */
+data class Recommendation(val show: DirectoryShow, val recommendedBy: String? = null, val category: Category? = null)
 
 data class PodcastIndexCredentials(val key: String, val secret: String)
 
@@ -80,6 +87,21 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
             .mapNotNull { show(it, valueKnown = valueOnly) }
     }
 
+    /**
+     * What is popular right now (`podcasts/trending`) in [language], within
+     * [category] if one is given (device feedback 2026-10-19).
+     */
+    suspend fun trending(language: String?, category: Category?, max: Int, credentials: PodcastIndexCredentials): List<DirectoryShow> =
+        get("podcasts/trending", credentials, *listOfNotNull(
+            "max" to "$max", language?.let { "lang" to it }, category?.let { "cat" to it.index.joinToString(",") },
+        ).toTypedArray())["feeds"].objects().filter { it["duplicateOf"].let { d -> d == null || d is JsonNull } }.mapNotNull { show(it, valueKnown = false) }
+
+    /** Shows that newly carry a Lightning value block (`recent/newvaluefeeds`). */
+    suspend fun newValueFeeds(language: String?, category: Category?, max: Int, credentials: PodcastIndexCredentials): List<DirectoryShow> =
+        get("recent/newvaluefeeds", credentials, *listOfNotNull(
+            "max" to "$max", language?.let { "lang" to it }, category?.let { "cat" to it.index.joinToString(",") },
+        ).toTypedArray())["feeds"].objects().mapNotNull { show(it, valueKnown = true) }
+
     /** The show with this `podcast:guid`, or null. The index answers with any
      *  feed claiming the GUID, so it is checked to really be that one. */
     suspend fun byGuid(guid: String, credentials: PodcastIndexCredentials): DirectoryShow? {
@@ -102,6 +124,7 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
                 value != null -> (value["model"] as? JsonObject)?.str("type") == "lightning"
                 else -> null
             },
+            categories = (o["categories"] as? JsonObject)?.values?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty(),
         )
     }
 
@@ -209,7 +232,12 @@ class DirectoryRepository(
     private val builtIn: PodcastIndexCredentials? = BuiltInKeys.PODCAST_INDEX_KEY.takeIf { it.isNotEmpty() }
         ?.let { PodcastIndexCredentials(it, BuiltInKeys.PODCAST_INDEX_SECRET) },
 ) {
-    private var podrollCache: Pair<Set<String>, List<DirectoryShow>>? = null
+    private var podrollCache: Pair<Set<String>, List<Recommendation>>? = null
+    /** A category tapped on a show's page, for Discover to open (device feedback 2026-10-19). */
+    val requested = kotlinx.coroutines.flow.MutableStateFlow<Category?>(null)
+    /** Trending and new value feeds per language and category, for [FRESH] — Discover asks
+     *  again each time it opens, the index changes by the hour. */
+    private val explore = mutableMapOf<String, Pair<kotlin.time.TimeMark, List<DirectoryShow>>>()
 
     // The app's own key only: a field for the listener's would confuse far
     // more people than it helps (ADR 0008, amended 2026-10-08).
@@ -249,24 +277,50 @@ class DirectoryRepository(
         return runCatching { podcastIndex.byGuid(guid, credentials) }.getOrNull()?.feedUrl
     }
 
+    /** What is popular right now in [language] (and [category]) — device feedback 2026-10-19. */
+    suspend fun trending(language: String?, category: Category?, max: Int = 20): List<DirectoryShow> =
+        cached("t/$language/$category/$max") { podcastIndex.trending(language, category, max, it) }
+
+    /**
+     * Shows newly with a Lightning value block, in [language] first; topped up
+     * from every language when that gives few (most are English, many music).
+     */
+    suspend fun newValue(language: String?, category: Category?, max: Int = 12): List<DirectoryShow> =
+        cached("v/$language/$category/$max") { credentials ->
+            val own = language?.let { podcastIndex.newValueFeeds(it, category, max, credentials) }.orEmpty()
+            if (own.size >= max / 2) own
+            else (own + podcastIndex.newValueFeeds(null, category, max, credentials)).distinctBy { feedKey(it.feedUrl) }.take(max)
+        }
+
+    private suspend fun cached(key: String, load: suspend (PodcastIndexCredentials) -> List<DirectoryShow>): List<DirectoryShow> {
+        val credentials = credentials() ?: return emptyList()
+        explore[key]?.let { (at, list) -> if (at.elapsedNow() < FRESH) return list }
+        return load(credentials).filter { it.title.isNotBlank() }.also { explore[key] = kotlin.time.TimeSource.Monotonic.markNow() to it }
+    }
+
     /** "From your shows": what the subscribed shows recommend in their
      *  `podcast:podroll`, resolved via the Podcast Index, without what is
-     *  already subscribed. Kept until the subscriptions change. */
-    suspend fun podroll(limit: Int = 20): List<DirectoryShow> {
+     *  already subscribed, each with the show that recommends it. Kept until
+     *  the subscriptions change. */
+    suspend fun podroll(limit: Int = 20): List<Recommendation> {
         val credentials = credentials() ?: return emptyList()
         val shows = podcasts.shows.first()
         val subscribed = shows.flatMap { listOfNotNull(feedKey(it.feedUrl), it.podcastGuid?.lowercase()) }.toSet()
         podrollCache?.let { (key, list) -> if (key == subscribed) return list }
-        val wanted = shows.flatMap { podcasts.podcastMeta(it.id)?.podroll.orEmpty() }
-            .distinctBy { it.feedGuid.lowercase() }
-            .filter { it.feedGuid.lowercase() !in subscribed && (it.feedUrl == null || feedKey(it.feedUrl) !in subscribed) }
+        val wanted = shows.flatMap { s -> podcasts.podcastMeta(s.id)?.podroll.orEmpty().map { it to s.title } }
+            .distinctBy { it.first.feedGuid.lowercase() }
+            .filter { (it, _) -> it.feedGuid.lowercase() !in subscribed && (it.feedUrl == null || feedKey(it.feedUrl) !in subscribed) }
             .take(limit)
         val gate = Semaphore(4)
         val resolved = coroutineScope {
-            wanted.map { item -> async { gate.withPermit { runCatching { podcastIndex.byGuid(item.feedGuid, credentials) }.getOrNull() } } }
+            wanted.map { (item, by) -> async { gate.withPermit { runCatching { podcastIndex.byGuid(item.feedGuid, credentials) }.getOrNull()?.let { Recommendation(it, recommendedBy = by) } } } }
                 .mapNotNull { it.await() }
-        }.filter { feedKey(it.feedUrl) !in subscribed }
+        }.filter { feedKey(it.show.feedUrl) !in subscribed }
         podrollCache = subscribed to resolved
         return resolved
+    }
+
+    private companion object {
+        val FRESH = kotlin.time.Duration.parse("1h")
     }
 }

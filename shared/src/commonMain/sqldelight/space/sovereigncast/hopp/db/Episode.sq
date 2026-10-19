@@ -79,7 +79,7 @@ SELECT count(*) FROM episode WHERE podcast_id = ?;
 -- The library's numbers per show: all its episodes, and how many are not heard yet
 -- (device feedback 2026-10-17: counting only "New" stopped at 1 and read as a riddle).
 countsPerPodcast:
-SELECT podcast_id, count(*) AS total, sum(CASE WHEN played = 0 THEN 1 ELSE 0 END) AS unheard FROM episode GROUP BY podcast_id;
+SELECT podcast_id, count(*) AS total, sum(CASE WHEN played = 0 THEN 1 ELSE 0 END) AS unheard, max(published_at) AS latest FROM episode GROUP BY podcast_id;
 
 -- "New" (ADR 0012): what arrived since the listener last looked, newest first.
 selectInbox:
