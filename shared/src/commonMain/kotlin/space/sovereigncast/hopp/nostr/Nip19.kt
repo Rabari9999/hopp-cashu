@@ -26,14 +26,14 @@ fun noteRef(text: String): NoteRef? = runCatching {
     }
 }.getOrNull()
 
-/** [ref] as an `nevent1…` (NIP-19): its id, its first relay, its author, kind 1. */
-fun nevent(ref: NoteRef): String {
+/** [ref] as an `nevent1…` (NIP-19): its id, its first relay, its author, its [kind]. */
+fun nevent(ref: NoteRef, kind: Int = 1): String {
     val out = mutableListOf<Byte>()
     fun put(type: Int, value: ByteArray) { out += type.toByte(); out += value.size.toByte(); out += value.toList() }
     put(0, ref.id.hexToBytes())
     ref.relays.firstOrNull()?.let { put(1, it.encodeToByteArray()) }
     ref.author?.let { put(2, it.hexToBytes()) }
-    put(3, byteArrayOf(0, 0, 0, 1))
+    put(3, byteArrayOf((kind ushr 24).toByte(), (kind ushr 16).toByte(), (kind ushr 8).toByte(), kind.toByte()))
     return Bech32.encode("nevent", out.toByteArray())
 }
 

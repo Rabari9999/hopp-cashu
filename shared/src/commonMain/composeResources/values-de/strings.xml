@@ -414,7 +414,7 @@
     <string name="feedback_off">Nichts</string>
     <string name="feedback_errors">Nur wenn es scheitert</string>
     <string name="feedback_always">Immer</string>
-    <string name="settings_boost_feedback_note">Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
+    <string name="settings_boost_feedback_note">Ein Boost geht an die Show und alle, die sie im Value-Block nennt – per Keysend, ohne Beleg auf Nostr. Ein Zap geht an die Person hinter einem Kommentar, über ihre Lightning-Adresse, und erscheint auf Nostr. Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
     <string name="settings_notifications_system">Wiedergabe- und Download-Benachrichtigung braucht Android, damit beides im Hintergrund weiterläuft; Aussehen und Ton stellst du in den Systemeinstellungen ein.</string>
     <string name="settings_notifications_open">System-Benachrichtigungen öffnen</string>
     <string name="settings_opml_note">Deine Abos als OPML-Datei: aus einer anderen Podcast-App übernehmen, sichern oder an eine andere App weitergeben.</string>
@@ -604,6 +604,8 @@
     <string name="comments_more">Mehr</string>
     <string name="comments_mute">%1$s stummschalten</string>
     <string name="comments_report">Melden</string>
+    <string name="comments_copy_npub">npub kopieren</string>
+    <string name="comments_copy_nevent">Note-Link kopieren (nevent)</string>
     <string name="comments_hide">Ausblenden</string>
     <string name="comments_report_title">Diesen Kommentar melden?</string>
     <string name="comments_report_spam">Spam</string>

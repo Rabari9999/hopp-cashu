@@ -214,6 +214,10 @@ class CommentsViewModel(
 
     private fun thread(): CommentThread? = (_state.value as? State.Loaded)?.thread
 
+    /** [c] as other Nostr apps open it (device feedback 2026-10-19): `nevent1…` with a relay that has it. */
+    fun nevent(c: Comment): String =
+        space.sovereigncast.hopp.nostr.nevent(space.sovereigncast.hopp.nostr.NoteRef(c.id, thread()?.relays.orEmpty().take(1), c.pubkey), c.kind)
+
     /** [action] now, or after the one-time note that what is published stays. */
     private fun publicly(action: () -> Unit) {
         if (settings.value?.nostrPublicNoted == true) action() else pending.value = action
@@ -559,6 +563,8 @@ private fun CommentRow(
     val name = nameOf(c.pubkey, authors)
     var menu by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
+    val actions = LocalPlatformActions.current
+    fun copy(text: String, label: String) = actions.copyText(text, label)
     // Liking or answering without an identity: the way to one, as the composer offers.
     val openIdentity = LocalOpenIdentity.current
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -621,6 +627,14 @@ private fun CommentRow(
                         if (c.pubkey != me) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_mute, name)) }, onClick = { menu = false; vm.mute(c.pubkey) })
                         if (c.pubkey != me && !zap) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_report)) }, onClick = { menu = false; reporting = true })
                         DropdownMenuItem(text = { Text(stringResource(Res.string.comments_hide)) }, onClick = { menu = false; vm.hide(c) })
+                        // To find the author or the note in another Nostr app (device feedback 2026-10-19:
+                        // searching the name there and clicking through look-alikes).
+                        DropdownMenuItem(text = { Text(stringResource(Res.string.comments_copy_npub)) }, onClick = {
+                            menu = false; copy(space.sovereigncast.hopp.nostr.npub(c.pubkey), name)
+                        })
+                        if (!zap) DropdownMenuItem(text = { Text(stringResource(Res.string.comments_copy_nevent)) }, onClick = {
+                            menu = false; copy(vm.nevent(c), name)
+                        })
                     }
                 }
             }

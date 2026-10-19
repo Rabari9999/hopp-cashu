@@ -17,6 +17,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Downloads in „Als Nächstes“** — wie bei AntennaPod kommt jede fertig geladene Folge ans Ende der Warteschlange, so hörst du einfach durch (Einstellungen → Downloads, standardmäßig an).
 - **Benachrichtigungen je Fall** — unter Einstellungen → Benachrichtigungen wählst du getrennt, was ein Schnellboost vom Sperrbildschirm, ein Boost in der App und ein Zap melden: nichts, nur Fehler oder immer. Zaps haben einen eigenen Benachrichtigungskanal.
 - **Jede Geschwindigkeit per Tipp** — ein Tipp auf die Geschwindigkeit im Player schaltet jetzt durch alle Stufen, die der lange Druck anbietet, auch 1,1×, 1,3×, 2,5× und 3×.
+- **npub und nevent kopieren** — das ⋯-Menü eines Kommentars kopiert die npub des Autors und das nevent der Note, um beide in jeder anderen Nostr-App zu finden.
 
 ### 🐛 Fixes
 - Einen Kommentar zu zappen löste keine Benachrichtigung aus, auch mit „Immer“; jetzt meldet er sich wie ein Boost.

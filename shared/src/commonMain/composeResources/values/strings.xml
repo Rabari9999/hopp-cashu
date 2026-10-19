@@ -414,7 +414,7 @@
     <string name="feedback_off">Nothing</string>
     <string name="feedback_errors">Only when it fails</string>
     <string name="feedback_always">Always</string>
-    <string name="settings_boost_feedback_note">A success goes away by itself after a few seconds. The details are always in the payment history.</string>
+    <string name="settings_boost_feedback_note">A boost goes to the show and everyone its value block names – by keysend, with no receipt on Nostr. A zap goes to the person behind a comment, through their Lightning address, and shows on Nostr. A success goes away by itself after a few seconds. The details are always in the payment history.</string>
     <string name="settings_notifications_system">Playback and download notifications are what Android needs to keep them running; their look and sound are set in the system settings.</string>
     <string name="settings_notifications_open">Open system notification settings</string>
     <string name="settings_opml_note">Your subscriptions as an OPML file: bring them over from another podcast app, back them up or take them to another app.</string>
@@ -604,6 +604,8 @@
     <string name="comments_more">More</string>
     <string name="comments_mute">Mute %1$s</string>
     <string name="comments_report">Report</string>
+    <string name="comments_copy_npub">Copy npub</string>
+    <string name="comments_copy_nevent">Copy note link (nevent)</string>
     <string name="comments_hide">Hide</string>
     <string name="comments_report_title">Report this comment?</string>
     <string name="comments_report_spam">Spam</string>

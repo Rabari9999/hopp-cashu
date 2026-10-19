@@ -1087,7 +1087,13 @@ class AndroidAppFlowTest {
      *  with a key from Hopp not backed up, the reminder. */
     @Test
     fun aCommentIsWrittenAfterThePublicNote() {
-        rule.setContent { App() }
+        val copied = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun copyText(text: String, label: String) { copied += text }
+        }
+        rule.setContent { App(actions) }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Play")
         tap("Comments")
@@ -1106,6 +1112,14 @@ class AndroidAppFlowTest {
         check(has("Me")) { "the comment shows under the listener's name" }
         // Beside like and reply a zap (device feedback 2026-10-19) — none on one's own comment.
         rule.onNodeWithContentDescription("Zap").assertDoesNotExist()
+        // The author's npub and the note's nevent, to find them in another app (device feedback 2026-10-19).
+        rule.onAllNodes(hasContentDescription("More") and hasClickAction()).onLast().performClick()
+        tap("Copy npub")
+        until { copied.size == 1 }
+        rule.onAllNodes(hasContentDescription("More") and hasClickAction()).onLast().performClick()
+        tap("Copy note link (nevent)")
+        until { copied.size == 2 }
+        check(copied[0].startsWith("npub1") && copied[1].startsWith("nevent1")) { copied.toString() }
         check(kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().current().nostrPublicNoted })
         // An answer's field opens right under the comment, in view (device feedback 2026-10-16).
         tap("Reply")
