@@ -7,7 +7,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Entdecken mit mehr zu entdecken** — Kategorie-Chips, „Für dich“ (die Empfehlungen deiner Shows plus Beliebtes aus deinen Kategorien), „Gerade beliebt“ aus dem Podcast Index in deiner Sprache und neue Shows mit ⚡ Value; jede Kategorie ist einen Tipp entfernt.
+- **Entdecken mit mehr zu entdecken** — farbige Kategorie-Kacheln ganz oben, „Für dich“ (die Empfehlungen deiner Shows plus Beliebtes aus deinen Kategorien), neue Shows mit ⚡ Value und „Gerade beliebt“ aus dem Podcast Index in deiner Sprache.
 - **Kategorien** — die Show-Seite nennt die Kategorien einer Show; ein Tipp öffnet sie in Entdecken.
 - **Sortierung der Bibliothek** — neueste Folge zuerst (neuer Standard), A–Z oder meiste ungehört; die Liste zeigt, wann die neueste Folge erschien.
 - **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.

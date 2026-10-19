@@ -1,5 +1,17 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.discover_all
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -33,7 +45,6 @@ import space.sovereigncast.hopp.resources.discover_trending
 import space.sovereigncast.hopp.resources.discover_today
 import space.sovereigncast.hopp.resources.discover_new_value
 import space.sovereigncast.hopp.resources.discover_new_value_note
-import space.sovereigncast.hopp.resources.discover_all_categories
 import space.sovereigncast.hopp.resources.discover_categories_title
 import space.sovereigncast.hopp.resources.discover_categories_note
 import space.sovereigncast.hopp.resources.discover_explore_empty
@@ -220,7 +231,9 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                         }
                     }
                     // Categories, "For you", what is popular and new with value (device feedback 2026-10-19).
-                    item { CategoryChips(myCategories, category, vm::selectCategory) { allCategories = true } }
+                    // Categories first, as coloured tiles (device feedback 2026-10-19, variant A).
+                    item { Header(stringResource(Res.string.discover_categories_title), action = stringResource(Res.string.discover_all) + " ›") { allCategories = true } }
+                    item { CategoryTiles(myCategories, category, vm::selectCategory) }
                     if (category == null && forYou.isNotEmpty()) {
                         item { Header(stringResource(Res.string.discover_for_you), stringResource(Res.string.discover_for_you_note)) }
                         item {
@@ -234,6 +247,15 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                             }
                         }
                     }
+                    // New value shows before the popular ones (device feedback 2026-10-19).
+                    newValue?.takeIf { it.isNotEmpty() }?.let { list ->
+                        item { Header(stringResource(Res.string.discover_new_value), stringResource(Res.string.discover_new_value_note)) }
+                        item {
+                            Carousel(list, key = "v") { _, show ->
+                                Card(show, Category.of(show.categories).firstOrNull()?.let { "⚡ " + categoryLabel(it) } ?: "⚡ V4V", value = true) { onPreview(show.feedUrl, show) }
+                            }
+                        }
+                    }
                     item { Header(stringResource(Res.string.discover_trending), listOfNotNull(category?.let { categoryLabel(it) }, stringResource(Res.string.discover_today)).joinToString(" · ")) }
                     when (val list = trending) {
                         null -> item { Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(Modifier.size(24.dp)) } }
@@ -242,14 +264,6 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                             itemsIndexed(list.take(TRENDING), key = { _, it -> "t" + it.feedUrl }) { i, show ->
                                 DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show), rank = i + 1,
                                     busy = feedKey(show.feedUrl) in subscribing, onSubscribe = { vm.subscribe(show) { onPreview(show.feedUrl, show) } }) { onPreview(show.feedUrl, show) }
-                            }
-                        }
-                    }
-                    newValue?.takeIf { it.isNotEmpty() }?.let { list ->
-                        item { Header(stringResource(Res.string.discover_new_value), stringResource(Res.string.discover_new_value_note)) }
-                        item {
-                            Carousel(list, key = "v") { _, show ->
-                                Card(show, Category.of(show.categories).firstOrNull()?.let { "⚡ " + categoryLabel(it) } ?: "⚡ V4V", value = true) { onPreview(show.feedUrl, show) }
                             }
                         }
                     }
@@ -277,25 +291,66 @@ private val Source.label get() = when (this) { Source.PodcastIndex -> "Podcast I
 private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
 
 @Composable
-private fun Header(text: String, note: String? = null) = Row(
-    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom,
+private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) = Row(
+    Modifier.fillMaxWidth().padding(start = 16.dp, end = if (action != null) 4.dp else 16.dp, top = 16.dp, bottom = 4.dp),
+    verticalAlignment = if (action != null) Alignment.CenterVertically else Alignment.Bottom,
 ) {
     Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
     if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (action != null) TextButton(onClick = onAction) { Text(action) }
 }
 
 /** How many popular shows the list shows. */
 private const val TRENDING = 10
 
-/** "For you" and the listener's categories first, then "All categories". */
+/**
+ * Every main category as a coloured tile, two rows scrolled sideways — the
+ * listener's own first, with an orange dot. A tap filters what is new and
+ * popular below; the chosen tile is outlined, and tapped again it lets go.
+ */
 @Composable
-private fun CategoryChips(mine: List<Category>, selected: Category?, onSelect: (Category?) -> Unit, onAll: () -> Unit) {
-    val shown = (mine.take(4) + listOfNotNull(selected)).distinct()
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(Res.string.discover_for_you)) })
-        shown.forEach { c -> FilterChip(selected = selected == c, onClick = { onSelect(if (selected == c) null else c) }, label = { Text(categoryLabel(c)) }) }
-        AssistChip(onClick = onAll, label = { Text(stringResource(Res.string.discover_all_categories) + " ›") })
+private fun CategoryTiles(mine: List<Category>, selected: Category?, onSelect: (Category?) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val large = LocalLargeRows.current
+    val dark = colors.surface.luminance() < 0.5f
+    val ordered = mine + Category.entries.filter { it !in mine }
+    val state = rememberLazyGridState()
+    // One chosen in the sheet or on a show's page comes into view.
+    LaunchedEffect(selected) { selected?.let { state.animateScrollToItem(ordered.indexOf(it).coerceAtLeast(0)) } }
+    val tile = if (large) 64.dp else 52.dp
+    val dot = stringResource(Res.string.discover_mine)
+    LazyHorizontalGrid(
+        GridCells.Fixed(2), Modifier.fillMaxWidth().height(tile * 2 + 8.dp), state = state,
+        contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(ordered, key = { it.name }) { c ->
+            val chosen = c == selected
+            val shape = RoundedCornerShape(14.dp)
+            Row(
+                Modifier.width(if (large) 156.dp else 124.dp).fillMaxHeight().clip(shape)
+                    .background(colors.surface).background(c.hue.copy(alpha = if (dark) 0.32f else 0.2f))
+                    .then(if (chosen) Modifier.border(2.dp, colors.onSurface, shape) else Modifier)
+                    .selectable(selected = chosen, role = Role.Tab, onClick = { onSelect(if (chosen) null else c) })
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .semantics(mergeDescendants = true) { if (c in mine) stateDescription = dot },
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(categoryLabel(c), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (c in mine) Box(Modifier.padding(start = 6.dp, bottom = 5.dp).size(7.dp).clip(CircleShape).background(Hopp.colors.value))
+            }
+        }
     }
+}
+
+/** Each category's own colour, laid over the page lightly. */
+private val Category.hue: Color get() = when (this) {
+    Category.Technology -> Color(0xFF3B6EA5); Category.Education -> Color(0xFF4F8A4B); Category.Business -> Color(0xFFC2873A)
+    Category.News -> Color(0xFF7A7770); Category.Society -> Color(0xFFA0559A); Category.Science -> Color(0xFF2E8C8C)
+    Category.History -> Color(0xFF8C6A45); Category.Health -> Color(0xFFD0613E); Category.Sports -> Color(0xFFC0443A)
+    Category.Comedy -> Color(0xFFD9A62E); Category.Arts -> Color(0xFFB0507A); Category.Music -> Color(0xFF6A55B0)
+    Category.Leisure -> Color(0xFF5E9E6E); Category.Kids -> Color(0xFFE08A5A); Category.Fiction -> Color(0xFF59609E)
+    Category.TrueCrime -> Color(0xFF6E3B3B); Category.Film -> Color(0xFF4A5A70); Category.Religion -> Color(0xFF8E7BB5)
+    Category.Government -> Color(0xFF55708A)
 }
 
 /** Shows side by side, scrolled sideways. */

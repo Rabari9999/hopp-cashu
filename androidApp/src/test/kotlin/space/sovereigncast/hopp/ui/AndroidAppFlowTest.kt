@@ -448,7 +448,8 @@ class AndroidAppFlowTest {
         tap("Münzweg 21"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
         back()
-        waitFor("Search or feed address")
+        // Back on Discover — the field may be scrolled away above the category tiles.
+        waitFor("Popular right now")
         // Gone from the list — not merely scrolled out of view.
         rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isFailure }
     }
@@ -460,11 +461,15 @@ class AndroidAppFlowTest {
         tap("Discover")
         waitFor("Popular right now")
         waitFor("Test Show")
-        tap("All categories ›")
-        waitFor("Categories")
-        tap("Technology")
+        // The categories come first, as tiles; a tap filters what is popular (variant A, 2026-10-19).
+        rule.onAllNodes(hasText("Education") and hasClickAction()).onFirst().performClick()
+        waitFor("Education · today")
+        // And every one from the sheet, where it is chosen too.
+        tap("All ›")
+        waitFor("Your shows’ categories first", substring = true)
+        rule.onAllNodes(hasText("Technology") and hasClickAction()).onLast().performClick()
         waitFor("Technology · today")
-        rule.onNode(hasText("Technology") and androidx.compose.ui.test.isSelected()).assertIsDisplayed()
+        rule.onNode(hasText("Technology") and androidx.compose.ui.test.isSelected()).assertExists()
     }
 
     /** A term goes to the Podcast Index; a result opens its page first. */

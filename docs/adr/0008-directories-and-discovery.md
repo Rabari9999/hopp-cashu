@@ -72,14 +72,16 @@ settles it.
 - **Phase 2:** search by person (`podcast:person`), trending, category browser.
 
   *Amended 2026-10-19 (maintainer): trending, categories and new V4V shows came
-  forward.* Discover without a term shows category chips (the listener's own
-  first, then all 19 main categories — Apple's top level, which feeds name in
+  forward.* Discover without a term starts with the categories as coloured tiles in
+  two rows scrolled sideways (the maintainer's variant A of three, same day; the listener's own
+  first with an orange dot, then all 19 main categories — Apple's top level, which feeds name in
   `itunes:category` and the index files shows under; its sub-names count for
   their main one), **For you** (the podroll with the show that recommends it,
   topped up with what is popular in the two categories the listener subscribed
   most), **Popular right now** (`podcasts/trending` in the device's language,
   in the chosen category) and **New with ⚡ Value** (`recent/newvaluefeeds`,
-  the device's language first, topped up from all). Answers are kept for an
+  the device's language first, topped up from all) — the last two swapped the
+  same day, new value shows first. Answers are kept for an
   hour. The index sees the language and the category, never the
   subscriptions. A show's page shows its main categories as tags that open
   them here; the library sorts by newest episode (the default), A–Z or most

@@ -757,7 +757,6 @@
     <string name="discover_today">heute</string>
     <string name="discover_new_value">Neu mit ⚡ Value</string>
     <string name="discover_new_value_note">frisch im Index</string>
-    <string name="discover_all_categories">Alle Kategorien</string>
     <string name="discover_categories_title">Kategorien</string>
     <string name="discover_categories_note">Die Kategorien deiner Shows zuerst, mit Punkt markiert – so wie die Shows sich im Podcast Index einordnen.</string>
     <string name="discover_explore_empty">Der Podcast Index liefert hier gerade nichts.</string>
@@ -767,4 +766,5 @@
     <string name="library_sort_unheard">Meiste ungehört</string>
     <string name="library_today">Heute</string>
     <string name="library_yesterday">Gestern</string>
+    <string name="discover_all">Alle</string>
 </resources>

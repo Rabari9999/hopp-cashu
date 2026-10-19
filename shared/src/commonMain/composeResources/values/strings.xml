@@ -757,7 +757,6 @@
     <string name="discover_today">today</string>
     <string name="discover_new_value">New with ⚡ Value</string>
     <string name="discover_new_value_note">new in the index</string>
-    <string name="discover_all_categories">All categories</string>
     <string name="discover_categories_title">Categories</string>
     <string name="discover_categories_note">Your shows’ categories first, marked with a dot – as the shows file themselves in the Podcast Index.</string>
     <string name="discover_explore_empty">The Podcast Index has nothing here right now.</string>
@@ -767,4 +766,5 @@
     <string name="library_sort_unheard">Most unheard</string>
     <string name="library_today">Today</string>
     <string name="library_yesterday">Yesterday</string>
+    <string name="discover_all">All</string>
 </resources>
