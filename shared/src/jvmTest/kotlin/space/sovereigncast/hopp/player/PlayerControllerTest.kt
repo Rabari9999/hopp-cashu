@@ -77,7 +77,8 @@ class PlayerControllerTest {
     private val engine = RecordingEngine()
     private var clockMs = 0L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val player = PlayerController(engine, episodes, podcasts, queue, SettingsRepository(db), scope) { clockMs }
+    private val settings = SettingsRepository(db)
+    private val player = PlayerController(engine, episodes, podcasts, queue, settings, scope) { clockMs }
 
     @AfterTest fun stop() = scope.cancel()
 
@@ -251,6 +252,25 @@ class PlayerControllerTest {
         engine.lastSpeed = 1f
         start(e2)
         until("applied") { engine.lastSpeed == 1.5f }
+    }
+
+    /** Device feedback 2026-10-19: one speed for every show, unless a show has its own. */
+    @Test
+    fun theDefaultSpeedCountsForShowsWithoutTheirOwn() = test {
+        val (e1, e2, _) = episodes()
+        settings.update { it.copy(defaultSpeed = 1.3f) }
+        start(e1)
+        until("default") { engine.lastSpeed == 1.3f }
+        settings.update { it.copy(defaultSpeed = 1.2f) }
+        until("a new default at once") { engine.lastSpeed == 1.2f }
+        player.setSpeed(1.8f)
+        until("its own") { podcasts.show(e1.podcastId).first()?.playbackSpeed == 1.8f }
+        settings.update { it.copy(defaultSpeed = 1.1f) }
+        engine.lastSpeed = 1f
+        start(e2)
+        until("its own stays") { engine.lastSpeed == 1.8f }
+        player.setSpeed(1.1f)
+        until("the default again: none of its own") { podcasts.show(e1.podcastId).first()?.playbackSpeed == null }
     }
 
     @Test

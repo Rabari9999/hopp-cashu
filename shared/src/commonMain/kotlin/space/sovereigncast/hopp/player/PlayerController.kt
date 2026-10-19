@@ -63,7 +63,7 @@ class PlayerController(
     private val episodes: EpisodeRepository,
     private val podcasts: PodcastRepository,
     private val queue: QueueRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val scope: CoroutineScope,
     /** Streaming sats (ADR 0014); null in tests that do not pay. */
     private val value: ValueService? = null,
@@ -106,8 +106,14 @@ class PlayerController(
     init {
         scope.launch {
             settingsRepository.settings.collect {
+                val before = _settings.value.defaultSpeed
                 _settings.value = it
                 engine.setSkipIntervals(it.skipBackSeconds, it.skipForwardSeconds)
+                // A new default speed counts at once for the show playing, unless it has its own.
+                val podcastId = _current.value?.item?.podcastId
+                if (it.defaultSpeed != before && podcastId != null && podcasts.show(podcastId).first()?.playbackSpeed == null) {
+                    engine.setSpeed(it.defaultSpeed)
+                }
             }
         }
         // What is still owed from before — offline, or the app closed mid-batch —
@@ -276,8 +282,8 @@ class PlayerController(
             val start = if (item.played) 0 else item.positionMs
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
-            // Each show keeps its speed (ADR 0012).
-            engine.setSpeed(show?.playbackSpeed ?: 1f)
+            // Each show keeps its speed (ADR 0012); one never set follows the default.
+            engine.setSpeed(show?.playbackSpeed ?: settingsRepository.current().defaultSpeed)
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
@@ -358,9 +364,12 @@ class PlayerController(
         engine.seekTo(0)
     }
 
+    /** The speed for the show playing; the default speed means: none of its own,
+     *  so it follows the default when that changes. */
     fun setSpeed(speed: Float) {
         engine.setSpeed(speed)
-        _current.value?.item?.podcastId?.let { scope.launch { podcasts.setSpeed(it, speed) } }
+        val own = speed.takeUnless { abs(it - _settings.value.defaultSpeed) < 0.01f }
+        _current.value?.item?.podcastId?.let { scope.launch { podcasts.setSpeed(it, own) } }
     }
 
     fun cycleSpeed() {

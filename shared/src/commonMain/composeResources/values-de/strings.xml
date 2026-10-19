@@ -88,7 +88,7 @@
     <string name="sleep_active_episode">Folge</string>
     <string name="sleep_active_chapter">Kapitel</string>
     <string name="speed_title">Geschwindigkeit</string>
-    <string name="speed_note">Gilt für diese Show</string>
+    <string name="speed_note">Gilt für diese Show. Standard: %1$s× (Einstellungen → Wiedergabe)</string>
     <string name="skip_silence">Stille überspringen</string>
     <string name="show_auto_download">Neue Folgen im WLAN laden</string>
     <string name="settings_playback">Wiedergabe</string>
@@ -393,7 +393,7 @@
     <string name="settings_wallet_connected">Verbunden: %1$s</string>
     <string name="settings_wallet_none">Keine Wallet verbunden – nötig für Boosts</string>
     <string name="settings_history_note">Jeder Boost und jeder gestreamte Sat – wer was bekam</string>
-    <string name="settings_playback_note">Sprungweiten, Stille überspringen</string>
+    <string name="settings_playback_note">Geschwindigkeit, Sprungweiten, Stille überspringen</string>
     <string name="settings_downloads_refresh">Downloads &amp; Aktualisierung</string>
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
     <string name="settings_notifications">Benachrichtigungen</string>
@@ -696,4 +696,8 @@
     <string name="pv_backup_line">Bibliothek und Einstellungen, wenn Backups an sind</string>
     <string name="image_full">Bild im Vollbild zeigen</string>
     <string name="image_close">Bild schließen</string>
+    <string name="settings_default_speed">Standard-Geschwindigkeit</string>
+    <string name="settings_default_speed_note">Für alle Shows. Eine im Player gewählte Geschwindigkeit bleibt bei dieser Show; wählst du dort wieder den Standard, folgt sie diesem.</string>
+    <string name="settings_downloads_queue">Downloads in „Als Nächstes“</string>
+    <string name="settings_downloads_queue_note">Jede fertig heruntergeladene Folge kommt ans Ende der Warteschlange – so hörst du einfach durch.</string>
 </resources>

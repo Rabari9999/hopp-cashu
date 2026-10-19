@@ -17,6 +17,9 @@ every day in the first release.
   (default 10 s back, 30 s forward); every episode keeps its position; an episode
   counts as played when it ends. *(Amended 2026-10-10: "played from 95 %"
   dropped by the maintainer — it makes no sense for how Hopp is used.)*
+  *(Amended 2026-10-19, maintainer: a default speed in the settings counts for
+  every show without one of its own; choosing the default for a show in the
+  player makes it follow the default again.)*
 - **Lock screen, notification, headset and Bluetooth controls:** chapter title
   and chapter image in the now-playing view; previous/next jump between chapters
   when the episode has them.
@@ -27,6 +30,9 @@ every day in the first release.
 - **Episode page:** persons with image and link, soundbites as previews,
   `podcast:funding` link.
 - **Queue:** "play next" / "play last", reorderable, auto-advance.
+  *(Amended 2026-10-19, maintainer: as in AntennaPod, a finished download goes
+  to the end of the queue — not one already played or playing, and one already
+  in it keeps its place; a setting under Downloads, on by default.)*
 - **Sleep timer:** minutes, end of episode, and **end of chapter**.
 - **Value for value in the player:** boost button with amount presets and a
   message, a view of the split (who gets how much), streaming indicator with

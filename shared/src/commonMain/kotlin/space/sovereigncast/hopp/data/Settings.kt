@@ -16,6 +16,9 @@ data class Settings(
     val skipForwardSeconds: Int = 30,
     /** Android only (ADR 0012); iOS ignores it. */
     val skipSilence: Boolean = false,
+    /** The speed of every show whose speed the listener has not set on its own
+     *  (device feedback 2026-10-19). */
+    val defaultSpeed: Float = 1f,
     /** Space for downloads; 0 = no limit. */
     val storageLimitMb: Int = 2_048,
     /** Extra directories, off by default — each sees the searches (ADR 0008). */
@@ -73,6 +76,9 @@ data class Settings(
     /** A boost to an episode also as a public Nostr comment, as Fountain does — the
      *  boost dialog's switch starts there (ADR 0021, 6; device feedback 2026-10-16). */
     val nostrBoosts: Boolean = false,
+    /** A finished download goes to the end of "Up next", as in AntennaPod
+     *  (device feedback 2026-10-19). */
+    val downloadsToQueue: Boolean = true,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -97,6 +103,7 @@ data class Settings(
                 skipBackSeconds = values["skip_back"]?.toIntOrNull() ?: d.skipBackSeconds,
                 skipForwardSeconds = values["skip_forward"]?.toIntOrNull() ?: d.skipForwardSeconds,
                 skipSilence = values["skip_silence"]?.toBooleanStrictOrNull() ?: d.skipSilence,
+                defaultSpeed = values["default_speed"]?.toFloatOrNull()?.takeIf { it > 0f } ?: d.defaultSpeed,
                 storageLimitMb = values["storage_limit_mb"]?.toIntOrNull() ?: d.storageLimitMb,
                 fyydSearch = values["fyyd_search"]?.toBooleanStrictOrNull() ?: d.fyydSearch,
                 appleSearch = values["apple_search"]?.toBooleanStrictOrNull() ?: d.appleSearch,
@@ -122,6 +129,7 @@ data class Settings(
                 nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
                 mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
+                downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
             )
         }
@@ -138,6 +146,7 @@ data class Settings(
         "skip_back" to skipBackSeconds.toString(),
         "skip_forward" to skipForwardSeconds.toString(),
         "skip_silence" to skipSilence.toString(),
+        "default_speed" to defaultSpeed.toString(),
         "storage_limit_mb" to storageLimitMb.toString(),
         "fyyd_search" to fyydSearch.toString(),
         "apple_search" to appleSearch.toString(),
@@ -164,6 +173,7 @@ data class Settings(
         "muted_local" to mutedLocally.joinToString("\n"),
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
+        "downloads_to_queue" to downloadsToQueue.toString(),
     )
 }
 

@@ -253,7 +253,8 @@ class PodcastRepository(
         }.awaitAll()
     }
 
-    suspend fun setSpeed(id: Long, speed: Float) = withContext(Dispatchers.IO) { q.setSpeed(speed.toDouble(), id) }
+    /** [speed] null: the show follows the default speed again. */
+    suspend fun setSpeed(id: Long, speed: Float?) = withContext(Dispatchers.IO) { q.setSpeed(speed?.toDouble(), id) }
     suspend fun setAutoDownload(id: Long, on: Boolean) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id) }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */

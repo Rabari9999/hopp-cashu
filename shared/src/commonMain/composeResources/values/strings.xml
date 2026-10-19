@@ -88,7 +88,7 @@
     <string name="sleep_active_episode">Episode</string>
     <string name="sleep_active_chapter">Chapter</string>
     <string name="speed_title">Speed</string>
-    <string name="speed_note">Kept for this show</string>
+    <string name="speed_note">Kept for this show. Default: %1$s× (Settings → Playback)</string>
     <string name="skip_silence">Skip silence</string>
     <string name="show_auto_download">Download new episodes on Wi-Fi</string>
     <string name="settings_playback">Playback</string>
@@ -393,7 +393,7 @@
     <string name="settings_wallet_connected">Connected: %1$s</string>
     <string name="settings_wallet_none">No wallet connected — needed for boosts</string>
     <string name="settings_history_note">Every boost and streamed sat, with who got what</string>
-    <string name="settings_playback_note">Skip intervals, skip silence</string>
+    <string name="settings_playback_note">Speed, skip intervals, skip silence</string>
     <string name="settings_downloads_refresh">Downloads &amp; updates</string>
     <string name="settings_downloads_note">Storage, looking for new episodes</string>
     <string name="settings_notifications">Notifications</string>
@@ -696,4 +696,8 @@
     <string name="pv_backup_line">Library and settings, if backups are on</string>
     <string name="image_full">Show the picture full screen</string>
     <string name="image_close">Close the picture</string>
+    <string name="settings_default_speed">Default speed</string>
+    <string name="settings_default_speed_note">For every show. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
+    <string name="settings_downloads_queue">Downloads to “Up next”</string>
+    <string name="settings_downloads_queue_note">Each finished download goes to the end of the queue, so you can listen straight through.</string>
 </resources>

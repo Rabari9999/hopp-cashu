@@ -1,6 +1,12 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.material.icons.rounded.Person
+import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.ui.player.formatSpeed
+import space.sovereigncast.hopp.resources.settings_default_speed
+import space.sovereigncast.hopp.resources.settings_default_speed_note
+import space.sovereigncast.hopp.resources.settings_downloads_queue
+import space.sovereigncast.hopp.resources.settings_downloads_queue_note
 import space.sovereigncast.hopp.resources.nostr_title
 import space.sovereigncast.hopp.resources.nostr_entry_none
 import space.sovereigncast.hopp.resources.settings_downloads_delete_confirm
@@ -170,6 +176,11 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
         when (page) {
             SettingsPage.Home, SettingsPage.Nostr -> Unit
             SettingsPage.Playback -> {
+                // Every show plays at this speed until the listener gives it one of its own
+                // in the player (device feedback 2026-10-19).
+                Label(stringResource(Res.string.settings_default_speed))
+                Choices(PlayerController.SPEED_CHOICES, s.defaultSpeed, { "${formatSpeed(it)}×" }) { v -> vm.update { it.copy(defaultSpeed = v) } }
+                Note(stringResource(Res.string.settings_default_speed_note))
                 Label(stringResource(Res.string.settings_skip_back))
                 Choices(Settings.skipBackChoices, s.skipBackSeconds, { stringResource(Res.string.settings_seconds, it) }) { v -> vm.update { it.copy(skipBackSeconds = v) } }
                 Label(stringResource(Res.string.settings_skip_forward))
@@ -185,6 +196,9 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                     if (mb == 0) stringResource(Res.string.settings_unlimited) else formatBytes(mb * 1024L * 1024L)
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
+                Toggle(stringResource(Res.string.settings_downloads_queue), stringResource(Res.string.settings_downloads_queue_note), s.downloadsToQueue) { on ->
+                    vm.update { it.copy(downloadsToQueue = on) }
+                }
                 // What the episodes take, and all of them gone at once (device
                 // feedback 2026-10-14; where they are said more than it helped).
                 val bytes by vm.downloadBytes.collectAsState()
@@ -281,7 +295,7 @@ private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.on
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T> Choices(options: List<T>, selected: T, label: @Composable (T) -> String, onPick: (T) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { o -> FilterChip(selected = o == selected, onClick = { onPick(o) }, label = { Text(label(o)) }) }
     }
 }

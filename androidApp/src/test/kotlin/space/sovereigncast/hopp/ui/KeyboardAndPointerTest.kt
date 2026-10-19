@@ -95,7 +95,7 @@ class KeyboardAndPointerTest {
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Playback speed")).fetchSemanticsNodes().isNotEmpty() }
         val speedBefore = player.state.value.speed
         rule.onNode(hasContentDescription("Playback speed")).performMouseInput { rightClick() }
-        waitFor("Kept for this show")
+        waitFor("Kept for this show. Default: 1× (Settings → Playback)")
         check(player.state.value.speed == speedBefore) { "the right-click also changed the speed, as a tap would" }
     }
 }

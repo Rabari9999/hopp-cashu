@@ -417,7 +417,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         FilterChip(selected = abs(v - state.speed) < 0.01f, onClick = { model.setSpeed(v) }, label = { Text("${formatSpeed(v)}×") })
                     }
                 }
-                Text(stringResource(Res.string.speed_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(Res.string.speed_note, formatSpeed(settings.defaultSpeed)), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 if (model.engine.supportsSkipSilence) {
                     val settingsVm: SettingsViewModel = koinViewModel()
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -488,7 +488,8 @@ private fun SheetChip(label: String, onClick: () -> Unit) {
     }
 }
 
-private fun formatSpeed(s: Float): String {
+/** 1.5f → "1,5" — the speed as the listener reads it. */
+internal fun formatSpeed(s: Float): String {
     val tenths = kotlin.math.round(s * 10).toInt()
     return if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
 }
