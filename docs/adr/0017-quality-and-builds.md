@@ -38,7 +38,10 @@ F-Droid needs to publish our signature.
 
 - **Changelog** in English and German, two-tier like Sovereigncast (highlights,
   then fixes); the stores' "what's new" text comes from the highlights (Google
-  Play: 500 characters per language).
+  Play: 500 characters per language). Each entry starts with the part of
+  the app it belongs to ("**Player:**", "**Wallet:**" …) and says in one short
+  sentence what changed for the listener — no technical detail (maintainer,
+  2026-10-19).
 - **Checklist:** version bump and changelog; Play test track; TestFlight;
   F-Droid metadata merge request; Zapstore publish; screenshots; privacy
   declarations; device checklist; TalkBack/VoiceOver walkthrough of the core
