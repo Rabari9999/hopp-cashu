@@ -75,6 +75,9 @@ import space.sovereigncast.hopp.resources.zap_anonymous
 import space.sovereigncast.hopp.resources.zap_anonymous_switch
 import space.sovereigncast.hopp.resources.zap_anonymous_note
 import space.sovereigncast.hopp.resources.zap_public
+import space.sovereigncast.hopp.resources.zap_vpn_on
+import space.sovereigncast.hopp.resources.zap_vpn_off
+import space.sovereigncast.hopp.resources.zap_ip
 import space.sovereigncast.hopp.resources.zap_private
 import space.sovereigncast.hopp.resources.zap_private_note
 import space.sovereigncast.hopp.resources.zap_over_budget
@@ -657,6 +660,9 @@ private fun ZapSheet(vm: CommentsViewModel) {
     val me by vm.identity.collectAsState()
     val colors = MaterialTheme.colorScheme
     val name = nameOf(zapping.comment.pubkey, authors)
+    val net: NetworkPrivacySource = koinInject()
+    val network by remember(net) { net.observe() }.collectAsState(NetworkPrivacy())
+    val actions = LocalPlatformActions.current
     var amount by remember(zapping.comment.id) { mutableStateOf(100L) }
     var message by remember(zapping.comment.id) { mutableStateOf("") }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = vm::closeZap) {
@@ -708,6 +714,13 @@ private fun ZapSheet(vm: CommentsViewModel) {
                         },
                         color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     )
+                    // The Lightning server sees the IP address whoever the zap names: as in the comments,
+                    // green with a VPN, else the way to one (device feedback 2026-10-19).
+                    when (network.vpn) {
+                        true -> CheckLine(Check.Done, stringResource(Res.string.zap_vpn_on))
+                        false -> CheckLine(Check.Open, stringResource(Res.string.zap_vpn_off)) { actions.openVpnSettings() }
+                        null -> Text(stringResource(Res.string.zap_ip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
                     zapping.failure?.let { f ->
                         Text(stringResource(when (f) {
                             CommentsViewModel.ZapFailure.OverBudget -> Res.string.zap_over_budget

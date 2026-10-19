@@ -706,7 +706,7 @@
     <string name="zap_none">%1$s cannot receive zaps: their Nostr profile names no Lightning address that takes them.</string>
     <string name="zap_message">Message (optional)</string>
     <string name="zap_as">Everyone sees the zap is from you, %1$s.</string>
-    <string name="zap_anonymous">Anonymous: you have no Nostr profile. The Lightning server still sees your IP address.</string>
+    <string name="zap_anonymous">Anonymous: you have no Nostr profile.</string>
     <string name="zap_send">Zap %1$s sats</string>
     <string name="zap_done">⚡ %1$s sats zapped to %2$s</string>
     <string name="zap_close">Close</string>
@@ -715,7 +715,7 @@
     <string name="zap_failed">The zap did not go through.</string>
     <string name="history_zap">Zap on a comment</string>
     <string name="zap_anonymous_switch">Anonymous</string>
-    <string name="zap_anonymous_note">Nobody sees it is from you. The Lightning server still sees your IP address.</string>
+    <string name="zap_anonymous_note">Nobody sees it is from you.</string>
     <string name="pv_zap_who">The Lightning provider of a commenter you zap</string>
     <string name="pv_zap_sees">your IP address, the amount, which comment, your message and your Nostr identity — public in a public zap, for the author alone in a private one, nowhere in an anonymous one; it publishes the zap receipt on Nostr relays, public for everyone</string>
     <string name="pv_zap_when">only when you zap a comment</string>
@@ -724,5 +724,8 @@
     <string name="pv_zap_line">Amount, comment; your name if public</string>
     <string name="zap_public">Public</string>
     <string name="zap_private">Private</string>
-    <string name="zap_private_note">Only %1$s sees it is from you, with your message; to everyone else it is anonymous. The Lightning server still sees your IP address.</string>
+    <string name="zap_private_note">Only %1$s sees it is from you, with your message; to everyone else it is anonymous.</string>
+    <string name="zap_vpn_on">VPN active – the Lightning server does not see your IP address</string>
+    <string name="zap_vpn_off">The Lightning server sees your IP address · set up a VPN</string>
+    <string name="zap_ip">The Lightning server sees your IP address.</string>
 </resources>
