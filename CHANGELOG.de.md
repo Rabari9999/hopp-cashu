@@ -6,6 +6,13 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.
+- **Downloads in „Als Nächstes“** — wie bei AntennaPod kommt jede fertig geladene Folge ans Ende der Warteschlange, so hörst du einfach durch (Einstellungen → Downloads, standardmäßig an).
+
+### 🐛 Fixes
+- Ein Kommentar oder öffentlicher Boost zu einer Show, die keine Nostr-Notes postet, nennt jetzt Show und Folge samt Link, damit andere Nostr-Apps zeigen, worum es geht.
+
 ## [0.2.1] - 2026-10-18
 
 ### 🆕 New Features

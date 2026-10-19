@@ -167,6 +167,25 @@ class DownloadsAndQueueTest {
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState, "unless the show is switched off")
     }
 
+    /** Device feedback 2026-10-19: as in AntennaPod, a download is ready in "Up next". */
+    @Test
+    fun aFinishedDownloadGoesToTheEndOfTheQueue() = test {
+        items = 4
+        val id = subscribe()
+        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e3)
+        listOf(e3, e1, e2, e4).forEach { downloads.request(it) }
+        episodes.setPlayed(e2, true)
+        downloads.playing = { e4 }
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(listOf(e3, e1), queue.items.first().map { it.id }, "keeps its place; not one heard, nor the one playing")
+        queue.remove(e3); queue.remove(e1)
+        settings.update { it.copy(downloadsToQueue = false) }
+        downloads.remove(e1); downloads.request(e1)
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(emptyList(), queue.items.first(), "switched off")
+    }
+
     /** Device feedback 2026-10-15: one waiting for Wi-Fi goes now on request,
      *  over mobile data too. */
     @Test

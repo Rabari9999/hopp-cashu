@@ -29,3 +29,7 @@ DELETE FROM queue WHERE episode_id = ?;
 
 first:
 SELECT episode_id FROM queue ORDER BY sort_key LIMIT 1;
+
+-- At the end, unless it is in the queue already: there it keeps its place.
+addLast:
+INSERT OR IGNORE INTO queue (episode_id, sort_key) VALUES (?, (SELECT coalesce(max(sort_key), 0) + 1 FROM queue));

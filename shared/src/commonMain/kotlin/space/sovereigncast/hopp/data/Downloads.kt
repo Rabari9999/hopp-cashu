@@ -80,6 +80,10 @@ class DownloadRepository(
     private val scheduler: DownloadScheduler,
     private val settings: SettingsRepository,
 ) {
+    /** The episode playing — never put into "Up next"; the player sets it once it
+     *  exists (a download in the background alone does not make one). */
+    var playing: () -> Long? = { null }
+
     private val eq = db.episodeQueries
     // Podcast hosts redirect through trackers, and some of them to plain http.
     private val client = http.config { install(HttpRedirect) { allowHttpsDowngrade = true } }
@@ -238,6 +242,16 @@ class DownloadRepository(
             val target = files.path(id, url)
             SystemFileSystem.atomicMove(part, target)
             eq.setDownloaded(target.toString(), files.size(target), id)
+        }
+        enqueue(id)
+    }
+
+    /** A finished download to the end of "Up next", as in AntennaPod (device feedback
+     *  2026-10-19) — not one already heard, nor the one playing. */
+    private suspend fun enqueue(id: Long) {
+        if (!settings.current().downloadsToQueue || id == playing()) return
+        withContext(Dispatchers.IO) {
+            if (eq.selectById(id).executeAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
         }
     }
 

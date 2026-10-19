@@ -109,7 +109,10 @@ fun sharedModule(platform: Platform) = module {
     }
     single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
-    single { PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>()) }
+    single {
+        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>())
+            .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
+    }
     viewModel { InboxViewModel(get(), get()) }
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }
