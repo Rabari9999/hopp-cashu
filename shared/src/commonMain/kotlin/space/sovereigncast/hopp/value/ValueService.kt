@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import space.sovereigncast.hopp.value.nwc.NwcException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
@@ -99,6 +100,9 @@ data class PendingEpisode(val episodeId: Long, val item: EpisodeItem?, val podca
 
 /** Streamed sats waiting for one recipient: owed, or heard and not yet split. */
 data class PendingShare(val name: String, val msat: Long)
+
+/** More than today's budget has left. */
+class OverBudgetException : Exception("over today's budget")
 
 /** A streaming catch-up after time offline: paid within the budget (ADR 0014). */
 data class StreamNotice(val paidSats: Long, val episodes: Int)
@@ -286,7 +290,7 @@ class ValueService(
     /** A payment made outside the value split — an instance's invoice for
      *  Release Boosting or Boost2Unlock — kept in the same history. */
     suspend fun logInvoicePayment(
-        kind: String, podcastId: Long, podcastTitle: String?, episodeTitle: String?, amountMsat: Long,
+        kind: String, podcastId: Long?, podcastTitle: String?, episodeTitle: String?, amountMsat: Long,
         message: String?, recipientName: String?, recipientAddress: String, feesMsat: Long?, status: String = "paid", reason: String? = null,
     ) = withContext(Dispatchers.IO) {
         val line = PaymentLine(recipientName, recipientAddress, amountMsat, status, feesMsat = feesMsat, route = "invoice", reason = reason)
@@ -295,6 +299,35 @@ class ValueService(
         // An unknown outcome may have left the wallet: against the budget (M-03).
         val unknown = if (status == "unknown") amountMsat else 0L
         pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, unknown, json.encodeToString(lineList, listOf(line)))
+    }
+
+    /**
+     * A zap (NIP-57) — on a comment (device feedback 2026-10-19): one invoice
+     * from [invoice], paid from the connected wallet within today's budget,
+     * and kept in the history like any payment.
+     */
+    suspend fun zap(
+        podcastId: Long?, episodeId: Long?, amountMsat: Long, message: String?, recipientName: String?, address: String,
+        invoice: suspend () -> String,
+    ): Long? = spending.withLock {
+        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
+        if (amountMsat + feeReserve(amountMsat) > budgetLeftMsat.first()) throw OverBudgetException()
+        val show = podcastId?.let { podcasts.show(it).first() }
+        val episode = episodeId?.let { episodes.item(it) }
+        val pr = invoice()
+        suspend fun log(status: String, fees: Long?, reason: String? = null) = logInvoicePayment(
+            KIND_ZAP, podcastId, show?.title ?: episode?.podcastTitle, episode?.title, amountMsat, message, recipientName, address, fees, status, reason,
+        )
+        try {
+            val paid = client.payInvoice(pr)
+            log("paid", paid.feesPaidMsat)
+            paid.feesPaidMsat
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            withContext(NonCancellable) { log(if ((e as? NwcException)?.outcomeUnknown == true) "unknown" else "failed", null, e.message) }
+            throw e
+        }
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -570,6 +603,7 @@ class ValueService(
         const val KIND_BOOST2UNLOCK = "boost2unlock"
         /** A new topic suggestion or a boost for one (phase 2). */
         const val KIND_SUGGESTION = "suggestion"
+        const val KIND_ZAP = "zap"
         const val RAIL_LIGHTNING = "lightning"
         /** [last_error] prefix while a settlement payment has been handed to the wallet and not answered. */
         private const val IN_FLIGHT = "hopp:in_flight:"

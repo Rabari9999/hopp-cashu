@@ -72,6 +72,8 @@ data class Comment(
     val likes: Set<String> = emptySet(),
     /** A zap with a message (kind 9735): its sats; it takes no answers or likes. */
     val sats: Long? = null,
+    /** What others zapped on it (NIP-57), in sats. */
+    val zapped: Long = 0,
 )
 
 data class CommentAuthor(val name: String?, val picture: String?)
@@ -251,8 +253,8 @@ class CommentReader(
         // Replies to the comments found: a Fountain listener answering another names only that comment.
         // Replies to the comments known before too: new answers to an old comment.
         val more = (before?.events.orEmpty() + first).filter { it.kind == 1 || it.kind == COMMENT }.map { it.id }.distinct().filter { it !in roots }.take(MAX_EVENTS)
-        // Their likes (NIP-25) in the same request, and zaps on the show's notes.
-        val secondFilters = more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } } +
+        // Their likes (NIP-25) and zaps (NIP-57) in the same request, and zaps on the show's notes.
+        val secondFilters = more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION + ZAP_RECEIPT) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } } +
             listOfNotNull(allRoots.takeIf { it.isNotEmpty() }?.let { ids -> filter(listOf(ZAP_RECEIPT)) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } })
         val second = if (secondFilters.isEmpty()) emptyList() else publisher.query(secondFilters, relays, SETTLE)
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
@@ -449,8 +451,13 @@ internal fun thread(events: List<Event>, anchor: CommentAnchor, muted: Set<Strin
         while (true) { val p = parent[at]; if (p == null || p !in kept) return at; at = p }
     }
     fun rootOf(e: Event) = e.tags.firstOrNull { it.size >= 4 && it[0] == "e" && it[3] == "root" }?.get(1)
+    // Zaps on a kept comment (NIP-57: the e tag is what was zapped), counted where the receipt holds up.
+    val zapped = events.filter { it.kind == CommentReader.ZAP_RECEIPT }.distinctBy { it.id }
+        .mapNotNull { r -> r.tags.firstOrNull { it.size >= 2 && it[0] == "e" }?.get(1)?.takeIf { it in kept }?.let { id -> zap(r)?.let { id to it } } }
+        .filter { (_, z) -> z.first.pubkey !in muted }
+        .groupBy({ it.first }, { it.second.second }).mapValues { it.value.sum() }
     fun comment(e: Event, replyTo: String? = null, replies: List<Comment> = emptyList()) =
-        Comment(e.id, e.pubkey, e.created_at, e.content, replyTo, replies, e.kind, rootOf(e), likes[e.id].orEmpty())
+        Comment(e.id, e.pubkey, e.created_at, e.content, replyTo, replies, e.kind, rootOf(e), likes[e.id].orEmpty(), zapped = zapped[e.id] ?: 0)
     val byTop = kept.values.groupBy { top(it.id) }
     val threads = byTop.mapNotNull { (topId, members) ->
         val head = kept[topId] ?: return@mapNotNull null

@@ -700,4 +700,18 @@
     <string name="settings_default_speed_note">For every show. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
     <string name="settings_downloads_queue">Downloads to “Up next”</string>
     <string name="settings_downloads_queue_note">Each finished download goes to the end of the queue, so you can listen straight through.</string>
+    <string name="comments_zap">Zap</string>
+    <string name="zap_title">Zap %1$s</string>
+    <string name="zap_looking">Looking for %1$s’s Lightning address…</string>
+    <string name="zap_none">%1$s cannot receive zaps: their Nostr profile names no Lightning address that takes them.</string>
+    <string name="zap_message">Message (optional)</string>
+    <string name="zap_as">Public, as %1$s</string>
+    <string name="zap_anonymous">Anonymous: you have no Nostr profile</string>
+    <string name="zap_send">Zap %1$s sats</string>
+    <string name="zap_done">⚡ %1$s sats zapped to %2$s</string>
+    <string name="zap_close">Close</string>
+    <string name="zap_over_budget">More than today’s budget allows (Settings → Wallet &amp; payments).</string>
+    <string name="zap_unknown">The wallet did not say whether it paid. Check it before zapping again.</string>
+    <string name="zap_failed">The zap did not go through.</string>
+    <string name="history_zap">Zap on a comment</string>
 </resources>

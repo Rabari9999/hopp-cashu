@@ -28,6 +28,7 @@ import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.sovereigncast.ListenerApi
 import space.sovereigncast.hopp.sovereigncast.PaymentMetadataSource
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
+import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.value.LnAddressClient
 import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
@@ -108,6 +109,7 @@ fun sharedModule(platform: Platform) = module {
             { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey)
     }
     single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
+    single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single {
         PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>())
@@ -128,7 +130,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
-    viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get(), get(), get(), get()) }
+    viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.FavoritesViewModel(get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }

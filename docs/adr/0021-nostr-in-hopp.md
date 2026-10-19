@@ -93,6 +93,24 @@ Hopp shows what Fountain's listeners say about the same episode.
 
 **Reactions:** kind 7 on a comment. Episode likes (kind 17, Fountain) — later.
 
+- **Amended 2026-10-19 (maintainer): zapping a comment.** Beside like and
+  answer, ⚡ zaps a comment from the connected wallet (NIP-57): the author's
+  `lud16` from their profile; its pay request must take zaps (`allowsNostr`,
+  `nostrPubkey`), else Hopp says so; a zap request (kind 9734: `e` and `k` of
+  the comment, `p` of its author, the amount, the relays the comments came
+  from and Fountain's) goes to the address's callback, and the invoice is
+  paid only if it asks for exactly that amount and its description hash
+  commits to the request. Within today's budget, in the payment history as a
+  zap. Signed with the listener's identity; without one with a key made for
+  that zap alone — an anonymous zap, as NIP-57 allows. Hopp reads the
+  receipts on comments with their likes and shows their sum on each comment.
+  A boost made public stays a note with its amount in the text, not a zap:
+  a zap's receipt is signed by the server of the one address paid, and a
+  boost is split among several recipients, mostly by keysend, which gives
+  no receipt. Fountain's boosts show as zaps because Fountain receives the
+  whole boost itself and signs the receipt; Hopp pays the recipients
+  directly.
+
 ### 2. Relays
 
 - **Reading comments:** the relay hints of the show's `nevent`, the show

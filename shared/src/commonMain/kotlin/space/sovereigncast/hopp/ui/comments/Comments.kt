@@ -39,6 +39,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.comments.Comment
+import space.sovereigncast.hopp.comments.CommentZapper
+import space.sovereigncast.hopp.comments.ZapTarget
+import space.sovereigncast.hopp.data.EpisodeRepository
+import space.sovereigncast.hopp.value.WalletRepository
+import space.sovereigncast.hopp.value.OverBudgetException
+import space.sovereigncast.hopp.value.nwc.NwcException
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import space.sovereigncast.hopp.comments.CommentAuthor
 import space.sovereigncast.hopp.comments.CommentThread
 import space.sovereigncast.hopp.comments.CommentsRepository
@@ -54,6 +62,19 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import space.sovereigncast.hopp.nostr.npub
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.comments_zap
+import space.sovereigncast.hopp.resources.zap_title
+import space.sovereigncast.hopp.resources.zap_done
+import space.sovereigncast.hopp.resources.zap_close
+import space.sovereigncast.hopp.resources.zap_looking
+import space.sovereigncast.hopp.resources.zap_none
+import space.sovereigncast.hopp.resources.zap_message
+import space.sovereigncast.hopp.resources.zap_as
+import space.sovereigncast.hopp.resources.zap_anonymous
+import space.sovereigncast.hopp.resources.zap_over_budget
+import space.sovereigncast.hopp.resources.zap_unknown
+import space.sovereigncast.hopp.resources.zap_failed
+import space.sovereigncast.hopp.resources.zap_send
 import space.sovereigncast.hopp.resources.comments_failed
 import space.sovereigncast.hopp.resources.comments_from_relays
 import space.sovereigncast.hopp.resources.comments_intro
@@ -110,6 +131,9 @@ class CommentsViewModel(
     private val writer: CommentWriter,
     private val identities: IdentityRepository,
     private val settingsRepo: SettingsRepository,
+    private val zapper: CommentZapper,
+    wallets: WalletRepository,
+    private val episodes: EpisodeRepository,
 ) : ViewModel() {
     sealed interface State {
         /** Looking for comments kept from before — nobody is asked. */
@@ -151,6 +175,8 @@ class CommentsViewModel(
         viewModelScope.launch {
             val thread = runCatching { repo.anchor(episodeId)?.let { repo.reader.load(it) } }.getOrNull()
             if (thread == null) { _state.value = (shown as? State.Loaded)?.copy(refreshing = false) ?: State.Failed; return@launch }
+            // The relays' receipts count now, not twice.
+            zappedHere.value = emptyMap()
             _state.value = State.Loaded(thread)
             details(thread)
         }
@@ -241,6 +267,64 @@ class CommentsViewModel(
 
     fun hide(c: Comment) { viewModelScope.launch { settingsRepo.update { it.copy(hiddenComments = it.hiddenComments + c.id) } } }
 
+    /** A wallet to zap from (ADR 0005). */
+    val hasWallet: StateFlow<Boolean> = wallets.wallet.map { it != null }.stateIn(viewModelScope, SharingStarted.Eagerly, wallets.wallet.value != null)
+
+    /** A zap on a comment, from opening the sheet to its end (device feedback 2026-10-19). */
+    data class Zapping(
+        val comment: Comment,
+        /** Looking up the author's Lightning address; then [target], or none — no zaps there. */
+        val looking: Boolean = true,
+        val target: ZapTarget? = null,
+        val sending: Boolean = false,
+        val failure: ZapFailure? = null,
+        /** Paid: the sats. */
+        val done: Long? = null,
+    )
+    enum class ZapFailure { OverBudget, Unknown, Failed }
+    val zapping = MutableStateFlow<Zapping?>(null)
+    /** Zaps paid here, shown on the comment until the receipt comes with the next load. */
+    val zappedHere = MutableStateFlow<Map<String, Long>>(emptyMap())
+
+    fun openZap(c: Comment) {
+        val relays = thread()?.relays.orEmpty()
+        zapping.value = Zapping(c)
+        viewModelScope.launch {
+            val target = runCatching { zapper.target(c.pubkey, relays) }.getOrNull()
+            zapping.update { z -> z?.takeIf { it.comment.id == c.id }?.copy(looking = false, target = target) }
+        }
+    }
+
+    fun closeZap() { zapping.value = null }
+
+    fun zap(sats: Long, message: String) {
+        val z = zapping.value ?: return
+        val target = z.target ?: return
+        if (z.sending || z.done != null) return
+        val send = {
+            zapping.value = z.copy(sending = true, failure = null)
+            viewModelScope.launch {
+                val item = runCatching { episodes.item(episodeId) }.getOrNull()
+                runCatching {
+                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name)
+                }.onSuccess {
+                    zappedHere.update { it + (z.comment.id to (it[z.comment.id] ?: 0) + sats) }
+                    zapping.update { it?.copy(sending = false, done = sats) }
+                }.onFailure { e ->
+                    val why = when {
+                        e is OverBudgetException -> ZapFailure.OverBudget
+                        (e as? NwcException)?.outcomeUnknown == true -> ZapFailure.Unknown
+                        else -> ZapFailure.Failed
+                    }
+                    zapping.update { it?.copy(sending = false, failure = why) }
+                }
+            }
+            Unit
+        }
+        // With an identity the zap request names the listener in public: the one-time note first.
+        if (identity.value != null) publicly(send) else send()
+    }
+
     private suspend fun refreshFromStore() {
         val kept = runCatching { repo.cached(episodeId) }.getOrNull() ?: return
         _state.value = State.Loaded(kept, refreshing = (_state.value as? State.Loaded)?.refreshing == true)
@@ -306,6 +390,7 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 val mutedHere = settings?.mutedLocally.orEmpty()
                 val to by vm.replyTo.collectAsState()
                 val liking by vm.liking.collectAsState()
+                val zappedHere by vm.zappedHere.collectAsState()
                 // A new comment at the top; an answer right under what it answers
                 // (device feedback 2026-10-16: far down, the field at the top went unseen).
                 if (to == null) Composer(vm, me != null, authors)
@@ -319,10 +404,10 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 }
                 if (shown.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
                 shown.forEach { (c, replies) ->
-                    CommentRow(c, authors, boosts[c.id] ?: c.sats, me?.pubkey, c.id in liking, vm, onTimestamp)
+                    CommentRow(c, authors, boosts[c.id] ?: c.sats, me?.pubkey, c.id in liking, vm, onTimestamp, zapped = c.zapped + (zappedHere[c.id] ?: 0))
                     if (to?.id == c.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
                     replies.forEach { r ->
-                        CommentRow(r, authors, boosts[r.id], me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp))
+                        CommentRow(r, authors, boosts[r.id], me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp), zapped = r.zapped + (zappedHere[r.id] ?: 0))
                         if (to?.id == r.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
                     }
                 }
@@ -336,7 +421,11 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
     }
     PublicNote(vm)
     BackupReminder(vm)
+    ZapSheet(vm)
 }
+
+/** Opens the wallet page, to connect one before zapping — from the player it closes first. */
+val LocalOpenWallet = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Opens the Nostr identity page — from the player it closes first. */
 val LocalOpenIdentity = staticCompositionLocalOf<() -> Unit> { {} }
@@ -427,10 +516,12 @@ private fun nameOf(key: String, authors: Map<String, CommentAuthor>): String =
 @Composable
 private fun CommentRow(
     c: Comment, authors: Map<String, CommentAuthor>, sats: Long?, me: String?, liking: Boolean, vm: CommentsViewModel,
-    onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier,
+    onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier, zapped: Long = 0,
 ) {
     val colors = MaterialTheme.colorScheme
     val author = authors[c.pubkey]
+    val openWallet = LocalOpenWallet.current
+    val hasWallet by vm.hasWallet.collectAsState()
     val name = nameOf(c.pubkey, authors)
     var menu by remember { mutableStateOf(false) }
     var reporting by remember { mutableStateOf(false) }
@@ -477,6 +568,15 @@ private fun CommentRow(
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable { if (me == null) openIdentity() else vm.replyTo.value = c }.padding(vertical = 6.dp, horizontal = 2.dp),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                 )
+                // Zapping it from the connected wallet (device feedback 2026-10-19) — not one's own.
+                val zapLabel = stringResource(Res.string.comments_zap)
+                Text(
+                    "⚡" + if (zapped > 0) " ${formatSats(zapped)}" else "",
+                    Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = c.pubkey != me) { if (hasWallet) vm.openZap(c) else openWallet() }
+                        .padding(vertical = 6.dp, horizontal = 2.dp).semantics { contentDescription = zapLabel },
+                    color = if (zapped > 0) Hopp.colors.valueText else colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (zapped > 0) FontWeight.Bold else null,
+                )
                 }
                 Box {
                     val more = stringResource(Res.string.comments_more)
@@ -522,4 +622,68 @@ private fun ReportDialog(hasIdentity: Boolean, onDismiss: () -> Unit, onReport: 
         confirmButton = { TextButton(onClick = { onReport(type) }) { Text(stringResource(Res.string.comments_report)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.comments_cancel)) } },
     )
+}
+
+private val ZAP_PRESETS = listOf(21L, 100L, 500L, 1_000L, 2_100L)
+
+/**
+ * Zapping a comment: the author's Lightning address looked up, an amount,
+ * an optional message, one button — paid from the connected wallet within
+ * today's budget (device feedback 2026-10-19).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ZapSheet(vm: CommentsViewModel) {
+    val z by vm.zapping.collectAsState()
+    val zapping = z ?: return
+    val authors by vm.authors.collectAsState()
+    val me by vm.identity.collectAsState()
+    val colors = MaterialTheme.colorScheme
+    val name = nameOf(zapping.comment.pubkey, authors)
+    var amount by remember(zapping.comment.id) { mutableStateOf(100L) }
+    var message by remember(zapping.comment.id) { mutableStateOf("") }
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = vm::closeZap) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(Res.string.zap_title, name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            when {
+                zapping.done != null -> {
+                    Text(stringResource(Res.string.zap_done, formatSats(zapping.done), name), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = vm::closeZap, Modifier.align(Alignment.End)) { Text(stringResource(Res.string.zap_close)) }
+                }
+                zapping.looking -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(stringResource(Res.string.zap_looking, name), color = colors.onSurfaceVariant)
+                }
+                zapping.target == null -> {
+                    Text(stringResource(Res.string.zap_none, name), color = colors.onSurfaceVariant)
+                    TextButton(onClick = vm::closeZap, Modifier.align(Alignment.End)) { Text(stringResource(Res.string.zap_close)) }
+                }
+                else -> {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ZAP_PRESETS.forEach { p ->
+                            androidx.compose.material3.FilterChip(selected = amount == p, onClick = { amount = p }, label = { Text(formatSats(p)) }, enabled = !zapping.sending)
+                        }
+                    }
+                    OutlinedTextField(message, { message = it.take(280) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.zap_message)) },
+                        enabled = !zapping.sending, maxLines = 3)
+                    Text(me?.let { stringResource(Res.string.zap_as, it.name ?: nameOf(it.pubkey, authors)) } ?: stringResource(Res.string.zap_anonymous),
+                        color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    zapping.failure?.let { f ->
+                        Text(stringResource(when (f) {
+                            CommentsViewModel.ZapFailure.OverBudget -> Res.string.zap_over_budget
+                            CommentsViewModel.ZapFailure.Unknown -> Res.string.zap_unknown
+                            CommentsViewModel.ZapFailure.Failed -> Res.string.zap_failed
+                        }), color = colors.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    androidx.compose.material3.Button(
+                        onClick = { vm.zap(amount, message) }, Modifier.fillMaxWidth(),
+                        enabled = !zapping.sending && zapping.failure != CommentsViewModel.ZapFailure.Unknown,
+                    ) {
+                        if (zapping.sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.onPrimary)
+                        else Text(stringResource(Res.string.zap_send, formatSats(amount)))
+                    }
+                }
+            }
+        }
+    }
 }

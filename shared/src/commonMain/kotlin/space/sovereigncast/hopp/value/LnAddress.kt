@@ -21,8 +21,9 @@ import space.sovereigncast.hopp.crypto.toHex
 
 class LnAddressException(message: String) : Exception(message)
 
-/** LUD-06 pay request behind a Lightning address. */
-data class PayRequest(val callback: String, val minMsat: Long, val maxMsat: Long, val metadata: String, val commentAllowed: Int)
+/** LUD-06 pay request behind a Lightning address; [nostrPubkey]: the key its zap
+ *  receipts are signed with, when it takes zaps (NIP-57). */
+data class PayRequest(val callback: String, val minMsat: Long, val maxMsat: Long, val metadata: String, val commentAllowed: Int, val nostrPubkey: String? = null)
 
 /** `/.well-known/keysend/<user>` — the podcast namespace's keysend route for
  *  an lnaddress recipient, which lets a keysend-capable wallet send the full
@@ -49,6 +50,8 @@ class LnAddressClient(private val http: HttpClient) {
             maxMsat = body["maxSendable"]!!.jsonPrimitive.long,
             metadata = body["metadata"]!!.jsonPrimitive.content,
             commentAllowed = body["commentAllowed"]?.jsonPrimitive?.intOrNull ?: 0,
+            nostrPubkey = body["nostrPubkey"]?.jsonPrimitive?.contentOrNull?.lowercase()
+                ?.takeIf { body["allowsNostr"]?.jsonPrimitive?.contentOrNull == "true" && it.length == 64 && it.all { c -> c in "0123456789abcdef" } },
         )
     }
 
@@ -66,18 +69,33 @@ class LnAddressClient(private val http: HttpClient) {
      * pays it: the amount must match (ADR 0005) and the description hash must
      * commit to the pay request's metadata (LUD-06).
      */
-    suspend fun invoice(request: PayRequest, amountMsat: Long, comment: String?): String {
+    suspend fun invoice(request: PayRequest, amountMsat: Long, comment: String?): String =
+        fetchInvoice(request, amountMsat, request.metadata) {
+            if (!comment.isNullOrBlank() && request.commentAllowed > 0) parameter("comment", comment.take(request.commentAllowed))
+        }
+
+    /**
+     * An invoice for a zap (NIP-57): [zapRequest] — the signed kind 9734, as
+     * JSON — goes along, the address's server publishes the receipt once it is
+     * paid, and the invoice's description hash must commit to the zap request.
+     */
+    suspend fun zapInvoice(request: PayRequest, amountMsat: Long, zapRequest: String): String {
+        if (request.nostrPubkey == null) throw LnAddressException("no zaps at this address")
+        return fetchInvoice(request, amountMsat, zapRequest) { parameter("nostr", zapRequest) }
+    }
+
+    private suspend fun fetchInvoice(request: PayRequest, amountMsat: Long, committed: String, params: io.ktor.client.request.HttpRequestBuilder.() -> Unit): String {
         if (amountMsat !in request.minMsat..request.maxMsat) throw LnAddressException("amount outside ${request.minMsat}..${request.maxMsat} msat")
         val response = http.getLimited(request.callback, Limits.LNURL) {
             parameter("amount", amountMsat)
-            if (!comment.isNullOrBlank() && request.commentAllowed > 0) parameter("comment", comment.take(request.commentAllowed))
+            params()
         }
         val body = json.parseToJsonElement(response.text()).jsonObject
         if (body["status"]?.jsonPrimitive?.contentOrNull == "ERROR") throw LnAddressException(body["reason"]?.jsonPrimitive?.contentOrNull ?: "error")
         val pr = body["pr"]?.jsonPrimitive?.contentOrNull ?: throw LnAddressException("no invoice in response")
         val decoded = Bolt11.parse(pr)
         if (decoded.amountMsat != amountMsat) throw LnAddressException("invoice amount ${decoded.amountMsat} ≠ requested $amountMsat")
-        val expectedHash = Sha256.digest(request.metadata.encodeToByteArray()).toHex()
+        val expectedHash = Sha256.digest(committed.encodeToByteArray()).toHex()
         if (decoded.descriptionHashHex != null && decoded.descriptionHashHex != expectedHash) {
             throw LnAddressException("invoice does not commit to the pay request")
         }

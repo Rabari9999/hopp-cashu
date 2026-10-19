@@ -271,6 +271,25 @@ class CommentsTest {
         assertTrue(borrowed.id !in boosts && lying.id !in boosts)
     }
 
+    /** Device feedback 2026-10-19: what others zapped on a comment shows on it. */
+    @Test
+    fun zapsOnACommentAreCountedOnIt() = test {
+        relay.publish(feedNote)
+        val server = KeyPair.generate()
+        val comment = post(alice, 1, "Great", listOf(listOf("i", item)), now - 100)
+        fun zapOn(id: String, sender: KeyPair, msat: Long, at: Long) {
+            val request = Event.sign(sender, 9734, "", listOf(listOf("amount", "$msat"), listOf("e", id), listOf("p", alice.publicKeyHex)), at)
+            val description = kotlinx.serialization.json.Json.encodeToString(Event.serializer(), request)
+            val bolt11 = space.sovereigncast.hopp.value.TestInvoices.make(msat, space.sovereigncast.hopp.crypto.Sha256.digest(description.encodeToByteArray()))
+            post(server, 9735, "", listOf(listOf("bolt11", bolt11), listOf("description", description), listOf("e", id), listOf("p", alice.publicKeyHex)), at + 1)
+        }
+        zapOn(comment.id, bob, 21_000, now - 90)
+        zapOn(comment.id, troll, 100_000, now - 80)
+        zapOn("cd".repeat(32), bob, 5_000, now - 70)
+        val thread = reader.load(comments.anchor(episode())!!)
+        assertEquals(121L, thread.comments.single().zapped)
+    }
+
     /** Device feedback 2026-10-16: loaded once, the comments are kept and show at once.
      *  2026-10-17: and asked for in full again — one a relay held back is found next time. */
     @Test

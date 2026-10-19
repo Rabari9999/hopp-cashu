@@ -51,6 +51,7 @@ import space.sovereigncast.hopp.resources.history_paid
 import space.sovereigncast.hopp.resources.history_skipped
 import space.sovereigncast.hopp.resources.history_unknown
 import space.sovereigncast.hopp.resources.history_stream
+import space.sovereigncast.hopp.resources.history_zap
 import space.sovereigncast.hopp.resources.sc_b2u_name
 import space.sovereigncast.hopp.resources.sc_suggestion_name
 import space.sovereigncast.hopp.resources.sc_rb_name
@@ -237,6 +238,7 @@ private fun PaymentRow(p: Payment) {
                     ValueService.KIND_RELEASE_BOOSTING -> Res.string.sc_rb_name
                     ValueService.KIND_BOOST2UNLOCK -> Res.string.sc_b2u_name
                     ValueService.KIND_SUGGESTION -> Res.string.sc_suggestion_name
+                    ValueService.KIND_ZAP -> Res.string.history_zap
                     else -> Res.string.history_boost
                 }
                 // Date and time (device feedback 2026-10-09).

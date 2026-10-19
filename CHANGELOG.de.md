@@ -8,6 +8,7 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 
 ### 🆕 New Features
 - **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.
+- **Kommentare zappen** — neben Like und Antwort zappt ⚡ einen Kommentar aus deiner verbundenen Wallet, im Rahmen deines Tagesbudgets; die Sats, die andere gezappt haben, stehen an jedem Kommentar. Ohne Nostr-Profil ist der Zap anonym.
 - **Downloads in „Als Nächstes“** — wie bei AntennaPod kommt jede fertig geladene Folge ans Ende der Warteschlange, so hörst du einfach durch (Einstellungen → Downloads, standardmäßig an).
 
 ### 🐛 Fixes

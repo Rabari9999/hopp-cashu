@@ -68,9 +68,19 @@ class ValueServiceTest {
         when (req.url.encodedPath) {
             "/feed.xml" -> if (req.url.host == "music.test") respond(music) else respond(feed)
             "/.well-known/keysend/donate" -> respond("""{"tag":"keysend","pubkey":"$donee"}""")
+            "/.well-known/lnurlp/alice", "/.well-known/lnurlp/plain" -> respond("""{"tag":"payRequest","callback":"https://zap.test/cb","minSendable":1000,
+                "maxSendable":100000000,"metadata":"[[\"text/plain\",\"Alice\"]]"""" +
+                (if (req.url.encodedPath.endsWith("alice")) ""","allowsNostr":true,"nostrPubkey":"${zapServer.publicKeyHex}"}""" else "}"))
+            "/cb" -> {
+                val request = req.url.parameters["nostr"]!!.also { zapRequests += it }
+                val hash = space.sovereigncast.hopp.crypto.Sha256.digest(request.encodeToByteArray())
+                respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), hash)}"}""")
+            }
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
+    private val zapServer = KeyPair.generate()
+    private val zapRequests = mutableListOf<String>()
     private var now = 1_780_000_000L
     private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
     private val settings = SettingsRepository(db)
@@ -529,6 +539,38 @@ class ValueServiceTest {
         val logged = value.payments.first().single()
         assertEquals(5_000L, logged.amountMsat)
         assertEquals("Danke!", logged.message)
+    }
+
+    /** Device feedback 2026-10-19: a comment zapped from the wallet, as other Nostr apps do. */
+    @Test
+    fun aCommentIsZappedWithinTheBudget() = test {
+        wallet.connect(uri())
+        val alice = KeyPair.generate()
+        val bob = KeyPair.generate()
+        relay.publish(space.sovereigncast.hopp.nostr.Event.sign(alice, 0, """{"name":"Alice","lud16":"alice@zap.test"}""", emptyList(), now))
+        relay.publish(space.sovereigncast.hopp.nostr.Event.sign(bob, 0, """{"name":"Bob","lud16":"plain@zap.test"}""", emptyList(), now))
+        val me = KeyPair.generate()
+        val zapper = space.sovereigncast.hopp.comments.CommentZapper(
+            space.sovereigncast.hopp.nostr.RelayPublisher(relay), { space.sovereigncast.hopp.nostr.LocalSigner(me) }, LnAddressClient(http), value, { now },
+        )
+        assertNull(zapper.target(bob.publicKeyHex, listOf("wss://relay.test")), "an address that takes no zaps")
+        val target = zapper.target(alice.publicKeyHex, listOf("wss://relay.test"))!!
+        val comment = space.sovereigncast.hopp.comments.Comment("ab".repeat(32), alice.publicKeyHex, now, "Great episode")
+        zapper.zap(comment, target, 21, " Danke! ", listOf("wss://relay.test"), null, null, "Alice")
+
+        val request = kotlinx.serialization.json.Json.decodeFromString(space.sovereigncast.hopp.nostr.Event.serializer(), zapRequests.single())
+        assertTrue(request.isValid() && request.kind == 9734 && request.pubkey == me.publicKeyHex)
+        assertEquals("Danke!", request.content)
+        assertTrue(listOf("e", comment.id) in request.tags && listOf("p", alice.publicKeyHex) in request.tags && listOf("amount", "21000") in request.tags)
+        assertEquals(listOf("relays", "wss://relay.test", "wss://relay.fountain.fm"), request.tags.first { it[0] == "relays" })
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
+        val logged = value.payments.first().single()
+        assertEquals(ValueService.KIND_ZAP to 21_000L, logged.kind to logged.amountMsat)
+        assertEquals("Danke!", logged.message)
+
+        settings.update { it.copy(dailyBudgetSats = 30) }
+        assertFailsWith<OverBudgetException> { zapper.zap(comment, target, 21, "", emptyList(), null, null, "Alice") }
+        assertEquals(1, zapRequests.size, "over the budget: nothing asked for, nothing signed")
     }
 
     /** Device feedback 2026-10-15: routing fees leave the wallet too and count

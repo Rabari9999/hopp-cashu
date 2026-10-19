@@ -299,6 +299,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
             space.sovereigncast.hopp.ui.comments.LocalOpenIdentity provides { player.minimize(); nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name)) },
+            space.sovereigncast.hopp.ui.comments.LocalOpenWallet provides { player.minimize(); nav.navigate(WalletRoute) },
         ) {
           ProvideDownloadProgress {
             // Space, ← →, Escape for a keyboard (ADR 0020, step 3) — only with an episode loaded.
