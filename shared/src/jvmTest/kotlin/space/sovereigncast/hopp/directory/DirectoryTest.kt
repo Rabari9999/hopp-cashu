@@ -28,8 +28,8 @@ class DirectoryTest {
     private val keysUsed = mutableListOf<String>()
 
     private fun pi(vararg feeds: String) = """{"status":"true","feeds":[${feeds.joinToString(",")}]}"""
-    private fun piFeed(title: String, url: String, guid: String? = null, dead: Int = 0) =
-        """{"id":1,"title":"$title","url":"$url","author":"A","artwork":"https://img.test/$title.jpg","dead":$dead${guid?.let { ",\"podcastGuid\":\"$it\"" } ?: ""}}"""
+    private fun piFeed(title: String, url: String, guid: String? = null, dead: Int = 0, value: Boolean = false) =
+        """{"id":1,"title":"$title","url":"$url","author":"A","artwork":"https://img.test/$title.jpg","dead":$dead${guid?.let { ",\"podcastGuid\":\"$it\"" } ?: ""}${if (value) ""","value":{"model":{"type":"lightning"},"destinations":[{"name":"N","address":"abc","split":100}]}""" else ""}}"""
 
     private val show = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel>
         <title>Mine</title><podcast:guid>guid-mine</podcast:guid>
@@ -55,6 +55,10 @@ class DirectoryTest {
                 if (req.headers[HttpHeaders.Authorization] != Sha1.digest((key + secret + date).encodeToByteArray()).toHex())
                     return@MockEngine respondError(HttpStatusCode.Unauthorized)
                 when {
+                    path.endsWith("search/byterm") && req.url.parameters["val"] == "lightning" -> respond(pi(
+                        piFeed("Alpha", "https://alpha.test/feed.xml", "guid-alpha"),
+                        piFeed("Alpha", "https://valued.test/feed.xml", value = true),
+                    ))
                     path.endsWith("search/byterm") && req.url.parameters["q"] == "münzweg" -> respond(pi(piFeed("Münzweg", "https://muenzweg.test/feed.xml")))
                     path.endsWith("search/byterm") && req.url.parameters["q"] == "muenzweg" -> respond(pi())
                     path.endsWith("search/byterm") -> respond(pi(
@@ -123,7 +127,9 @@ class DirectoryTest {
         settings.update { it.copy(fyydSearch = true, appleSearch = true) }
         val r = directory().search("alpha", valueOnly = true)
         assertTrue(seen.single().contains("val=lightning"), "$seen")
-        assertTrue(r.shows.all { it.hasValue == true })
+        // The filter alone proves nothing (the index keeps stale value flags);
+        // only a value object in the answer marks a show as boostable.
+        assertEquals(listOf(null, true), r.shows.map { it.hasValue })
     }
 
     @Test
