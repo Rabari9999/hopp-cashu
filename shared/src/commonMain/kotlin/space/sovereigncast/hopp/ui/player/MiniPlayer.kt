@@ -51,6 +51,14 @@ import space.sovereigncast.hopp.resources.sc_clip_now
 import space.sovereigncast.hopp.resources.trailer_now
 import space.sovereigncast.hopp.player.RemoteClip
 import space.sovereigncast.hopp.ui.theme.Hopp
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import space.sovereigncast.hopp.platform.PlaybackState
+import space.sovereigncast.hopp.resources.np_buffering
 
 /** The mini player above the tab bar (ADR 0019): tap or swipe up to expand. */
 @Composable
@@ -96,11 +104,7 @@ fun MiniPlayer(model: PlayerController) {
                     Modifier.size(44.dp).clip(CircleShape).clickable { model.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        if (state.isPlaying) HoppIcons.Pause else HoppIcons.Play,
-                        stringResource(if (state.isPlaying) Res.string.np_pause else Res.string.np_play),
-                        tint = colors.onSurface,
-                    )
+                    PlayPause(state, colors.onSurface, 24.dp)
                 }
             } else Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 val settings by model.settings.collectAsState()
@@ -124,11 +128,7 @@ fun MiniPlayer(model: PlayerController) {
                     Modifier.padding(horizontal = 8.dp).size(52.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        if (state.isPlaying) HoppIcons.Pause else HoppIcons.Play,
-                        stringResource(if (state.isPlaying) Res.string.np_pause else Res.string.np_play),
-                        tint = colors.onPrimary, modifier = Modifier.size(26.dp),
-                    )
+                    PlayPause(state, colors.onPrimary, 26.dp)
                 }
                 IconButton(onClick = model::skipForward) {
                     Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(28.dp))
@@ -180,3 +180,26 @@ private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip) {
     }
 }
 
+/**
+ * Play or pause — and while a stream loads, a ring turning round it (device
+ * feedback 2026-10-19: up to eight seconds on mobile data before a word, and
+ * the button looked as if the tap had missed). Loading counts as playing:
+ * pause shows, and a tap stops it rather than asking again. Inside the
+ * button's box, which the ring fills.
+ */
+@Composable
+internal fun BoxScope.PlayPause(state: PlaybackState, tint: Color, iconSize: Dp) {
+    if (state.isBuffering) {
+        val loading = stringResource(Res.string.np_buffering)
+        CircularProgressIndicator(
+            Modifier.matchParentSize().padding(3.dp).semantics { contentDescription = loading },
+            color = tint, strokeWidth = 2.5.dp,
+        )
+    }
+    val going = state.isPlaying || state.isBuffering
+    Icon(
+        if (going) HoppIcons.Pause else HoppIcons.Play,
+        stringResource(if (going) Res.string.np_pause else Res.string.np_play),
+        tint = tint, modifier = Modifier.size(iconSize),
+    )
+}

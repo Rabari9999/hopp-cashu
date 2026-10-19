@@ -51,4 +51,19 @@ class QuickBoostFeedbackTest {
         kotlin.test.assertFalse(s("off").reportsBoost(ok = false))
         kotlin.test.assertTrue(s("always").reportsBoost(ok = true))
     }
+
+    @Test
+    fun eachCaseOnItsOwn() {
+        val z = space.sovereigncast.hopp.data.Settings(zapFeedback = "always", quickBoostFeedback = "off")
+        kotlin.test.assertTrue(z.reportsZap(ok = true))
+        kotlin.test.assertFalse(z.reportsBoost(ok = false, quick = true))
+        kotlin.test.assertTrue(z.reportsBoost(ok = false))
+    }
+
+    @Test
+    fun theOneChoiceOfBeforeCarriesOver() {
+        val s = space.sovereigncast.hopp.data.Settings.from(mapOf("boost_feedback" to "always"))
+        kotlin.test.assertEquals("always", s.zapFeedback)
+        kotlin.test.assertEquals("always", s.quickBoostFeedback)
+    }
 }

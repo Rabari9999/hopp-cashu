@@ -15,8 +15,12 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 - **Default speed** — set one playback speed for every show under Settings → Playback; a show you give its own speed in the player keeps it.
 - **Zap comments** — beside like and reply, ⚡ zaps a comment from your connected wallet, within your daily budget; the sats others zapped show on each comment. Public, private (only the author sees it is from you) or anonymous, as in Amethyst; without a Nostr profile it is anonymous.
 - **Downloads go to "Up next"** — as in AntennaPod, each finished download joins the end of the queue, so you can listen straight through (Settings → Downloads, on by default).
+- **Notifications for each case** — under Settings → Notifications you choose separately what a quick boost from the lock screen, a boost in the app and a zap report: nothing, only failures, or always. Zaps have a notification channel of their own.
+- **Every speed with a tap** — tapping the speed in the player now steps through all speeds the long press offers, 1.1×, 1.3×, 2.5× and 3× included.
 
 ### 🐛 Fixes
+- Zapping a comment sent no notification, even with "Always" chosen; it now reports as boosts do.
+- A stream that takes a while to start shows a turning ring round the play button, which shows pause meanwhile; a second tap stops it instead of starting again.
 - A comment or public boost on a show that posts no Nostr notes now names the show and the episode, with a link, so other Nostr apps show what it is about.
 
 ## [0.2.1] - 2026-10-18

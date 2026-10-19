@@ -1536,10 +1536,12 @@ class AndroidAppFlowTest {
         waitFor("No payments yet")
         back()
         tap("Notifications")
-        waitFor("After a boost")
+        waitFor("After a zap")
         check(settings().boostFeedback == "errors") { "only failures by default" }
-        tap("Always")
-        until { settings().boostFeedback == "always" }
+        // Each case on its own (device feedback 2026-10-19): quick boost, boost, zap.
+        rule.onAllNodes(hasText("Always") and hasClickAction())[2].performClick()
+        until { settings().zapFeedback == "always" }
+        check(settings().boostFeedback == "errors" && settings().quickBoostFeedback == "errors") { settings().toString() }
     }
 
     /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show. */

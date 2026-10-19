@@ -55,7 +55,7 @@ class AndroidPlaybackEngine(context: Context) : PlaybackEngine {
         _state.value = PlaybackState(
             itemId = c.currentMediaItem?.mediaId,
             isPlaying = c.isPlaying,
-            isBuffering = c.playbackState == Player.STATE_BUFFERING,
+            isBuffering = c.playbackState == Player.STATE_BUFFERING && c.playWhenReady,
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.takeIf { it > 0 } ?: 0,
             speed = c.playbackParameters.speed,

@@ -273,6 +273,28 @@ class PlayerControllerTest {
         until("the default again: none of its own") { podcasts.show(e1.podcastId).first()?.playbackSpeed == null }
     }
 
+    /** Device feedback 2026-10-19: a stream still loading counts as playing — a second tap stops it. */
+    @Test
+    fun aTapWhileLoadingStops() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        engine.s.value = engine.s.value.copy(isPlaying = false, isBuffering = true)
+        player.togglePlay()
+        assertFalse(engine.s.value.isPlaying)
+        engine.s.value = engine.s.value.copy(isBuffering = false)
+        player.togglePlay()
+        assertTrue(engine.s.value.isPlaying)
+    }
+
+    /** Device feedback 2026-10-19: a tap steps through every speed the long press offers. */
+    @Test
+    fun aTapStepsThroughEverySpeed() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        val seen = (1..PlayerController.SPEED_CHOICES.size).map { player.cycleSpeed(); engine.lastSpeed }
+        assertEquals(listOf(1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f, 0.8f, 1f), seen)
+    }
+
     @Test
     fun anEpisodeStartedElsewhereIsFollowed() = test {
         val (e1, e2, _) = episodes()

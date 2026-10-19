@@ -146,6 +146,7 @@ class CommentsViewModel(
     private val zapper: CommentZapper,
     wallets: WalletRepository,
     private val episodes: EpisodeRepository,
+    private val reports: space.sovereigncast.hopp.value.BoostReports,
 ) : ViewModel() {
     sealed interface State {
         /** Looking for comments kept from before — nobody is asked. */
@@ -332,11 +333,14 @@ class CommentsViewModel(
             zapping.value = z.copy(sending = true, failure = null, reason = null)
             viewModelScope.launch {
                 val item = runCatching { episodes.item(episodeId) }.getOrNull()
+                val name = _authors.value[z.comment.pubkey]?.name
                 runCatching {
-                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name, privacy)
+                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, name, privacy)
                 }.onSuccess {
                     zappedHere.update { it + (z.comment.id to (it[z.comment.id] ?: 0) + sats) }
                     zapping.update { it?.copy(sending = false, done = sats) }
+                    // As the listener chose for zaps (device feedback 2026-10-19: "always" said nothing).
+                    reports.report(space.sovereigncast.hopp.value.ZapResult(sats, name))
                 }.onFailure { e ->
                     val why = when {
                         e is OverBudgetException -> ZapFailure.OverBudget
@@ -346,6 +350,7 @@ class CommentsViewModel(
                         else -> ZapFailure.Failed
                     }
                     zapping.update { it?.copy(sending = false, failure = why, reason = e.message?.take(200)) }
+                    reports.report(space.sovereigncast.hopp.value.ZapResult(sats, name, failure = e.message?.take(200) ?: "error", overBudget = why == ZapFailure.OverBudget))
                 }
             }
             Unit

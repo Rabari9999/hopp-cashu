@@ -232,15 +232,21 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 Note(stringResource(Res.string.settings_refresh_text))
             }
             SettingsPage.Notifications -> {
-                // Hopp has no push yet (ADR 0007): the one message is a quick boost's result.
-                Section(stringResource(Res.string.settings_boost_feedback))
-                Choices(Settings.feedbackChoices, s.boostFeedback, { f ->
-                    stringResource(when (f) {
-                        Settings.FEEDBACK_OFF -> Res.string.feedback_off
-                        Settings.FEEDBACK_ALWAYS -> Res.string.feedback_always
-                        else -> Res.string.feedback_errors
-                    })
-                }) { v -> vm.update { it.copy(boostFeedback = v) } }
+                // Hopp has no push yet (ADR 0007): the messages are what a payment came to —
+                // each case on its own (device feedback 2026-10-19).
+                @Composable fun feedback(title: StringResource, value: String, set: (Settings, String) -> Settings) {
+                    Section(stringResource(title))
+                    Choices(Settings.feedbackChoices, value, { f ->
+                        stringResource(when (f) {
+                            Settings.FEEDBACK_OFF -> Res.string.feedback_off
+                            Settings.FEEDBACK_ALWAYS -> Res.string.feedback_always
+                            else -> Res.string.feedback_errors
+                        })
+                    }) { v -> vm.update { set(it, v) } }
+                }
+                feedback(Res.string.settings_quick_boost_feedback, s.quickBoostFeedback) { it, v -> it.copy(quickBoostFeedback = v) }
+                feedback(Res.string.settings_boost_feedback, s.boostFeedback) { it, v -> it.copy(boostFeedback = v) }
+                feedback(Res.string.settings_zap_feedback, s.zapFeedback) { it, v -> it.copy(zapFeedback = v) }
                 Note(stringResource(Res.string.settings_boost_feedback_note))
                 // Each system in its own words (device feedback 2026-10-13: iOS read of Android).
                 Note(stringResource(if (app.isIos) Res.string.settings_notifications_system_ios else Res.string.settings_notifications_system))

@@ -5,6 +5,7 @@
     <string name="np_previous_chapter">Previous chapter</string>
     <string name="np_next_chapter">Next chapter</string>
     <string name="np_progress">Playback position</string>
+    <string name="np_buffering">Loading …</string>
     <string name="np_play">Play</string>
     <string name="np_pause">Pause</string>
     <string name="np_back15">Back %1$d seconds, hold for previous chapter</string>
@@ -397,7 +398,7 @@
     <string name="settings_downloads_refresh">Downloads &amp; updates</string>
     <string name="settings_downloads_note">Storage, looking for new episodes</string>
     <string name="settings_notifications">Notifications</string>
-    <string name="settings_notifications_note">What a boost reports</string>
+    <string name="settings_notifications_note">What boosts and zaps report</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_current">English</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
@@ -407,11 +408,13 @@
     <string name="settings_about_title">About Hopp</string>
     <string name="settings_about_note">Version, tour, source code</string>
     <string name="settings_skip_silence_note">Shortens pauses in the audio</string>
-    <string name="settings_boost_feedback">After a boost</string>
+    <string name="settings_boost_feedback">After a boost in the app</string>
+    <string name="settings_quick_boost_feedback">After a quick boost (lock screen)</string>
+    <string name="settings_zap_feedback">After a zap</string>
     <string name="feedback_off">Nothing</string>
     <string name="feedback_errors">Only when it fails</string>
     <string name="feedback_always">Always</string>
-    <string name="settings_boost_feedback_note">For the quick boost from the lock screen and for boosts in the app. A success goes by itself after a few seconds. The payment history always has the details.</string>
+    <string name="settings_boost_feedback_note">A success goes away by itself after a few seconds. The details are always in the payment history.</string>
     <string name="settings_notifications_system">Playback and download notifications are what Android needs to keep them running; their look and sound are set in the system settings.</string>
     <string name="settings_notifications_open">Open system notification settings</string>
     <string name="settings_opml_note">Your subscriptions as an OPML file: bring them over from another podcast app, back them up or take them to another app.</string>
@@ -773,5 +776,4 @@
     <string name="discover_language">Language of the shows</string>
     <string name="discover_language_all">All languages</string>
     <string name="discover_language_device">%1$s (this device)</string>
-    <string name="discover_language_note">For new shows with ⚡ Value, popular ones and your recommendations. The Podcast Index knows a show’s language, not its country.</string>
 </resources>

@@ -340,7 +340,8 @@ class PlayerController(
 
     fun expand() { if (_current.value != null) _expanded.value = true }
     fun minimize() { _expanded.value = false }
-    fun togglePlay() = engine.state.value.let { if (it.isPlaying) engine.pause() else engine.play() }
+    /** Loading counts as playing: a tap while a stream starts stops it, it does not ask again. */
+    fun togglePlay() = engine.state.value.let { if (it.isPlaying || it.isBuffering) engine.pause() else engine.play() }
     fun seekTo(ms: Long) = engine.seekTo(ms.coerceAtLeast(0))
     fun skipBy(deltaMs: Long) = seekTo(engine.state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)
@@ -372,9 +373,11 @@ class PlayerController(
         _current.value?.item?.podcastId?.let { scope.launch { podcasts.setSpeed(it, own) } }
     }
 
+    /** The next faster of all [SPEED_CHOICES] — the ones the long press offers
+     *  too (device feedback 2026-10-19) — and after the fastest the slowest. */
     fun cycleSpeed() {
-        val i = SPEEDS.indexOfFirst { abs(it - engine.state.value.speed) < 0.01f }
-        setSpeed(SPEEDS[(i + 1) % SPEEDS.size])
+        val now = engine.state.value.speed
+        setSpeed(SPEED_CHOICES.firstOrNull { it > now + 0.01f } ?: SPEED_CHOICES.first())
     }
 
     companion object {
@@ -388,7 +391,6 @@ class PlayerController(
         val CATCH_UP_AFTER = 30.seconds
         /** After an episode's end, so its last ticks have accrued first. */
         val ROUND_UP_DELAY = 2.seconds
-        val SPEEDS = listOf(1f, 1.2f, 1.5f, 1.8f, 2f, 0.8f)
         val SPEED_CHOICES = listOf(0.8f, 1f, 1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f)
     }
 }

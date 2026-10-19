@@ -281,11 +281,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        if (state.isPlaying) HoppIcons.Pause else HoppIcons.Play,
-                        stringResource(if (state.isPlaying) Res.string.np_pause else Res.string.np_play),
-                        tint = colors.onPrimary, modifier = Modifier.size(32.dp),
-                    )
+                    PlayPause(state, colors.onPrimary, 32.dp)
                 }
                 SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
                 SleepButton(sleep) { showSleep = true }

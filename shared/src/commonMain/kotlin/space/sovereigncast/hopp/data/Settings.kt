@@ -52,8 +52,12 @@ data class Settings(
     val refreshWifiOnly: Boolean = false,
     /** Home's sections the listener folded away: "new", "continue", "recent", "boosted". */
     val homeCollapsed: Set<String> = emptySet(),
-    /** What a quick boost from the lock screen reports (device feedback 2026-10-10). */
+    /** What a boost from the app's sheet reports (device feedback 2026-10-11). */
     val boostFeedback: String = FEEDBACK_ERRORS,
+    /** What a quick boost from the lock screen reports (device feedback 2026-10-10). */
+    val quickBoostFeedback: String = FEEDBACK_ERRORS,
+    /** What a zap on a comment reports (device feedback 2026-10-19). */
+    val zapFeedback: String = FEEDBACK_ERRORS,
     /** The first-start tour has been shown (or skipped). */
     val onboardingDone: Boolean = false,
     /** The library's shows as a list rather than cards (device feedback 2026-10-13). */
@@ -139,6 +143,9 @@ data class Settings(
                 refreshWifiOnly = values["refresh_wifi_only"]?.toBooleanStrictOrNull() ?: d.refreshWifiOnly,
                 homeCollapsed = values["home_collapsed"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeCollapsed,
                 boostFeedback = values["boost_feedback"]?.takeIf { it in feedbackChoices } ?: d.boostFeedback,
+                // One choice for all until 2026-10-19: the new ones start where it stood.
+                quickBoostFeedback = (values["quick_boost_feedback"] ?: values["boost_feedback"])?.takeIf { it in feedbackChoices } ?: d.quickBoostFeedback,
+                zapFeedback = (values["zap_feedback"] ?: values["boost_feedback"])?.takeIf { it in feedbackChoices } ?: d.zapFeedback,
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
@@ -157,8 +164,13 @@ data class Settings(
         }
     }
 
-    /** Whether a boost's result is worth a notification ([boostFeedback]). */
-    fun reportsBoost(ok: Boolean): Boolean = when (boostFeedback) {
+    /** Whether a boost's result is worth a notification ([quickBoostFeedback] from the lock screen, else [boostFeedback]). */
+    fun reportsBoost(ok: Boolean, quick: Boolean = false): Boolean = reports(if (quick) quickBoostFeedback else boostFeedback, ok)
+
+    /** Whether a zap's result is worth a notification ([zapFeedback]). */
+    fun reportsZap(ok: Boolean): Boolean = reports(zapFeedback, ok)
+
+    private fun reports(feedback: String, ok: Boolean) = when (feedback) {
         FEEDBACK_OFF -> false
         FEEDBACK_ERRORS -> !ok
         else -> true
@@ -185,6 +197,8 @@ data class Settings(
         "refresh_wifi_only" to refreshWifiOnly.toString(),
         "home_collapsed" to homeCollapsed.joinToString("\n"),
         "boost_feedback" to boostFeedback,
+        "quick_boost_feedback" to quickBoostFeedback,
+        "zap_feedback" to zapFeedback,
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,

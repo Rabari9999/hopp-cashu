@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.ui.library
 
-import space.sovereigncast.hopp.resources.discover_language_note
 import space.sovereigncast.hopp.resources.discover_language_device
 import space.sovereigncast.hopp.resources.discover_language_all
 import space.sovereigncast.hopp.resources.discover_language
@@ -319,7 +318,7 @@ private fun languageName(code: String) = when (code) {
 
 /**
  * The language popular and new shows are in. The Podcast Index files feeds
- * by language, not by country — so a language it is, said plainly.
+ * by language, not by country — so the picker names a language.
  */
 @Composable
 private fun LanguagePicker(vm: DiscoverViewModel) {
@@ -344,7 +343,6 @@ private fun LanguagePicker(vm: DiscoverViewModel) {
                 }
             }
         }
-        Text(stringResource(Res.string.discover_language_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

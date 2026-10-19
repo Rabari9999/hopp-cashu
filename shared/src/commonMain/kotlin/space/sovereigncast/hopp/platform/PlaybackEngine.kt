@@ -15,6 +15,7 @@ data class PlaybackItem(
 data class PlaybackState(
     val itemId: String? = null,
     val isPlaying: Boolean = false,
+    /** Asked to play, still loading — a stream's start on a slow network or a stall. */
     val isBuffering: Boolean = false,
     val positionMs: Long = 0,
     val durationMs: Long = 0,

@@ -118,7 +118,7 @@ class PlaybackService : MediaLibraryService() {
         // One at a time: a second tap while the first is paying is not a second boost.
         if (!boosting.compareAndSet(false, true)) return
         scope.launch {
-            try { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position)) } finally { boosting.set(false) }
+            try { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position), quick = true) } finally { boosting.set(false) }
         }
     }
 

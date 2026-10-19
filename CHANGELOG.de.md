@@ -15,8 +15,12 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 - **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.
 - **Kommentare zappen** — neben Like und Antwort zappt ⚡ einen Kommentar aus deiner verbundenen Wallet, im Rahmen deines Tagesbudgets; die Sats, die andere gezappt haben, stehen an jedem Kommentar. Öffentlich, privat (nur der Autor sieht, dass er von dir kommt) oder anonym, wie in Amethyst; ohne Nostr-Profil ist er anonym.
 - **Downloads in „Als Nächstes“** — wie bei AntennaPod kommt jede fertig geladene Folge ans Ende der Warteschlange, so hörst du einfach durch (Einstellungen → Downloads, standardmäßig an).
+- **Benachrichtigungen je Fall** — unter Einstellungen → Benachrichtigungen wählst du getrennt, was ein Schnellboost vom Sperrbildschirm, ein Boost in der App und ein Zap melden: nichts, nur Fehler oder immer. Zaps haben einen eigenen Benachrichtigungskanal.
+- **Jede Geschwindigkeit per Tipp** — ein Tipp auf die Geschwindigkeit im Player schaltet jetzt durch alle Stufen, die der lange Druck anbietet, auch 1,1×, 1,3×, 2,5× und 3×.
 
 ### 🐛 Fixes
+- Einen Kommentar zu zappen löste keine Benachrichtigung aus, auch mit „Immer“; jetzt meldet er sich wie ein Boost.
+- Ein Stream, der etwas braucht, bis er startet, zeigt einen drehenden Ring um den Play-Button, der so lange Pause zeigt; ein zweiter Tipp stoppt ihn, statt ihn neu zu starten.
 - Ein Kommentar oder öffentlicher Boost zu einer Show, die keine Nostr-Notes postet, nennt jetzt Show und Folge samt Link, damit andere Nostr-Apps zeigen, worum es geht.
 
 ## [0.2.1] - 2026-10-18

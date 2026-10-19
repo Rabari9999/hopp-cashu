@@ -5,6 +5,7 @@
     <string name="np_previous_chapter">Vorheriges Kapitel</string>
     <string name="np_next_chapter">Nächstes Kapitel</string>
     <string name="np_progress">Wiedergabeposition</string>
+    <string name="np_buffering">Lädt …</string>
     <string name="np_play">Abspielen</string>
     <string name="np_pause">Pause</string>
     <string name="np_back15">%1$d Sekunden zurück, halten für das vorige Kapitel</string>
@@ -397,7 +398,7 @@
     <string name="settings_downloads_refresh">Downloads &amp; Aktualisierung</string>
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
     <string name="settings_notifications">Benachrichtigungen</string>
-    <string name="settings_notifications_note">Was ein Boost meldet</string>
+    <string name="settings_notifications_note">Was Boosts und Zaps melden</string>
     <string name="settings_language">Sprache</string>
     <string name="settings_language_current">Deutsch</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
@@ -407,11 +408,13 @@
     <string name="settings_about_title">Über Hopp</string>
     <string name="settings_about_note">Version, Tour, Quellcode</string>
     <string name="settings_skip_silence_note">Kürzt Pausen im Ton</string>
-    <string name="settings_boost_feedback">Nach einem Boost</string>
+    <string name="settings_boost_feedback">Nach einem Boost in der App</string>
+    <string name="settings_quick_boost_feedback">Nach einem Schnell-Boost (Sperrbildschirm)</string>
+    <string name="settings_zap_feedback">Nach einem Zap</string>
     <string name="feedback_off">Nichts</string>
     <string name="feedback_errors">Nur wenn es scheitert</string>
     <string name="feedback_always">Immer</string>
-    <string name="settings_boost_feedback_note">Für den Schnell-Boost vom Sperrbildschirm und für Boosts in der App. Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
+    <string name="settings_boost_feedback_note">Ein Erfolg verschwindet nach ein paar Sekunden von selbst. Die Einzelheiten stehen immer im Zahlungsverlauf.</string>
     <string name="settings_notifications_system">Wiedergabe- und Download-Benachrichtigung braucht Android, damit beides im Hintergrund weiterläuft; Aussehen und Ton stellst du in den Systemeinstellungen ein.</string>
     <string name="settings_notifications_open">System-Benachrichtigungen öffnen</string>
     <string name="settings_opml_note">Deine Abos als OPML-Datei: aus einer anderen Podcast-App übernehmen, sichern oder an eine andere App weitergeben.</string>
@@ -773,5 +776,4 @@
     <string name="discover_language">Sprache der Shows</string>
     <string name="discover_language_all">Alle Sprachen</string>
     <string name="discover_language_device">%1$s (wie das Gerät)</string>
-    <string name="discover_language_note">Für neue Shows mit ⚡ Value, beliebte Shows und deine Empfehlungen. Der Podcast Index kennt die Sprache einer Show, nicht ihr Land.</string>
 </resources>

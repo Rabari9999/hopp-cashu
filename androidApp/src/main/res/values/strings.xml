@@ -16,6 +16,12 @@
     <string name="quick_boost_no_value">Boost not sent: this show cannot receive boosts</string>
     <string name="quick_boost_no_wallet">Boost not sent: no wallet connected</string>
     <string name="quick_boost_failed">Boost failed: %1$s</string>
+    <string name="zap">Zap</string>
+    <string name="zaps_channel">Zaps</string>
+    <string name="zap_someone">someone</string>
+    <string name="zap_sent">%1$s sats zapped to %2$s</string>
+    <string name="zap_budget">Zap not sent: today\'s budget is used up</string>
+    <string name="zap_failed">Zap to %1$s failed: %2$s</string>
     <string name="copied">Copied</string>
     <string name="scan_hint">Point the camera at the wallet connection’s QR code</string>
     <string name="scan_close">Close</string>
