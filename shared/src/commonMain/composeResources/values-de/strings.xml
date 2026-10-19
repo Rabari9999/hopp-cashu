@@ -560,7 +560,7 @@
     <string name="nostr_sign_out">Aus Hopp abmelden</string>
     <string name="nostr_sign_out_text">Der Schlüssel wird von diesem Gerät gelöscht. Ohne Sicherung ist die Identität verloren. Was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_confirm">Abmelden</string>
-    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net, die Relays, die eine Show nennt; purplepag.es, user.kindpag.es und relay.fountain.fm zum Nachschlagen von Profilen)</string>
+    <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net, deine eigenen Relays aus deiner Relay-Liste, die Relays, die eine Show nennt; purplepag.es, user.kindpag.es und relay.fountain.fm zum Nachschlagen von Profilen)</string>
     <string name="pv_nostr_sees">deine IP-Adresse; beim Lesen von Kommentaren, um welche Folge es geht; was du mit deiner Nostr-Identität veröffentlichst – Profilname, Kommentare, Likes, Meldungen und Stummschalt-Liste; öffentlich für alle, dauerhaft</string>
     <string name="pv_nostr_when">wenn du die Kommentare einer Folge lädst (mit VPN sofort), und mit Nostr-Identität, wenn sie angelegt und ihr Profil veröffentlicht wird</string>
     <string name="pv_nostr_tip">Hopp fragt Relays nur, wenn du die Kommentare öffnest oder eine Nostr-Identität nutzt. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>
