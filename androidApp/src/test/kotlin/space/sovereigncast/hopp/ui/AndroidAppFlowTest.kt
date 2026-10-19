@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.ui
 
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasScrollToNodeAction
 import android.app.Application
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -442,14 +444,15 @@ class AndroidAppFlowTest {
         // The recommendations show while nothing is typed.
         rule.onNode(hasSetTextAction()).performTextClearance()
         // Below the fold on a phone: scroll to it once it has been resolved. The page, not one of
-        // its carousels (device feedback 2026-10-19): the list that holds the search field.
-        val discover = rule.onNode(androidx.compose.ui.test.hasScrollToNodeAction() and androidx.compose.ui.test.hasAnyDescendant(hasSetTextAction()))
+        // its carousels (device feedback 2026-10-19): the one list that holds others.
+        val discover = rule.onNode(hasScrollToNodeAction() and hasAnyDescendant(hasScrollToNodeAction()))
         rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isSuccess }
         tap("Münzweg 21"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
         back()
-        // Back on Discover — the field may be scrolled away above the category tiles.
-        waitFor("Popular right now")
+        // Back on Discover: the show's page is gone. Not a heading — with the category tiles and
+        // the carousels above, which one is composed depends on where the list was scrolled to.
+        rule.waitUntil(10_000) { !has("✓ Subscribed") && rule.onAllNodes(hasScrollToNodeAction() and hasAnyDescendant(hasScrollToNodeAction())).fetchSemanticsNodes().size == 1 }
         // Gone from the list — not merely scrolled out of view.
         rule.waitUntil(10_000) { runCatching { discover.performScrollToNode(hasText("Münzweg 21")) }.isFailure }
     }
