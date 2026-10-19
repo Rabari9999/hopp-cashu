@@ -767,4 +767,11 @@
     <string name="library_today">Today</string>
     <string name="library_yesterday">Yesterday</string>
     <string name="discover_all">All</string>
+    <string name="wallet_own_value">Own value…</string>
+    <string name="wallet_own_range">%1$d to %2$d %3$s</string>
+    <string name="wallet_own_set">Set</string>
+    <string name="discover_language">Language of the shows</string>
+    <string name="discover_language_all">All languages</string>
+    <string name="discover_language_device">%1$s (this device)</string>
+    <string name="discover_language_note">For new shows with ⚡ Value, popular ones and your recommendations. The Podcast Index knows a show’s language, not its country.</string>
 </resources>

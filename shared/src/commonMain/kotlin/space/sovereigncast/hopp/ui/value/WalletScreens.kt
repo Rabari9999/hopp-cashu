@@ -1,5 +1,10 @@
 package space.sovereigncast.hopp.ui.value
 
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.wallet_own_set
+import space.sovereigncast.hopp.resources.wallet_own_range
+import space.sovereigncast.hopp.resources.wallet_own_value
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -161,44 +166,29 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
         // Budget, rate and name mean something only with a wallet.
         settings?.takeIf { wallet != null }?.let { s ->
             Text(stringResource(Res.string.wallet_budget), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Settings.budgetChoicesSats.forEach { b ->
-                    FilterChip(selected = s.dailyBudgetSats == b, onClick = { vm.update { it.copy(dailyBudgetSats = b) } }, label = { Text(formatSats(b.toLong())) })
-                }
-            }
+            ChoicesOrOwn(Settings.budgetChoicesSats, s.dailyBudgetSats, 1..10_000_000, stringResource(Res.string.wallet_budget), "sats",
+                { formatSats(it.toLong()) }) { v -> vm.update { it.copy(dailyBudgetSats = v) } }
             Text(stringResource(Res.string.wallet_spent_today, formatSats(spent / 1000), formatSats(s.dailyBudgetSats.toLong())),
                 color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
             Text(stringResource(Res.string.wallet_rate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Settings.streamRateChoicesSats.forEach { r ->
-                    FilterChip(
-                        selected = s.streamRateSats == r, onClick = { vm.update { it.copy(streamRateSats = r) } },
-                        label = { Text(if (r == 0) stringResource(Res.string.wallet_rate_show) else stringResource(Res.string.wallet_rate_value, r)) },
-                    )
-                }
+            val rateLabel: @Composable (Int) -> String = { r -> if (r == 0) stringResource(Res.string.wallet_rate_show) else stringResource(Res.string.wallet_rate_value, r) }
+            ChoicesOrOwn(Settings.streamRateChoicesSats, s.streamRateSats, 1..10_000, stringResource(Res.string.wallet_rate), "sats/min", rateLabel) { v ->
+                vm.update { it.copy(streamRateSats = v) }
             }
 
             Text(stringResource(Res.string.wallet_quick_boost), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Settings.quickBoostChoicesSats.forEach { q ->
-                    FilterChip(
-                        selected = s.quickBoostSats == q, onClick = { vm.update { it.copy(quickBoostSats = q) } },
-                        label = { Text(if (q == 0) stringResource(Res.string.wallet_quick_boost_off) else formatSats(q.toLong())) },
-                    )
-                }
+            val quickLabel: @Composable (Int) -> String = { q -> if (q == 0) stringResource(Res.string.wallet_quick_boost_off) else formatSats(q.toLong()) }
+            ChoicesOrOwn(Settings.quickBoostChoicesSats, s.quickBoostSats, 1..1_000_000, stringResource(Res.string.wallet_quick_boost), "sats", quickLabel) { v ->
+                vm.update { it.copy(quickBoostSats = v) }
             }
             Text(stringResource(Res.string.wallet_quick_boost_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
             if (space.sovereigncast.hopp.storePaysForContent()) {
                 Text(stringResource(Res.string.wallet_support), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Settings.supportChoices.forEach { p ->
-                        FilterChip(
-                            selected = s.supportHoppPercent == p, onClick = { vm.update { it.copy(supportHoppPercent = p) } },
-                            label = { Text(if (p == 0) stringResource(Res.string.wallet_quick_boost_off) else "$p %") },
-                        )
-                    }
+                val supportLabel: @Composable (Int) -> String = { p -> if (p == 0) stringResource(Res.string.wallet_quick_boost_off) else "$p %" }
+                ChoicesOrOwn(Settings.supportChoices, s.supportHoppPercent, 1..Settings.MAX_SUPPORT_PERCENT, stringResource(Res.string.wallet_support), "%", supportLabel) { v ->
+                    vm.update { it.copy(supportHoppPercent = v) }
                 }
                 Text(stringResource(Res.string.wallet_support_note, Settings.SUPPORT_ADDRESS), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
@@ -282,3 +272,42 @@ private fun Capability(label: String, yes: Boolean) {
 
 @Composable
 private fun feeText(msat: Long) = stringResource(Res.string.history_fee, space.sovereigncast.hopp.ui.components.formatMsat(msat))
+
+/**
+ * The usual choices, and one of the listener's own (device feedback
+ * 2026-10-19): "Own value…" asks for a whole number in [range]; once set it
+ * stands as its own chip, chosen.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChoicesOrOwn(
+    options: List<Int>, value: Int, range: IntRange, title: String, unit: String,
+    label: @Composable (Int) -> String, onPick: (Int) -> Unit,
+) {
+    var asking by remember { mutableStateOf(false) }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { o -> FilterChip(selected = value == o, onClick = { onPick(o) }, label = { Text(label(o)) }) }
+        val own = value !in options
+        FilterChip(selected = own, onClick = { asking = true },
+            label = { Text(if (own) label(value) + " ✎" else stringResource(Res.string.wallet_own_value)) })
+    }
+    if (asking) {
+        var text by remember { mutableStateOf(value.takeIf { it !in options }?.toString().orEmpty()) }
+        val number = text.trim().toIntOrNull()
+        val ok = number != null && number in range
+        AlertDialog(
+            onDismissRequest = { asking = false },
+            title = { Text(title) },
+            text = {
+                OutlinedTextField(
+                    text, { t -> text = t.filter(Char::isDigit).take(8) }, singleLine = true,
+                    label = { Text(unit) }, isError = text.isNotEmpty() && !ok,
+                    supportingText = { Text(stringResource(Res.string.wallet_own_range, range.first, range.last, unit)) },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                )
+            },
+            confirmButton = { TextButton(onClick = { number?.let(onPick); asking = false }, enabled = ok) { Text(stringResource(Res.string.wallet_own_set)) } },
+            dismissButton = { TextButton(onClick = { asking = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
+}

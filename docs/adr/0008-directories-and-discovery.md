@@ -81,7 +81,9 @@ settles it.
   most), **Popular right now** (`podcasts/trending` in the device's language,
   in the chosen category) and **New with ⚡ Value** (`recent/newvaluefeeds`,
   the device's language first, topped up from all) — the last two swapped the
-  same day, new value shows first. Answers are kept for an
+  same day, new value shows first. Below the popular shows the listener
+  picks their language (the device's by default, any of fifteen, or all): the
+  Podcast Index files feeds by language, not by country, and the page says so. Answers are kept for an
   hour. The index sees the language and the category, never the
   subscriptions. A show's page shows its main categories as tags that open
   them here; the library sorts by newest episode (the default), A–Z or most

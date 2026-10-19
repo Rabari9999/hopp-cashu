@@ -163,6 +163,9 @@ class DirectoryTest {
         val asked = seen.size
         d.trending("de", Category.Technology)
         assertEquals(asked, seen.size, "kept for an hour")
+        // "All languages": no language asked for.
+        d.trending(null, null)
+        assertTrue(seen.last().let { "podcasts/trending" in it && "lang=" !in it && "cat=" !in it })
         // Few in the listener's language: topped up from all, each once, all with value.
         val value = d.newValue("de", null, max = 4)
         assertEquals(listOf("Wert", "Value"), value.map { it.title })

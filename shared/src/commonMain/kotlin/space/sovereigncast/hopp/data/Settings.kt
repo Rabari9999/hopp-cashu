@@ -60,6 +60,9 @@ data class Settings(
     val libraryAsList: Boolean = false,
     /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
     val librarySort: String = SORT_NEWEST,
+    /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
+     *  or empty for the device's (device feedback 2026-10-19). */
+    val discoverLanguage: String = "",
     /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own
      *  (device feedback 2026-10-13). */
     val homeOrder: List<String> = emptyList(),
@@ -93,14 +96,17 @@ data class Settings(
         val streamRateChoicesSats = listOf(0, 1, 5, 10, 21, 50)
         const val RECENT_SEARCHES = 4
         val supportChoices = listOf(0, 1, 2, 5)
+        /** An own share for "Support Hopp" goes up to this. */
+        const val MAX_SUPPORT_PERCENT = 50
         /** Where "Support Hopp" goes — the project's Lightning address. */
         const val SUPPORT_ADDRESS = "sovereigncast@getalby.com"
-        val quickBoostChoicesSats = listOf(0, 21, 100, 500, 1_000)
+        val quickBoostChoicesSats = listOf(0, 21, 100, 210, 1_000)
         val refreshChoicesHours = listOf(0, 1, 3, 6, 12, 24)
         const val FEEDBACK_OFF = "off"
         const val FEEDBACK_ERRORS = "errors"
         const val FEEDBACK_ALWAYS = "always"
         val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
+        const val LANGUAGE_ALL = "*"
         const val SORT_NEWEST = "newest"
         const val SORT_TITLE = "title"
         const val SORT_UNHEARD = "unheard"
@@ -136,6 +142,7 @@ data class Settings(
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
+                discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
@@ -181,6 +188,7 @@ data class Settings(
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,
+        "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),

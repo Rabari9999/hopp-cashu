@@ -9,6 +9,8 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 ### 🆕 New Features
 - **Discover, with more to discover** — coloured category tiles first, "For you" (your shows' recommendations plus what is popular in your categories), new shows with ⚡ Value, and "Popular right now" from the Podcast Index in your language.
 - **Categories** — a show's page names its categories; a tap opens them in Discover.
+- **Language of the shows** — under "Popular right now" you choose the language of popular, new ⚡ Value and recommended shows, or all of them; until now it followed the device.
+- **Own amounts** — daily budget, streaming rate, quick boost and "Support Hopp" take a value of your own; 210 sats, the community's symbolic amount, is now among the boost, quick boost and zap amounts instead of 500.
 - **Library order** — newest episode first (the new default), A–Z or most unheard; the list shows when the newest episode came out.
 - **Default speed** — set one playback speed for every show under Settings → Playback; a show you give its own speed in the player keeps it.
 - **Zap comments** — beside like and reply, ⚡ zaps a comment from your connected wallet, within your daily budget; the sats others zapped show on each comment. Public, private (only the author sees it is from you) or anonymous, as in Amethyst; without a Nostr profile it is anonymous.

@@ -1,5 +1,12 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.discover_language_note
+import space.sovereigncast.hopp.resources.discover_language_device
+import space.sovereigncast.hopp.resources.discover_language_all
+import space.sovereigncast.hopp.resources.discover_language
+import space.sovereigncast.hopp.data.Settings
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import space.sovereigncast.hopp.resources.discover_all
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.luminance
@@ -267,6 +274,8 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                             }
                         }
                     }
+                    // Which language's shows, below the popular ones (device feedback 2026-10-19).
+                    item { LanguagePicker(vm) }
                     item {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(Res.string.opml_section), style = MaterialTheme.typography.titleMedium)
@@ -298,6 +307,45 @@ private fun Header(text: String, note: String? = null, action: String? = null, o
     Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
     if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (action != null) TextButton(onClick = onAction) { Text(action) }
+}
+
+/** Languages the Podcast Index knows many shows in, by their own names. */
+private val LANGUAGES = listOf("de", "en", "es", "fr", "it", "nl", "pt", "pl", "sv", "da", "no", "fi", "cs", "tr", "ja")
+private fun languageName(code: String) = when (code) {
+    "de" -> "Deutsch"; "en" -> "English"; "es" -> "Español"; "fr" -> "Français"; "it" -> "Italiano"; "nl" -> "Nederlands"
+    "pt" -> "Português"; "pl" -> "Polski"; "sv" -> "Svenska"; "da" -> "Dansk"; "no" -> "Norsk"; "fi" -> "Suomi"
+    "cs" -> "Čeština"; "tr" -> "Türkçe"; "ja" -> "日本語"; else -> code
+}
+
+/**
+ * The language popular and new shows are in. The Podcast Index files feeds
+ * by language, not by country — so a language it is, said plainly.
+ */
+@Composable
+private fun LanguagePicker(vm: DiscoverViewModel) {
+    val choice by vm.languageChoice.collectAsState()
+    val language by vm.language.collectAsState()
+    var open by remember { mutableStateOf(false) }
+    val all = stringResource(Res.string.discover_language_all)
+    val device = vm.deviceLanguage?.let { stringResource(Res.string.discover_language_device, languageName(it)) } ?: all
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.discover_language), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Box {
+                TextButton(onClick = { open = true }) { Text((language?.let(::languageName) ?: all) + " ▾") }
+                DropdownMenu(open, onDismissRequest = { open = false }) {
+                    @Composable fun option(code: String, label: String) = DropdownMenuItem(
+                        text = { Text(label, fontWeight = if (code == choice) androidx.compose.ui.text.font.FontWeight.Bold else null) },
+                        onClick = { open = false; vm.selectLanguage(code) },
+                    )
+                    option("", device)
+                    option(Settings.LANGUAGE_ALL, all)
+                    (LANGUAGES - listOfNotNull(vm.deviceLanguage)).forEach { option(it, languageName(it)) }
+                }
+            }
+        }
+        Text(stringResource(Res.string.discover_language_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /** How many popular shows the list shows. */

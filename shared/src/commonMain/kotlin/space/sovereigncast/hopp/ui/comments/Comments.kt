@@ -654,7 +654,7 @@ private fun ReportDialog(hasIdentity: Boolean, onDismiss: () -> Unit, onReport: 
     )
 }
 
-private val ZAP_PRESETS = listOf(21L, 100L, 500L, 1_000L, 2_100L)
+private val ZAP_PRESETS = listOf(21L, 100L, 210L, 1_000L, 2_100L)
 
 /**
  * Zapping a comment: the author's Lightning address looked up, an amount,

@@ -9,6 +9,8 @@ Highlights, aus denen der „Was ist neu“-Text der Stores entsteht (Google Pla
 ### 🆕 New Features
 - **Entdecken mit mehr zu entdecken** — farbige Kategorie-Kacheln ganz oben, „Für dich“ (die Empfehlungen deiner Shows plus Beliebtes aus deinen Kategorien), neue Shows mit ⚡ Value und „Gerade beliebt“ aus dem Podcast Index in deiner Sprache.
 - **Kategorien** — die Show-Seite nennt die Kategorien einer Show; ein Tipp öffnet sie in Entdecken.
+- **Sprache der Shows** — unter „Gerade beliebt“ wählst du die Sprache der beliebten, neuen ⚡-Value- und empfohlenen Shows oder alle; bisher galt die des Geräts.
+- **Eigene Beträge** — Tagesbudget, Streaming-Rate, Schnellboost und „Hopp unterstützen“ nehmen einen eigenen Wert; 210 sats, der symbolische Betrag der Community, steht jetzt bei Boost, Schnellboost und Zap statt 500 zur Auswahl.
 - **Sortierung der Bibliothek** — neueste Folge zuerst (neuer Standard), A–Z oder meiste ungehört; die Liste zeigt, wann die neueste Folge erschien.
 - **Standard-Geschwindigkeit** — eine Abspielgeschwindigkeit für alle Shows unter Einstellungen → Wiedergabe; eine Show, der du im Player eine eigene gibst, behält sie.
 - **Kommentare zappen** — neben Like und Antwort zappt ⚡ einen Kommentar aus deiner verbundenen Wallet, im Rahmen deines Tagesbudgets; die Sats, die andere gezappt haben, stehen an jedem Kommentar. Öffentlich, privat (nur der Autor sieht, dass er von dir kommt) oder anonym, wie in Amethyst; ohne Nostr-Profil ist er anonym.

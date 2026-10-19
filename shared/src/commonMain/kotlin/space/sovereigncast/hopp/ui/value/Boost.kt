@@ -277,7 +277,8 @@ private fun StreamFigure(label: String, value: String) = Row(Modifier.fillMaxWid
     Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 }
 
-private val PRESETS = listOf(100L, 500L, 1_000L, 2_100L)
+/** 210 sats, the community’s symbolic amount, instead of 500 (device feedback 2026-10-19). */
+private val PRESETS = listOf(100L, 210L, 1_000L, 2_100L)
 
 /**
  * The boost dialog (ADR 0019): where in the episode, amount presets, message

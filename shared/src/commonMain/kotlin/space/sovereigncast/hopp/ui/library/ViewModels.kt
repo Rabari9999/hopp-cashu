@@ -434,8 +434,17 @@ class DiscoverViewModel(
 
     // ── Discover before a search (device feedback 2026-10-19) ────────────────
 
-    /** The language the trending shows are in: the device's. */
-    private val language = androidx.compose.ui.text.intl.Locale.current.language.takeIf { it.length == 2 }
+    /** The device's language, the one Discover starts in. */
+    val deviceLanguage: String? = androidx.compose.ui.text.intl.Locale.current.language.takeIf { it.length == 2 }
+    /** The language popular and new shows are in (device feedback 2026-10-19): the listener's
+     *  choice, else the device's; null — every language. The Podcast Index knows a feed's
+     *  language, not its country. */
+    val language: StateFlow<String?> = state(settings.settings.map { s ->
+        when (s.discoverLanguage) { "" -> deviceLanguage; Settings.LANGUAGE_ALL -> null; else -> s.discoverLanguage }
+    }.distinctUntilChanged(), deviceLanguage)
+    /** The setting itself: "" (the device's), [Settings.LANGUAGE_ALL] or a code. */
+    val languageChoice: StateFlow<String> = state(settings.settings.map { it.discoverLanguage }, "")
+    fun selectLanguage(code: String) = viewModelScope.launch { settings.update { it.copy(discoverLanguage = code) } }
 
     /** The categories of the subscribed shows, the most subscribed first (each show by its first). */
     val myCategories: StateFlow<List<Category>> = state(
@@ -454,14 +463,14 @@ class DiscoverViewModel(
     /** What is popular right now, in the chosen category; null while it loads. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val trending: StateFlow<List<DirectoryShow>?> = state(
-        _category.flatMapLatest { c -> flow { emit(null); emit(runCatching { directory.trending(language, c) }.getOrDefault(emptyList())) } },
+        combine(_category, language) { c, l -> c to l }.flatMapLatest { (c, l) -> flow { emit(null); emit(runCatching { directory.trending(l, c) }.getOrDefault(emptyList())) } },
         null,
     )
 
     /** Shows newly with a value block, in the chosen category; null while it loads. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val newValue: StateFlow<List<DirectoryShow>?> = state(
-        _category.flatMapLatest { c -> flow { emit(null); emit(runCatching { directory.newValue(language, c) }.getOrDefault(emptyList())) } },
+        combine(_category, language) { c, l -> c to l }.flatMapLatest { (c, l) -> flow { emit(null); emit(runCatching { directory.newValue(l, c) }.getOrDefault(emptyList())) } },
         null,
     )
 
@@ -472,8 +481,12 @@ class DiscoverViewModel(
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val forYou: StateFlow<List<Recommendation>> = state(
-        combine(podroll, myCategories.map { it.take(2) }.distinctUntilChanged(), subscribedKeys) { rolled, cats, subscribed -> Triple(rolled, cats, subscribed) }
-            .mapLatest { (rolled, cats, subscribed) ->
+        combine(podroll, myCategories.map { it.take(2) }.distinctUntilChanged(), subscribedKeys, language) { rolled, cats, subscribed, l -> listOf(rolled, cats, subscribed, l) }
+            .mapLatest { (rolledA, catsA, subscribedA, l) ->
+                @Suppress("UNCHECKED_CAST") val rolled = rolledA as List<Recommendation>
+                @Suppress("UNCHECKED_CAST") val cats = catsA as List<Category>
+                @Suppress("UNCHECKED_CAST") val subscribed = subscribedA as Set<String>
+                val language = l as String?
                 val seen = rolled.map { feedKey(it.show.feedUrl) }.toMutableSet()
                 val popular = cats.flatMap { c ->
                     runCatching { directory.trending(language, c) }.getOrDefault(emptyList())
