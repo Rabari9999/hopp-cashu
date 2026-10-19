@@ -25,6 +25,11 @@ class LocalSigner(private val keys: KeyPair) : NostrSigner {
     override val pubkey: String = keys.publicKeyHex
     override suspend fun sign(event: UnsignedEvent): Event =
         Event.sign(keys, event.kind, event.content, event.tags, event.createdAt)
+
+    /** The key a private zap on [id] at [createdAt] is sent with, as Amethyst derives it —
+     *  so the listener's key, in Amethyst too, can open it again. */
+    fun privateZapKey(id: String, createdAt: Long): KeyPair =
+        KeyPair(space.sovereigncast.hopp.crypto.Sha256.digest((keys.secretKey.toHex() + id + createdAt).encodeToByteArray()))
 }
 
 /**

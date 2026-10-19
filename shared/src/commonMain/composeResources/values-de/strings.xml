@@ -705,7 +705,7 @@
     <string name="zap_looking">Lightning-Adresse von %1$s wird gesucht …</string>
     <string name="zap_none">%1$s kann keine Zaps empfangen: Im Nostr-Profil steht keine Lightning-Adresse, die Zaps annimmt.</string>
     <string name="zap_message">Nachricht (optional)</string>
-    <string name="zap_as">Öffentlich als %1$s</string>
+    <string name="zap_as">Alle sehen, dass der Zap von dir kommt, %1$s.</string>
     <string name="zap_anonymous">Anonym: Du hast kein Nostr-Profil. Der Lightning-Server sieht trotzdem deine IP-Adresse.</string>
     <string name="zap_send">%1$s sats zappen</string>
     <string name="zap_done">⚡ %1$s sats an %2$s gezappt</string>
@@ -714,12 +714,15 @@
     <string name="zap_unknown">Die Wallet hat nicht gesagt, ob sie gezahlt hat. Bitte dort prüfen, bevor du erneut zappst.</string>
     <string name="zap_failed">Der Zap ist nicht durchgegangen.</string>
     <string name="history_zap">Zap auf einen Kommentar</string>
-    <string name="zap_anonymous_switch">Anonym zappen</string>
-    <string name="zap_anonymous_note">Der Zap nennt dich nicht. Der Lightning-Server sieht trotzdem deine IP-Adresse.</string>
+    <string name="zap_anonymous_switch">Anonym</string>
+    <string name="zap_anonymous_note">Niemand sieht, dass er von dir kommt. Der Lightning-Server sieht trotzdem deine IP-Adresse.</string>
     <string name="pv_zap_who">Der Lightning-Anbieter eines Kommentar-Autors, den du zappst</string>
-    <string name="pv_zap_sees">deine IP-Adresse, den Betrag, welchen Kommentar, deine Nachricht und – außer bei einem anonymen Zap – deine Nostr-Identität; er veröffentlicht die Zap-Quittung auf Nostr-Relays, öffentlich für alle</string>
+    <string name="pv_zap_sees">deine IP-Adresse, den Betrag, welchen Kommentar, deine Nachricht und deine Nostr-Identität – beim öffentlichen Zap für alle, beim privaten nur für den Autor, beim anonymen gar nicht; er veröffentlicht die Zap-Quittung auf Nostr-Relays, öffentlich für alle</string>
     <string name="pv_zap_when">nur wenn du einen Kommentar zappst</string>
-    <string name="pv_zap_tip">Schalte „Anonym zappen“ ein, dann nennt dich der Zap nirgends; ein VPN verbirgt deine IP-Adresse vor dem Anbieter.</string>
+    <string name="pv_zap_tip">Wähle „Privat“ oder „Anonym“, dann nennt dich der Zap niemand anderem; ein VPN verbirgt deine IP-Adresse vor dem Anbieter.</string>
     <string name="pv_zap_title">Gezappte Kommentar-Autoren</string>
-    <string name="pv_zap_line">Betrag, Kommentar; dein Name, außer anonym</string>
+    <string name="pv_zap_line">Betrag, Kommentar; dein Name, wenn öffentlich</string>
+    <string name="zap_public">Öffentlich</string>
+    <string name="zap_private">Privat</string>
+    <string name="zap_private_note">Nur %1$s sieht, dass er von dir kommt, samt Nachricht; für alle anderen ist er anonym. Der Lightning-Server sieht trotzdem deine IP-Adresse.</string>
 </resources>

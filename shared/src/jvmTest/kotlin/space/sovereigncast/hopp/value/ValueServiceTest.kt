@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.long
+import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
@@ -565,18 +566,33 @@ class ValueServiceTest {
         assertEquals(listOf("relays", "wss://relay.test", "wss://relay.fountain.fm"), request.tags.first { it[0] == "relays" })
         assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
         val logged = value.payments.first().single()
-        assertTrue(listOf("anon") !in request.tags)
+        assertTrue(request.tags.none { it[0] == "anon" })
         assertEquals(ValueService.KIND_ZAP to 21_000L, logged.kind to logged.amountMsat)
         assertEquals("Danke!", logged.message)
 
         // Anonymous, as in Amethyst: a key of its own and the anon tag.
-        zapper.zap(comment, target, 1, "", listOf("wss://relay.test"), null, null, "Alice", anonymous = true)
+        zapper.zap(comment, target, 1, "", listOf("wss://relay.test"), null, null, "Alice", space.sovereigncast.hopp.comments.ZapPrivacy.Anonymous)
         val anon = kotlinx.serialization.json.Json.decodeFromString(space.sovereigncast.hopp.nostr.Event.serializer(), zapRequests.last())
         assertTrue(anon.isValid() && anon.pubkey != me.publicKeyHex && listOf("anon") in anon.tags)
 
+        // Private, as in Amethyst: outside a key of its own, inside the request by me, for Alice alone.
+        zapper.zap(comment, target, 1, "Nur für dich", listOf("wss://relay.test"), null, null, "Alice", space.sovereigncast.hopp.comments.ZapPrivacy.Private)
+        val sealed = kotlinx.serialization.json.Json.decodeFromString(space.sovereigncast.hopp.nostr.Event.serializer(), zapRequests.last())
+        assertTrue(sealed.isValid() && sealed.content.isEmpty() && sealed.pubkey != me.publicKeyHex)
+        assertEquals(space.sovereigncast.hopp.nostr.LocalSigner(me).privateZapKey(comment.id, sealed.created_at).publicKeyHex, sealed.pubkey, "Amethyst's key")
+        val (pzap, iv) = sealed.tags.single { it[0] == "anon" }[1].split("_").map { space.sovereigncast.hopp.nostr.Bech32.decode(it).second }
+        val secret = space.sovereigncast.hopp.nostr.sharedX(alice.secretKey, sealed.pubkey.hexToBytes())
+        val opened = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding").apply {
+            init(javax.crypto.Cipher.DECRYPT_MODE, javax.crypto.spec.SecretKeySpec(secret, "AES"), javax.crypto.spec.IvParameterSpec(iv))
+        }.doFinal(pzap).decodeToString()
+        val inner = kotlinx.serialization.json.Json.decodeFromString(space.sovereigncast.hopp.nostr.Event.serializer(), opened)
+        assertTrue(inner.isValid() && inner.kind == 9733 && inner.pubkey == me.publicKeyHex)
+        assertEquals("Nur für dich", inner.content)
+        assertEquals(sealed.tags.filter { it[0] != "anon" }, inner.tags, "the same comment and author inside as out")
+
         settings.update { it.copy(dailyBudgetSats = 30) }
         assertFailsWith<OverBudgetException> { zapper.zap(comment, target, 21, "", emptyList(), null, null, "Alice") }
-        assertEquals(2, zapRequests.size, "over the budget: nothing asked for, nothing signed")
+        assertEquals(3, zapRequests.size, "over the budget: nothing asked for, nothing signed")
     }
 
     /** Device feedback 2026-10-15: routing fees leave the wallet too and count

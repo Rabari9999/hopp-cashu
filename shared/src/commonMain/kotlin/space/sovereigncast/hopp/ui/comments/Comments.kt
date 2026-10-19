@@ -41,6 +41,7 @@ import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.comments.Comment
 import space.sovereigncast.hopp.comments.CommentZapper
 import space.sovereigncast.hopp.comments.ZapTarget
+import space.sovereigncast.hopp.comments.ZapPrivacy
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.value.OverBudgetException
@@ -73,6 +74,9 @@ import space.sovereigncast.hopp.resources.zap_as
 import space.sovereigncast.hopp.resources.zap_anonymous
 import space.sovereigncast.hopp.resources.zap_anonymous_switch
 import space.sovereigncast.hopp.resources.zap_anonymous_note
+import space.sovereigncast.hopp.resources.zap_public
+import space.sovereigncast.hopp.resources.zap_private
+import space.sovereigncast.hopp.resources.zap_private_note
 import space.sovereigncast.hopp.resources.zap_over_budget
 import space.sovereigncast.hopp.resources.zap_unknown
 import space.sovereigncast.hopp.resources.zap_failed
@@ -299,20 +303,27 @@ class CommentsViewModel(
 
     fun closeZap() { zapping.value = null }
 
-    /** The choice is kept for the next zap. */
-    fun setZapAnonymous(on: Boolean) { viewModelScope.launch { settingsRepo.update { it.copy(zapAnonymous = on) } } }
+    /** Who the zap names — kept for the next one. */
+    fun setZapPrivacy(privacy: ZapPrivacy) {
+        viewModelScope.launch { settingsRepo.update { it.copy(zapPrivacy = privacy.name.lowercase()) } }
+    }
+
+    /** Without an identity a zap can only be anonymous. */
+    fun zapPrivacy(): ZapPrivacy =
+        if (identity.value == null) ZapPrivacy.Anonymous
+        else ZapPrivacy.entries.firstOrNull { it.name.lowercase() == settings.value?.zapPrivacy } ?: ZapPrivacy.Public
 
     fun zap(sats: Long, message: String) {
         val z = zapping.value ?: return
         val target = z.target ?: return
         if (z.sending || z.done != null) return
-        val anonymous = identity.value == null || settings.value?.zapAnonymous == true
+        val privacy = zapPrivacy()
         val send = {
             zapping.value = z.copy(sending = true, failure = null)
             viewModelScope.launch {
                 val item = runCatching { episodes.item(episodeId) }.getOrNull()
                 runCatching {
-                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name, anonymous)
+                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name, privacy)
                 }.onSuccess {
                     zappedHere.update { it + (z.comment.id to (it[z.comment.id] ?: 0) + sats) }
                     zapping.update { it?.copy(sending = false, done = sats) }
@@ -328,7 +339,7 @@ class CommentsViewModel(
             Unit
         }
         // With the listener's name the zap request is public for good: the one-time note first.
-        if (anonymous) send() else publicly(send)
+        if (privacy == ZapPrivacy.Public) publicly(send) else send()
     }
 
     private suspend fun refreshFromStore() {
@@ -672,23 +683,31 @@ private fun ZapSheet(vm: CommentsViewModel) {
                     }
                     OutlinedTextField(message, { message = it.take(280) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.zap_message)) },
                         enabled = !zapping.sending, maxLines = 3)
-                    // Anonymous as in Amethyst: a key made for this zap, so it names nobody.
+                    // Public, private or anonymous, as in Amethyst; without an identity only anonymous.
                     val settings by vm.settings.collectAsState()
-                    val anonymous = me == null || settings?.zapAnonymous == true
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(Res.string.zap_anonymous_switch))
-                            Text(
-                                when {
-                                    me == null -> stringResource(Res.string.zap_anonymous)
-                                    anonymous -> stringResource(Res.string.zap_anonymous_note)
-                                    else -> stringResource(Res.string.zap_as, me?.name ?: nameOf(me!!.pubkey, authors))
-                                },
-                                color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    val privacy = remember(me, settings?.zapPrivacy) { vm.zapPrivacy() }
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ZapPrivacy.entries.forEach { p ->
+                            androidx.compose.material3.FilterChip(
+                                selected = privacy == p, onClick = { vm.setZapPrivacy(p) },
+                                enabled = !zapping.sending && (me != null || p == ZapPrivacy.Anonymous),
+                                label = { Text(stringResource(when (p) {
+                                    ZapPrivacy.Public -> Res.string.zap_public
+                                    ZapPrivacy.Private -> Res.string.zap_private
+                                    ZapPrivacy.Anonymous -> Res.string.zap_anonymous_switch
+                                })) },
                             )
                         }
-                        androidx.compose.material3.Switch(checked = anonymous, onCheckedChange = vm::setZapAnonymous, enabled = me != null && !zapping.sending)
                     }
+                    Text(
+                        when {
+                            me == null -> stringResource(Res.string.zap_anonymous)
+                            privacy == ZapPrivacy.Private -> stringResource(Res.string.zap_private_note, name)
+                            privacy == ZapPrivacy.Anonymous -> stringResource(Res.string.zap_anonymous_note)
+                            else -> stringResource(Res.string.zap_as, me?.name ?: nameOf(me!!.pubkey, authors))
+                        },
+                        color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    )
                     zapping.failure?.let { f ->
                         Text(stringResource(when (f) {
                             CommentsViewModel.ZapFailure.OverBudget -> Res.string.zap_over_budget

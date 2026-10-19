@@ -79,8 +79,9 @@ data class Settings(
     /** A finished download goes to the end of "Up next", as in AntennaPod
      *  (device feedback 2026-10-19). */
     val downloadsToQueue: Boolean = true,
-    /** Zaps on comments without the listener's name, as in Amethyst (device feedback 2026-10-19). */
-    val zapAnonymous: Boolean = false,
+    /** Who a zap on a comment names, as in Amethyst (device feedback 2026-10-19): "public",
+     *  "private" (only the author sees who sent it) or "anonymous". */
+    val zapPrivacy: String = ZAP_PUBLIC,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -98,6 +99,10 @@ data class Settings(
         const val FEEDBACK_ERRORS = "errors"
         const val FEEDBACK_ALWAYS = "always"
         val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
+        const val ZAP_PUBLIC = "public"
+        const val ZAP_PRIVATE = "private"
+        const val ZAP_ANONYMOUS = "anonymous"
+        val zapPrivacyChoices = listOf(ZAP_PUBLIC, ZAP_PRIVATE, ZAP_ANONYMOUS)
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -131,7 +136,7 @@ data class Settings(
                 nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
                 mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
-                zapAnonymous = values["zap_anonymous"]?.toBooleanStrictOrNull() ?: d.zapAnonymous,
+                zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
                 downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
             )
@@ -177,7 +182,7 @@ data class Settings(
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
         "downloads_to_queue" to downloadsToQueue.toString(),
-        "zap_anonymous" to zapAnonymous.toString(),
+        "zap_privacy" to zapPrivacy,
     )
 }
 

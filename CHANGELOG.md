@@ -8,7 +8,7 @@ characters per language); the fixes follow. German: [CHANGELOG.de.md](CHANGELOG.
 
 ### 🆕 New Features
 - **Default speed** — set one playback speed for every show under Settings → Playback; a show you give its own speed in the player keeps it.
-- **Zap comments** — beside like and reply, ⚡ zaps a comment from your connected wallet, within your daily budget; the sats others zapped show on each comment. With “Zap anonymously” — or without a Nostr profile — the zap does not name you.
+- **Zap comments** — beside like and reply, ⚡ zaps a comment from your connected wallet, within your daily budget; the sats others zapped show on each comment. Public, private (only the author sees it is from you) or anonymous, as in Amethyst; without a Nostr profile it is anonymous.
 - **Downloads go to "Up next"** — as in AntennaPod, each finished download joins the end of the queue, so you can listen straight through (Settings → Downloads, on by default).
 
 ### 🐛 Fixes
