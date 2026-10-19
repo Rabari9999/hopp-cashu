@@ -32,7 +32,10 @@ enum class ReportType(val tag: String) { Spam("spam"), Profanity("profanity"), I
  *   and other clients show which episode it is about (device feedback
  *   2026-10-17: without the mention it stood there with no reference, where
  *   Fountain's own end in a link to the episode). Hopp leaves the mention out
- *   when it shows the comment.
+ *   when it shows the comment. Without a note to quote the comment ends in
+ *   the show's and the episode's name and the episode's page instead (device
+ *   feedback 2026-10-19: a boost on Münzweg, which posts no notes, stood in
+ *   Primal with nothing to say what it was about).
  * - An answer follows the kind of the comment it answers: kind 1 as a NIP-10
  *   reply, kind 1111 (NIP-22) with the episode as its root scope.
  */
@@ -69,7 +72,8 @@ class CommentWriter(
                 val show = note?.author ?: anchor.showKeys.firstOrNull()
                 val quoted = note?.let { NoteRef(it.id, listOfNotNull(it.relays.firstOrNull() ?: hint.takeIf(String::isNotEmpty)), it.author ?: show) }
                 val quote = quoted?.let { listOf("q", it.id, it.relays.firstOrNull().orEmpty()) + listOfNotNull(it.author) }
-                val text = if (quoted == null) body else "$body\n\nnostr:${nevent(quoted)}"
+                val text = if (quoted != null) "$body\n\nnostr:${nevent(quoted)}"
+                    else episodeLine(anchor)?.let { "$body\n\n$it" } ?: body
                 UnsignedEvent(1, text, episode + listOfNotNull(quote, show?.let { listOf("p", it) }), now())
             }
         }

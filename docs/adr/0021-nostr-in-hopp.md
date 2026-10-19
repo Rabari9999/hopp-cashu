@@ -65,6 +65,11 @@ What exists already:
   in full on every load (the kept comments show meanwhile): asking only
   since the last load lost for good what a relay too slow that once had held
   — two Fountain comments on E298.
+  *(Amended 2026-10-19, maintainer:)* a show without any note (Münzweg)
+  left a comment — a public boost — with no reference in Primal again. Such
+  a comment now ends in "🎧 Show – Episode" and the episode's web page (the
+  item's `<link>`, else the show's), as Fountain's end in theirs; Hopp
+  leaves that line out when showing the comment.
 - **Amended 2026-10-17 (maintainer): the show's announcement where nothing
   names it, and zaps as comments.** Einundzwanzig announces an episode with a
   plain note (no NIP-73 tag; Fountain links it by its own page), and its feed

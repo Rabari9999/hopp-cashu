@@ -63,7 +63,7 @@ class CommentsTest {
     private fun feed() = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
         <title>Nodesignal</title><podcast:guid>$guid</podcast:guid>
         <podcast:txt purpose="sovereigncast">https://pm.test</podcast:txt>
-        <item><title>E297</title><guid>e297</guid><enclosure url="https://cdn.test/e.mp3" type="audio/mpeg"/>
+        <item><title>E297</title><guid>e297</guid><link>https://nodesignal.test/e297</link><enclosure url="https://cdn.test/e.mp3" type="audio/mpeg"/>
         <podcast:socialInteract uri="${nevent(feedNote.id, "wss://show.test", show.publicKeyHex)}" protocol="nostr" accountId="${npub(show.publicKeyHex)}" priority="1"/>
         </item></channel></rss>"""
 
@@ -362,7 +362,13 @@ class CommentsTest {
         val posted = writer.comment(anchor, "No note here", emptyList())
         assertEquals(1, posted.kind)
         assertEquals(listOf(listOf("i", item), listOf("k", "podcast:item:guid"), listOf("i", "podcast:guid:$guid"), listOf("k", "podcast:guid")), posted.tags)
+        // Device feedback 2026-10-19: in Primal it stood with nothing to say what it was about.
+        assertEquals("No note here\n\n🎧 Nodesignal – E297\nhttps://nodesignal.test/e297", posted.content)
         assertEquals(listOf(posted.id), writeReader.load(anchor).comments.map { it.id })
+        assertEquals("No note here", commentBody(writeReader.cached(anchor)!!.comments.single().content), "Hopp shows it without")
+        val boost = writer.boost(anchor.copy(page = null), 2100, "Danke", emptyList())
+        assertEquals("Danke\n\n⚡ 2100 sats\n\n🎧 Nodesignal – E297", boost.content)
+        assertEquals("Danke\n\n⚡ 2100 sats", commentBody(boost.content))
     }
 
     @Test

@@ -47,6 +47,10 @@ data class CommentAnchor(
     val publishedAt: Long? = null,
     val links: Set<String> = emptySet(),
     val site: String? = null,
+    /** The show's name and a page for the episode (its own, else the show's): a comment
+     *  quoting no note names them, so other clients show what it is about. */
+    val showTitle: String? = null,
+    val page: String? = null,
 ) {
     val itemTag: String get() = "podcast:item:guid:$episodeGuid"
 }
@@ -75,16 +79,25 @@ data class CommentAuthor(val name: String?, val picture: String?)
 private val EMBED = Regex("""nostr:(nevent|note|naddr)1[02-9ac-hj-np-z]+""")
 private val TRAILING_SPACE = Regex("""[ \t]+\n""")
 private val FOUNTAIN_TAIL = Regex("""\s*https://fountain\.fm/(episode|show)/\S+$""")
+/** What Hopp ends a comment with that quotes no note (see [episodeLine]). */
+private val HOPP_TAIL = Regex("""\n\n🎧 [^\n]+(\nhttps?://\S+)?$""")
+
+/** "🎧 Show – Episode" and the episode's page: where a comment quotes no note, what
+ *  tells other clients — which do not read NIP-73 — which episode it is about. */
+internal fun episodeLine(anchor: CommentAnchor): String? {
+    val name = listOfNotNull(anchor.showTitle, anchor.title).joinToString(" – ").replace('\n', ' ').takeIf { it.isNotBlank() } ?: return null
+    return "🎧 $name" + anchor.page?.let { "\n$it" }.orEmpty()
+}
 
 /**
  * What a comment says, as Hopp shows it: without embedded notes
  * (`nostr:nevent…` — Hopp does not show them, the bare code says nothing) and
  * without the link to the episode on Fountain that Fountain ends each comment
- * with — the listener is on that episode. Empty for a Fountain boost without
+ * with, nor the episode's name Hopp ends one with — the listener is on that episode. Empty for a Fountain boost without
  * a message.
  */
 fun commentBody(content: String): String =
-    EMBED.replace(content, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").trim()
+    EMBED.replace(content, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").replace(HOPP_TAIL, "").trim()
 
 /** The notes a comment embeds — Fountain embeds the zap receipt of its boost. */
 internal fun embeddedNotes(content: String): List<NoteRef> = EMBED.findAll(content).mapNotNull { noteRef(it.value) }.toList()
@@ -158,6 +171,8 @@ class CommentsRepository(
             title = item.title.takeIf { it.isNotBlank() }, publishedAt = item.publishedAt,
             links = setOfNotNull(details?.link?.trim()?.takeIf { it.startsWith("http") }),
             site = Nip05.hostOf(meta?.link),
+            showTitle = meta?.title?.takeIf { it.isNotBlank() },
+            page = (details?.link ?: meta?.link)?.trim()?.takeIf { it.startsWith("http") },
         ) to asked.isSuccess
     }
 }
