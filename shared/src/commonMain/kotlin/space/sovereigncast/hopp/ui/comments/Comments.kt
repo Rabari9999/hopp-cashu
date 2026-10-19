@@ -71,6 +71,8 @@ import space.sovereigncast.hopp.resources.zap_none
 import space.sovereigncast.hopp.resources.zap_message
 import space.sovereigncast.hopp.resources.zap_as
 import space.sovereigncast.hopp.resources.zap_anonymous
+import space.sovereigncast.hopp.resources.zap_anonymous_switch
+import space.sovereigncast.hopp.resources.zap_anonymous_note
 import space.sovereigncast.hopp.resources.zap_over_budget
 import space.sovereigncast.hopp.resources.zap_unknown
 import space.sovereigncast.hopp.resources.zap_failed
@@ -297,16 +299,20 @@ class CommentsViewModel(
 
     fun closeZap() { zapping.value = null }
 
+    /** The choice is kept for the next zap. */
+    fun setZapAnonymous(on: Boolean) { viewModelScope.launch { settingsRepo.update { it.copy(zapAnonymous = on) } } }
+
     fun zap(sats: Long, message: String) {
         val z = zapping.value ?: return
         val target = z.target ?: return
         if (z.sending || z.done != null) return
+        val anonymous = identity.value == null || settings.value?.zapAnonymous == true
         val send = {
             zapping.value = z.copy(sending = true, failure = null)
             viewModelScope.launch {
                 val item = runCatching { episodes.item(episodeId) }.getOrNull()
                 runCatching {
-                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name)
+                    zapper.zap(z.comment, target, sats, message, thread()?.relays.orEmpty(), item?.podcastId, episodeId, _authors.value[z.comment.pubkey]?.name, anonymous)
                 }.onSuccess {
                     zappedHere.update { it + (z.comment.id to (it[z.comment.id] ?: 0) + sats) }
                     zapping.update { it?.copy(sending = false, done = sats) }
@@ -321,8 +327,8 @@ class CommentsViewModel(
             }
             Unit
         }
-        // With an identity the zap request names the listener in public: the one-time note first.
-        if (identity.value != null) publicly(send) else send()
+        // With the listener's name the zap request is public for good: the one-time note first.
+        if (anonymous) send() else publicly(send)
     }
 
     private suspend fun refreshFromStore() {
@@ -666,8 +672,23 @@ private fun ZapSheet(vm: CommentsViewModel) {
                     }
                     OutlinedTextField(message, { message = it.take(280) }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.zap_message)) },
                         enabled = !zapping.sending, maxLines = 3)
-                    Text(me?.let { stringResource(Res.string.zap_as, it.name ?: nameOf(it.pubkey, authors)) } ?: stringResource(Res.string.zap_anonymous),
-                        color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    // Anonymous as in Amethyst: a key made for this zap, so it names nobody.
+                    val settings by vm.settings.collectAsState()
+                    val anonymous = me == null || settings?.zapAnonymous == true
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(Res.string.zap_anonymous_switch))
+                            Text(
+                                when {
+                                    me == null -> stringResource(Res.string.zap_anonymous)
+                                    anonymous -> stringResource(Res.string.zap_anonymous_note)
+                                    else -> stringResource(Res.string.zap_as, me?.name ?: nameOf(me!!.pubkey, authors))
+                                },
+                                color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        androidx.compose.material3.Switch(checked = anonymous, onCheckedChange = vm::setZapAnonymous, enabled = me != null && !zapping.sending)
+                    }
                     zapping.failure?.let { f ->
                         Text(stringResource(when (f) {
                             CommentsViewModel.ZapFailure.OverBudget -> Res.string.zap_over_budget

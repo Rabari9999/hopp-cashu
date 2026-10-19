@@ -67,6 +67,12 @@ import space.sovereigncast.hopp.resources.pv_pi_who
 import space.sovereigncast.hopp.resources.pv_recipients_sees
 import space.sovereigncast.hopp.resources.pv_recipients_when
 import space.sovereigncast.hopp.resources.pv_recipients_who
+import space.sovereigncast.hopp.resources.pv_zap_who
+import space.sovereigncast.hopp.resources.pv_zap_sees
+import space.sovereigncast.hopp.resources.pv_zap_when
+import space.sovereigncast.hopp.resources.pv_zap_tip
+import space.sovereigncast.hopp.resources.pv_zap_title
+import space.sovereigncast.hopp.resources.pv_zap_line
 import space.sovereigncast.hopp.resources.pv_sc_sees
 import space.sovereigncast.hopp.resources.pv_nostr_sees
 import space.sovereigncast.hopp.resources.pv_nostr_tip
@@ -96,6 +102,8 @@ private val PARTIES = listOf(
     Party(Res.string.pv_sc_who, Res.string.pv_sc_sees, Res.string.pv_sc_when, Res.string.pv_sc_tip, Res.string.pv_sc_title, Res.string.pv_sc_line),
     Party(Res.string.pv_wallet_who, Res.string.pv_wallet_sees, Res.string.pv_wallet_when, Res.string.pv_wallet_tip, Res.string.pv_wallet_title, Res.string.pv_wallet_line),
     Party(Res.string.pv_recipients_who, Res.string.pv_recipients_sees, Res.string.pv_recipients_when, Res.string.pv_recipients_tip, Res.string.pv_recipients_title, Res.string.pv_recipients_line),
+    // Zaps on comments (device feedback 2026-10-19).
+    Party(Res.string.pv_zap_who, Res.string.pv_zap_sees, Res.string.pv_zap_when, Res.string.pv_zap_tip, Res.string.pv_zap_title, Res.string.pv_zap_line),
     Party(Res.string.pv_nostr_who, Res.string.pv_nostr_sees, Res.string.pv_nostr_when, Res.string.pv_nostr_tip, Res.string.pv_nostr_title, Res.string.pv_nostr_line),
     Party(Res.string.pv_extra_who, Res.string.pv_extra_sees, Res.string.pv_extra_when, Res.string.pv_extra_tip, Res.string.pv_extra_title, Res.string.pv_extra_line),
     Party(Res.string.pv_share_who, Res.string.pv_share_sees, Res.string.pv_share_when, Res.string.pv_share_tip, Res.string.pv_share_title, Res.string.pv_share_line),

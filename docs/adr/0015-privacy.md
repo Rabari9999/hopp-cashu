@@ -23,7 +23,7 @@ A settings page lists it plainly:
 | Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features |
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |
-| A commenter's Lightning address server | IP address, the amount, the zap request: which comment, the message, the listener's npub (none for an anonymous zap); it publishes the receipt on Nostr relays, in public | only when the listener zaps a comment (added 2026-10-19, ADR 0021) |
+| A commenter's Lightning address server | IP address, the amount, the zap request: which comment, the message, the listener's npub (none for an anonymous zap — chosen in the zap sheet, as in Amethyst, or without an identity); it publishes the receipt on Nostr relays, in public | only when the listener zaps a comment (added 2026-10-19, ADR 0021) |
 | Nostr relays | signed public events; the IP address | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006) |
 | Push gateway (sovereigncast.space) | device token ↔ endpoint, no content | only with push (ADR 0007) |
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |

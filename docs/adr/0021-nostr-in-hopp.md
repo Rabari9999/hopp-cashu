@@ -101,8 +101,10 @@ Hopp shows what Fountain's listeners say about the same episode.
   from and Fountain's) goes to the address's callback, and the invoice is
   paid only if it asks for exactly that amount and its description hash
   commits to the request. Within today's budget, in the payment history as a
-  zap. Signed with the listener's identity; without one with a key made for
-  that zap alone — an anonymous zap, as NIP-57 allows. Hopp reads the
+  zap. Signed with the listener's identity; anonymous — a switch in the zap
+  sheet, kept for the next zap, as in Amethyst (maintainer, same day), or
+  without an identity — with a key made for that zap alone and the `anon`
+  tag. The Lightning server still sees the IP address. Hopp reads the
   receipts on comments with their likes and shows their sum on each comment.
   A boost made public stays a note with its amount in the text, not a zap:
   a zap's receipt is signed by the server of the one address paid, and a

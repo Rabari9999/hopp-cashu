@@ -706,7 +706,7 @@
     <string name="zap_none">%1$s cannot receive zaps: their Nostr profile names no Lightning address that takes them.</string>
     <string name="zap_message">Message (optional)</string>
     <string name="zap_as">Public, as %1$s</string>
-    <string name="zap_anonymous">Anonymous: you have no Nostr profile</string>
+    <string name="zap_anonymous">Anonymous: you have no Nostr profile. The Lightning server still sees your IP address.</string>
     <string name="zap_send">Zap %1$s sats</string>
     <string name="zap_done">⚡ %1$s sats zapped to %2$s</string>
     <string name="zap_close">Close</string>
@@ -714,4 +714,12 @@
     <string name="zap_unknown">The wallet did not say whether it paid. Check it before zapping again.</string>
     <string name="zap_failed">The zap did not go through.</string>
     <string name="history_zap">Zap on a comment</string>
+    <string name="zap_anonymous_switch">Zap anonymously</string>
+    <string name="zap_anonymous_note">The zap does not name you. The Lightning server still sees your IP address.</string>
+    <string name="pv_zap_who">The Lightning provider of a commenter you zap</string>
+    <string name="pv_zap_sees">your IP address, the amount, which comment, your message and — unless you zap anonymously — your Nostr identity; it publishes the zap receipt on Nostr relays, public for everyone</string>
+    <string name="pv_zap_when">only when you zap a comment</string>
+    <string name="pv_zap_tip">Switch on “Zap anonymously” and the zap names you nowhere; a VPN keeps your IP address from the provider.</string>
+    <string name="pv_zap_title">Zapped commenters</string>
+    <string name="pv_zap_line">Amount, comment; your name unless anonymous</string>
 </resources>

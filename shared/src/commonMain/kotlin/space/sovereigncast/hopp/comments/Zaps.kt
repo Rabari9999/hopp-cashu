@@ -26,8 +26,9 @@ data class ZapTarget(val pubkey: String, val address: String, val request: PayRe
  * gives for it paid from the connected wallet, within today's budget. The
  * server publishes the receipt (kind 9735) to the relays the comments came
  * from, so every client — Hopp too — counts the sats on the comment.
- * Signed with the listener's identity; without one, with a key made for this
- * zap alone — an anonymous zap.
+ * Signed with the listener's identity; anonymous — chosen, as in Amethyst
+ * (device feedback 2026-10-19), or without an identity — with a key made for
+ * this zap alone and the `anon` tag, so no client shows who sent it.
  */
 class CommentZapper(
     private val publisher: RelayPublisher,
@@ -51,18 +52,20 @@ class CommentZapper(
     /** Zaps [comment] with [sats]; returns the routing fee if the wallet says. */
     suspend fun zap(
         comment: Comment, target: ZapTarget, sats: Long, message: String, relays: List<String>,
-        podcastId: Long?, episodeId: Long?, recipientName: String?,
+        podcastId: Long?, episodeId: Long?, recipientName: String?, anonymous: Boolean = false,
     ): Long? {
         val msat = sats * 1000
         val text = message.trim()
         return value.zap(podcastId, episodeId, msat, text.takeIf { it.isNotEmpty() }, recipientName, target.address) {
             // Signed only once the budget allows it — a signer app asks the listener.
-            val request = (signer() ?: LocalSigner(KeyPair.generate())).sign(UnsignedEvent(ZAP_REQUEST, text, listOf(
+            val own = signer().takeUnless { anonymous }
+            val request = (own ?: LocalSigner(KeyPair.generate())).sign(UnsignedEvent(ZAP_REQUEST, text, listOfNotNull(
                 listOf("relays") + (relays.take(MAX_RECEIPT_RELAYS - 1) + FOUNTAIN).distinct(),
                 listOf("amount", "$msat"),
                 listOf("p", comment.pubkey),
                 listOf("e", comment.id),
                 listOf("k", "${comment.kind}"),
+                listOf("anon").takeIf { own == null },
             ), now()))
             lnAddress.zapInvoice(target.request, msat, Json.encodeToString(Event.serializer(), request))
         }
