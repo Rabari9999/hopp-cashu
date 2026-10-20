@@ -1,5 +1,5 @@
 # Discover: categories, new value shows, what is popular — live from the Podcast Index.
-appId: space.sovereigncast.hopp.beta
+appId: ${APP_ID}
 name: Discover
 ---
 - launchApp

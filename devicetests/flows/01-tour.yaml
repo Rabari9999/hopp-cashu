@@ -1,5 +1,5 @@
 # First start: every page of the tour, then Home without a show.
-appId: space.sovereigncast.hopp.beta
+appId: ${APP_ID}
 name: Tour
 ---
 - launchApp:

@@ -99,6 +99,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -241,9 +242,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             }
 
         }
-        val details: @Composable ColumnScope.() -> Unit = {
-            Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
+        // [short]: a phone on its side — one line of title, and the show's name only in the
+        // bar above, so the chips under the controls stay in view (device check 2026-10-20).
+        val details: @Composable ColumnScope.(short: Boolean) -> Unit = { short ->
+            Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = if (short) 1 else 2, overflow = TextOverflow.Ellipsis)
+            if (!short) Text(
                 (listOf(playing.podcastTitle) + playing.persons.map { it.name }).filter { it.isNotBlank() }.distinct().joinToString(" · "),
                 color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
@@ -264,12 +267,15 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             // Controls: speed, −15 (hold: previous chapter), play, +30 (hold: next chapter), sleep.
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 // Tap: the next speed; hold: all speeds and skip silence.
+                // The speed itself as its state: the description alone left VoiceOver
+                // saying "Playback speed" without the value (device check 2026-10-20).
+                val speedText = "${formatSpeed(state.speed)}×"
                 Text(
-                    "${formatSpeed(state.speed)}×",
+                    speedText,
                     Modifier.clip(RoundedCornerShape(50))
                         .onSecondaryClick { showSpeed = true }
                         .combinedClickable(onClick = { model.cycleSpeed() }, onLongClick = { showSpeed = true })
-                        .padding(12.dp).semantics { contentDescription = speedLabel },
+                        .padding(12.dp).semantics { contentDescription = speedLabel; stateDescription = speedText },
                     fontWeight = FontWeight.Bold,
                 )
                 val back = settings.skipBackSeconds
@@ -314,6 +320,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         // closes the player.
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             val wide = maxWidth > maxHeight && maxWidth >= 480.dp
+            val short = wide && maxHeight < 480.dp
             val coverSide = minOf(maxHeight - 64.dp, maxWidth * 0.45f)
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -329,7 +336,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 ) {
                     cover(Modifier.size(coverSide))
                     Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) {
-                        details()
+                        details(short)
                     }
                 } else if (inPane) Column(Modifier.fillMaxSize().padding(bottom = 16.dp)) {
                     // A column beside the content: the controls always in view, the
@@ -338,11 +345,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
                     }
                     Spacer(Modifier.height(16.dp))
-                    details()
+                    details(false)
                 } else Column(Modifier.fillMaxWidth().fillMaxHeight().wrapContentWidth().widthIn(max = 560.dp)) {
                     cover(Modifier.fillMaxWidth().aspectRatio(1f))
                     Spacer(Modifier.height(16.dp))
-                    details()
+                    details(false)
                 }
             }
         }

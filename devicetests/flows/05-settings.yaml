@@ -1,5 +1,5 @@
 # Every settings page the listener reaches without a wallet or an identity.
-appId: space.sovereigncast.hopp.beta
+appId: ${APP_ID}
 name: Settings
 ---
 - launchApp
@@ -11,26 +11,26 @@ name: Settings
 - tapOn: "Playback"
 - waitForAnimationToEnd
 - takeScreenshot: 05-playback
-- back
+- tapOn: "Back"
 - scrollUntilVisible:
     element: "Notifications"
 - tapOn: "Notifications"
 - waitForAnimationToEnd
 - takeScreenshot: 05-notifications
-- back
+- tapOn: "Back"
 - scrollUntilVisible:
     element: "Wallet & payments"
     direction: UP
 - tapOn: "Wallet & payments"
 - waitForAnimationToEnd
 - takeScreenshot: 05-wallet
-- back
+- tapOn: "Back"
 - scrollUntilVisible:
     element: "Nostr identity"
 - tapOn: "Nostr identity"
 - waitForAnimationToEnd
 - takeScreenshot: 05-nostr
-- back
+- tapOn: "Back"
 - scrollUntilVisible:
     element: "Privacy"
 - tapOn: "Privacy"

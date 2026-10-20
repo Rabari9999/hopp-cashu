@@ -23,6 +23,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Benachrichtigungen:** Für Schnellboost, Boost und Zap getrennt einstellbar.
 
 ### 🐛 Fixes
+- **Player:** Auf dem quer gehaltenen Telefon sind die Chips (Shownotes, Kapitel, Kommentare) wieder im Bild.
+- **Player:** VoiceOver und TalkBack lesen die aktuelle Geschwindigkeit vor, nicht nur „Wiedergabegeschwindigkeit“.
 - **Einführung:** Auf dem quer gehaltenen Telefon waren die Seiten abgeschnitten; Text und Buttons stehen jetzt nebeneinander.
 - **Player:** Die Geschwindigkeit steht auf Englisch als „1.1×“, auf Deutsch als „1,1×“; Dateigrößen ebenso.
 - **Folgen:** „Pause“ auf der Folgenseite wird nicht mehr zu „Pa…“ gekürzt und erscheint schon, während ein Stream lädt.

@@ -1,5 +1,5 @@
 # A first start with nothing kept, the tour skipped.
-appId: space.sovereigncast.hopp.beta
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true

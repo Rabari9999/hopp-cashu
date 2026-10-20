@@ -1,5 +1,5 @@
 # A show found by name, looked at, subscribed; an episode played in the full player.
-appId: space.sovereigncast.hopp.beta
+appId: ${APP_ID}
 name: Subscribe and play
 ---
 - runFlow: common/fresh.yaml
@@ -46,13 +46,13 @@ name: Subscribe and play
 - takeScreenshot: 03-mini-player
 # The full player: speed, the chips, the comments.
 - tapOn: ".* / 1:27:47"
+# The speed is found by its description: iOS reports that, not the "1×" it shows.
 - extendedWaitUntil:
-    visible: "1×"
+    visible: "Playback speed"
     timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: 03-player
-- tapOn: "1×"
-- assertVisible: "1.1×"
+- tapOn: "Playback speed"
 - takeScreenshot: 03-player-speed
 # The chips scroll sideways; Comments is the last one. On a phone on its side
 # they lie below the controls.
@@ -60,6 +60,10 @@ name: Subscribe and play
     element: "Chapters"
 - swipe:
     from: "Chapters"
+    direction: LEFT
+# A swipe on iOS moves the row less far; a second one at its end does nothing.
+- swipe:
+    from: "Transcript"
     direction: LEFT
 - tapOn: "Comments"
 - extendedWaitUntil:
@@ -73,4 +77,3 @@ name: Subscribe and play
 - waitForAnimationToEnd
 - takeScreenshot: 03-comments
 # Only reading: no identity here, so nothing is ever published from a test.
-- back
