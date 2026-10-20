@@ -12,8 +12,13 @@ interface SyncedDocument {
     /** Its name in the `d` tag: `hopp/<name>`. */
     val name: String
 
-    /** Entries from another device, newer than this one's: make them so here. */
-    suspend fun apply(entries: Map<String, SyncEntry>)
+    /** Entries from another device, newer than this one's: make them so here. The keys
+     *  done; one that cannot be yet (a feed out of reach) is tried again next time. */
+    suspend fun apply(entries: Map<String, SyncEntry>): Set<String>
+
+    /** What this device has, as entries with the best time it knows — merged once,
+     *  when sync is turned on; nothing on the relays is overwritten by it. */
+    suspend fun snapshot(): Map<String, SyncEntry>
 }
 
 sealed interface SyncOutcome {
@@ -49,10 +54,8 @@ class SyncEngine(
             store.pruneRemoved(doc.name, cutoff)
             val theirs = relays.fetch(signer, doc.name, urls).orEmpty().filterValues { !(it.del && it.t < cutoff) }
             val merged = SyncMerge.merge(store.entries(doc.name), theirs)
-            if (merged.fromThem.isNotEmpty()) {
-                doc.apply(merged.fromThem)
-                store.putAll(doc.name, merged.fromThem)
-            }
+            val applied = if (merged.fromThem.isEmpty()) emptySet() else doc.apply(merged.fromThem)
+            store.putAll(doc.name, merged.fromThem.filterKeys { it in applied })
             store.markFetched(doc.name, nowMs())
             val publish = merged.theyLack
             if (publish) {
@@ -61,7 +64,7 @@ class SyncEngine(
             } else {
                 merged.all.values.maxOfOrNull { it.t }?.let { store.markPublished(doc.name, it) }
             }
-            SyncOutcome.Done(merged.fromThem.size, publish)
+            SyncOutcome.Done(applied.size, publish)
         } catch (e: SignerNeedsListener) {
             SyncOutcome.WaitsForSigner
         } catch (e: SignerRejected) {

@@ -91,6 +91,9 @@ data class Settings(
     /** Who a zap on a comment names, as in Amethyst (device feedback 2026-10-19): "public",
      *  "private" (only the author sees who sent it) or "anonymous". */
     val zapPrivacy: String = ZAP_PUBLIC,
+    /** Subscriptions, progress, "Up next" and listening habits kept in step over Nostr —
+     *  off until the listener turns it on (ADR 0021, 5). */
+    val nostrSync: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -160,6 +163,7 @@ data class Settings(
                 zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
                 downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
+                nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
             )
         }
     }
@@ -213,6 +217,7 @@ data class Settings(
         "nostr_boosts" to nostrBoosts.toString(),
         "downloads_to_queue" to downloadsToQueue.toString(),
         "zap_privacy" to zapPrivacy,
+        "nostr_sync" to nostrSync.toString(),
     )
 }
 

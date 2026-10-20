@@ -26,7 +26,8 @@ private fun data(vararg pairs: Pair<String, String>): JsonObject = JsonObject(pa
 /** A document that keeps what it was given, as subscriptions or progress will. */
 private class MemoryDocument(override val name: String = "test") : SyncedDocument {
     val applied = mutableMapOf<String, SyncEntry>()
-    override suspend fun apply(entries: Map<String, SyncEntry>) { applied += entries }
+    override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> { applied += entries; return entries.keys }
+    override suspend fun snapshot(): Map<String, SyncEntry> = emptyMap()
 }
 
 /** Sync's core, ADR 0021 stage 5 (package 2 of docs/tasks/nostr-sync.md). */
@@ -129,7 +130,8 @@ class SyncCoreTest {
         val identity = IdentityRepository(secrets, RelayPublisher(relay), { nowSeconds })
         var ms = nowSeconds * 1000
         val store = SyncStore(db()) { ms }
-        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { nowSeconds }, identity) { ms }
+        // Events by the device's own clock: two in the same second would be a tie on the relays.
+        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity) { ms }
         init { if (nsec != null) runBlocking { identity.importKey(nsec) } }
     }
 
@@ -144,7 +146,7 @@ class SyncCoreTest {
         phone.store.record("test", "show-a", data("title" to "A"))
         assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(docPhone))
         // The tablet adds its own before it ever synced: neither is lost.
-        tablet.ms += 10
+        tablet.ms += 2_000
         tablet.store.record("test", "show-b", data("title" to "B"))
         assertEquals(SyncOutcome.Done(1, true), tablet.engine.sync(docTablet))
         assertEquals(setOf("show-a"), docTablet.applied.keys)
@@ -158,7 +160,7 @@ class SyncCoreTest {
         assertTrue(events.all { e -> e.tags.any { it == listOf("d", "hopp/test") } && e.pubkey == keys.publicKeyHex })
 
         // Unsubscribed on the tablet: the phone follows, and does not bring it back.
-        tablet.ms += 10
+        tablet.ms += 2_000
         tablet.store.record("test", "show-a", data(), deleted = true)
         tablet.engine.sync(docTablet)
         phone.engine.sync(docPhone)

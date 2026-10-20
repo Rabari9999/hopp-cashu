@@ -30,6 +30,8 @@ import space.sovereigncast.hopp.model.Feed
 import space.sovereigncast.hopp.model.Podcast
 import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.FetchResult
+import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncJournal
 
 /** Seconds since the epoch, injectable for tests. */
 fun interface Clock { fun now(): Long }
@@ -113,9 +115,20 @@ class PodcastRepository(
     private val clock: Clock,
     private val files: DownloadFiles? = null,
     private val downloads: DownloadScheduler = DownloadScheduler.None,
+    /** Subscribing, unsubscribing and a show's own settings, noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
+
+    /** The show [id] as sync keeps it — after a change made here; not for one from sync. */
+    private fun noteShow(id: Long, sync: Boolean) {
+        if (!sync) return
+        q.selectById(id).executeAsOneOrNull()?.let { r ->
+            journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L))
+        }
+    }
 
     /** When any show was last refreshed, epoch seconds; null before the first. */
     val lastChecked: Flow<Long?> = q.lastChecked().asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.last }
@@ -134,7 +147,7 @@ class PodcastRepository(
 
     /** Fetch, parse, store. The newest episode lands in "New"; the back
      *  catalogue does not flood it. */
-    suspend fun subscribe(input: String): SubscribeResult {
+    suspend fun subscribe(input: String, sync: Boolean = true): SubscribeResult {
         val url = FeedFetcher.normalize(input) ?: return SubscribeResult.Failed("not a feed address")
         withContext(Dispatchers.IO) { q.selectByFeedUrl(url).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
@@ -151,13 +164,13 @@ class PodcastRepository(
             return SubscribeResult.Failed(e.message ?: "not a podcast feed")
         }
         if (feed.episodes.isEmpty() && feed.podcast.title == null) return SubscribeResult.Failed("not a podcast feed")
-        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified)
+        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified, sync)
     }
 
     /** Subscribes to a feed that is already fetched and parsed — the show page
      *  before subscribing has done both, and doing them twice was the slow
      *  part of subscribing (device feedback 2026-10-08). */
-    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?): SubscribeResult {
+    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?, sync: Boolean = true): SubscribeResult {
         withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
         }
@@ -171,7 +184,7 @@ class PodcastRepository(
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
                 for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)
                 id
-            }
+            }.also { noteShow(it, sync) }
         }
         downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
@@ -231,7 +244,10 @@ class PodcastRepository(
         )
     }
 
-    suspend fun unsubscribe(id: Long) = withContext(Dispatchers.IO) {
+    suspend fun unsubscribe(id: Long, sync: Boolean = true) = withContext(Dispatchers.IO) {
+        if (sync) q.selectById(id).executeAsOneOrNull()?.let { r ->
+            journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true)
+        }
         eq.downloadPathsOfPodcast(id).executeAsList().forEach { path -> path?.let { files?.delete(it) } }
         db.transaction {
             db.chapterCacheQueries.deleteByPodcast(id)
@@ -256,8 +272,8 @@ class PodcastRepository(
     }
 
     /** [speed] null: the show follows the default speed again. */
-    suspend fun setSpeed(id: Long, speed: Float?) = withContext(Dispatchers.IO) { q.setSpeed(speed?.toDouble(), id) }
-    suspend fun setAutoDownload(id: Long, on: Boolean) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id) }
+    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(Dispatchers.IO) { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) }
+    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */
     private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long, autoDownload: Boolean) {

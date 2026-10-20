@@ -88,13 +88,20 @@ fun sharedModule(platform: Platform) = module {
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
+    single {
+        val koin = getKoin()
+        space.sovereigncast.hopp.sync.SyncManager(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), {
+            listOf(space.sovereigncast.hopp.sync.SubscriptionsDocument(koin.get(), koin.get()))
+        }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
+    }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
     single { SettingsRepository(get()) }
     single { QueueRepository(get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
-    single { PodcastRepository(get(), get(), get(), get(), get()) }
+    single { PodcastRepository(get(), get(), get(), get(), get(), get()) }
     single { EpisodeRepository(get(), get(), get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
