@@ -170,6 +170,10 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **External signers:** a sync needs encrypt and sign each time. With Amber,
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
   app is open and never blocks playback.
+- *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
+  (`hopp/queue`); of the settings only the listening habits. The `d` tags
+  stay readable; Hopp fetches on start and on coming to the foreground, with
+  no standing relay connection. Plan: `docs/tasks/nostr-sync.md`.
 
 ### 6. Boosts and the npub
 
@@ -339,7 +343,8 @@ switches.
    shows; readers cannot check the amount, as with Fountain's own notes. The
    boost dialog says whether it went out; a failed post leaves the boost as
    it is. Boosts to a whole show and donations stay private.
-5. **Sync.**
+5. **Sync.** *Planned 2026-10-20, next after stage 4 and before push
+   (ADR 0007):* `docs/tasks/nostr-sync.md`.
 
 ## Consequences
 
