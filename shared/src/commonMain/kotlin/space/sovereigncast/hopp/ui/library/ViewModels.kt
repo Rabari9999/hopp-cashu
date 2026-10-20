@@ -49,19 +49,25 @@ private fun <T> ViewModel.state(flow: kotlinx.coroutines.flow.Flow<T>, initial: 
     flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
 /** Pull-to-refresh over all subscriptions, shared by New and Library. */
-abstract class RefreshingViewModel(private val podcasts: PodcastRepository) : ViewModel() {
+abstract class RefreshingViewModel(
+    private val podcasts: PodcastRepository,
+    /** With sync on, a pull brings the other devices' changes first (ADR 0021, 5). */
+    private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+) : ViewModel() {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     fun refresh() {
         if (_refreshing.value) return
         _refreshing.value = true
-        viewModelScope.launch { try { podcasts.refreshAll(); afterRefresh() } finally { _refreshing.value = false } }
+        viewModelScope.launch {
+            try { runCatching { sync?.syncNow() }; podcasts.refreshAll(); afterRefresh() } finally { _refreshing.value = false }
+        }
     }
     /** Whatever else a pull to refresh should bring up to date. */
     protected open suspend fun afterRefresh() = Unit
 }
 
-class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository) : RefreshingViewModel(podcasts) {
+class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository, sync: space.sovereigncast.hopp.sync.SyncManager? = null) : RefreshingViewModel(podcasts, sync) {
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(kotlinx.coroutines.flow.flow { podcasts.shows.collect { emit(it.isNotEmpty()) } }, null)
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
@@ -76,7 +82,8 @@ class HomeViewModel(
     value: space.sovereigncast.hopp.value.ValueService,
     private val settings: SettingsRepository,
     private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository,
-) : RefreshingViewModel(podcasts) {
+    sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+) : RefreshingViewModel(podcasts, sync) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
 
@@ -146,7 +153,8 @@ class LibraryViewModel(
     queue: QueueRepository,
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
-) : RefreshingViewModel(podcasts) {
+    sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+) : RefreshingViewModel(podcasts, sync) {
     /** The listener's order (device feedback 2026-10-19): the show with the newest episode first by default. */
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }

@@ -567,8 +567,8 @@
     <string name="nostr_sign_out_text">The key is deleted from this device. Without a backup the identity is lost. What you published stays on Nostr.</string>
     <string name="nostr_sign_out_confirm">Sign out</string>
     <string name="pv_nostr_who">Nostr relays (relay.damus.io, nos.lol, relay.primal.net, your own relays from your relay list, the relays a show names; purplepag.es, user.kindpag.es and relay.fountain.fm to look profiles up)</string>
-    <string name="pv_nostr_sees">your IP address; when you read comments, which episode; what you publish with your Nostr identity — your profile name, comments, likes, reports and mute list; public for everyone, for good</string>
-    <string name="pv_nostr_when">when you load an episode's comments (at once behind a VPN), and with a Nostr identity when it is made and its profile published</string>
+    <string name="pv_nostr_sees">your IP address; when you read comments, which episode; what you publish with your Nostr identity — your profile name, comments, likes, reports and mute list; public for everyone, for good. With sync on: that you use Hopp and when your library changes — the library itself is encrypted to your key</string>
+    <string name="pv_nostr_when">when you load an episode's comments (at once behind a VPN), and with a Nostr identity when it is made and its profile published; with sync on, at start, back in the foreground and after a change</string>
     <string name="pv_nostr_tip">Hopp asks relays only when you open the comments or use a Nostr identity. A VPN keeps your IP address from them; what you publish stays public.</string>
     <string name="nostr_amber">Sign in with Amber</string>
     <string name="nostr_amber_rejected">The signer app said no.</string>
@@ -649,8 +649,6 @@
     <string name="onboarding_nostr_comments">comment on episodes and like — seen in Fountain &amp; co. too</string>
     <string name="onboarding_nostr_votes">your Sovereigncast votes on every device</string>
     <string name="onboarding_nostr_boosts">boosts as public comments, if you want</string>
-    <string name="onboarding_soon">Soon</string>
-    <string name="onboarding_nostr_soon">Subscriptions and progress on all your devices over Nostr — encrypted, no Hopp server.</string>
     <string name="np_no_value">This show takes no sats — its feed names no value recipients.</string>
     <string name="onboarding_nostr_setup">Set up Nostr now</string>
     <string name="nostr_vault_save_android">Save in password manager</string>
@@ -683,7 +681,7 @@
     <string name="nostr_have_account">I already have a Nostr account</string>
     <string name="nostr_bunker_row">Connect a bunker</string>
     <string name="nostr_backup_card_title">Back up your key</string>
-    <string name="nostr_backup_card_text">It is only on this device. Without a backup, a lost phone means a lost account.</string>
+    <string name="nostr_backup_card_text">It is only on this device. Without a backup, a lost phone means a lost account — with sync on, the key also brings your library back.</string>
     <string name="nostr_backup_other">Other ways</string>
     <string name="nostr_backed_up">Key backed up</string>
     <string name="privacy_lead">Hopp collects nothing. It talks to others for you — here you see who sees what.</string>
@@ -805,4 +803,15 @@
     <string name="sync_restore_text">Your subscriptions, progress, “Up next” and listening habits are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
     <string name="sync_restore_button">Restore</string>
     <string name="sync_restore_later">Not now</string>
+    <string name="sync_title">Sync across devices</string>
+    <string name="sync_note">Subscriptions, progress, “Up next” and listening habits, encrypted to your key on your relays — no Hopp server.</string>
+    <string name="sync_running">Syncing…</string>
+    <string name="sync_last_now">Synced just now</string>
+    <string name="sync_last_minutes">Synced %1$d min ago</string>
+    <string name="sync_last_hours">Synced %1$d h ago</string>
+    <string name="sync_waits">Your signer app has to allow it once.</string>
+    <string name="sync_newer">Another device has a newer Hopp. Update Hopp to keep syncing.</string>
+    <string name="sync_failed">No relay reached. Hopp tries again later.</string>
+    <string name="sync_now">Sync now</string>
+    <string name="onboarding_nostr_sync">your library and progress on every device — encrypted, no Hopp server</string>
 </resources>

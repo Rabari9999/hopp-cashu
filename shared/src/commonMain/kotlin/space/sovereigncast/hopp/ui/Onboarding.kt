@@ -62,8 +62,7 @@ import space.sovereigncast.hopp.resources.onboarding_nostr_comments
 import space.sovereigncast.hopp.resources.onboarding_nostr_votes
 import space.sovereigncast.hopp.resources.onboarding_nostr_boosts
 import space.sovereigncast.hopp.resources.onboarding_nostr_restore
-import space.sovereigncast.hopp.resources.onboarding_nostr_soon
-import space.sovereigncast.hopp.resources.onboarding_soon
+import space.sovereigncast.hopp.resources.onboarding_nostr_sync
 import space.sovereigncast.hopp.resources.onboarding_nostr_setup
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,8 +79,6 @@ private class TourPage(
     /** What it brings, a line each — a page with more to say than a paragraph holds. */
     val points: List<StringResource> = emptyList(),
     val after: StringResource? = null,
-    /** What is coming, set apart. */
-    val soon: StringResource? = null,
     /** Set up right here, from Hopp — a Nostr key needs nothing outside it, unlike a wallet. */
     val setup: StringResource? = null,
     /** A link for those who used Hopp before: their library back from Nostr (ADR 0021, 5). */
@@ -93,11 +90,12 @@ private val ALL_PAGES = listOf(
     TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text),
     TourPage(Icons.AutoMirrored.Rounded.List, false, Res.string.onboarding_library_title, Res.string.onboarding_library_text),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_v4v_title, Res.string.onboarding_v4v_text),
-    // Nostr, optional (maintainer, 2026-10-16): what it is, what Hopp does with it, sync to come.
+    // Nostr, optional (maintainer, 2026-10-16): what it is, what Hopp does with it — sync, announced
+    // as coming until it came (2026-10-20), among the rest; for those who had Hopp before, the way back.
     TourPage(
         HoppIcons.Comment, false, Res.string.onboarding_nostr_title, Res.string.onboarding_nostr_text,
-        points = listOf(Res.string.onboarding_nostr_comments, Res.string.onboarding_nostr_votes, Res.string.onboarding_nostr_boosts),
-        soon = Res.string.onboarding_nostr_soon, setup = Res.string.onboarding_nostr_setup, restore = Res.string.onboarding_nostr_restore,
+        points = listOf(Res.string.onboarding_nostr_comments, Res.string.onboarding_nostr_votes, Res.string.onboarding_nostr_boosts, Res.string.onboarding_nostr_sync),
+        setup = Res.string.onboarding_nostr_setup, restore = Res.string.onboarding_nostr_restore,
     ),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_wallet_title, Res.string.onboarding_wallet_text, nwcLink = true),
 )
@@ -154,15 +152,6 @@ fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onRes
                         }
                     }
                     p.after?.let { Text(stringResource(it), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, textAlign = TextAlign.Center) }
-                    p.soon?.let {
-                        Column(
-                            Modifier.padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceVariant).padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(stringResource(Res.string.onboarding_soon), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
-                        }
-                    }
                     // In the page, not among the buttons: the footer keeps its height on every page.
                     p.restore?.let { TextButton(onClick = onRestore, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(it), textAlign = TextAlign.Center) } }
                     // The NWC explainer (device feedback 2026-10-11), only when it answers.

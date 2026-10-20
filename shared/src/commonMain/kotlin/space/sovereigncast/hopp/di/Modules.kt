@@ -134,9 +134,9 @@ fun sharedModule(platform: Platform) = module {
         PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
-    viewModel { InboxViewModel(get(), get()) }
-    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
-    viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }
+    viewModel { InboxViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }

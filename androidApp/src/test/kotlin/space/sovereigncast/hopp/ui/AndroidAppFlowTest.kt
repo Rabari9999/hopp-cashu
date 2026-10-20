@@ -1605,6 +1605,22 @@ class AndroidAppFlowTest {
         until { settings().onboardingDone }
     }
 
+    /** Sync came (2026-10-20): no longer announced as coming, and who had Hopp before finds the way back. */
+    @Test
+    fun theTourLeadsBackToALibraryOnNostr() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(4) { tap("Next") }
+        waitFor("Nostr, if you like")
+        check(!has("Soon")) { "sync is no longer to come" }
+        check(has("your library and progress on every device", substring = true))
+        tap("Already using Hopp? Restore from Nostr")
+        // The ways in with an existing account, open at once.
+        waitFor("nsec1… or ncryptsec1…")
+        until { settings().onboardingDone }
+    }
+
     @Test
     fun theTourSkipsTheWalletPageWhenOneIsConnected() {
         val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()

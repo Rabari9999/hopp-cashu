@@ -90,6 +90,25 @@ class SyncRestoreTest {
         node.performClick()
     }
 
+    /** The switch on the Nostr page: on, the library goes out and the page says when; off, it stops. */
+    @Test
+    fun syncIsTurnedOnAndOffOnTheNostrPage() {
+        val relays = KeepingRelays()
+        loadKoinModules(module { single { RelayPublisher(relays) } })
+        runBlocking { koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().importKey(Bech32.encode("nsec", KeyPair.generate().secretKey)) }
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Sync across devices")
+        check(!has("Restore from your other devices")) { "nothing on the relays, nothing to restore" }
+        tap("Sync across devices")
+        waitFor("Synced just now")
+        check(runBlocking { koin.get<SettingsRepository>().settings.first().nostrSync })
+        tap("Sync across devices")
+        rule.waitUntil(10_000) { runBlocking { !koin.get<SettingsRepository>().settings.first().nostrSync } }
+        check(!has("Synced just now"))
+    }
+
     @Test
     fun aKeyBroughtBackOffersTheLibraryAndRestoresIt() {
         val relays = KeepingRelays()

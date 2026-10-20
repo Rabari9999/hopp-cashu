@@ -347,6 +347,29 @@ switches.
    it is. Boosts to a whole show and donations stay private.
 5. **Sync.** *Planned 2026-10-20, next after stage 4 and before push
    (ADR 0007):* `docs/tasks/nostr-sync.md`.
+   *Built 2026-10-20:* a switch on the Nostr page, off by default. Four
+   documents (`hopp/subscriptions`, `hopp/progress`, `hopp/queue`,
+   `hopp/settings`), each a JSON of entries with a time in milliseconds and a
+   removal mark, NIP-44-sealed to the listener's key in kind-30078 parts
+   under 60 KB that share a revision. Every round reads and merges per entry
+   before it sends; a change made here is always later than what it
+   replaces, so a clock behind does not lose it. A position and a favourite
+   of one episode are separate entries; positions older than 90 days are
+   dropped everywhere alike, favourites stay; a place in "Up next" is the
+   sort key it was given, so a reorder and an addition elsewhere both
+   survive. A device's settings and queue order carry no time and join only
+   where the relays have nothing. From another device: applied without being
+   noted again; an entry whose show or episode is not here yet, or whose
+   episode is playing, waits for the next round. Rounds on start, back in the
+   foreground (at most every five minutes), on pull-to-refresh, ten seconds
+   after a change — a position while playing at most every five minutes,
+   a pause sooner — and what is left on leaving. In the background the signer
+   app is never opened; sync waits and the page says so. Signers are asked
+   at login for kind 30078 and NIP-44 encryption besides the rest. After a
+   sign-in with an existing identity the page offers the library found on
+   the relays, with what it holds; turning sync on merges, on a new device
+   a restore. Turning it off forgets this device's notes; the relays keep
+   theirs (8). A document of a newer format is left alone.
 
 ## Consequences
 

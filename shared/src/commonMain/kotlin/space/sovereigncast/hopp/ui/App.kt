@@ -246,6 +246,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) { scDirectory.shows() }
     // The first start's tour (device feedback 2026-10-10), or again from "About".
     val settingsRepo: SettingsRepository = koinInject()
+    // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
+    val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground() }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
     val connectedWallet by koinInject<space.sovereigncast.hopp.value.WalletRepository>().wallet.collectAsState()

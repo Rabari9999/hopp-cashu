@@ -1,6 +1,6 @@
 # Task — Sync across devices over Nostr (ADR 0021, stage 5)
 
-- **Status:** planned 2026-10-20 — before push (maintainer, same day)
+- **Status:** built 2026-10-20 (packages 1–7); the check on two devices with the maintainer's key is left
 - **ADR:** 0021 §5 (sync), 0006 (identity), 0015 (privacy), 0013 (offline)
 
 ## Why
@@ -116,9 +116,14 @@ again, starts from the library the listener had.
 - A key made in Hopp comes back through its backup (password manager, nsec,
   ncryptsec); the restore follows the same way. The backup card says that
   the key also brings back the library once sync is on.
-- Order of a restore: subscriptions first (the library shows at once from
-  the document's titles and covers, the feeds load behind), then settings,
-  "Up next" and progress as the feeds arrive.
+- Order of a restore: subscriptions first, then progress, "Up next" and
+  settings as the feeds arrive. *As built:* the feeds are fetched four at a
+  time and each show appears as its feed is in; showing the library at once
+  from the document's titles and covers is left for later, if a restore
+  feels slow on the device.
+- *As built:* the tour's link sits in the Nostr page itself, under its
+  points, not among the buttons — the footer keeps its height on every page
+  (the tour was cut off on a phone held sideways before).
 
 ### 7. Page, privacy, docs
 

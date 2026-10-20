@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -69,6 +71,16 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.sync_failed
+import space.sovereigncast.hopp.resources.sync_last_hours
+import space.sovereigncast.hopp.resources.sync_last_minutes
+import space.sovereigncast.hopp.resources.sync_last_now
+import space.sovereigncast.hopp.resources.sync_newer
+import space.sovereigncast.hopp.resources.sync_note
+import space.sovereigncast.hopp.resources.sync_now
+import space.sovereigncast.hopp.resources.sync_running
+import space.sovereigncast.hopp.resources.sync_title
+import space.sovereigncast.hopp.resources.sync_waits
 import space.sovereigncast.hopp.resources.sync_restore_button
 import space.sovereigncast.hopp.resources.sync_restore_counts
 import space.sovereigncast.hopp.resources.sync_restore_later
@@ -160,6 +172,18 @@ class NostrIdentityViewModel(
     }
 
     fun dismissRestore() { _restore.value = null }
+
+    /** How sync stands, for the line under its switch. */
+    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus> = sync?.status ?: MutableStateFlow(space.sovereigncast.hopp.sync.SyncStatus())
+
+    /** The switch: on merges and may restore (the signer may ask once); off forgets this device's notes. */
+    fun setSync(on: Boolean) {
+        val sync = sync ?: return
+        if (on) restore() else viewModelScope.launch { sync.disable(); lookForRestore() }
+    }
+
+    /** A round now, the signer app allowed to ask — after it said it needs the listener. */
+    fun syncNow() { val sync = sync ?: return; viewModelScope.launch { sync.syncNow(interactive = true) } }
 
     /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
     private val _loadingProfile = MutableStateFlow(false)
@@ -369,7 +393,9 @@ class NostrIdentityViewModel(
     }
     fun setNostrBoosts(on: Boolean) = viewModelScope.launch { settings.update { it.copy(nostrBoosts = on) } }
     fun signOut() {
-        _exported.value = null; _published.value = null
+        _exported.value = null; _published.value = null; _restore.value = null
+        // Without a key there is nothing to sync with; the relays keep what they have.
+        sync?.let { viewModelScope.launch { it.disable() } }
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
@@ -583,6 +609,9 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (me.holdsKey) Backup(me, busy, vm)
 
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    val restoring by vm.restoring.collectAsState()
+    SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
+    if (settings?.nostrSync == true) SyncStatusLine(vm)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -605,6 +634,36 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/** Under the sync switch: when it last got through, or why not — and a way on where there is one. */
+@Composable
+private fun SyncStatusLine(vm: NostrIdentityViewModel) {
+    val status by vm.syncStatus.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // Ticks once a minute, so "min ago" stays true while the page is open.
+    val now by produceState(kotlin.time.Clock.System.now().toEpochMilliseconds()) {
+        while (true) { kotlinx.coroutines.delay(60_000); value = kotlin.time.Clock.System.now().toEpochMilliseconds() }
+    }
+    val problem = status.problem
+    val text = when {
+        status.running -> stringResource(Res.string.sync_running)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.WaitsForSigner -> stringResource(Res.string.sync_waits)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.NeedsUpdate -> stringResource(Res.string.sync_newer)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> stringResource(Res.string.sync_failed)
+        else -> status.lastSyncedMs?.let { last ->
+            val minutes = ((now - last) / 60_000).coerceAtLeast(0)
+            when {
+                minutes < 1 -> stringResource(Res.string.sync_last_now)
+                minutes < 60 -> stringResource(Res.string.sync_last_minutes, minutes.toInt())
+                else -> stringResource(Res.string.sync_last_hours, (minutes / 60).toInt())
+            }
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text.orEmpty(), Modifier.weight(1f), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
+        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+    }
 }
 
 /** The listener's other devices left a library on the relays (ADR 0021, 5): one button takes it. */
@@ -691,12 +750,17 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
 
 @Composable
 private fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // The whole row switches, read out as one switch with its title.
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

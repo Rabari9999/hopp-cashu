@@ -120,6 +120,7 @@ class SyncManager(
 
     /** The app came to the foreground (or started): a round, unless one ran a moment ago. */
     fun onForeground() {
+        // Not by the journal's flag: at start it may not have read the setting yet; a round with sync off ends at once.
         val last = _status.value.lastSyncedMs
         if (last != null && nowMs() - last < FOREGROUND_EVERY.inWholeMilliseconds) return
         scope.launch { syncNow() }

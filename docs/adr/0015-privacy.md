@@ -24,7 +24,7 @@ A settings page lists it plainly:
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |
 | A commenter's Lightning address server | IP address, the amount, the zap request: which comment, the message, the listener's npub (in a private zap only for the author, encrypted; none in an anonymous one — chosen in the zap sheet, as in Amethyst, and always without an identity); it publishes the receipt on Nostr relays, in public | only when the listener zaps a comment (added 2026-10-19, ADR 0021) |
-| Nostr relays | signed public events; the IP address | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006) |
+| Nostr relays | signed public events; the IP address; with sync on, that the listener uses Hopp and when their library changes — the library itself sealed to their key | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006); sync only when turned on (ADR 0021, 5, added 2026-10-20) |
 | Push gateway (sovereigncast.space) | device token ↔ endpoint, no content | only with push (ADR 0007) |
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |
 | Whoever opens a shared link (and www.sovereigncast.space, in a browser) | show, episode and time in the link; the page sees the opener's IP | only when the listener shares (added 2026-10-12) |

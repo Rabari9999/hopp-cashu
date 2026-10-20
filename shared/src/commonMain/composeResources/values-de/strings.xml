@@ -567,8 +567,8 @@
     <string name="nostr_sign_out_text">Der Schlüssel wird von diesem Gerät gelöscht. Ohne Sicherung ist die Identität verloren. Was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_confirm">Abmelden</string>
     <string name="pv_nostr_who">Nostr-Relays (relay.damus.io, nos.lol, relay.primal.net, deine eigenen Relays aus deiner Relay-Liste, die Relays, die eine Show nennt; purplepag.es, user.kindpag.es und relay.fountain.fm zum Nachschlagen von Profilen)</string>
-    <string name="pv_nostr_sees">deine IP-Adresse; beim Lesen von Kommentaren, um welche Folge es geht; was du mit deiner Nostr-Identität veröffentlichst – Profilname, Kommentare, Likes, Meldungen und Stummschalt-Liste; öffentlich für alle, dauerhaft</string>
-    <string name="pv_nostr_when">wenn du die Kommentare einer Folge lädst (mit VPN sofort), und mit Nostr-Identität, wenn sie angelegt und ihr Profil veröffentlicht wird</string>
+    <string name="pv_nostr_sees">deine IP-Adresse; beim Lesen von Kommentaren, um welche Folge es geht; was du mit deiner Nostr-Identität veröffentlichst – Profilname, Kommentare, Likes, Meldungen und Stummschalt-Liste; öffentlich für alle, dauerhaft. Mit Abgleich: dass du Hopp nutzt und wann sich deine Bibliothek ändert – die Bibliothek selbst ist mit deinem Schlüssel verschlüsselt</string>
+    <string name="pv_nostr_when">wenn du die Kommentare einer Folge lädst (mit VPN sofort), und mit Nostr-Identität, wenn sie angelegt und ihr Profil veröffentlicht wird; mit Abgleich beim Start, beim Zurückkehren in den Vordergrund und nach einer Änderung</string>
     <string name="pv_nostr_tip">Hopp fragt Relays nur, wenn du die Kommentare öffnest oder eine Nostr-Identität nutzt. Ein VPN verbirgt deine IP-Adresse vor ihnen; was du veröffentlichst, bleibt öffentlich.</string>
     <string name="nostr_amber">Mit Amber anmelden</string>
     <string name="nostr_amber_rejected">Die Signer-App hat abgelehnt.</string>
@@ -649,8 +649,6 @@
     <string name="onboarding_nostr_comments">Folgen kommentieren und liken – auch in Fountain &amp; Co. sichtbar</string>
     <string name="onboarding_nostr_votes">deine Sovereigncast-Stimmen auf jedem Gerät</string>
     <string name="onboarding_nostr_boosts">Boosts auf Wunsch als öffentlicher Kommentar</string>
-    <string name="onboarding_soon">Bald</string>
-    <string name="onboarding_nostr_soon">Abos und Hörstand über Nostr auf all deinen Geräten – verschlüsselt, ohne Hopp-Server.</string>
     <string name="np_no_value">Diese Show nimmt keine Sats an – ihr Feed nennt keine Empfänger.</string>
     <string name="onboarding_nostr_setup">Nostr jetzt einrichten</string>
     <string name="nostr_vault_save_android">Im Passwortmanager sichern</string>
@@ -683,7 +681,7 @@
     <string name="nostr_have_account">Ich habe schon einen Nostr-Account</string>
     <string name="nostr_bunker_row">Mit einem Bunker verbinden</string>
     <string name="nostr_backup_card_title">Sichere deinen Schlüssel</string>
-    <string name="nostr_backup_card_text">Er liegt nur auf diesem Gerät. Ohne Sicherung ist mit dem Handy auch der Account weg.</string>
+    <string name="nostr_backup_card_text">Er liegt nur auf diesem Gerät. Ohne Sicherung ist mit dem Handy auch der Account weg – mit eingeschaltetem Abgleich bringt der Schlüssel auch deine Bibliothek zurück.</string>
     <string name="nostr_backup_other">Andere Wege</string>
     <string name="nostr_backed_up">Schlüssel gesichert</string>
     <string name="privacy_lead">Hopp sammelt nichts. Für dich spricht es mit anderen – hier siehst du, wer was sieht.</string>
@@ -805,4 +803,15 @@
     <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“ und deine Hörgewohnheiten liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
     <string name="sync_restore_button">Wiederherstellen</string>
     <string name="sync_restore_later">Nicht jetzt</string>
+    <string name="sync_title">Zwischen Geräten abgleichen</string>
+    <string name="sync_note">Abos, Hörstand, „Als Nächstes“ und Hörgewohnheiten, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
+    <string name="sync_running">Gleiche ab …</string>
+    <string name="sync_last_now">Gerade abgeglichen</string>
+    <string name="sync_last_minutes">Vor %1$d Min. abgeglichen</string>
+    <string name="sync_last_hours">Vor %1$d Std. abgeglichen</string>
+    <string name="sync_waits">Deine Signer-App muss es einmal erlauben.</string>
+    <string name="sync_newer">Ein anderes Gerät hat ein neueres Hopp. Aktualisiere Hopp, um weiter abzugleichen.</string>
+    <string name="sync_failed">Kein Relay erreicht. Hopp versucht es später wieder.</string>
+    <string name="sync_now">Jetzt abgleichen</string>
+    <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
 </resources>

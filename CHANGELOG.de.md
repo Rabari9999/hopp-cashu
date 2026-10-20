@@ -6,6 +6,11 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Nostr:** Abos, Hörstand, Favoriten, „Als Nächstes“ und Hörgewohnheiten zwischen deinen Geräten abgleichen – verschlüsselt, ohne Hopp-Server.
+- **Nostr:** Auf einem neuen Gerät nach der Anmeldung die Bibliothek aus Nostr wiederherstellen.
+- **Tour:** „Hopp schon in Gebrauch?“ führt direkt zur Wiederherstellung aus Nostr.
+
 ## [0.2.2] - 2026-10-20
 
 ### 🆕 New Features
