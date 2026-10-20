@@ -46,7 +46,7 @@ Builds:
 
   - versionName: 0.2.2
     versionCode: 5
-    commit: ca699281037f565dcd23cd9ebceca936e100077d
+    commit: b0a1a592ff6bdc4283421c138861460f785952a7
     subdir: androidApp
     gradle:
       - foss
