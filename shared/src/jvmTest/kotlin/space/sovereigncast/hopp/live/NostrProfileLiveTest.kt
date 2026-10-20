@@ -27,7 +27,8 @@ class NostrProfileLiveTest {
         val signer = object : ExternalSigner {
             override fun available() = true
             override suspend fun login(permissions: List<SignerPermission>) = pubkey to "test"
-            override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String) = SignerResult(null, null)
+            override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean) = SignerResult(null, null)
+            override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean) = text
         }
         val http = createHttpClient(AppInfo("0.0.1", "JVM", "Test"))
         val repo = IdentityRepository(MemorySecretStore(), RelayPublisher(KtorRelayConnector(http)), { 0 }, signer)

@@ -110,6 +110,10 @@ class Nip46Client(
         put("tags", JsonArray(event.tags.map { tag -> JsonArray(tag.map(::JsonPrimitive)) }))
     }.toString()))
 
+    /** `nip44_encrypt` / `nip44_decrypt` with the listener's key for [peer]. */
+    suspend fun nip44(encrypt: Boolean, peer: String, text: String): String =
+        request(if (encrypt) "nip44_encrypt" else "nip44_decrypt", listOf(peer, text))
+
     /** A courtesy: the signer may forget this session (NIP-46 "ending a session"). */
     suspend fun logout() { runCatching { request("logout", emptyList(), 10.seconds) } }
 
@@ -227,4 +231,9 @@ class BunkerSigner(override val pubkey: String, private val client: Nip46Client)
         if (signed.id != expected || signed.pubkey != pubkey || !signed.isValid()) throw Nip46Exception("the signer returned another event")
         return signed
     }
+
+    override suspend fun encryptToSelf(plaintext: String): String =
+        client.nip44(true, pubkey, plaintext).takeIf { it.isNotBlank() } ?: throw Nip46Exception("the signer returned nothing")
+
+    override suspend fun decryptFromSelf(payload: String): String = client.nip44(false, pubkey, payload)
 }

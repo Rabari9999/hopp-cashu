@@ -70,6 +70,10 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
                 val signed = Event.sign(signWith ?: userKeys, ev["kind"]!!.jsonPrimitive.content.toInt(), ev["content"]!!.jsonPrimitive.content, tags, ev["created_at"]!!.jsonPrimitive.content.toLong())
                 reply(Json.encodeToString(Event.serializer(), signed))
             }
+            "nip44_encrypt", "nip44_decrypt" -> {
+                val k = Nip44.conversationKey(userKeys.secretKey, p[0].hexToBytes())
+                reply(if (method == "nip44_encrypt") Nip44.encrypt(p[1], k) else Nip44.decrypt(p[1], k))
+            }
             "logout" -> reply("ack")
             else -> reply(null, "unsupported")
         }
@@ -124,6 +128,19 @@ class BunkerTest {
         val again = IdentityRepository(secrets, RelayPublisher(relay), { now })
         assertEquals(me, again.identity.value)
         assertTrue(again.signer() is BunkerSigner)
+    }
+
+    @Test
+    fun aBunkerEncryptsToTheListenerAndAKeyHereOpensIt() = runBlocking<Unit> {
+        identities.signInWithBunker(bunker.address)
+        assertTrue("nip44_encrypt" in IdentityRepository.BUNKER_PERMS && "nip44_decrypt" in IdentityRepository.BUNKER_PERMS)
+        val signer = identities.signer()!!
+        val sealed = signer.encryptToSelf("""{"v":1}""")
+        assertEquals(listOf(bunker.userKeys.publicKeyHex, """{"v":1}"""), bunker.params[bunker.methods.lastIndexOf("nip44_encrypt")])
+        // The same key on another device, held there: it opens what the bunker sealed, and back.
+        val local = space.sovereigncast.hopp.nostr.LocalSigner(bunker.userKeys)
+        assertEquals("""{"v":1}""", local.decryptFromSelf(sealed))
+        assertEquals("back", signer.decryptFromSelf(local.encryptToSelf("back")))
     }
 
     @Test

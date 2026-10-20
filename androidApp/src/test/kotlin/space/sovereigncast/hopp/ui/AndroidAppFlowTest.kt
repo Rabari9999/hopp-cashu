@@ -129,7 +129,11 @@ internal object FakeAmber : space.sovereigncast.hopp.nostr.ExternalSigner {
         if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
         return keys.publicKeyHex to "com.greenart7c3.nostrsigner"
     }
-    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): space.sovereigncast.hopp.nostr.SignerResult {
+    override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
+        val key = space.sovereigncast.hopp.nostr.Nip44.conversationKey(keys.secretKey, keys.publicKey)
+        return if (encrypt) space.sovereigncast.hopp.nostr.Nip44.encrypt(text, key) else space.sovereigncast.hopp.nostr.Nip44.decrypt(text, key)
+    }
+    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean): space.sovereigncast.hopp.nostr.SignerResult {
         val o = org.json.JSONObject(eventJson)
         fun str(k: String) = o.get(k).toString()
         val arr = o.getJSONArray("tags")

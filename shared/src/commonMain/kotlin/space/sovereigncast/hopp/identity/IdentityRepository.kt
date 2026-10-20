@@ -112,14 +112,15 @@ class IdentityRepository(
 
     private fun requireReadable() { if (_unreadable.value) throw SecretUnreadable(KEY) }
 
-    /** Who signs for the listener now, or null without an identity. */
-    fun signer(): NostrSigner? {
+    /** Who signs for the listener now, or null without an identity. Not [interactive]:
+     *  a signer app is never opened, only what the listener allowed for good is asked. */
+    fun signer(interactive: Boolean = true): NostrSigner? {
         val me = _identity.value ?: return null
         return when (me.source) {
             NostrIdentity.Source.Local -> runCatching { secrets.get(KEY) }.getOrNull()?.let { runCatching { LocalSigner(KeyPair.fromHex(it)) }.getOrNull() }
             NostrIdentity.Source.Amber -> {
                 val app = externalSigner ?: return null
-                ExternalNostrSigner(me.pubkey, me.signerPackage ?: return null, app)
+                ExternalNostrSigner(me.pubkey, me.signerPackage ?: return null, app, interactive)
             }
             NostrIdentity.Source.Bunker -> bunkerClient(me)?.let { BunkerSigner(me.pubkey, it) }
         }
@@ -371,8 +372,9 @@ class IdentityRepository(
         private const val BUNKER_KEY = "nostr_bunker_client_key"
 
         /** What Hopp asks a remote signer to allow for good: NIP-98 for votes and suggestions,
-         *  and since stage 3 comments, likes, the mute list and reports. */
-        val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
+         *  since stage 3 comments, likes, the mute list and reports, since stage 5 the sync
+         *  documents and their encryption. */
+        val BUNKER_PERMS = (ExternalSigner.SIGNED_KINDS.map { "sign_event:$it" } + ExternalSigner.ENCRYPTION).joinToString(",")
 
         /** Where Hopp waits for a signer that takes up a nostrconnect:// code. */
         val CONNECT_RELAYS = listOf("wss://relay.nsec.app", "wss://nos.lol")

@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.sovereigncast.hopp.crypto.Sha256
+import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.LocalSigner
@@ -167,8 +168,18 @@ class IdentityTest {
             if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
             return keys.publicKeyHex to "com.greenart7c3.nostrsigner"
         }
-        override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): space.sovereigncast.hopp.nostr.SignerResult {
+        /** What the listener allowed for good; anything else would open the app. */
+        var allowed = true
+        override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
+            assertEquals(keys.publicKeyHex, currentUser)
+            if (!allowed && !interactive) throw space.sovereigncast.hopp.nostr.SignerNeedsListener()
+            if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
+            val key = space.sovereigncast.hopp.nostr.Nip44.conversationKey(keys.secretKey, peer.hexToBytes())
+            return if (encrypt) space.sovereigncast.hopp.nostr.Nip44.encrypt(text, key) else space.sovereigncast.hopp.nostr.Nip44.decrypt(text, key)
+        }
+        override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean): space.sovereigncast.hopp.nostr.SignerResult {
             assertEquals("com.greenart7c3.nostrsigner", signerPackage)
+            if (!allowed && !interactive) throw space.sovereigncast.hopp.nostr.SignerNeedsListener()
             assertEquals(keys.publicKeyHex, currentUser)
             if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
             val o = Json.parseToJsonElement(eventJson).jsonObject
@@ -176,6 +187,36 @@ class IdentityTest {
             val e = Event.sign(signWith ?: keys, o["kind"]!!.jsonPrimitive.content.toInt(), o["content"]!!.jsonPrimitive.content, tags, o["created_at"]!!.jsonPrimitive.content.toLong())
             return space.sovereigncast.hopp.nostr.SignerResult(Json.encodeToString(Event.serializer(), e), null)
         }
+    }
+
+    @Test
+    fun aKeyHereEncryptsToItselfOnly() = runBlocking<Unit> {
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val signer = space.sovereigncast.hopp.nostr.LocalSigner(keys)
+        val sealed = signer.encryptToSelf("""{"v":1,"entries":{}}""")
+        assertEquals("""{"v":1,"entries":{}}""", signer.decryptFromSelf(sealed))
+        // NIP-44 to the own key, as any client derives it.
+        val k = space.sovereigncast.hopp.nostr.Nip44.conversationKey(keys.secretKey, keys.publicKeyHex.hexToBytes())
+        assertEquals("""{"v":1,"entries":{}}""", space.sovereigncast.hopp.nostr.Nip44.decrypt(sealed, k))
+        val other = space.sovereigncast.hopp.nostr.LocalSigner(space.sovereigncast.hopp.nostr.KeyPair.generate())
+        assertTrue(runCatching { other.decryptFromSelf(sealed) }.isFailure, "another key opened it")
+    }
+
+    @Test
+    fun aSignerAppEncryptsToTheListenerAndWaitsWhenItWouldAsk() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val repo = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
+        repo.signInWithSigner()
+        assertTrue(space.sovereigncast.hopp.nostr.SignerPermission("nip44_encrypt") in app.asked.single())
+        assertTrue(space.sovereigncast.hopp.nostr.SignerPermission("nip44_decrypt") in app.asked.single())
+        assertTrue(space.sovereigncast.hopp.nostr.SignerPermission("sign_event", space.sovereigncast.hopp.nostr.Nip78.KIND) in app.asked.single())
+        val sealed = repo.signer()!!.encryptToSelf("progress")
+        // The same key held on another device opens it.
+        assertEquals("progress", space.sovereigncast.hopp.nostr.LocalSigner(app.keys).decryptFromSelf(sealed))
+        // In the background without a standing permission: it waits, the app stays closed.
+        app.allowed = false
+        assertFailsWith<space.sovereigncast.hopp.nostr.SignerNeedsListener> { repo.signer(interactive = false)!!.decryptFromSelf(sealed) }
+        assertEquals("progress", repo.signer()!!.decryptFromSelf(sealed))
     }
 
     @Test
