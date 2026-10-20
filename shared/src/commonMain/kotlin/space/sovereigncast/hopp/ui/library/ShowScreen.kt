@@ -81,6 +81,9 @@ import space.sovereigncast.hopp.resources.sc_top_month
 import space.sovereigncast.hopp.resources.sc_via
 import space.sovereigncast.hopp.resources.sheet_community
 import space.sovereigncast.hopp.resources.show_auto_download
+import space.sovereigncast.hopp.resources.show_boostable_alternative
+import space.sovereigncast.hopp.resources.show_find_boostable
+import space.sovereigncast.hopp.resources.show_no_boostable_alternative
 import space.sovereigncast.hopp.resources.show_episodes
 import space.sovereigncast.hopp.resources.show_feed_error
 import space.sovereigncast.hopp.resources.show_options
@@ -120,7 +123,8 @@ private enum class ShowTab { Episodes, Top, Community, Boosts }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false, openBoosts: Boolean = false) {
+fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false, openBoosts: Boolean = false,
+               onBoostableAlternative: (space.sovereigncast.hopp.directory.DirectoryShow) -> Unit = {}) {
     val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
     val show by vm.show.collectAsState()
@@ -216,6 +220,30 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    }
+                    // This feed carries no podcast:value. One quiet line offers
+                    // to look for a boost-capable variant — only on a tap: by
+                    // itself the page would tell the index about a subscription
+                    // (ADR 0015; device feedback 2026-10-16, review 2026-10-19).
+                    if (meta != null && meta?.value == null) when (val alt = vm.alternative.collectAsState().value) {
+                        ShowViewModel.Alternative.NotAsked, ShowViewModel.Alternative.Searching -> Text(
+                            "⚡ " + stringResource(Res.string.show_find_boostable) + if (alt == ShowViewModel.Alternative.Searching) " …" else " ›",
+                            Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp))
+                                .clickable(enabled = alt == ShowViewModel.Alternative.NotAsked) { vm.findAlternative() }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        is ShowViewModel.Alternative.Found -> Text(
+                            "⚡ " + stringResource(Res.string.show_boostable_alternative) + " ›",
+                            Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { onBoostableAlternative(alt.show) }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        ShowViewModel.Alternative.None -> Text(
+                            stringResource(Res.string.show_no_boostable_alternative),
+                            Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        )
                     }
                     meta?.description?.let { d -> FoldingText(plainText(d)) }
                     meta?.let { m -> TrailerLine(m.trailers, show?.title ?: m.title.orEmpty(), show?.imageUrl) }

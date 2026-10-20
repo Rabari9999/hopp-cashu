@@ -465,7 +465,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     route.id,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                            openCommunity = route.community, openBoosts = route.boosts)
+                                            openCommunity = route.community, openBoosts = route.boosts,
+                                            onBoostableAlternative = { alt -> nav.navigate(ShowPreviewRoute(alt.feedUrl, alt.title, alt.imageUrl, alt.author)) })
                                     },
                                     episode = { id, onGone ->
                                         Readable { EpisodeScreen(id, onShow = {}, onGone = onGone, onOpenWallet = { nav.navigate(WalletRoute) }) }

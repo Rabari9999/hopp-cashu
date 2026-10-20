@@ -200,20 +200,44 @@ internal fun spellings(term: String): List<String> {
     return listOf(toUmlaut, toAscii).filter { it != term }.distinct()
 }
 
+/** Case, umlauts ("muenzw" is "münzw"), spaces and punctuation do not count. */
+private fun normalized(s: String) = s.lowercase()
+    .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+    .filter { it.isLetterOrDigit() }
+
 /**
  * Whether a show's title starts to match what is typed (device feedback
  * 2026-10-14: "Nodesig" found nothing). The directories match whole words
  * only — the Podcast Index even with `similar`, and fyyd — so the
- * suggestions while typing are matched here: case, umlauts ("muenzw" finds
- * "Münzweg"), spaces and punctuation do not count, the typed letters only
- * have to appear in the title in one run.
+ * suggestions while typing are matched here: the typed letters only
+ * have to appear in the title in one run ([normalized]).
  */
 internal fun titleMatches(title: String, typed: String): Boolean {
-    fun norm(s: String) = s.lowercase()
-        .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
-        .filter { it.isLetterOrDigit() }
-    val t = norm(typed)
-    return t.length >= 2 && t in norm(title)
+    val t = normalized(typed)
+    return t.length >= 2 && t in normalized(title)
+}
+
+/**
+ * The candidate is the subscribed show itself, not merely a similar one:
+ * the whole normalized title is equal ("Bitcoin" does not claim "Bitcoin
+ * Audible"), and where both sides name a `podcast:guid` or an author, one
+ * of the two has to agree as well — the variants of one show often carry
+ * each their own guid, the author line stays (review of 2026-10-19).
+ */
+internal fun sameShow(candidate: DirectoryShow, title: String, author: String?, podcastGuid: String?): Boolean {
+    val t = normalized(title)
+    if (t.isEmpty() || normalized(candidate.title) != t) return false
+    val guid = podcastGuid?.takeIf { it.isNotBlank() }?.let { own ->
+        candidate.podcastGuid?.takeIf { it.isNotBlank() }?.equals(own, ignoreCase = true)
+    }
+    val byAuthor = author?.takeIf { it.isNotBlank() }?.let { own ->
+        candidate.author?.takeIf { it.isNotBlank() }?.let { normalized(it) == normalized(own) }
+    }
+    return when {
+        guid == true || byAuthor == true -> true
+        guid == false || byAuthor == false -> false
+        else -> true // neither side comparable: the title has to carry it
+    }
 }
 
 /** Two addresses of one feed: scheme, `www.`, case of the host and a trailing slash do not count. */
@@ -302,6 +326,27 @@ class DirectoryRepository(
         val credentials = credentials() ?: return emptyList()
         explore[key]?.let { (at, list) -> if (at.elapsedNow() < FRESH) return list }
         return load(credentials).filter { it.title.isNotBlank() }.also { explore[key] = kotlin.time.TimeSource.Monotonic.markNow() to it }
+    }
+
+    /**
+     * A boost-capable variant of a subscribed show whose own feed carries no
+     * value block. An OPML import often brings such a feed (device feedback
+     * 2026-10-16: the same shows boosted or not depending on where their
+     * feed URL came from — Anchor's feeds carry no `podcast:value`, the
+     * variants the index lists under the Lightning filter do). Searched with
+     * that filter; only the same show counts ([sameShow] — "Bitcoin" must
+     * not claim "Bitcoin Audible"), at a different address, and only an
+     * answer the index really knows a value block of: a mere filter hit is
+     * the stale flag the V4V badge no longer trusts, so it is no ground to
+     * promise a variant either. The result stays a candidate — the preview
+     * page parses the feed and shows what is really there.
+     */
+    suspend fun boostableAlternative(title: String, feedUrl: String, author: String? = null, podcastGuid: String? = null): DirectoryShow? {
+        if (credentials() == null || title.isBlank()) return null
+        val current = feedKey(feedUrl)
+        return runCatching { search(title, valueOnly = true) }.getOrNull()?.shows.orEmpty()
+            .filter { sameShow(it, title, author, podcastGuid) && feedKey(it.feedUrl) != current }
+            .firstOrNull { it.hasValue == true }
     }
 
     /** "From your shows": what the subscribed shows recommend in their
