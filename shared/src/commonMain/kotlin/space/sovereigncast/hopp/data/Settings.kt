@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncJournal
 
 /** The listener's settings, with the defaults of ADR 0012. */
 data class Settings(
@@ -123,6 +125,13 @@ data class Settings(
         const val ZAP_ANONYMOUS = "anonymous"
         val zapPrivacyChoices = listOf(ZAP_PUBLIC, ZAP_PRIVATE, ZAP_ANONYMOUS)
 
+        /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
+         *  2026-10-20) — not the wallet, budgets, storage, refresh rules or anything of this device. */
+        val SYNCED = setOf(
+            "skip_back", "skip_forward", "skip_silence", "default_speed", "sender_name", "quick_boost_sats",
+            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list",
+        )
+
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
             return Settings(
@@ -221,7 +230,11 @@ data class Settings(
     )
 }
 
-class SettingsRepository(private val db: HoppDatabase) {
+class SettingsRepository(
+    private val db: HoppDatabase,
+    /** Listening habits ([Settings.SYNCED]), noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
+) {
     val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(Dispatchers.IO)
         .map { rows -> Settings.from(rows.associate { it.key to it.value_ }) }
 
@@ -230,6 +243,16 @@ class SettingsRepository(private val db: HoppDatabase) {
     suspend fun update(change: (Settings) -> Settings) = withContext(Dispatchers.IO) {
         val before = Settings.from(db.settingQueries.selectAll().executeAsList().associate { it.key to it.value_ })
         val after = change(before)
-        db.transaction { after.toMap().forEach { (k, v) -> if (before.toMap()[k] != v) db.settingQueries.put(k, v) } }
+        val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
+        db.transaction { changed.forEach { (k, v) -> db.settingQueries.put(k, v) } }
+        changed.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> journal.record(SyncDocs.SETTINGS, k, SyncDocs.setting(v)) }
     }
+
+    /** Listening habits from another device (sync): taken as they are, not noted again. */
+    suspend fun applySynced(values: Map<String, String>) = withContext(Dispatchers.IO) {
+        db.transaction { values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) } }
+    }
+
+    /** The listening habits as they stand here. */
+    suspend fun synced(): Map<String, String> = current().toMap().filterKeys { it in Settings.SYNCED }
 }

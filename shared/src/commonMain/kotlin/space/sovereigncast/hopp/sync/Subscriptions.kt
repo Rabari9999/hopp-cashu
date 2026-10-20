@@ -51,6 +51,15 @@ object SyncDocs {
         put("show", show); put("guid", guid); atSeconds?.let { put("at", it) }
     }
 
+    /** An episode's place in "Up next": the sort key it has where it was put there. */
+    fun queueKey(show: String, guid: String) = "q\n$show\n$guid"
+
+    fun queued(show: String, guid: String, sortKey: Long): JsonObject = buildJsonObject {
+        put("show", show); put("guid", guid); put("sort", sortKey)
+    }
+
+    fun setting(value: String): JsonObject = buildJsonObject { put("v", value) }
+
     internal fun JsonObject.long(key: String) = (this[key] as? JsonPrimitive)?.longOrNull
 
     internal fun JsonObject.text(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull

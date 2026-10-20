@@ -57,14 +57,16 @@ class SyncManager(
      * ask the listener here, once.
      */
     suspend fun enable(): SyncStatus {
-        val docs = documents()
-        for (doc in docs) {
+        val seeds = mutableMapOf<String, Map<String, SyncEntry>>()
+        for (doc in documents()) {
             val known = store.entries(doc.name)
-            store.putAll(doc.name, doc.snapshot().filterKeys { it !in known })
+            val (timed, untimed) = doc.snapshot().filterKeys { it !in known }.entries.partition { it.value.t > 0 }
+            store.putAll(doc.name, timed.associate { it.toPair() })
+            seeds[doc.name] = untimed.associate { it.toPair() }
         }
         settings.update { it.copy(nostrSync = true) }
         journal.enabled = true
-        return syncNow(interactive = true)
+        return syncNow(interactive = true, seeds)
     }
 
     /** Turns sync off: this device forgets what it knew; the relays keep theirs (ADR 0021, 8). */
@@ -77,12 +79,12 @@ class SyncManager(
     }
 
     /** One round over every document; [interactive]: the signer app may be opened. */
-    suspend fun syncNow(interactive: Boolean = false): SyncStatus = round.withLock {
+    suspend fun syncNow(interactive: Boolean = false, seeds: Map<String, Map<String, SyncEntry>> = emptyMap()): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
         var problem: SyncOutcome? = null
         for (doc in documents()) {
-            val outcome = engine.sync(doc, interactive)
+            val outcome = engine.sync(doc, interactive, seeds[doc.name].orEmpty())
             if (outcome !is SyncOutcome.Done) { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
         }
         _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem)

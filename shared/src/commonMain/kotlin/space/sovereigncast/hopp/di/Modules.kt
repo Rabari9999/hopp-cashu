@@ -98,14 +98,16 @@ fun sharedModule(platform: Platform) = module {
                 space.sovereigncast.hopp.sync.ProgressDocument(koin.get(), koin.get(), koin.get<Clock>()::now, player::isPlaying) { id, pos, played ->
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
                 },
+                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
+                space.sovereigncast.hopp.sync.SettingsDocument(koin.get()),
             )
         }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
     }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
-    single { SettingsRepository(get()) }
-    single { QueueRepository(get()) }
+    single { SettingsRepository(get(), get()) }
+    single { QueueRepository(get(), get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
     single { PodcastRepository(get(), get(), get(), get(), get(), get()) }
     single { EpisodeRepository(get(), get(), get(), get()) }

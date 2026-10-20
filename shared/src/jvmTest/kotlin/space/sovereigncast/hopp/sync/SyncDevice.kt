@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
+import space.sovereigncast.hopp.data.QueueRepository
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.identity.IdentityRepository
@@ -40,17 +41,22 @@ internal class SyncDevice(relay: FakeRelay, scope: CoroutineScope, nsec: String,
     val journal = SyncJournal(store)
     val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal)
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
-    val settings = SettingsRepository(db)
+    val settings = SettingsRepository(db, journal)
+    val queue = QueueRepository(db, journal)
     val identity = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {
         listOf(
             SubscriptionsDocument(db, podcasts),
             ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
+            QueueDocument(db, queue),
+            SettingsDocument(settings),
         )
     }, { ms }, publishDelay = 1.hours)
 
     fun urls() = db.podcastQueries.selectAll().executeAsList().map { it.feed_url }.toSet()
     fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).executeAsOne()
     fun episode(url: String, guid: String) = db.episodeQueries.selectByGuid(row(url).id, guid).executeAsOne()
+    /** "Up next" as episode guids, in order. */
+    fun queueGuids() = db.queueQueries.selectItems().executeAsList().map { it.guid }
 }

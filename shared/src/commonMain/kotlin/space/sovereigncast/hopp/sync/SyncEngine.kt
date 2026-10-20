@@ -17,7 +17,8 @@ interface SyncedDocument {
     suspend fun apply(entries: Map<String, SyncEntry>): Set<String>
 
     /** What this device has, as entries with the best time it knows — merged once,
-     *  when sync is turned on; nothing on the relays is overwritten by it. */
+     *  when sync is turned on. An entry of time 0 has none: it joins only where the
+     *  relays have nothing (settings, the queue's order). */
     suspend fun snapshot(): Map<String, SyncEntry>
 
     /** An entry no device needs any more (progress older than 90 days): it is dropped
@@ -50,7 +51,8 @@ class SyncEngine(
 ) {
     private val lock = Mutex()
 
-    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false): SyncOutcome = lock.withLock {
+    /** [seed]: entries of time 0 from [SyncedDocument.snapshot], taken only where neither side has the key. */
+    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false, seed: Map<String, SyncEntry> = emptyMap()): SyncOutcome = lock.withLock {
         val signer = identity.signer(interactive) ?: return SyncOutcome.NoIdentity
         try {
             val urls = identity.writeRelays()
@@ -60,7 +62,9 @@ class SyncEngine(
             val mine = store.entries(doc.name)
             mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it) }
             val theirs = relays.fetch(signer, doc.name, urls).orEmpty().filter { (k, e) -> !(e.del && e.t < cutoff) && !doc.expired(k, e, now) }
-            val merged = SyncMerge.merge(mine.filter { (k, e) -> !doc.expired(k, e, now) }, theirs)
+            val seeded = seed.filterKeys { it !in theirs && it !in mine }
+            if (seeded.isNotEmpty()) store.putAll(doc.name, seeded)
+            val merged = SyncMerge.merge((mine + seeded).filter { (k, e) -> !doc.expired(k, e, now) }, theirs)
             val applied = if (merged.fromThem.isEmpty()) emptySet() else doc.apply(merged.fromThem)
             store.putAll(doc.name, merged.fromThem.filterKeys { it in applied })
             store.markFetched(doc.name, nowMs())
