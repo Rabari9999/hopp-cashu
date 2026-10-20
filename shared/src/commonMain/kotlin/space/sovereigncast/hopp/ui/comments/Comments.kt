@@ -436,7 +436,8 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 // amount is in, or a bare link): not shown. Nor what the listener
                 // hid, reported or muted here.
                 // Checked first (a receipt, a zap), else what a public boost names (device feedback 2026-10-20).
-                fun sats(c: Comment) = boosts[c.id] ?: c.sats ?: space.sovereigncast.hopp.comments.boostSats(c.content)
+                // Only checked amounts: a receipt, or a boost this device paid. A boost line in others' text is their word, and stays text.
+                fun sats(c: Comment) = boosts[c.id] ?: c.sats
                 fun says(c: Comment) = c.id !in hidden && c.pubkey !in mutedHere && (sats(c) != null || commentBody(c.content).isNotEmpty())
                 val shown = s.thread.comments.filter { it.pubkey !in mutedHere && it.id !in hidden }.mapNotNull { c ->
                     val replies = c.replies.filter(::says)
@@ -590,7 +591,7 @@ private fun CommentRow(
             val link = SpanStyle(color = colors.onSurface, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
             val mark = SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
             val mention = SpanStyle(fontWeight = FontWeight.SemiBold)
-            val text = remember(c.content, authors, link, mark) { commentText(c.content.trim(), { nameOf(it, authors) }, mention, link, mark, onTimestamp) }
+            val text = remember(c.content, authors, link, mark, sats) { commentText(c.content.trim(), { nameOf(it, authors) }, mention, link, mark, sats, onTimestamp) }
             if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
             // Like, answer, more — small, under the text. A zap is no note: nothing to like or answer.
             val zap = c.kind == space.sovereigncast.hopp.comments.CommentReader.ZAP_RECEIPT

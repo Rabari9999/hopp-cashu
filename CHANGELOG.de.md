@@ -28,7 +28,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Einführung:** Auf dem quer gehaltenen Telefon waren die Seiten abgeschnitten; Text und Buttons stehen jetzt nebeneinander.
 - **Player:** Die Geschwindigkeit steht auf Englisch als „1.1×“, auf Deutsch als „1,1×“; Dateigrößen ebenso.
 - **Folgen:** „Pause“ auf der Folgenseite wird nicht mehr zu „Pa…“ gekürzt und erscheint schon, während ein Stream lädt.
-- **Kommentare:** Der Betrag eines Boosts steht wie bei Zaps neben dem Namen statt im Text.
+- **Kommentare:** Der Betrag eines eigenen Boosts steht wie bei Zaps neben dem Namen; bei fremden Boosts bleibt er im Text, denn niemand kann ihn prüfen.
 - **Player:** Lädt ein Stream noch, dreht sich ein Ring um den Play-Button; ein zweiter Tipp stoppt.
 - **Kommentare:** Ein Zap löste keine Benachrichtigung aus.
 - **Kommentare:** Ohne Nostr-Post der Show nennt ein Kommentar jetzt Show und Folge, damit andere Apps den Bezug zeigen.

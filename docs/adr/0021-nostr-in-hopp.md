@@ -179,9 +179,14 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **Public boost** (opt-in per boost, ADR 0006): a kind-1 note with the
   amount, the message and the episode's NIP-73 tags, replying to the show
   note when there is one. The amount is the text's last line, "⚡ N sats",
-  which every client shows; Hopp reads it back and shows it beside the
-  author's name, as a zap's amount, not in the text (amended 2026-10-20).
-  It is the listener's word: a keysend boost has no receipt to check.
+  which every client shows. It is the listener's word: a keysend boost has
+  no receipt to check. Hopp shows the amount beside the author's name, as a
+  zap's, only for boosts this device paid (kept as it posts them); in any
+  other note the line stays text — anyone can end a note with
+  "⚡ 210000000 sats" (amended 2026-10-20, twice: first every such line went
+  beside the name, until a note typed in Amethyst claimed 2.1 BTC). A
+  confirmation by the receiver — Sovereigncast signing for the share it got —
+  could back others' boosts later.
 - **Zaps (NIP-57)** to a podcaster's npub are not a payment path in phase 2:
   the value block stays the one way money flows (ADR 0005).
 

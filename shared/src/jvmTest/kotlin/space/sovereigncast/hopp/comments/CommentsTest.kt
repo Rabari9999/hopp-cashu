@@ -388,7 +388,7 @@ class CommentsTest {
         val boost = writer.boost(anchor.copy(page = null), 2100, "Danke", emptyList())
         assertEquals("Danke\n\n⚡ 2100 sats\n\n🎧 Nodesignal – E297", boost.content)
         // The amount beside the name, as a zap's (device feedback 2026-10-20) — not in the text.
-        assertEquals("Danke", commentBody(boost.content))
+        assertEquals("Danke", commentBody(boost.content, 2100))
         assertEquals(2100L, boostSats(boost.content))
     }
 
@@ -477,10 +477,24 @@ class CommentsTest {
         assertTrue(posted.content.startsWith("Danke!\n\n⚡ 2100 sats\n\nnostr:nevent1"))
         assertTrue(posted.tags.any { it[0] == "q" && it[1] == postNote.id } && listOf("i", item) in posted.tags)
         val bare = writer.boost(anchor, 21, "", emptyList())
-        assertEquals("", commentBody(bare.content))
+        assertEquals("", commentBody(bare.content, 21))
         assertEquals(21L, boostSats(bare.content))
+        // This device paid them: kept as boosts, beside the name.
+        assertEquals(mapOf(posted.id to 2100L, bare.id to 21L), writeReader.boosts(writeReader.cached(anchor)!!))
         assertEquals(null, boostSats("Great show!\n\nThe ⚡ 21 sats line is only the last one"), "only a line of its own at the end")
         assertEquals(2, writeReader.cached(anchor)!!.comments.size)
+    }
+
+    /** Device feedback 2026-10-20: "⚡ 210000000 sats" typed in Amethyst stood beside the name as a boost. */
+    @Test
+    fun aBoostLineAnyoneCanWriteIsNoBoost() = test {
+        relay.publish(feedNote)
+        val anchor = comments.anchor(episode())!!
+        val claim = post(bob, 1, "Test3\n\n⚡ 210000000 sats", listOf(listOf("i", item)), now - 100)
+        val thread = writeReader.load(anchor)
+        assertEquals(emptyMap(), writeReader.boosts(thread), "no receipt, not paid here: no amount")
+        assertEquals("Test3\n\n⚡ 210000000 sats", commentBody(claim.content), "the line stays the author's text")
+        assertEquals("Test3\n\n⚡ 210000000 sats", commentBody(claim.content, 21), "a different amount does not take it away")
     }
 
     @Test

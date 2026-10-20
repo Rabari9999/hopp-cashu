@@ -96,9 +96,13 @@ internal fun episodeLine(anchor: CommentAnchor): String? {
  * (`nostr:nevent…` — Hopp does not show them, the bare code says nothing) and
  * without the link to the episode on Fountain that Fountain ends each comment
  * with, nor the episode's name Hopp ends one with — the listener is on that episode. Empty for a Fountain boost without
- * a message.
+ * a message. A public boost's last line "⚡ N sats" goes only where Hopp
+ * shows [sats] beside the name, and only when it names that amount.
  */
-fun commentBody(content: String): String = withoutTails(content).replace(BOOST_LINE, "").trim()
+fun commentBody(content: String, sats: Long? = null): String {
+    val text = withoutTails(content)
+    return (if (sats != null && boostSats(text) == sats) text.replace(BOOST_LINE, "") else text).trim()
+}
 
 private fun withoutTails(content: String) =
     EMBED.replace(content, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").replace(HOPP_TAIL, "").trim()
@@ -107,12 +111,13 @@ private fun withoutTails(content: String) =
 private val BOOST_LINE = Regex("""(?:^|\n\n)⚡ (\d{1,9}) sats$""")
 
 /**
- * The amount a public boost names in its last line — shown beside the name, as
- * a zap's (device feedback 2026-10-20), and left out of the text. Other clients
- * show the line as it is. The listener's word, as Fountain's boost notes are
- * (ADR 0021, 6): Hopp pays by keysend, and no receipt could back it.
+ * The amount a public boost names in its last line. Only the author's word —
+ * anyone can end a note so (device feedback 2026-10-20: "⚡ 210000000 sats"
+ * from Amethyst): Hopp pays by keysend, and no receipt backs it (ADR 0021, 6).
+ * It goes beside the name only for the listener's own boosts, which Hopp
+ * keeps as it posts them ([CommentWriter.boost]); others' stay in the text.
  */
-fun boostSats(content: String): Long? = BOOST_LINE.find(withoutTails(content))?.groupValues?.get(1)?.toLongOrNull()?.takeIf { it > 0 }
+internal fun boostSats(content: String): Long? = BOOST_LINE.find(withoutTails(content))?.groupValues?.get(1)?.toLongOrNull()?.takeIf { it > 0 }
 
 /** The notes a comment embeds — Fountain embeds the zap receipt of its boost. */
 internal fun embeddedNotes(content: String): List<NoteRef> = EMBED.findAll(content).mapNotNull { noteRef(it.value) }.toList()

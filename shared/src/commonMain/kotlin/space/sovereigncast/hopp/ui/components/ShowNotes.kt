@@ -152,12 +152,13 @@ private val TIME = Regex("(?<![\\d:])(?:(\\d{1,2}):)?([0-5]?\\d):([0-5]\\d)(?![\
 /**
  * A Nostr comment as text ([space.sovereigncast.hopp.comments.commentBody]):
  * `nostr:npub…` mentions as the person's name ([name] gives it, or a short
- * npub), plain URLs and time marks as links.
+ * npub), plain URLs and time marks as links; without the boost line where
+ * [sats] stands beside the name.
  */
 fun commentText(
-    text: String, name: (String) -> String, mention: SpanStyle, link: SpanStyle, timestamp: SpanStyle, onTimestamp: (Long) -> Unit,
+    text: String, name: (String) -> String, mention: SpanStyle, link: SpanStyle, timestamp: SpanStyle, sats: Long? = null, onTimestamp: (Long) -> Unit,
 ): AnnotatedString {
-    val content = space.sovereigncast.hopp.comments.commentBody(text)
+    val content = space.sovereigncast.hopp.comments.commentBody(text, sats)
     val out = AnnotatedString.Builder()
     var at = 0
     fun plain(text: String) {
