@@ -85,6 +85,9 @@ fun sharedModule(platform: Platform) = module {
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
     single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner()) }
+    single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
+    single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }

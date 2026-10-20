@@ -1,0 +1,53 @@
+-- Sync across devices over Nostr (ADR 0021, stage 5). Per entry of a document
+-- (subscriptions, progress, queue, settings) what this device knows last — its
+-- own changes and what came from the relays, newest wins. A removal stays as a
+-- marker (deleted = 1), so another device does not bring it back.
+CREATE TABLE sync_entry (
+    doc TEXT NOT NULL,
+    key TEXT NOT NULL,
+    json TEXT NOT NULL,
+    -- Milliseconds; a change made here is always later than what it replaces.
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (doc, key)
+);
+
+-- Per document: when it was last fetched, and the newest entry the relays took from here.
+CREATE TABLE sync_doc (
+    doc TEXT PRIMARY KEY NOT NULL,
+    fetched_at INTEGER,
+    published_up_to INTEGER
+);
+
+entries:
+SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ?;
+
+entry:
+SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ? AND key = ?;
+
+putEntry:
+INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted) VALUES (?, ?, ?, ?, ?);
+
+pruneRemoved:
+DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND updated_at < ?;
+
+newest:
+SELECT MAX(updated_at) FROM sync_entry WHERE doc = ?;
+
+docState:
+SELECT fetched_at, published_up_to FROM sync_doc WHERE doc = ?;
+
+ensureDoc:
+INSERT OR IGNORE INTO sync_doc (doc) VALUES (?);
+
+setFetched:
+UPDATE sync_doc SET fetched_at = ? WHERE doc = ?;
+
+setPublished:
+UPDATE sync_doc SET published_up_to = ? WHERE doc = ?;
+
+clearEntries:
+DELETE FROM sync_entry;
+
+clearDocs:
+DELETE FROM sync_doc;
