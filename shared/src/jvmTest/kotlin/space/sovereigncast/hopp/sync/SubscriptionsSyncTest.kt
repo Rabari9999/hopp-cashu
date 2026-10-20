@@ -1,39 +1,21 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.engine.mock.respondError
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import space.sovereigncast.hopp.data.PodcastRepository
-import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.data.SubscribeResult
-import space.sovereigncast.hopp.db.HoppDatabase
-import space.sovereigncast.hopp.identity.IdentityRepository
-import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.RelayPublisher
-import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.hours
-
-private val feeds = mapOf(
-    "https://pod.test/nodesignal.xml" to "/feeds/nodesignal-podhome.xml",
-    "https://pod.test/selfhosted.xml" to "/feeds/sovereigncast-selfhosted.xml",
-)
 
 /** Subscriptions in step over Nostr (package 3 of docs/tasks/nostr-sync.md). */
 class SubscriptionsSyncTest {
@@ -43,26 +25,7 @@ class SubscriptionsSyncTest {
 
     @AfterTest fun stop() = scope.cancel()
 
-    /** A device with the listener's key: its own database, feeds from the test's web. */
-    private inner class Device(var offline: Boolean = false) {
-        var ms = 1_790_000_000_000L
-        val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
-        val http = HttpClient(MockEngine { req ->
-            val file = feeds[req.url.toString()]
-            if (offline || file == null) respondError(HttpStatusCode.ServiceUnavailable)
-            else respond(javaClass.getResourceAsStream(file)!!.readBytes())
-        })
-        val store = SyncStore(db) { ms }
-        val journal = SyncJournal(store)
-        val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal)
-        val settings = SettingsRepository(db)
-        val identity = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
-        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity) { ms }
-        val sync = SyncManager(engine, store, journal, settings, scope, { listOf(SubscriptionsDocument(db, podcasts)) }, { ms }, publishDelay = 1.hours)
-
-        fun urls() = db.podcastQueries.selectAll().executeAsList().map { it.feed_url }.toSet()
-        fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).executeAsOne()
-    }
+    private fun Device(offline: Boolean = false) = SyncDevice(relay, scope, nsec, offline)
 
     @Test
     fun aNewDeviceGetsTheLibraryAndAShowGivenUpGoesEverywhere() = runBlocking<Unit> {

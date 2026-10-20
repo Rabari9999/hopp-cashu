@@ -35,6 +35,9 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
     private fun put(doc: String, key: String, e: SyncEntry) =
         q.putEntry(doc, key, e.d.toString(), e.t, if (e.del) 1L else 0L)
 
+    /** Entries no device needs any more, gone without a marker. */
+    fun remove(doc: String, keys: Set<String>) = db.transaction { keys.forEach { q.removeEntry(doc, it) } }
+
     /** Removal markers older than [beforeMs] go: by then every device has seen them. */
     fun pruneRemoved(doc: String, beforeMs: Long) = q.pruneRemoved(doc, beforeMs)
 

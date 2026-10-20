@@ -28,6 +28,9 @@ SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ? AND key = ?;
 putEntry:
 INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted) VALUES (?, ?, ?, ?, ?);
 
+removeEntry:
+DELETE FROM sync_entry WHERE doc = ? AND key = ?;
+
 pruneRemoved:
 DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND updated_at < ?;
 

@@ -47,7 +47,7 @@ class SyncManager(
     private var pending: Job? = null
 
     init {
-        journal.onChange = { schedule() }
+        journal.onChange = { _, urgent -> schedule(urgent) }
         scope.launch { settings.settings.map { it.nostrSync }.distinctUntilChanged().collect { journal.enabled = it } }
     }
 
@@ -96,13 +96,27 @@ class SyncManager(
         scope.launch { syncNow() }
     }
 
-    /** A change here: sent out a little later, several changes in one round. */
-    private fun schedule() {
+    /**
+     * A change here: sent out a little later, several changes in one round. A
+     * position while playing waits up to [PROGRESS_EVERY]; a pause, the end of
+     * an episode or anything else the listener did goes sooner (ADR 0021, 5).
+     */
+    private fun schedule(urgent: Boolean) {
+        // A position joins whatever round is coming and never puts one off.
+        if (!urgent && pending?.isActive == true) return
         pending?.cancel()
-        pending = scope.launch { delay(publishDelay); syncNow() }
+        pending = scope.launch { delay(if (urgent) publishDelay else PROGRESS_EVERY); syncNow() }
+    }
+
+    /** Hopp goes to the background: what is not out yet goes now. */
+    fun onBackground() {
+        if (!journal.enabled) return
+        if (documents().any { engine.unpublished(it) }) { pending?.cancel(); scope.launch { syncNow() } }
     }
 
     companion object {
         val FOREGROUND_EVERY = 5.minutes
+        /** Positions while playing go out at most this often. */
+        val PROGRESS_EVERY = 5.minutes
     }
 }

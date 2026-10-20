@@ -14,6 +14,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.floatOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.SubscribeResult
@@ -36,6 +37,21 @@ object SyncDocs {
         speed?.let { put("speed", it) }
         put("autoDl", autoDownload)
     }
+
+    /** An episode's position and played state; its favourite apart, so the two never overwrite each other. */
+    fun progressKey(show: String, guid: String) = "pos\n$show\n$guid"
+    fun favoriteKey(show: String, guid: String) = "fav\n$show\n$guid"
+
+    fun progress(show: String, guid: String, positionMs: Long, played: Boolean, atSeconds: Long): JsonObject = buildJsonObject {
+        put("show", show); put("guid", guid); put("pos", positionMs); put("played", played); put("at", atSeconds)
+    }
+
+    /** [atSeconds] null: no favourite (any more). */
+    fun favorite(show: String, guid: String, atSeconds: Long?): JsonObject = buildJsonObject {
+        put("show", show); put("guid", guid); atSeconds?.let { put("at", it) }
+    }
+
+    internal fun JsonObject.long(key: String) = (this[key] as? JsonPrimitive)?.longOrNull
 
     internal fun JsonObject.text(key: String) = (this[key] as? JsonPrimitive)?.contentOrNull
     internal fun JsonObject.float(key: String) = (this[key] as? JsonPrimitive)?.floatOrNull

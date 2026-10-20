@@ -149,7 +149,7 @@ class PlayerController(
                         onEnded()
                     }
                     (s.isPlaying && abs(s.positionMs - lastSaved) >= 5_000) || (wasPlaying && !s.isPlaying) -> {
-                        episodes.savePosition(id, s.positionMs); lastSaved = s.positionMs
+                        episodes.savePosition(id, s.positionMs, paused = !s.isPlaying); lastSaved = s.positionMs
                     }
                 }
                 wasPlaying = s.isPlaying
@@ -342,6 +342,23 @@ class PlayerController(
     fun minimize() { _expanded.value = false }
     /** Loading counts as playing: a tap while a stream starts stops it, it does not ask again. */
     fun togglePlay() = engine.state.value.let { if (it.isPlaying || it.isBuffering) engine.pause() else engine.play() }
+    /** Whether episode [id] is playing here now — sync leaves its position alone until it pauses. */
+    fun isPlaying(id: Long): Boolean = engine.state.value.let { it.isPlaying && it.itemId == id.toString() }
+
+    /**
+     * Progress from another device (sync, ADR 0021 5) for the episode loaded
+     * here and paused: playing on starts where the listener stopped there, not
+     * where the player still stands.
+     */
+    fun adoptProgress(id: Long, positionMs: Long, played: Boolean) {
+        val s = engine.state.value
+        if (s.itemId != id.toString() || s.isPlaying) return
+        val at = if (played) 0 else positionMs
+        engine.seekTo(at)
+        lastSaved = at
+        _current.value?.takeIf { it.item.id == id }?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
+    }
+
     fun seekTo(ms: Long) = engine.seekTo(ms.coerceAtLeast(0))
     fun skipBy(deltaMs: Long) = seekTo(engine.state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)

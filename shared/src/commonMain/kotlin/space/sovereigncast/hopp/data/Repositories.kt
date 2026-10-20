@@ -288,8 +288,25 @@ class EpisodeRepository(
     private val db: HoppDatabase,
     private val http: HttpClient,
     private val clock: Clock,
+    /** Progress and favourites, noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
 ) {
     private val eq = db.episodeQueries
+
+    /** Episode [id]'s progress as it stands now, for sync; [urgent]: see [SyncJournal.record]. */
+    private fun noteProgress(id: Long, urgent: Boolean = true) {
+        if (!journal.enabled) return
+        val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: return
+        val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now()), urgent = urgent)
+    }
+
+    private fun noteFavorite(id: Long) {
+        if (!journal.enabled) return
+        val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: return
+        val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.favoriteKey(show, r.guid), SyncDocs.favorite(show, r.guid, r.favorite_at))
+    }
 
     val inbox: Flow<List<EpisodeItem>> = eq.selectInbox().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
@@ -355,19 +372,40 @@ class EpisodeRepository(
         eq.selectById(id).executeAsOneOrNull()?.let { json.decodeFromString(Episode.serializer(), it.meta_json) }
     }
 
-    suspend fun savePosition(id: Long, positionMs: Long) = withContext(Dispatchers.IO) { eq.savePosition(positionMs, clock.now(), id) }
+    /** [paused]: the listener stopped here — sync sends it soon, not with the next round. */
+    suspend fun savePosition(id: Long, positionMs: Long, paused: Boolean = false) = withContext(Dispatchers.IO) {
+        eq.savePosition(positionMs, clock.now(), id)
+        noteProgress(id, urgent = paused)
+    }
 
     suspend fun setPlayed(id: Long, played: Boolean) = withContext(Dispatchers.IO) {
         if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+        noteProgress(id)
     }
 
     /** Every episode of a show heard. */
-    suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) { eq.markShowPlayed(clock.now(), podcastId) }
+    suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) {
+        val ids = if (journal.enabled) eq.unplayedOfShow(podcastId).executeAsList() else emptyList()
+        eq.markShowPlayed(clock.now(), podcastId)
+        ids.forEach { noteProgress(it) }
+    }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(Dispatchers.IO) {
+        val ids = if (journal.enabled) eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList() else emptyList()
         eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+        ids.forEach { noteProgress(it) }
     }
+
+    /** Progress from another device (sync): as it was there, and not noted again. */
+    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(Dispatchers.IO) {
+        db.transaction {
+            if (played) eq.markPlayed(atSeconds, id) else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+        }
+    }
+
+    /** A favourite from another device (sync); [atSeconds] null: taken back. */
+    suspend fun applyFavorite(id: Long, atSeconds: Long?) = withContext(Dispatchers.IO) { eq.setFavorite(atSeconds, id) }
 
     suspend fun dismiss(id: Long) = withContext(Dispatchers.IO) { eq.setInbox(0, id) }
     suspend fun clearInbox() = withContext(Dispatchers.IO) { eq.clearInbox() }
@@ -399,7 +437,7 @@ class EpisodeRepository(
         }
     }
 
-    suspend fun setFavorite(id: Long, on: Boolean) = withContext(Dispatchers.IO) { eq.setFavorite(if (on) clock.now() else null, id) }
+    suspend fun setFavorite(id: Long, on: Boolean) = withContext(Dispatchers.IO) { eq.setFavorite(if (on) clock.now() else null, id); noteFavorite(id) }
 
     /**
      * Episodes of a show whose title or description has every word of [query]

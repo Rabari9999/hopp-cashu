@@ -19,6 +19,10 @@ interface SyncedDocument {
     /** What this device has, as entries with the best time it knows — merged once,
      *  when sync is turned on; nothing on the relays is overwritten by it. */
     suspend fun snapshot(): Map<String, SyncEntry>
+
+    /** An entry no device needs any more (progress older than 90 days): it is dropped
+     *  everywhere alike, not marked removed. */
+    fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean = false
 }
 
 sealed interface SyncOutcome {
@@ -51,9 +55,12 @@ class SyncEngine(
         try {
             val urls = identity.writeRelays()
             val cutoff = nowMs() - REMOVALS_KEPT.inWholeMilliseconds
+            val now = nowMs()
             store.pruneRemoved(doc.name, cutoff)
-            val theirs = relays.fetch(signer, doc.name, urls).orEmpty().filterValues { !(it.del && it.t < cutoff) }
-            val merged = SyncMerge.merge(store.entries(doc.name), theirs)
+            val mine = store.entries(doc.name)
+            mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it) }
+            val theirs = relays.fetch(signer, doc.name, urls).orEmpty().filter { (k, e) -> !(e.del && e.t < cutoff) && !doc.expired(k, e, now) }
+            val merged = SyncMerge.merge(mine.filter { (k, e) -> !doc.expired(k, e, now) }, theirs)
             val applied = if (merged.fromThem.isEmpty()) emptySet() else doc.apply(merged.fromThem)
             store.putAll(doc.name, merged.fromThem.filterKeys { it in applied })
             store.markFetched(doc.name, nowMs())

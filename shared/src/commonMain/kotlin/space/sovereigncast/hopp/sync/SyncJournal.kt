@@ -13,13 +13,14 @@ class SyncJournal(private val store: SyncStore?) {
     @Volatile
     var enabled: Boolean = false
 
-    /** Called after each note: sync sends it out a little later. */
-    var onChange: (doc: String) -> Unit = {}
+    /** Called after each note: sync sends it out a little later — or, not [urgent]
+     *  (a position while playing), with the next round, at most every few minutes. */
+    var onChange: (doc: String, urgent: Boolean) -> Unit = { _, _ -> }
 
-    fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false) {
+    fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true) {
         if (!enabled || store == null) return
         store.record(doc, key, data, deleted)
-        onChange(doc)
+        onChange(doc, urgent)
     }
 
     companion object {
