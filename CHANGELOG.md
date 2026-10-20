@@ -10,6 +10,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Discover:** Category tiles, "For you", new shows with ⚡ Value and "Popular right now" from the Podcast Index.
 - **Discover:** Choose the language of suggested shows instead of always the device's.
 - **Shows:** A show's page names its categories; a tap opens them in Discover.
+- **Shows:** For a show whose feed takes no sats, Hopp offers a variant of the feed that does.
 - **Library:** Sort by newest episode (default), A–Z or most unheard.
 - **Player:** One default speed for all shows; a show's own speed stays.
 - **Player:** Tapping the speed steps through every speed, 1.1×, 1.3×, 2.5× and 3× included.

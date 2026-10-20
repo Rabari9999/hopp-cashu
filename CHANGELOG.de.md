@@ -10,6 +10,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Entdecken:** Kategorie-Kacheln, „Für dich“, neue Shows mit ⚡ Value und „Gerade beliebt“ aus dem Podcast Index.
 - **Entdecken:** Die Sprache der vorgeschlagenen Shows ist frei wählbar, statt immer der Gerätesprache zu folgen.
 - **Shows:** Die Show-Seite zeigt die Kategorien; ein Tipp öffnet sie in Entdecken.
+- **Shows:** Nimmt der Feed einer Show keine Sats an, bietet Hopp eine Feed-Variante an, die es kann.
 - **Bibliothek:** Sortierung nach neuester Folge (Standard), A–Z oder meiste ungehört.
 - **Player:** Eine Standard-Geschwindigkeit für alle Shows; eigene Geschwindigkeiten einzelner Shows bleiben.
 - **Player:** Ein Tipp auf die Geschwindigkeit schaltet durch alle Stufen, auch 1,1×, 1,3×, 2,5× und 3×.
