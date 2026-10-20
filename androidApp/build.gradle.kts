@@ -36,6 +36,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Sync tests build entries and documents as the shared code does.
+    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.ktor.client.mock)
     // secp256k1 for the host JVM: Robolectric runs on it, not on Android (Nostr identity tests).
     testImplementation(libs.secp256k1.jni.jvm)

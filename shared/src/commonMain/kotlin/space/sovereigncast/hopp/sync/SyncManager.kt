@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.sync
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,10 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+
+/** A library on the relays from the listener's other devices; the counts are null
+ *  when the signer would have to be asked to open it. */
+data class RestoreOffer(val shows: Int?, val inProgress: Int?)
 
 /** What the Nostr page shows about sync. */
 data class SyncStatus(
@@ -68,6 +73,28 @@ class SyncManager(
         journal.enabled = true
         return syncNow(interactive = true, seeds)
     }
+
+    /**
+     * Whether the listener's other devices left a library on the relays that
+     * this one could take — after signing in with an existing identity, while
+     * sync is off here. Null: nothing to restore.
+     */
+    suspend fun restoreOffer(): RestoreOffer? {
+        if (settings.current().nostrSync) return null
+        return when (val subs = engine.peek(SyncDocs.SUBSCRIPTIONS)) {
+            null -> null
+            SyncEngine.Peek.Sealed -> RestoreOffer(null, null)
+            is SyncEngine.Peek.Open -> {
+                val shows = subs.entries.values.count { !it.del }
+                val progress = (engine.peek(SyncDocs.PROGRESS) as? SyncEngine.Peek.Open)?.entries.orEmpty()
+                val inProgress = progress.filter { (k, e) -> k.startsWith("pos\n") && !e.del && (e.d["played"]?.toString() != "true") && (e.d["pos"]?.toString()?.toLongOrNull() ?: 0) > 0 }.size
+                RestoreOffer(shows, inProgress).takeIf { shows > 0 || inProgress > 0 }
+            }
+        }
+    }
+
+    /** [enable] in the app's own scope — a page that started it may close meanwhile. */
+    suspend fun enableAndWait(): SyncStatus = scope.async { enable() }.await()
 
     /** Turns sync off: this device forgets what it knew; the relays keep theirs (ADR 0021, 8). */
     suspend fun disable() {

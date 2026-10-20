@@ -799,4 +799,10 @@
     <string name="nostr_relay_unreachable">Dieses Relay antwortet nicht.</string>
     <string name="nostr_relay_not_published">Die Liste konnte auf keinem Relay gespeichert werden. Versuch es später noch einmal.</string>
     <string name="nostr_relay_not_read">Die Liste war nicht von jedem Relay zu lesen – nichts wurde geändert. Versuch es später noch einmal.</string>
+    <string name="onboarding_nostr_restore">Hopp schon in Gebrauch? Aus Nostr wiederherstellen</string>
+    <string name="sync_restore_title">Von deinen anderen Geräten wiederherstellen</string>
+    <string name="sync_restore_counts">%1$d Shows, %2$d Folgen angefangen</string>
+    <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“ und deine Hörgewohnheiten liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
+    <string name="sync_restore_button">Wiederherstellen</string>
+    <string name="sync_restore_later">Nicht jetzt</string>
 </resources>

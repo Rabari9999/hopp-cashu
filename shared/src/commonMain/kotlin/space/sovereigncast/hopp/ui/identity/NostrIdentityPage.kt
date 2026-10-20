@@ -69,6 +69,11 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.sync_restore_button
+import space.sovereigncast.hopp.resources.sync_restore_counts
+import space.sovereigncast.hopp.resources.sync_restore_later
+import space.sovereigncast.hopp.resources.sync_restore_text
+import space.sovereigncast.hopp.resources.sync_restore_title
 import space.sovereigncast.hopp.resources.nostr_anonymous
 import space.sovereigncast.hopp.resources.nostr_bunker_failed
 import space.sovereigncast.hopp.resources.nostr_bunker_auth_open
@@ -113,13 +118,48 @@ import space.sovereigncast.hopp.resources.nostr_sign_out_confirm
 import space.sovereigncast.hopp.resources.nostr_sign_out_text
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 
+/** Asks the Nostr page to open the ways in with an existing account at once —
+ *  from the tour's "Restore from Nostr". Taken once. */
+object NostrSignInRequest {
+    private var pending = false
+    fun request() { pending = true }
+    fun take(): Boolean = pending.also { pending = false }
+}
+
 class NostrIdentityViewModel(
     private val identities: IdentityRepository,
     private val settings: SettingsRepository,
+    private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
 ) : ViewModel() {
     val identity: StateFlow<NostrIdentity?> = identities.identity
     /** A stored identity the key store could not give up — shown, never made anew (security review 2026-10-20). */
     val unreadable: StateFlow<Boolean> = identities.unreadable
+
+    /** A library the listener's other devices left on the relays, while sync is off here. */
+    private val _restore = MutableStateFlow<space.sovereigncast.hopp.sync.RestoreOffer?>(null)
+    val restore: StateFlow<space.sovereigncast.hopp.sync.RestoreOffer?> = _restore.asStateFlow()
+    private val _restoring = MutableStateFlow(false)
+    val restoring: StateFlow<Boolean> = _restoring.asStateFlow()
+
+    /** Looked for on opening the page and after each sign-in with an existing identity. */
+    private fun lookForRestore() {
+        val sync = sync ?: return
+        if (identities.identity.value == null) return
+        viewModelScope.launch { _restore.value = runCatching { sync.restoreOffer() }.getOrNull() }
+    }
+
+    /** Sync on: what this device has and the relays' merged — on a new device, a restore.
+     *  It runs on in the app, not in this page: leaving the page does not stop it. */
+    fun restore() {
+        val sync = sync ?: return
+        if (_restoring.value) return
+        _restoring.value = true
+        viewModelScope.launch {
+            try { sync.enableAndWait() } finally { _restoring.value = false; _restore.value = null }
+        }
+    }
+
+    fun dismissRestore() { _restore.value = null }
 
     /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
     private val _loadingProfile = MutableStateFlow(false)
@@ -131,6 +171,7 @@ class NostrIdentityViewModel(
             _loadingProfile.value = true
             try { runCatching { identities.refreshProfile() } } finally { _loadingProfile.value = false }
         }
+        lookForRestore()
     }
     val current: StateFlow<Settings?> = settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -156,6 +197,7 @@ class NostrIdentityViewModel(
             val me = identities.signInWithSigner()
             val name = me.name
             if (name != null && settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) }
+            lookForRestore()
         } catch (e: SignerRejected) {
             _signerError.value = SignerError.Rejected
         } catch (e: Exception) {
@@ -206,6 +248,7 @@ class NostrIdentityViewModel(
             val me = signIn()
             me.name?.let { name -> if (settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) } }
             _bunker.value = Bunker.Idle
+            lookForRestore()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -268,6 +311,7 @@ class NostrIdentityViewModel(
         try {
             val me = identities.importKey(text, password)
             me.name?.let { name -> if (settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) } }
+            lookForRestore()
         } catch (e: space.sovereigncast.hopp.identity.KeyImportException) {
             _importError.value = e.reason
         } finally {
@@ -372,7 +416,7 @@ private fun Unreadable(vm: NostrIdentityViewModel) {
 @Composable
 private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel) {
     var name by rememberSaveable(boostName) { mutableStateOf(boostName) }
-    var signIn by rememberSaveable { mutableStateOf(false) }
+    var signIn by rememberSaveable { mutableStateOf(NostrSignInRequest.take()) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
@@ -532,6 +576,9 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         TextButton(onClick = vm::publishAgain, enabled = !busy) { Text(stringResource(Res.string.nostr_publish_again)) }
     }
 
+    val offer by vm.restore.collectAsState()
+    offer?.let { RestoreCard(it, vm) }
+
     // A key Hopp holds lives only on this device and in no backup (ADR 0015).
     if (me.holdsKey) Backup(me, busy, vm)
 
@@ -558,6 +605,26 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/** The listener's other devices left a library on the relays (ADR 0021, 5): one button takes it. */
+@Composable
+private fun RestoreCard(offer: space.sovereigncast.hopp.sync.RestoreOffer, vm: NostrIdentityViewModel) {
+    val restoring by vm.restoring.collectAsState()
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(Res.string.sync_restore_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (offer.shows != null && offer.inProgress != null) Text(stringResource(Res.string.sync_restore_counts, offer.shows, offer.inProgress), fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.sync_restore_text), style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = vm::restore, enabled = !restoring) {
+                if (restoring) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.sync_restore_button))
+            }
+            TextButton(onClick = vm::dismissRestore, enabled = !restoring) { Text(stringResource(Res.string.sync_restore_later)) }
+        }
+    }
 }
 
 /**

@@ -89,6 +89,32 @@ class SyncEngine(
         }
     }
 
+    /**
+     * What the relays hold of document [name], read without taking anything —
+     * for the offer to restore. Null: nothing there. [Sealed]: there, but the
+     * signer would have to ask before it opens.
+     */
+    suspend fun peek(name: String): Peek? {
+        val signer = identity.signer(interactive = false) ?: return null
+        val urls = identity.writeRelays()
+        return try {
+            relays.fetch(signer, name, urls)?.let { Peek.Open(it) }
+        } catch (e: SignerNeedsListener) {
+            if (relays.exists(signer.pubkey, name, urls)) Peek.Sealed else null
+        } catch (e: SignerRejected) {
+            null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    sealed interface Peek {
+        data class Open(val entries: Map<String, SyncEntry>) : Peek
+        data object Sealed : Peek
+    }
+
     /** Whether [doc] changed here since the relays last took it. */
     fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
 

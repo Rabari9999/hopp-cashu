@@ -799,4 +799,10 @@
     <string name="nostr_relay_unreachable">This relay does not answer.</string>
     <string name="nostr_relay_not_published">The list could not be saved on any relay. Try again later.</string>
     <string name="nostr_relay_not_read">The list could not be read from every relay — nothing was changed. Try again later.</string>
+    <string name="onboarding_nostr_restore">Already using Hopp? Restore from Nostr</string>
+    <string name="sync_restore_title">Restore from your other devices</string>
+    <string name="sync_restore_counts">%1$d shows, %2$d episodes in progress</string>
+    <string name="sync_restore_text">Your subscriptions, progress, “Up next” and listening habits are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
+    <string name="sync_restore_button">Restore</string>
+    <string name="sync_restore_later">Not now</string>
 </resources>

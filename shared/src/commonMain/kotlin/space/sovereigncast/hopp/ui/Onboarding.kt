@@ -61,6 +61,7 @@ import space.sovereigncast.hopp.resources.onboarding_nostr_title
 import space.sovereigncast.hopp.resources.onboarding_nostr_comments
 import space.sovereigncast.hopp.resources.onboarding_nostr_votes
 import space.sovereigncast.hopp.resources.onboarding_nostr_boosts
+import space.sovereigncast.hopp.resources.onboarding_nostr_restore
 import space.sovereigncast.hopp.resources.onboarding_nostr_soon
 import space.sovereigncast.hopp.resources.onboarding_soon
 import space.sovereigncast.hopp.resources.onboarding_nostr_setup
@@ -83,6 +84,8 @@ private class TourPage(
     val soon: StringResource? = null,
     /** Set up right here, from Hopp — a Nostr key needs nothing outside it, unlike a wallet. */
     val setup: StringResource? = null,
+    /** A link for those who used Hopp before: their library back from Nostr (ADR 0021, 5). */
+    val restore: StringResource? = null,
 )
 
 private val ALL_PAGES = listOf(
@@ -94,7 +97,7 @@ private val ALL_PAGES = listOf(
     TourPage(
         HoppIcons.Comment, false, Res.string.onboarding_nostr_title, Res.string.onboarding_nostr_text,
         points = listOf(Res.string.onboarding_nostr_comments, Res.string.onboarding_nostr_votes, Res.string.onboarding_nostr_boosts),
-        soon = Res.string.onboarding_nostr_soon, setup = Res.string.onboarding_nostr_setup,
+        soon = Res.string.onboarding_nostr_soon, setup = Res.string.onboarding_nostr_setup, restore = Res.string.onboarding_nostr_restore,
     ),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_wallet_title, Res.string.onboarding_wallet_text, nwcLink = true),
 )
@@ -107,7 +110,7 @@ private val ALL_PAGES = listOf(
  * 2026-10-10); [onDone] says whether the listener took it.
  */
 @Composable
-fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onDone: (connectWallet: Boolean) -> Unit) {
+fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onRestore: () -> Unit = onNostr, onDone: (connectWallet: Boolean) -> Unit) {
     // A wallet already connected (tour again, or after an update): no page asking for one.
     val PAGES = if (hasWallet) ALL_PAGES.dropLast(1) else ALL_PAGES
     val pager = rememberPagerState { PAGES.size }
@@ -160,6 +163,8 @@ fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onDon
                             Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                         }
                     }
+                    // In the page, not among the buttons: the footer keeps its height on every page.
+                    p.restore?.let { TextButton(onClick = onRestore, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(it), textAlign = TextAlign.Center) } }
                     // The NWC explainer (device feedback 2026-10-11), only when it answers.
                     if (p.nwcLink) space.sovereigncast.hopp.ui.components.NwcExplainerLink(Modifier.padding(top = 16.dp), centered = true)
                 }

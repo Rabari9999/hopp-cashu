@@ -48,6 +48,16 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         return SyncCodec.join(parts)
     }
 
+    /** Whether the listener ([pubkey]) has [doc] on any of [relays] — without opening it. */
+    suspend fun exists(pubkey: String, doc: String, relays: List<String>): Boolean {
+        val filter = buildJsonObject {
+            putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
+            putJsonArray("authors") { add(JsonPrimitive(pubkey)) }
+            putJsonArray("#d") { add(JsonPrimitive(SyncCodec.dTag(doc))) }
+        }
+        return publisher.query(listOf(filter), relays, settle = 2.seconds).any { it.pubkey == pubkey && it.kind == Nip78.KIND }
+    }
+
     /** Seals [entries] and sends every part; the relays that took them all. */
     suspend fun publish(signer: NostrSigner, doc: String, entries: Map<String, SyncEntry>, relays: List<String>): Set<String> {
         val rev = secureRandomBytes(8).toHex()

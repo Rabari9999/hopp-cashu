@@ -506,6 +506,13 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
                             nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name))
                         },
+                        // Used Hopp before: the Nostr page with the ways in for an existing account open.
+                        onRestore = {
+                            tour = false
+                            tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                            space.sovereigncast.hopp.ui.identity.NostrSignInRequest.request()
+                            nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name))
+                        },
                     ) { connectWallet ->
                         tour = false
                         tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
