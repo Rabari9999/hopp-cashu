@@ -42,6 +42,9 @@
     <string name="show_unsubscribe_confirm">%1$s nicht mehr abonnieren? Die Positionen dieser Show werden entfernt.</string>
     <string name="show_episodes">%1$d Folgen</string>
     <string name="show_feed_error">Letzte Aktualisierung fehlgeschlagen: %1$s</string>
+    <string name="show_boostable_alternative">Ein boostfähiger Feed dieser Show wurde gefunden</string>
+    <string name="show_find_boostable">Boostfähigen Feed suchen</string>
+    <string name="show_no_boostable_alternative">Kein boostfähiger Feed dieser Show gefunden.</string>
     <string name="mark_played">Als gehört markieren</string>
     <string name="mark_played_older">Diese und ältere als gehört markieren</string>
     <string name="mark_played_older_confirm">„%1$s“ und alle älteren Folgen der Show als gehört markieren?</string>

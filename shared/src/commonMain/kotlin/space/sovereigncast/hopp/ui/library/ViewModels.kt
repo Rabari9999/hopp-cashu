@@ -300,6 +300,7 @@ class ShowViewModel(
     private val podcastId: Long,
     private val podcasts: PodcastRepository,
     private val episodes: EpisodeRepository,
+    private val directory: DirectoryRepository? = null,
 ) : ViewModel() {
     val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
     /** Unsubscribed — here or anywhere else while this page waited in a stack. */
@@ -321,7 +322,33 @@ class ShowViewModel(
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
+    /** Looking for a boost-capable feed variant of this show (see
+     *  DirectoryRepository.boostableAlternative) — only when the listener
+     *  asks: by itself the page would tell the index about a subscription,
+     *  which ADR 0015 reserves for the batch check (review of 2026-10-19). */
+    sealed interface Alternative {
+        data object NotAsked : Alternative
+        data object Searching : Alternative
+        data object None : Alternative
+        data class Found(val show: DirectoryShow) : Alternative
+    }
+
+    private val _alternative = MutableStateFlow<Alternative>(Alternative.NotAsked)
+    val alternative: StateFlow<Alternative> = _alternative.asStateFlow()
+
     init { viewModelScope.launch { _meta.value = podcasts.podcastMeta(podcastId) } }
+
+    /** The listener taps the line under a show whose feed has no value block. */
+    fun findAlternative() {
+        val dir = directory ?: return
+        if (_alternative.value != Alternative.NotAsked) return
+        _alternative.value = Alternative.Searching
+        viewModelScope.launch {
+            val s = podcasts.show(podcastId).first()
+            val found = s?.let { runCatching { dir.boostableAlternative(it.title, it.feedUrl, it.author, it.podcastGuid) }.getOrNull() }
+            _alternative.value = found?.let { Alternative.Found(it) } ?: Alternative.None
+        }
+    }
 
     fun refresh() {
         if (_refreshing.value) return

@@ -42,6 +42,9 @@
     <string name="show_unsubscribe_confirm">Unsubscribe from %1$s? Positions of this show are removed.</string>
     <string name="show_episodes">%1$d episodes</string>
     <string name="show_feed_error">Last update failed: %1$s</string>
+    <string name="show_boostable_alternative">A boostable feed of this show was found</string>
+    <string name="show_find_boostable">Look for a boostable feed</string>
+    <string name="show_no_boostable_alternative">No boostable feed of this show found.</string>
     <string name="mark_played">Mark as played</string>
     <string name="mark_played_older">Mark this and older as played</string>
     <string name="mark_played_older_confirm">Mark “%1$s” and every older episode of the show as played?</string>

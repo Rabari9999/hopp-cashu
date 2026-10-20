@@ -55,6 +55,13 @@ class DirectoryTest {
                 if (req.headers[HttpHeaders.Authorization] != Sha1.digest((key + secret + date).encodeToByteArray()).toHex())
                     return@MockEngine respondError(HttpStatusCode.Unauthorized)
                 when {
+                    path.endsWith("search/byterm") && req.url.parameters["val"] == "lightning" && req.url.parameters["q"] == "Beta" -> respond(pi(
+                        piFeed("Beta", "https://beta.test/feed.xml"),
+                        piFeed("Beta", "https://beta-anchor.test/feed.xml"),
+                    ))
+                    path.endsWith("search/byterm") && req.url.parameters["val"] == "lightning" && req.url.parameters["q"] == "Bitcoin" -> respond(pi(
+                        piFeed("Bitcoin Audible", "https://audible.test/feed.xml", value = true),
+                    ))
                     path.endsWith("search/byterm") && req.url.parameters["val"] == "lightning" -> respond(pi(
                         piFeed("Alpha", "https://alpha.test/feed.xml", "guid-alpha"),
                         piFeed("Alpha", "https://valued.test/feed.xml", value = true),
@@ -193,6 +200,26 @@ class DirectoryTest {
         assertEquals(Category.Technology, Category.of("Cryptocurrency"))
         assertEquals(null, Category.of("Unheard Of"))
         assertEquals(listOf(Category.Kids, Category.Health), Category.of(listOf("Kids", "Family", "Health", "Fitness", "Mental")))
+    }
+
+    @Test
+    fun aBoostableVariantIsOfferedByTitleFromAnotherAddressValueFirst() = test {
+        // The Lightning filter answers with the show's own feed and a variant
+        // the index knows a value block of — the variant wins, the own
+        // address is never offered.
+        val alt = directory().boostableAlternative("Alpha", "https://alpha.test/feed.xml")
+        assertEquals("https://valued.test/feed.xml", alt?.feedUrl)
+        // A mere hit of the Lightning filter is the stale flag the badge no
+        // longer trusts — without a confirmed value object nothing is offered
+        // (review of 2026-10-19).
+        assertEquals(null, directory().boostableAlternative("Beta", "https://beta.test/feed.xml"))
+        // A similar, not equal title is another show, confirmed value block or
+        // not — "Bitcoin" must not claim "Bitcoin Audible" (review of 2026-10-19).
+        assertEquals(null, directory().boostableAlternative("Bitcoin", "https://bitcoin.test/feed.xml"))
+        // Another show entirely matches nothing.
+        assertEquals(null, directory().boostableAlternative("Münzweg", "https://muenzweg.test/feed.xml"))
+        // A build without a key cannot ask.
+        assertEquals(null, directory(builtIn = null).boostableAlternative("Alpha", "https://alpha.test/feed.xml"))
     }
 
     @Test
