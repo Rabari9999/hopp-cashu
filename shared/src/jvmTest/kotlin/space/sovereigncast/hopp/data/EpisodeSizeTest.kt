@@ -55,7 +55,7 @@ class EpisodeSizeTest {
         val id = subscribe()
         length = "1610612736"
         podcasts.refresh(id)
-        assertEquals("1.5 GB", episodeSize(byTitle(id).getValue("Big")))
+        assertEquals("1.5 GB", episodeSize(byTitle(id).getValue("Big"), "en"))
     }
 
     /** Episodes stored before schema version 10 have their size in meta_json only. */

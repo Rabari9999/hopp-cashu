@@ -1,0 +1,12 @@
+# The flows build on each other: the tour starts clean, a show is subscribed
+# before the library is looked at.
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - Tour
+    - Discover
+    - Subscribe and play
+    - Library
+    - Settings

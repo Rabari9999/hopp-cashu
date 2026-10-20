@@ -1,0 +1,27 @@
+# Discover: categories, new value shows, what is popular — live from the Podcast Index.
+appId: space.sovereigncast.hopp.beta
+name: Discover
+---
+- launchApp
+- tapOn: "Discover"
+# Live data: the new value shows and the popular ones, and their covers.
+- scrollUntilVisible:
+    element: "New with ⚡ Value"
+    timeout: 30000
+- scroll
+- scrollUntilVisible:
+    element: "Popular right now"
+    direction: UP
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 02-discover-top
+- scrollUntilVisible:
+    element: "Popular right now"
+    direction: DOWN
+- takeScreenshot: 02-discover-popular
+- scrollUntilVisible:
+    element: "Language of the shows"
+    direction: DOWN
+- takeScreenshot: 02-discover-language
+- scroll
+- takeScreenshot: 02-discover-bottom

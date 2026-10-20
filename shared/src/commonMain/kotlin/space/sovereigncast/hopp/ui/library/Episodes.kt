@@ -95,9 +95,9 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
  * downloading it now, streaming it, or waiting for Wi-Fi. Feeds that state a
  * few bytes — placeholders — show nothing.
  */
-fun episodeSize(item: EpisodeItem): String? {
+fun episodeSize(item: EpisodeItem, language: String = androidx.compose.ui.text.intl.Locale.current.language): String? {
     val bytes = item.enclosureLength?.takeIf { item.downloadState == DownloadState.NONE && it in PLAUSIBLE_SIZE } ?: return null
-    return if (bytes < 1024L * 1024) "< 1 MB" else formatBytes(bytes)
+    return if (bytes < 1024L * 1024) "< 1 MB" else formatBytes(bytes, language)
 }
 
 /** Smaller than a short clip or larger than Hopp downloads: not the file's size. */
@@ -118,7 +118,7 @@ fun PlayButton(item: EpisodeItem) {
     val nav = LocalEpisodeNav.current
     val haptics = LocalHapticFeedback.current
     // Only play/pause changes this, not every position tick.
-    val playingId by remember(player) { player.state.map { if (it.isPlaying) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
+    val playingId by remember(player) { player.state.map { if (it.isPlaying || it.isBuffering) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
     val playing = playingId == item.id.toString()
     val duration = (item.durationSeconds ?: 0) * 1000
     val heard = if (item.played) 1f else if (duration > 0) (item.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f

@@ -23,6 +23,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Notifications:** Set separately for quick boost, boost and zap.
 
 ### 🐛 Fixes
+- **Tour:** On a phone held sideways the pages were cut off; text and buttons now stand side by side.
+- **Player:** The speed shows "1.1×" in English and "1,1×" in German; file sizes likewise.
+- **Episodes:** "Pause" on the episode page is no longer cut to "Pa…", and it shows while a stream is still loading.
 - **Comments:** A boost's amount stands beside the name, as a zap's, not in the text.
 - **Player:** While a stream loads, a ring turns round the play button; a second tap stops it.
 - **Comments:** A zap sent no notification.

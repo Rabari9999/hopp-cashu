@@ -26,6 +26,16 @@ class FormatTest {
         assertEquals("09.10.2026", formatDate(lateEvening), "the date follows the local clock too")
     }
 
+    /** Device check 2026-10-20: an English phone showed the speed as "1,1×". */
+    @Test
+    fun decimalsInTheListenersLanguage() {
+        assertEquals("1.1", space.sovereigncast.hopp.ui.components.formatTenths(11, "en"))
+        assertEquals("1,1", space.sovereigncast.hopp.ui.components.formatTenths(11, "de"))
+        assertEquals("2", space.sovereigncast.hopp.ui.components.formatTenths(20, "de"))
+        assertEquals("1,5 GB", space.sovereigncast.hopp.ui.components.formatBytes(1536L * 1024 * 1024, "de"))
+        assertEquals("80 MB", space.sovereigncast.hopp.ui.components.formatBytes(80L * 1024 * 1024, "en"))
+    }
+
     @Test
     fun isoTimesFromTheInstance() {
         assertEquals("09.10. 23:50", formatIsoShort("2026-10-09T21:50:00Z"))

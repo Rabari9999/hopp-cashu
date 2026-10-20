@@ -485,10 +485,9 @@ private fun SheetChip(label: String, onClick: () -> Unit) {
 }
 
 /** 1.5f → "1,5" — the speed as the listener reads it. */
-internal fun formatSpeed(s: Float): String {
-    val tenths = kotlin.math.round(s * 10).toInt()
-    return if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
-}
+/** 1.1 → "1.1", in German "1,1" (device check 2026-10-20: an English phone showed "1,1×"). */
+internal fun formatSpeed(s: Float): String =
+    space.sovereigncast.hopp.ui.components.formatTenths(kotlin.math.round(s * 10).toLong())
 
 /** The moon, with what is left when the timer runs. */
 @Composable

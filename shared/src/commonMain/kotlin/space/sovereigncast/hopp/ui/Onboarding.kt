@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -111,82 +114,103 @@ fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onDon
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val last = pager.currentPage == PAGES.lastIndex
-    Column(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+    // A phone on its side has no height for page, dots and buttons one above the
+    // other — the page's text was cut off (device check 2026-10-20): side by side there.
+    BoxWithConstraints(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
+        val sideBySide = maxWidth > maxHeight && maxHeight < 480.dp
+        @Composable fun Skip() = Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
             if (!last) TextButton(onClick = { onDone(false) }) { Text(stringResource(Res.string.onboarding_skip)) }
             else Spacer(Modifier.height(48.dp))
         }
-        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth()) { i ->
-            val p = PAGES[i]
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp)
-                    .wrapContentWidth().widthIn(max = 520.dp), // a tablet: a column, not a banner (ADR 0020)
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-            ) {
-                Box(
-                    Modifier.size(96.dp).clip(CircleShape).background(if (p.value) Hopp.colors.value else colors.surfaceVariant),
-                    contentAlignment = Alignment.Center,
+        @Composable fun Pages(modifier: Modifier) {
+            HorizontalPager(pager, modifier) { i ->
+                val p = PAGES[i]
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp)
+                        .wrapContentWidth().widthIn(max = 520.dp), // a tablet: a column, not a banner (ADR 0020)
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                 ) {
-                    // The welcome page shows the logo; the hop alone means boost (ADR 0019).
-                    if (p.icon == null) HoppSymbol(Modifier.size(60.dp))
-                    else Icon(p.icon, null, Modifier.size(48.dp), tint = if (p.value) Hopp.colors.onValue else colors.onSurface)
-                }
-                Spacer(Modifier.height(28.dp))
-                Text(stringResource(p.title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(p.text), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
-                if (p.points.isNotEmpty()) Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    p.points.forEach { point ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("•", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                            Text(stringResource(point), style = MaterialTheme.typography.bodyLarge)
+                    Box(
+                        Modifier.size(96.dp).clip(CircleShape).background(if (p.value) Hopp.colors.value else colors.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        // The welcome page shows the logo; the hop alone means boost (ADR 0019).
+                        if (p.icon == null) HoppSymbol(Modifier.size(60.dp))
+                        else Icon(p.icon, null, Modifier.size(48.dp), tint = if (p.value) Hopp.colors.onValue else colors.onSurface)
+                    }
+                    Spacer(Modifier.height(28.dp))
+                    Text(stringResource(p.title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(p.text), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant, textAlign = TextAlign.Center)
+                    if (p.points.isNotEmpty()) Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        p.points.forEach { point ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("•", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                Text(stringResource(point), style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
                     }
-                }
-                p.after?.let { Text(stringResource(it), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, textAlign = TextAlign.Center) }
-                p.soon?.let {
-                    Column(
-                        Modifier.padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceVariant).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(stringResource(Res.string.onboarding_soon), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                        Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    p.after?.let { Text(stringResource(it), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, textAlign = TextAlign.Center) }
+                    p.soon?.let {
+                        Column(
+                            Modifier.padding(top = 20.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceVariant).padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(stringResource(Res.string.onboarding_soon), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                        }
                     }
+                    // The NWC explainer (device feedback 2026-10-11), only when it answers.
+                    if (p.nwcLink) space.sovereigncast.hopp.ui.components.NwcExplainerLink(Modifier.padding(top = 16.dp), centered = true)
                 }
-                // The NWC explainer (device feedback 2026-10-11), only when it answers.
-                if (p.nwcLink) space.sovereigncast.hopp.ui.components.NwcExplainerLink(Modifier.padding(top = 16.dp), centered = true)
             }
         }
-        // Where you are: one dot per page.
-        Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center) {
-            PAGES.indices.forEach { i ->
-                Box(Modifier.padding(4.dp).size(if (i == pager.currentPage) 10.dp else 8.dp).clip(CircleShape)
-                    .background(if (i == pager.currentPage) colors.onSurface else colors.outlineVariant))
+        @Composable fun Dots() {
+            // Where you are: one dot per page.
+            Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center) {
+                PAGES.indices.forEach { i ->
+                    Box(Modifier.padding(4.dp).size(if (i == pager.currentPage) 10.dp else 8.dp).clip(CircleShape)
+                        .background(if (i == pager.currentPage) colors.onSurface else colors.outlineVariant))
+                }
             }
         }
-        // As wide as the text above, not the whole of a tablet (ADR 0020).
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp).wrapContentWidth().widthIn(max = 520.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (last && hasWallet) {
-                Button(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_start)) }
-                TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
-            } else if (last) {
-                Button(
-                    onClick = { onDone(true) }, modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Hopp.colors.value, contentColor = Hopp.colors.onValue),
-                ) { Text(stringResource(Res.string.onboarding_wallet), fontWeight = FontWeight.Bold) }
-                TextButton(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_later)) }
-            } else {
-                Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(Res.string.onboarding_next))
+        @Composable fun Buttons() {
+            // As wide as the text above, not the whole of a tablet (ADR 0020).
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp).wrapContentWidth().widthIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (last && hasWallet) {
+                    Button(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_start)) }
+                    TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
+                } else if (last) {
+                    Button(
+                        onClick = { onDone(true) }, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Hopp.colors.value, contentColor = Hopp.colors.onValue),
+                    ) { Text(stringResource(Res.string.onboarding_wallet), fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = { onDone(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_later)) }
+                } else {
+                    Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(Res.string.onboarding_next))
+                    }
+                    // The Nostr page sets up right away; elsewhere the same height, so nothing jumps.
+                    val setup = PAGES[pager.currentPage].setup
+                    if (setup != null) OutlinedButton(onClick = onNostr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(setup)) }
+                    else TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
                 }
-                // The Nostr page sets up right away; elsewhere the same height, so nothing jumps.
-                val setup = PAGES[pager.currentPage].setup
-                if (setup != null) OutlinedButton(onClick = onNostr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(setup)) }
-                else TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
             }
+        }
+        if (sideBySide) Row(Modifier.fillMaxSize()) {
+            Pages(Modifier.weight(1f).fillMaxHeight())
+            Column(Modifier.width(320.dp).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                Skip()
+                Column { Dots(); Buttons() }
+            }
+        } else Column(Modifier.fillMaxSize()) {
+            Skip()
+            Pages(Modifier.weight(1f).fillMaxWidth())
+            Dots()
+            Buttons()
         }
     }
 }

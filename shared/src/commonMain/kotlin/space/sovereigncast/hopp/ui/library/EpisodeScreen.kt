@@ -118,7 +118,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     var boosting by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf<ShareTarget?>(null) }
     val e = item ?: return
-    val playingId by remember(player) { player.state.map { if (it.isPlaying) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
+    val playingId by remember(player) { player.state.map { if (it.isPlaying || it.isBuffering) it.itemId else null }.distinctUntilChanged() }.collectAsState(null)
     val playing = playingId == e.id.toString()
     val duration = (e.durationSeconds ?: 0) * 1000
     val linkStyle = SpanStyle(color = colors.onSurface, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
@@ -183,9 +183,12 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                             if (playing) player.engine.pause() else nav.play(e)
                         },
                         modifier = Modifier.weight(1f),
+                        // Narrower than a button's own padding: on a phone beside Boost and three
+                        // icons "Pause" came out as "Pa…" (device check 2026-10-20).
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                     ) {
                         Icon(if (playing) HoppIcons.Pause else HoppIcons.Play, null, Modifier.size(18.dp))
-                        Spacer(Modifier.size(8.dp))
+                        Spacer(Modifier.size(6.dp))
                         Text(
                             when {
                                 playing -> stringResource(Res.string.np_pause)

@@ -1,0 +1,14 @@
+# The library with a show in it, as cards and as a list, and its sort order.
+appId: space.sovereigncast.hopp.beta
+name: Library
+---
+- launchApp
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Nodesignal.*"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 04-library
+- tapOn: "Home"
+- waitForAnimationToEnd
+- takeScreenshot: 04-home

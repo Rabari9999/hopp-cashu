@@ -57,6 +57,13 @@ re-lays out every text whenever the frame recomposes), and frame-level state
 read in `App` (download progress) that recomposes the whole frame — collect
 such state in the smallest composable that needs it.
 
+`scripts/device-check.sh` runs the beta on an emulated phone and tablet,
+upright and on its side, through the Maestro flows in `devicetests/` and
+puts every screenshot side by side (`build/device-check/<time>/index.html`).
+Local only, on the Mac; see `devicetests/README.md`. Its first run
+(2026-10-20) found what no other test could: the tour cut off on a phone
+held sideways, "1,1×" on an English phone, a "Pause" label cut to "Pa…".
+
 The Sovereigncast layer (`sovereigncast/`, ADR 0002/0010/0018) speaks the
 Listener API whose contract is `podcast_manager/api_specs/listener-v1.yaml` in
 `nodesignal/podcasting_tools` — read it there, do not guess field names.

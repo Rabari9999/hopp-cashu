@@ -1,0 +1,76 @@
+# A show found by name, looked at, subscribed; an episode played in the full player.
+appId: space.sovereigncast.hopp.beta
+name: Subscribe and play
+---
+- runFlow: common/fresh.yaml
+- tapOn: "Discover"
+- tapOn: "Search or feed address"
+- inputText: "Nodesignal"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Nodesignal - Deine Bitcoin-Frequenz"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 03-search
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 03-show-preview
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: 03-show-subscribed
+# An episode not downloaded: its page, then streamed.
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E297.*"
+- tapOn: "Nodesignal-Talk - E297.*"
+- extendedWaitUntil:
+    visible: "Play"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 03-episode
+# The page's own button: in two panes the list beside it has play buttons too.
+- tapOn:
+    text: "Play"
+    above: "Show notes"
+- takeScreenshot: 03-stream-starting
+- extendedWaitUntil:
+    visible:
+      text: "Pause"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 03-mini-player
+# The full player: speed, the chips, the comments.
+- tapOn: ".* / 1:27:47"
+- extendedWaitUntil:
+    visible: "1×"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 03-player
+- tapOn: "1×"
+- assertVisible: "1.1×"
+- takeScreenshot: 03-player-speed
+# The chips scroll sideways; Comments is the last one. On a phone on its side
+# they lie below the controls.
+- scrollUntilVisible:
+    element: "Chapters"
+- swipe:
+    from: "Chapters"
+    direction: LEFT
+- tapOn: "Comments"
+- extendedWaitUntil:
+    visible: "Load comments"
+    timeout: 10000
+- takeScreenshot: 03-comments-closed
+- tapOn: "Load comments"
+- extendedWaitUntil:
+    notVisible: "Asking the relays.*"
+    timeout: 45000
+- waitForAnimationToEnd
+- takeScreenshot: 03-comments
+# Only reading: no identity here, so nothing is ever published from a test.
+- back

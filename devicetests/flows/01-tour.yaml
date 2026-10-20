@@ -1,0 +1,24 @@
+# First start: every page of the tour, then Home without a show.
+appId: space.sovereigncast.hopp.beta
+name: Tour
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- assertVisible: "Welcome to Hopp"
+- takeScreenshot: 01-tour-1
+- tapOn: "Next"
+- takeScreenshot: 01-tour-2
+- tapOn: "Next"
+- takeScreenshot: 01-tour-3
+- tapOn: "Next"
+- takeScreenshot: 01-tour-4
+- tapOn: "Next"
+- takeScreenshot: 01-tour-5
+- tapOn: "Next"
+- assertVisible: "Connect your wallet"
+- takeScreenshot: 01-tour-6
+- tapOn: "Later"
+- assertVisible: "Home"
+- takeScreenshot: 01-home-empty
