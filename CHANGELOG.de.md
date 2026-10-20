@@ -6,6 +6,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-20
+
 ### 🆕 New Features
 - **Entdecken:** Kategorie-Kacheln, „Für dich“, neue Shows mit ⚡ Value und „Gerade beliebt“ aus dem Podcast Index.
 - **Entdecken:** Die Sprache der vorgeschlagenen Shows ist frei wählbar, statt immer der Gerätesprache zu folgen.
@@ -18,6 +20,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Kommentare:** Kommentare zappen – öffentlich, privat oder anonym.
 - **Kommentare:** npub des Autors und nevent der Note kopieren.
 - **Kommentare:** Profil des Autors in deiner Nostr-App öffnen.
+- **Kommentare:** Der Betrag eigener Boosts steht wie bei Zaps neben deinem Namen.
 - **Nostr:** Eigene Relays hinzufügen und entfernen (Relays mit Anmeldung, NIP-42, noch nicht).
 - **Wallet:** Eigene Werte für Tagesbudget, Streaming-Rate, Schnellboost und „Hopp unterstützen“; 210 statt 500 sats als Vorschlag.
 - **Benachrichtigungen:** Für Schnellboost, Boost und Zap getrennt einstellbar.
@@ -25,11 +28,10 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🐛 Fixes
 - **Player:** Auf dem quer gehaltenen Telefon sind die Chips (Shownotes, Kapitel, Kommentare) wieder im Bild.
 - **Player:** VoiceOver und TalkBack lesen die aktuelle Geschwindigkeit vor, nicht nur „Wiedergabegeschwindigkeit“.
-- **Einführung:** Auf dem quer gehaltenen Telefon waren die Seiten abgeschnitten; Text und Buttons stehen jetzt nebeneinander.
 - **Player:** Die Geschwindigkeit steht auf Englisch als „1.1×“, auf Deutsch als „1,1×“; Dateigrößen ebenso.
-- **Folgen:** „Pause“ auf der Folgenseite wird nicht mehr zu „Pa…“ gekürzt und erscheint schon, während ein Stream lädt.
-- **Kommentare:** Der Betrag eines eigenen Boosts steht wie bei Zaps neben dem Namen; bei fremden Boosts bleibt er im Text, denn niemand kann ihn prüfen.
 - **Player:** Lädt ein Stream noch, dreht sich ein Ring um den Play-Button; ein zweiter Tipp stoppt.
+- **Einführung:** Auf dem quer gehaltenen Telefon waren die Seiten abgeschnitten; Text und Buttons stehen jetzt nebeneinander.
+- **Folgen:** „Pause“ auf der Folgenseite wird nicht mehr zu „Pa…“ gekürzt und erscheint schon, während ein Stream lädt.
 - **Kommentare:** Ein Zap löste keine Benachrichtigung aus.
 - **Kommentare:** Ohne Nostr-Post der Show nennt ein Kommentar jetzt Show und Folge, damit andere Apps den Bezug zeigen.
 - **Nostr:** Mit importiertem Schlüssel nutzte Hopp nicht deine Relay-Liste.
