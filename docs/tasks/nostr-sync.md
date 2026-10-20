@@ -101,9 +101,10 @@ As above; settings only from the list of listening habits.
 Asked for by the maintainer, 2026-10-20: a new phone, or Hopp installed
 again, starts from the library the listener had.
 
-- **On the first start:** the tour's last page offers "Already using Hopp?
-  Restore from Nostr", which leads to the ways in with an existing account
-  (signer app, bunker, password manager, pasted key).
+- **On the first start:** the tour's Nostr page offers, below "Set up Nostr
+  now", "Already using Hopp? Restore from Nostr", which leads to the ways in
+  with an existing account (signer app, bunker, password manager, pasted
+  key).
 - **After every sign-in with an existing identity:** Hopp reads the relay
   list (as it does already), then looks for `hopp/subscriptions` there. Found,
   the Nostr page offers "Restore from your other devices — 12 shows,
@@ -120,6 +121,12 @@ again, starts from the library the listener had.
   "Up next" and progress as the feeds arrive.
 
 ### 7. Page, privacy, docs
+
+- The tour's Nostr page announces sync as coming
+  (`onboarding_nostr_soon`, the "Soon" box): it goes, and sync becomes a
+  fourth point beside comments, votes and boosts ("your library and
+  progress on every device — encrypted, no Hopp server"). The "Soon" box
+  then has no page left; `soon` and `onboarding_soon` go with it.
 
 - The Nostr page: "Sync across devices", off by default; the first time on,
   what is here and on the relays is merged — nothing is overwritten. Below
