@@ -96,7 +96,30 @@ device therefore fills the library.
 
 As above; settings only from the list of listening habits.
 
-### 6. Page, privacy, docs
+### 6. Restore on a new device
+
+Asked for by the maintainer, 2026-10-20: a new phone, or Hopp installed
+again, starts from the library the listener had.
+
+- **On the first start:** the tour's last page offers "Already using Hopp?
+  Restore from Nostr", which leads to the ways in with an existing account
+  (signer app, bunker, password manager, pasted key).
+- **After every sign-in with an existing identity:** Hopp reads the relay
+  list (as it does already), then looks for `hopp/subscriptions` there. Found,
+  the Nostr page offers "Restore from your other devices — 12 shows,
+  5 episodes in progress" with one button: it turns sync on and merges. On a
+  fresh install there is nothing to merge with, so it is a plain restore;
+  "Not now" leaves sync off and can be changed later on the same page.
+- The signer is asked for the encryption permissions at sign-in already, so
+  restoring does not ask again.
+- A key made in Hopp comes back through its backup (password manager, nsec,
+  ncryptsec); the restore follows the same way. The backup card says that
+  the key also brings back the library once sync is on.
+- Order of a restore: subscriptions first (the library shows at once from
+  the document's titles and covers, the feeds load behind), then settings,
+  "Up next" and progress as the feeds arrive.
+
+### 7. Page, privacy, docs
 
 - The Nostr page: "Sync across devices", off by default; the first time on,
   what is here and on the relays is merged — nothing is overwritten. Below
@@ -111,6 +134,10 @@ As above; settings only from the list of listening habits.
   against fakes), pending progress.
 - Robolectric: turning sync on, a library filled from a document, an
   unsubscription that stays, a position that waits while playing.
+- Robolectric: a fresh install signed in with a key whose relays hold the
+  documents offers the restore, and after it the library and "Up next"
+  are there.
 - On two devices with the maintainer's key: subscribe on one, it shows on
-  the other; progress and "Up next" follow; with Amber and with a bunker.
+  the other; progress and "Up next" follow; with Amber and with a bunker;
+  Hopp deleted and installed again comes back with its library.
   The device tests in `devicetests/` stay without an identity.

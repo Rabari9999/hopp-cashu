@@ -173,7 +173,9 @@ Hopp shows what Fountain's listeners say about the same episode.
 - *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
   (`hopp/queue`); of the settings only the listening habits. The `d` tags
   stay readable; Hopp fetches on start and on coming to the foreground, with
-  no standing relay connection. Plan: `docs/tasks/nostr-sync.md`.
+  no standing relay connection. A new device, or Hopp installed again,
+  offers right after sign-in to restore from the documents it finds.
+  Plan: `docs/tasks/nostr-sync.md`.
 
 ### 6. Boosts and the npub
 
