@@ -1,0 +1,128 @@
+# Store screenshots, part 1: Hopp filled the way a listener would — Nodesignal
+# and the shows its podroll recommends (as it stands, 2026-10-20), found by
+# name. English UI.
+appId: ${APP_ID}
+name: Store setup
+---
+- runFlow: ../flows/common/fresh.yaml
+- tapOn: "Discover"
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Nodesignal"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Nodesignal - Deine Bitcoin-Frequenz"
+    timeout: 30000
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Münzweg"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Münzweg - der Bitcoin-Podcast"
+    timeout: 30000
+- tapOn: "Münzweg - der Bitcoin-Podcast"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Sound Money Bitcoin"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Sound Money Bitcoin Podcast"
+    timeout: 30000
+- tapOn: "Sound Money Bitcoin Podcast"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Honigdachs"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Honigdachs"
+    timeout: 30000
+- tapOn: "Honigdachs"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Bitcoin Socratic Seminar"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Bitcoin Socratic Seminar Online"
+    timeout: 30000
+- tapOn: "Bitcoin Socratic Seminar Online"
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd
+# One episode begun, for "Continue listening".
+- tapOn: "Home"
+- tapOn: "Nodesignal-Talk - E298.*"
+- tapOn:
+    text: "Play"
+    above: "Show notes"
+- extendedWaitUntil:
+    visible: ".* / 1:32:3\\d"
+    timeout: 30000
+- swipe:
+    start: 50%, 60%
+    end: 50%, 55%
+- waitForAnimationToEnd:
+    timeout: 10000
+- stopApp

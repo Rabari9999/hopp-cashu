@@ -1,0 +1,219 @@
+# Store screenshots, part 2: the views the stores show, in the app's language
+# (English or German — labels match either). Runs on what setup.yaml left,
+# with a wallet connected by hand for the boost, which is never sent.
+appId: ${APP_ID}
+name: Store screenshots
+---
+- launchApp:
+    stopApp: true
+- tapOn: "Home"
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E298.*"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 1-home
+
+# The player on the first chapter, whose picture is the show's.
+- tapOn: "Nodesignal-Talk - E298.*"
+- tapOn:
+    text: "(Play|Abspielen|Continue|Weiterhören).*"
+    above: "(Show notes|Shownotes)"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: ".* / 1:32:3\\d"
+    commands:
+      - tapOn: ".* / 1:32:3\\d"
+- extendedWaitUntil:
+    visible: "Boost"
+    timeout: 15000
+- tapOn:
+    text: "(Chapters|Kapitel)"
+    below: "Boost"
+- tapOn: "Intro"
+# The mini player's own "Pause" lies hidden beneath, over the chips.
+- runFlow:
+    when:
+      visible: "Pause"
+    commands:
+      - tapOn:
+          text: "Pause"
+          above: "Boost"
+- waitForAnimationToEnd
+- takeScreenshot: 2-player
+
+# A boost made ready — its button is never tapped. Only with a wallet (WALLET=yes).
+- runFlow:
+    when:
+      true: ${WALLET == "yes"}
+    commands:
+      - tapOn: "Boost"
+      - tapOn: "(Message|Nachricht) \\(optional\\)"
+      - inputText: ${MESSAGE}
+      - hideKeyboard
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 45%
+          duration: 600
+      - waitForAnimationToEnd
+      - takeScreenshot: 3-boost
+      # Above the sheet: its scrim closes it (its label follows the language).
+      - tapOn:
+          point: 50%, 8%
+- tapOn: "(Close player|Player schließen)"
+
+# The library, a Sovereigncast show and its community.
+- tapOn: "(Library|Bibliothek)"
+- waitForAnimationToEnd
+- takeScreenshot: 4-library
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+- extendedWaitUntil:
+    visible: "(Episodes|Folgen)"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 5-show
+- tapOn: "Community"
+- extendedWaitUntil:
+    visible: ".*sats"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 6-community
+
+# Discover as a search for sats-taking shows: the live lists beside it
+# (new in the index, popular) change by the hour and are no one's to vouch for.
+- tapOn: "(Discover|Entdecken)"
+- runFlow:
+    when:
+      visible: "(Clear|Löschen)"
+    commands:
+      - tapOn: "(Clear|Löschen)"
+- tapOn: ".*(Value4Value only|Nur Value4Value)"
+- tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
+- inputText: "Bitcoin"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Bitcoin Socratic Seminar Online"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: 7-discover
+
+- tapOn: "(Settings|Einstellungen)"
+- scrollUntilVisible:
+    element: "(Privacy|Privatsphäre)"
+- tapOn: "(Privacy|Privatsphäre)"
+- waitForAnimationToEnd
+- takeScreenshot: 8-privacy
+- tapOn: "(Back|Zurück)"
+- tapOn: "(Back|Zurück)"
+
+# Comments, read only: a V4V show whose episodes Fountain listeners comment
+# on. Subscribed for that alone and unsubscribed again; a bot that repeats
+# every boost with a long link is muted — without an identity only here.
+- tapOn: "(Discover|Entdecken)"
+- tapOn: "(Cancel|Abbrechen)"
+- tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
+- inputText: "Chad and Reeds"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Chad and Reeds Podcast"
+    timeout: 30000
+- tapOn: "Chad and Reeds Podcast"
+- runFlow:
+    when:
+      visible: "(Subscribe|Abonnieren)"
+    commands:
+      - tapOn: "(Subscribe|Abonnieren)"
+- extendedWaitUntil:
+    visible: ".*(Subscribed|Abonniert).*"
+    timeout: 60000
+- tapOn: "009. yawn-boarding"
+- tapOn:
+    text: "(Play|Abspielen|Continue|Weiterhören).*"
+    above: "(Show notes|Shownotes)"
+- extendedWaitUntil:
+    visible: ".* / 2:03:0\\d"
+    timeout: 30000
+- tapOn: ".* / 2:03:0\\d"
+- extendedWaitUntil:
+    visible: "Boost"
+    timeout: 15000
+- tapOn:
+    text: "Pause"
+    above: "Boost"
+- swipe:
+    start: 90%, 86%
+    end: 10%, 86%
+- swipe:
+    start: 90%, 86%
+    end: 10%, 86%
+- tapOn:
+    text: "(Comments|Kommentare)"
+    below: "Boost"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "(Load comments|Kommentare laden)"
+    commands:
+      - tapOn: "(Load comments|Kommentare laden)"
+- extendedWaitUntil:
+    notVisible: "(Asking the relays|Frage die Relays).*"
+    timeout: 45000
+- runFlow:
+    when:
+      visible: "Boostr_Bot"
+    commands:
+      # On a tablet the comments fill the episode's page and the bot's
+      # menu lies below the edge: the list moves up, its first menu is the bot's.
+      - runFlow:
+          when:
+            notVisible: "⋯"
+          commands:
+            - swipe:
+                start: 25%, 85%
+                end: 25%, 55%
+      - tapOn:
+          text: "⋯"
+          index: 0
+      - tapOn: "(Mute Boostr_Bot|Boostr_Bot stummschalten)"
+      - runFlow:
+          when:
+            notVisible: "(Drag handle|Ziehpunkt)"
+          commands:
+            - swipe:
+                start: 25%, 40%
+                end: 25%, 95%
+            - swipe:
+                start: 25%, 40%
+                end: 25%, 95%
+# A phone shows them in a sheet: pulled up whole.
+- runFlow:
+    when:
+      visible: "(Drag handle|Ziehpunkt)"
+    commands:
+      - swipe:
+          from: "(Drag handle|Ziehpunkt)"
+          direction: UP
+- waitForAnimationToEnd
+- takeScreenshot: 9-comments
+- runFlow:
+    when:
+      visible: "(Drag handle|Ziehpunkt)"
+    commands:
+      - pressKey: back
+      - tapOn:
+          point: 50%, 8%
+- tapOn: "(Close player|Player schließen)"
+- tapOn: "(Library|Bibliothek)"
+# The tab keeps the page it showed last; a second tap is its start.
+- runFlow:
+    when:
+      notVisible: "Chad and Reeds Podcast"
+    commands:
+      - tapOn: "(Library|Bibliothek)"
+- tapOn: "Chad and Reeds Podcast"
+- tapOn: ".*(Subscribed|Abonniert)"
+- extendedWaitUntil:
+    visible: "(Unsubscribe|Abo beenden)"
+    timeout: 10000
+- tapOn: "(Unsubscribe|Abo beenden)"

@@ -9,17 +9,22 @@ summary: Honest open podcast player — Podcasting 2.0 with value for value over
 description: |
   Hopp is a podcast player without an account, for Podcasting 2.0 and value
   for value: connect your Lightning wallet over NWC, boost an episode or a
-  whole show, and stream sats while you listen.
+  whole show, and stream sats while you listen — within a daily budget you
+  set. Hopp takes no cut and collects nothing.
 
   - Library, Home with what is new and what you are listening to, queue,
     downloads on Wi-Fi, sleep timer, speed per show, skip silence, Android Auto
-  - Find shows in the Podcast Index (optionally fyyd and Apple), by feed
-    address or OPML
+  - Discover by category, from your shows' recommendations, new shows that
+    take sats and what is popular — from the Podcast Index (optionally fyyd
+    and Apple), by feed address or OPML
   - Chapters, transcripts, people, show notes
   - Sovereigncast shows: Release Boosting, Boost2Unlock, votes, top boosts
-  - Comments on every episode over Nostr — read, write and like them,
-    Fountain's too; an optional Nostr identity, boosts as notes if you like
-  - Hopp collects nothing; a privacy page explains who sees what
+  - Comments on every episode over Nostr, Fountain's too: write, like and zap
+    them — publicly, privately or anonymously — with an identity made in
+    Hopp, imported or kept in Amber; boosts as comments if you like; your own
+    relays
+  - Notifications for boosts and zaps, set for each on its own
+  - Phones and tablets; a privacy page explains who sees what
 
   In English and German.
 tags:
@@ -35,12 +40,19 @@ website: https://hopp.sovereigncast.space
 # (docs/brand/logo/hopp-icon-ios-1024-light.svg at 512 px), from the fastlane
 # metadata F-Droid reads too.
 icon: https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/icon.png
-# Real screenshots from the app, shared with hopp.sovereigncast.space
-# (public_src/assets/screens there); German UI. Same files as F-Droid.
+# Real screenshots from the app, English UI (devicetests/store makes them);
+# the same files as F-Droid's, phone first, then the tablet.
 images:
   - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1-player.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-library.png
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-boost.png
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-privacy.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-boost.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-home.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-comments.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/5-show.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/6-community.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/7-discover.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/8-library.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/9-privacy.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/1-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/2-comments.jpg
 
 release_notes: ./CHANGELOG.md

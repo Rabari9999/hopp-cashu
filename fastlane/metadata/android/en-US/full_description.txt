@@ -6,12 +6,17 @@
 
 <p><b>100 % to the podcasters.</b> Hopp takes no cut; routing fees are shown separately. Supporting Hopp is a visible option you turn on yourself.</p>
 
+<p><b>Comments over Nostr.</b> Every episode's comments, Fountain's included. With a Nostr identity — made in Hopp, imported, or kept in Amber — write, like and zap them, publicly, privately or anonymously, post a boost as a comment, and use your own relays.</p>
+
+<p><b>Discover</b> shows by category, from your shows' recommendations, new shows that take sats and what is popular right now — from the Podcast Index.</p>
+
 <p><b>Sovereigncast shows</b> come alive in Hopp: Release Boosting, Boost2Unlock, topic votes and the community's top boosts.</p>
 
 <ul>
 <li>Library as cards or a list, Home with what is new and what you are listening to</li>
 <li>Find shows in the Podcast Index (optionally fyyd and Apple), by feed address or OPML</li>
 <li>Queue, downloads on Wi-Fi, sleep timer, speed per show, skip silence, your own skip intervals</li>
+<li>Notifications for boosts and zaps, set for each on its own</li>
 <li>Android Auto, phones and tablets, in English and German</li>
 </ul>
 
