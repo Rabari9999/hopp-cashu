@@ -25,6 +25,10 @@ follows with its own version line. The decisions are recorded as ADRs;
 - [Open questions](docs/open-questions.md)
 - [Logo brief](docs/brand/logo-brief.md)
 
+## Contributing
+
+Merge requests from forks are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
