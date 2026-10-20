@@ -387,7 +387,9 @@ class CommentsTest {
         assertEquals("No note here", commentBody(writeReader.cached(anchor)!!.comments.single().content), "Hopp shows it without")
         val boost = writer.boost(anchor.copy(page = null), 2100, "Danke", emptyList())
         assertEquals("Danke\n\n⚡ 2100 sats\n\n🎧 Nodesignal – E297", boost.content)
-        assertEquals("Danke\n\n⚡ 2100 sats", commentBody(boost.content))
+        // The amount beside the name, as a zap's (device feedback 2026-10-20) — not in the text.
+        assertEquals("Danke", commentBody(boost.content))
+        assertEquals(2100L, boostSats(boost.content))
     }
 
     @Test
@@ -474,7 +476,10 @@ class CommentsTest {
         val posted = writer.boost(anchor, 2100, "  Danke! ", emptyList())
         assertTrue(posted.content.startsWith("Danke!\n\n⚡ 2100 sats\n\nnostr:nevent1"))
         assertTrue(posted.tags.any { it[0] == "q" && it[1] == postNote.id } && listOf("i", item) in posted.tags)
-        assertEquals("⚡ 21 sats", commentBody(writer.boost(anchor, 21, "", emptyList()).content))
+        val bare = writer.boost(anchor, 21, "", emptyList())
+        assertEquals("", commentBody(bare.content))
+        assertEquals(21L, boostSats(bare.content))
+        assertEquals(null, boostSats("Great show!\n\nThe ⚡ 21 sats line is only the last one"), "only a line of its own at the end")
         assertEquals(2, writeReader.cached(anchor)!!.comments.size)
     }
 

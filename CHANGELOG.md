@@ -22,6 +22,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Notifications:** Set separately for quick boost, boost and zap.
 
 ### 🐛 Fixes
+- **Comments:** A boost's amount stands beside the name, as a zap's, not in the text.
 - **Player:** While a stream loads, a ring turns round the play button; a second tap stops it.
 - **Comments:** A zap sent no notification.
 - **Comments:** Without a Nostr post by the show, a comment now names the show and episode, so other apps show what it is about.

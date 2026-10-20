@@ -22,6 +22,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Benachrichtigungen:** Für Schnellboost, Boost und Zap getrennt einstellbar.
 
 ### 🐛 Fixes
+- **Kommentare:** Der Betrag eines Boosts steht wie bei Zaps neben dem Namen statt im Text.
 - **Player:** Lädt ein Stream noch, dreht sich ein Ring um den Play-Button; ein zweiter Tipp stoppt.
 - **Kommentare:** Ein Zap löste keine Benachrichtigung aus.
 - **Kommentare:** Ohne Nostr-Post der Show nennt ein Kommentar jetzt Show und Folge, damit andere Apps den Bezug zeigen.

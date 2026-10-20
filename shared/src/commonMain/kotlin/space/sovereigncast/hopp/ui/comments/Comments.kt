@@ -435,17 +435,19 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 // Nothing to read and no sats behind it (a Fountain boost before its
                 // amount is in, or a bare link): not shown. Nor what the listener
                 // hid, reported or muted here.
-                fun says(c: Comment) = c.id !in hidden && c.pubkey !in mutedHere && ((boosts[c.id] ?: c.sats) != null || commentBody(c.content).isNotEmpty())
+                // Checked first (a receipt, a zap), else what a public boost names (device feedback 2026-10-20).
+                fun sats(c: Comment) = boosts[c.id] ?: c.sats ?: space.sovereigncast.hopp.comments.boostSats(c.content)
+                fun says(c: Comment) = c.id !in hidden && c.pubkey !in mutedHere && (sats(c) != null || commentBody(c.content).isNotEmpty())
                 val shown = s.thread.comments.filter { it.pubkey !in mutedHere && it.id !in hidden }.mapNotNull { c ->
                     val replies = c.replies.filter(::says)
                     if (says(c) || replies.isNotEmpty()) c to replies else null
                 }
                 if (shown.isEmpty()) Text(stringResource(Res.string.comments_none), color = colors.onSurfaceVariant)
                 shown.forEach { (c, replies) ->
-                    CommentRow(c, authors, boosts[c.id] ?: c.sats, me?.pubkey, c.id in liking, vm, onTimestamp, zapped = c.zapped + (zappedHere[c.id] ?: 0))
+                    CommentRow(c, authors, sats(c), me?.pubkey, c.id in liking, vm, onTimestamp, zapped = c.zapped + (zappedHere[c.id] ?: 0))
                     if (to?.id == c.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
                     replies.forEach { r ->
-                        CommentRow(r, authors, boosts[r.id], me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp), zapped = r.zapped + (zappedHere[r.id] ?: 0))
+                        CommentRow(r, authors, sats(r), me?.pubkey, r.id in liking, vm, onTimestamp, Modifier.padding(start = 40.dp), zapped = r.zapped + (zappedHere[r.id] ?: 0))
                         if (to?.id == r.id) Composer(vm, me != null, authors, inline = true, modifier = Modifier.padding(start = 40.dp))
                     }
                 }

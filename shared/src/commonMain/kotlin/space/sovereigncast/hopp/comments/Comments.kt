@@ -98,8 +98,21 @@ internal fun episodeLine(anchor: CommentAnchor): String? {
  * with, nor the episode's name Hopp ends one with — the listener is on that episode. Empty for a Fountain boost without
  * a message.
  */
-fun commentBody(content: String): String =
+fun commentBody(content: String): String = withoutTails(content).replace(BOOST_LINE, "").trim()
+
+private fun withoutTails(content: String) =
     EMBED.replace(content, "").replace(TRAILING_SPACE, "\n").trim().replace(FOUNTAIN_TAIL, "").replace(HOPP_TAIL, "").trim()
+
+/** The last line of a public boost as Hopp writes it ([CommentWriter.boost]): "⚡ 210 sats". */
+private val BOOST_LINE = Regex("""(?:^|\n\n)⚡ (\d{1,9}) sats$""")
+
+/**
+ * The amount a public boost names in its last line — shown beside the name, as
+ * a zap's (device feedback 2026-10-20), and left out of the text. Other clients
+ * show the line as it is. The listener's word, as Fountain's boost notes are
+ * (ADR 0021, 6): Hopp pays by keysend, and no receipt could back it.
+ */
+fun boostSats(content: String): Long? = BOOST_LINE.find(withoutTails(content))?.groupValues?.get(1)?.toLongOrNull()?.takeIf { it > 0 }
 
 /** The notes a comment embeds — Fountain embeds the zap receipt of its boost. */
 internal fun embeddedNotes(content: String): List<NoteRef> = EMBED.findAll(content).mapNotNull { noteRef(it.value) }.toList()
