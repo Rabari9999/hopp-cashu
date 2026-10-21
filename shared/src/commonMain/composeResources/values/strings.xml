@@ -256,6 +256,7 @@
     <string name="sc_failed_expired">No confirmation — the invoice expired.</string>
     <string name="sc_failed_unknown">No answer from the wallet — it may have paid. Look in the payment history before you pay again.</string>
     <string name="sc_failed_no_round">The round has just ended.</string>
+    <string name="sc_failed_budget">More than today’s budget allows — nothing was paid (Settings → Wallet &amp; payments).</string>
     <string name="sc_failed">Did not work: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>
     <string name="sc_b2u_name">Boost2Unlock</string>

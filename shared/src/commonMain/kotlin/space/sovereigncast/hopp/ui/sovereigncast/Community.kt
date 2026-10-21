@@ -92,6 +92,7 @@ import space.sovereigncast.hopp.resources.sc_external
 import space.sovereigncast.hopp.resources.sc_failed
 import space.sovereigncast.hopp.resources.sc_failed_expired
 import space.sovereigncast.hopp.resources.sc_failed_unknown
+import space.sovereigncast.hopp.resources.sc_failed_budget
 import space.sovereigncast.hopp.resources.sc_failed_mismatch
 import space.sovereigncast.hopp.resources.sc_failed_no_round
 import space.sovereigncast.hopp.resources.sc_minutes
@@ -656,6 +657,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                         "mismatch" -> stringResource(Res.string.sc_failed_mismatch)
                         "expired" -> stringResource(Res.string.sc_failed_expired)
                         "unknown" -> stringResource(Res.string.sc_failed_unknown)
+                        "budget" -> stringResource(Res.string.sc_failed_budget)
                         "no_active_round" -> stringResource(Res.string.sc_failed_no_round)
                         else -> stringResource(Res.string.sc_failed, p.detail ?: p.code)
                     },

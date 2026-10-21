@@ -30,6 +30,20 @@ insert:
 INSERT INTO payment (created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, unknown_msat, results_json)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+lastInsertId:
+SELECT last_insert_rowid();
+
+selectById:
+SELECT * FROM payment WHERE id = ?;
+
+-- A journalled payment once the wallet has answered: what went out, its fee,
+-- what may have (unknown), and the lines as they stand now.
+settle:
+UPDATE payment SET amount_msat = ?, fees_msat = ?, unknown_msat = ?, results_json = ? WHERE id = ?;
+
+setResults:
+UPDATE payment SET results_json = ? WHERE id = ?;
+
 recent:
 SELECT * FROM payment ORDER BY created_at DESC, id DESC LIMIT 200;
 

@@ -253,3 +253,15 @@ the code before:
   path.** A scalar `result`, or an `error` whose `code` is no string, raised a
   JSON exception that counted as "not paid". Every field of the answer is read
   as "if it has this shape"; what has not is unknown.
+- **Instance payments past the budget and the lock (found in the same
+  review).** Release Boosting, Boost2Unlock and suggestions paid their invoice
+  straight from `NwcClient`: no daily budget, no fee reserve, not under the
+  spending lock that keeps boosts, zaps and streaming batches apart, and in
+  the history only afterwards. They go through `ValueService.payInvoice` now,
+  as zaps do: one at a time, within the budget — checked before the instance
+  is asked for an invoice, so it keeps no suggestion that is never paid — and
+  **journalled before the wallet is asked** (audit M-09, for single
+  invoices): the row is written as an unknown outcome that counts against
+  the budget, and the wallet's answer settles it; a process killed in
+  between leaves a trace, not nothing. Boosts with several shares still log
+  after the last share; streaming has its in-flight marker.

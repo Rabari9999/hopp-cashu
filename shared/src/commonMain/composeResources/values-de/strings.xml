@@ -256,6 +256,7 @@
     <string name="sc_failed_expired">Keine Bestätigung – die Rechnung ist abgelaufen.</string>
     <string name="sc_failed_unknown">Keine Antwort von der Wallet – vielleicht wurde bezahlt. Schau in den Zahlungsverlauf, bevor du noch einmal zahlst.</string>
     <string name="sc_failed_no_round">Die Runde ist gerade zu Ende gegangen.</string>
+    <string name="sc_failed_budget">Mehr, als das Tagesbudget erlaubt – es wurde nichts bezahlt (Einstellungen → Wallet &amp; Zahlungen).</string>
     <string name="sc_failed">Hat nicht geklappt: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>
     <string name="sc_b2u_name">Boost2Unlock</string>

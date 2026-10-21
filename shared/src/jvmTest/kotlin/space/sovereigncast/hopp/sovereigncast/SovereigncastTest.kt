@@ -212,10 +212,9 @@ class SovereigncastTest {
         wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
         val invoice = sc.invoice(layer, ScTarget.ReleaseBoosting, 210, "Schneller!", "Satoshi")
         assertTrue(bodies.any { "\"amount_sats\":210" in it && "\"message\":\"Schneller!\"" in it })
-        val fees = sc.payWithWallet(invoice)
+        sc.payWithWallet(id, layer, ScTarget.ReleaseBoosting, invoice, 210, "Schneller!", "E297")
         assertEquals("pay_invoice", fake.requests.last().first)
         assertTrue(sc.awaitPaid(layer, invoice))
-        sc.log(id, layer, ScTarget.ReleaseBoosting, "E297", 210, "Schneller!", fees)
         val logged = value.payments.first().single()
         assertEquals(ValueService.KIND_RELEASE_BOOSTING, logged.kind)
         assertEquals(210_000L, logged.amountMsat)
@@ -232,9 +231,8 @@ class SovereigncastTest {
         val invoice = sc.invoice(layer, target, 210, null, "Satoshi")
         val sent = bodies.last()
         assertTrue("\"title\":\"Ark und Spark\"" in sent && "\"links\":\"https://ark.test\"" in sent && "\"username\":\"Satoshi\"" in sent && "\"amount_sats\":210" in sent, sent)
-        val fees = sc.payWithWallet(invoice)
+        sc.payWithWallet(id, layer, target, invoice, 210, null, "Ark und Spark")
         assertTrue(sc.awaitPaid(layer, invoice))
-        sc.log(id, layer, target, "Ark und Spark", 210, null, fees)
         assertEquals(ValueService.KIND_SUGGESTION, value.payments.first().single().kind)
     }
 
@@ -319,6 +317,54 @@ class SovereigncastTest {
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         withTimeout(5_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
         assertEquals(1, fake.requests.count { it.first == "pay_invoice" }, "the same invoice was paid again")
+    }
+
+    /** Security audit 2026-10-20: an instance's invoice went to the wallet past
+     *  the daily budget and the spending lock. Over the budget the instance is
+     *  not even asked for one; within it, the payment is paid and counted. */
+    @Test
+    fun anInstancePaymentStaysWithinTheBudget() = onMain {
+        val id = subscribe()
+        wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        settings.update { it.copy(dailyBudgetSats = 200) }
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        withTimeout(5_000) { while (vm.layer.value == null || !vm.hasWallet.value) delay(10) }
+        val invoicesBefore = bodies.count { "amount_sats" in it }
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(5_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
+        assertEquals("budget", (vm.pay.value as ScPay.Failed).code)
+        assertEquals(invoicesBefore, bodies.count { "amount_sats" in it }, "no invoice asked for")
+        assertTrue(fake.requests.none { it.first == "pay_invoice" })
+        assertTrue(value.payments.first().isEmpty(), "nothing in the history")
+        // 210 and the fee reserve of 2.1 sats fit 213.
+        settings.update { it.copy(dailyBudgetSats = 213) }
+        vm.resetPay()
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
+        assertEquals(211_000L, db.paymentQueries.spentSince(0).executeAsOne())
+    }
+
+    /** Security audit 2026-10-20, M-09: the payment is in the history before the
+     *  wallet is asked — as unknown, so a kill in between leaves a trace that
+     *  counts against the budget — and settled by the wallet's answer. */
+    @Test
+    fun anInstancePaymentIsJournalledBeforeTheWalletIsAsked() = onMain {
+        val id = subscribe()
+        wallet.connect("nostr+walletconnect://${fake.keys.publicKeyHex}?relay=wss://r.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        withTimeout(5_000) { while (vm.layer.value == null || !vm.hasWallet.value) delay(10) }
+        var journalled: List<space.sovereigncast.hopp.db.Payment>? = null
+        relay.listeners += { e -> if (e.kind == 23194 && journalled == null) journalled = db.paymentQueries.recent().executeAsList() }
+        vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
+        withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
+        val seen = assertNotNull(journalled, "the request reached the relay").single()
+        assertTrue("\"status\":\"unknown\"" in seen.results_json && ValueService.IN_FLIGHT_REASON in seen.results_json, seen.results_json)
+        assertEquals(0L to 210_000L, seen.amount_msat to seen.unknown_msat, "may have left the wallet: against the budget")
+        val settled = value.payments.first().single()
+        assertEquals(seen.id, settled.id, "the same row, settled")
+        assertEquals("paid" to null, settled.lines.single().let { it.status to it.reason })
+        assertEquals(210_000L, settled.amountMsat)
     }
 
     /** Code review 2026-10-17: without a wallet the listener pays in another app;

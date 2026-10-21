@@ -29,6 +29,7 @@ import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import space.sovereigncast.hopp.sovereigncast.Suggestion
 import space.sovereigncast.hopp.sovereigncast.TopEpisode
 import space.sovereigncast.hopp.storePaysForContent
+import space.sovereigncast.hopp.value.OverBudgetException
 import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.value.nwc.NwcException
 
@@ -145,8 +146,12 @@ class CommunityViewModel(
         viewModelScope.launch {
             _pay.value = try {
                 settings.update { it.copy(senderName = name.trim()) }
-                val invoice = sc.invoice(l, target, amountSats, message, name)
-                if (invoice.paymentHash.lowercase() in handedToWallet) {
+                // Over the budget, the instance is not even asked — it would keep
+                // the suggestion, say, that is then never paid (payWithWallet decides).
+                val invoice = if (hasWallet.value && !sc.budgetAllows(amountSats)) null else sc.invoice(l, target, amountSats, message, name)
+                if (invoice == null) {
+                    ScPay.Failed("budget")
+                } else if (invoice.paymentHash.lowercase() in handedToWallet) {
                     // An invoice the wallet already has, with no answer then: it may be paid.
                     ScPay.Failed("unknown")
                 } else if (hasWallet.value) {
@@ -178,15 +183,22 @@ class CommunityViewModel(
     private suspend fun payWithWallet(l: ScLayer, target: ScTarget, invoice: Invoice, amountSats: Long, message: String, episodeTitle: String?): ScPay {
         val hash = invoice.paymentHash.lowercase()
         handedToWallet += hash
-        val fees = try {
-            sc.payWithWallet(invoice)
+        // In the history from before the wallet is asked, also when the page is
+        // left mid-payment: it may have left the wallet (security audit
+        // 2026-10-18, M-03; 2026-10-20, M-09). Budget and lock are the service's.
+        val paid = try {
+            sc.payWithWallet(podcastId, l, target, invoice, amountSats, message, episodeTitle)
+        } catch (e: OverBudgetException) {
+            handedToWallet -= hash
+            return ScPay.Failed("budget")
         } catch (e: NwcException) {
             if (!e.outcomeUnknown) { handedToWallet -= hash; throw e }
-            // Logged even when the page is left mid-payment (the view model's
-            // scope cancelled): it may have left the wallet (security audit
-            // 2026-10-18, M-03).
-            withContext(NonCancellable) { sc.log(podcastId, l, target, episodeTitle, amountSats, message, null, status = "unknown") }
             return ScPay.Failed("unknown", e.message)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handedToWallet -= hash
+            throw e
         }
         _pay.value = ScPay.Confirming
         var confirmed = false
@@ -194,7 +206,7 @@ class CommunityViewModel(
             confirmed = sc.awaitPaid(l, invoice, timeoutMinutes = 2)
         } finally {
             // Paid is paid, also when the page closes while the instance is asked.
-            withContext(NonCancellable) { sc.log(podcastId, l, target, episodeTitle, amountSats, message, fees, reason = if (confirmed) null else UNCONFIRMED) }
+            if (!confirmed) withContext(NonCancellable) { sc.unconfirmed(paid) }
         }
         load()
         return ScPay.Done(amountSats)
@@ -204,6 +216,6 @@ class CommunityViewModel(
 
     companion object {
         /** The reason in the history: the wallet paid, the instance had not said so yet. */
-        const val UNCONFIRMED = "unconfirmed"
+        const val UNCONFIRMED = SovereigncastRepository.UNCONFIRMED
     }
 }

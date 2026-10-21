@@ -495,6 +495,20 @@ class ValueServiceTest {
         assertEquals(listOf(host to 90L, cohost to 10L), keysends())
     }
 
+    /** Security audit 2026-10-20: invoices — a zap's, an instance's — are paid
+     *  under the same lock as every payment: ten at once, budget for one. */
+    @Test
+    fun parallelInvoicePaymentsStayWithinTheBudget() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(dailyBudgetSats = 150) }
+        val invoice = TestInvoices.make(100_000, ByteArray(32))
+        val results = (1..10).map { scope.async { runCatching { value.payInvoice(ValueService.KIND_ZAP, null, null, null, 100_000, null, "Alice", "alice@zap.test") { invoice } } } }.map { it.await() }
+        assertEquals(1, results.count { it.isSuccess }, results.toString())
+        assertEquals(9, results.count { it.exceptionOrNull() is OverBudgetException }, results.toString())
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
+        assertEquals(101_000L, db.paymentQueries.spentSince(0).executeAsOne(), "100 sats and the fee")
+    }
+
     /** Device feedback 2026-10-08: a boost to the whole show — its block, no
      *  episode, no song from a time split. */
     @Test
