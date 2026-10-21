@@ -28,7 +28,12 @@ data class SyncStatus(
     val lastSyncedMs: Long? = null,
     /** Why the last round did not get through — null when it did. */
     val problem: SyncOutcome? = null,
+    /** What the last round took from the relays, per document. */
+    val applied: Map<String, Int> = emptyMap(),
 )
+
+/** Sync turned on brought something from the listener's other devices: [shows] of it subscriptions. */
+data class Restored(val shows: Int, val entries: Int)
 
 /**
  * Runs sync (ADR 0021, 5; docs/tasks/nostr-sync.md): on start, on coming to
@@ -71,8 +76,17 @@ class SyncManager(
         }
         settings.update { it.copy(nostrSync = true) }
         journal.enabled = true
-        return syncNow(interactive = true, seeds)
+        val status = syncNow(interactive = true, seeds)
+        // Something came from elsewhere: the app says so and shows it (maintainer, 2026-10-21).
+        if (status.problem == null && status.applied.values.sum() > 0) {
+            _restored.tryEmit(Restored(status.applied[SyncDocs.SUBSCRIPTIONS] ?: 0, status.applied.values.sum()))
+        }
+        return status
     }
+
+    private val _restored = kotlinx.coroutines.flow.MutableSharedFlow<Restored>(extraBufferCapacity = 1)
+    /** After sync was turned on and brought something: Home, and a line that says what. */
+    val restored: kotlinx.coroutines.flow.SharedFlow<Restored> = _restored
 
     /**
      * Whether the listener's other devices left a library on the relays that
@@ -110,11 +124,13 @@ class SyncManager(
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
         var problem: SyncOutcome? = null
+        val applied = mutableMapOf<String, Int>()
         for (doc in documents()) {
             val outcome = engine.sync(doc, interactive, seeds[doc.name].orEmpty())
-            if (outcome !is SyncOutcome.Done) { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+            if (outcome is SyncOutcome.Done) applied[doc.name] = outcome.applied
+            else { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
         }
-        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem)
+        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied)
         _status.value
     }
 

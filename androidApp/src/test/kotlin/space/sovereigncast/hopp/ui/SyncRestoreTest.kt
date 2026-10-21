@@ -136,5 +136,9 @@ class SyncRestoreTest {
         rule.waitUntil(30_000) { db.podcastQueries.selectAll().executeAsList().singleOrNull()?.playback_speed == 1.25 }
         check(db.podcastQueries.selectAll().executeAsList().single().feed_url == "https://pod.test/nodesignal.xml")
         rule.waitUntil(30_000) { !has("Restore from your other devices") }
+        // Said so, on Home, where the library now is (maintainer, 2026-10-21).
+        waitFor("✓ Your library is back: 1 show, with progress, favourites and “Up next”.")
+        check(has("Your shows") || has("Home")) { "not on Home" }
+        check(!has("Sync across devices")) { "still on the Nostr page" }
     }
 }

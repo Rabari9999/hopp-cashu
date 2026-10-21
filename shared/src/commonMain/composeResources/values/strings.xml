@@ -832,4 +832,9 @@
     <string name="opml_incoming_none">There are no shows in this file — is it an OPML export?</string>
     <string name="opml_incoming_import">Subscribe</string>
     <string name="opml_incoming_close">Close</string>
+    <plurals name="sync_restored_shows">
+        <item quantity="one">✓ Your library is back: %1$d show, with progress, favourites and “Up next”.</item>
+        <item quantity="other">✓ Your library is back: %1$d shows, with progress, favourites and “Up next”.</item>
+    </plurals>
+    <string name="sync_restored">✓ In step with your other devices.</string>
 </resources>

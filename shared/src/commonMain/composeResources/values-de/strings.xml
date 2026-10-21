@@ -832,4 +832,9 @@
     <string name="opml_incoming_none">In dieser Datei stehen keine Shows – ist es ein OPML-Export?</string>
     <string name="opml_incoming_import">Abonnieren</string>
     <string name="opml_incoming_close">Schließen</string>
+    <plurals name="sync_restored_shows">
+        <item quantity="one">✓ Deine Bibliothek ist zurück: %1$d Show, mit Hörstand, Favoriten und „Als Nächstes“.</item>
+        <item quantity="other">✓ Deine Bibliothek ist zurück: %1$d Shows, mit Hörstand, Favoriten und „Als Nächstes“.</item>
+    </plurals>
+    <string name="sync_restored">✓ Mit deinen anderen Geräten abgeglichen.</string>
 </resources>

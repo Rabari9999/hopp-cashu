@@ -4,6 +4,9 @@ name: Sync back
 ---
 - launchApp:
     stopApp: true
+# Home's start, whatever page the tab kept.
+- tapOn: "Home"
+- tapOn: "Home"
 - tapOn: "Settings"
 - scrollUntilVisible:
     element: "Nostr identity"

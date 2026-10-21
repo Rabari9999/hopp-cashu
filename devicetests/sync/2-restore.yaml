@@ -28,12 +28,12 @@ name: Sync restore
 - waitForAnimationToEnd
 - takeScreenshot: sync-2-offer
 - tapOn: "Restore"
+# Done: Home, and a line that says what came back.
 - extendedWaitUntil:
-    visible: "Synced just now"
+    visible: "✓ Your library is back: 1 show.*"
     timeout: 180000
-- assertVisible: "Hopp device check"
-- takeScreenshot: sync-2-nostr
-- tapOn: "Back"
+- assertVisible: ".*Hopp device check.*"
+- takeScreenshot: sync-2-restored
 # The library: the show, and E296 in "Up next".
 - tapOn: "Library"
 - extendedWaitUntil:

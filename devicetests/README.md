@@ -58,7 +58,7 @@ subscribed, E297 streamed for a while, the show at 1.1×:
 | --- | --- | --- |
 | `1-source` | phone | Default speed 1.3×, skip back 5 s and forward 45 s; E296 a favourite and in "Up next"; a Nostr key made for the test ("Hopp device check"), sync on until "Synced just now"; the key's backup (NIP-49, a password per run) left on screen. |
 | — | script | Reads the backup from the phone's view hierarchy (`maestro hierarchy`), keeps it beside the run (`sync/test-key.txt`), installs Hopp anew on the iPhone. |
-| `2-restore` | iPhone | The welcome page's "I already use Hopp", the key and password, the offer ("Shows: 1 · in progress: 1"), the restore; then checks the show, "Up next", the favourite, E297's place, the three habits (in the settings and on the player's skip buttons). Changes skip back to 15 s and takes the favourite back, syncs. |
+| `2-restore` | iPhone | The welcome page's "I already use Hopp", the key and password, the offer ("Shows: 1 · in progress: 1"), the restore, which lands on Home with "Your library is back"; then checks the show, "Up next", the favourite, E297's place, the three habits (in the settings and on the player's skip buttons). Changes skip back to 15 s and takes the favourite back, syncs. |
 | `3-back` | phone | Syncs and finds both changes. |
 
 This is the one part of the device check that publishes: the throwaway key's

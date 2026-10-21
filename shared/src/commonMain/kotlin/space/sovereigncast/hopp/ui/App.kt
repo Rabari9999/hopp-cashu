@@ -65,6 +65,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
 import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
@@ -77,6 +78,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.getPluralString
+import space.sovereigncast.hopp.resources.sync_restored_shows
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
@@ -294,6 +297,20 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     player.minimize()
                     nav.navigate(SettingsPageRoute(SettingsPage.Subscriptions.name))
                 }
+            }
+        }
+        launch {
+            // Sync turned on brought the listener's library: Home, where it now is, and a line
+            // that says so — the Nostr page's status alone went unseen (maintainer, 2026-10-21).
+            sync.restored.collect { r ->
+                withContext(Dispatchers.Main) {
+                    player.minimize()
+                    selectTabNow(tabs[0])
+                }
+                snackbar.showSnackbar(
+                    if (r.shows > 0) getPluralString(Res.plurals.sync_restored_shows, r.shows, r.shows) else getString(Res.string.sync_restored),
+                    withDismissAction = true,
+                )
             }
         }
         // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
