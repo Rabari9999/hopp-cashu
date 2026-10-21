@@ -1,0 +1,44 @@
+# Sync, part 3: back on the first device — what the second changed has come.
+appId: ${APP_ID}
+name: Sync back
+---
+- launchApp:
+    stopApp: true
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Nostr identity"
+- tapOn: "Nostr identity"
+- scrollUntilVisible:
+    element: "Sync now"
+- tapOn: "Sync now"
+- extendedWaitUntil:
+    visible: "Synced just now"
+    timeout: 60000
+- tapOn: "Back"
+- scrollUntilVisible:
+    element: "Playback"
+    direction: UP
+- tapOn: "Playback"
+# Android reports a chosen chip as checked, its label as a child.
+- assertVisible:
+    checked: true
+    containsChild: "15 s"
+    below: "Skip back"
+- assertNotVisible:
+    checked: true
+    containsChild: "5 s"
+    below: "Skip back"
+- takeScreenshot: sync-3-playback
+- tapOn: "Back"
+- tapOn: "Back"
+# The favourite taken back there: Home has no Favourites section, all the way down.
+- tapOn: "Home"
+- waitForAnimationToEnd
+- repeat:
+    times: 4
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 25%
+      - assertNotVisible: "Favourites"
+- takeScreenshot: sync-3-home

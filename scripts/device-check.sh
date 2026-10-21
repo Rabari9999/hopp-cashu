@@ -31,10 +31,11 @@ if [[ "${BUILD:-0}" == 1 ]]; then
     if wants phone || wants tablet; then ./gradlew --no-daemon -q :androidApp:assembleFossBeta || exit 1; fi
     if wants iphone || wants ipad; then
         # The simulator wants arm64 only: a generic destination asks for x86_64 too,
-        # which the Kotlin framework is not built for.
+        # which the Kotlin framework is not built for. Signed ad hoc, not unsigned: an
+        # unsigned app gets no Keychain, and the Nostr key would last only while it runs.
         xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
             -sdk iphonesimulator -destination "platform=iOS Simulator,name=$IPHONE" \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
             -derivedDataPath "$IOS_BUILD" build > "$OUT/ios-build.log" 2>&1 || { echo "iOS build failed: $OUT/ios-build.log" >&2; exit 1; }
     fi
 fi
@@ -128,6 +129,43 @@ for name in "${DEVICES[@]}"; do
     esac
 done
 
+# ── sync between two devices (ADR 0021 stage 5) ───────────────────────────
+# On what the phone's runs left: listening habits, a favourite and "Up next"
+# added, a Nostr key made for the test and sync on; the key's backup read from
+# the screen; Hopp installed anew on the iPhone, restored from Nostr with that
+# key and checked; two changes there found on the phone again. The only run
+# that publishes: a throwaway key's profile, relay list and sync documents.
+# SYNC=0 leaves it out.
+sync_step() { # device id, app id, flow, run name, extra env…
+    local device=$1 app=$2 flow=$3 name=$4; shift 4
+    maestro --device "$device" test -e APP_ID="$app" "$@" --test-output-dir "$OUT/raw/$name" "devicetests/sync/$flow" > "$OUT/$name.log" 2>&1 || { failed=1; echo "   [Failed] $name — $OUT/$name.log"; return 1; }
+    echo "   [Passed] $name"
+    mkdir -p "$OUT/sync"
+    find "$OUT/raw/$name" -path "*takeScreenshot*" -name "*.png" -exec cp {} "$OUT/sync/" \;
+}
+if [[ "${SYNC:-1}" == 1 ]] && wants phone && wants iphone; then
+    echo "→ sync phone → iphone → phone"
+    phone=$(serial_of phone); iphone=$(udid_of "$IPHONE")
+    password="hopp-device-check-$RANDOM"
+    rotate_android "$phone" 0
+    if sync_step "$phone" "$ANDROID_APP" 1-source.yaml sync-1-source -e PASSWORD="$password"; then
+        # The backup on screen, read from the view hierarchy — kept with this run only.
+        key=$(maestro --device "$phone" hierarchy 2>/dev/null | grep -o 'ncryptsec1[02-9ac-hj-np-z]\{20,\}' | head -1)
+        if [[ -z "$key" ]]; then echo "   no key backup on the phone's screen" >&2; failed=1
+        else
+            printf '%s\n%s\n' "$key" "$password" > "$OUT/sync/test-key.txt"
+            # The second device as after a fresh install — the Keychain too, which outlives
+            # deleting the app and would bring a key from an earlier run back.
+            xcrun simctl uninstall "$iphone" "$IOS_APP" > /dev/null 2>&1
+            xcrun simctl keychain "$iphone" reset
+            xcrun simctl install "$iphone" "$IOS_APP_PATH"
+            rotate_maestro "$iphone" PORTRAIT
+            sync_step "$iphone" "$IOS_APP" 2-restore.yaml sync-2-restore -e KEY="$key" -e PASSWORD="$password" \
+                && sync_step "$phone" "$ANDROID_APP" 3-back.yaml sync-3-back
+        fi
+    fi
+fi
+
 for serial in ${emulators[@]+"${emulators[@]}"}; do adb -s "$serial" emu kill > /dev/null 2>&1; done
 for udid in ${simulators[@]+"${simulators[@]}"}; do xcrun simctl shutdown "$udid" > /dev/null 2>&1; done
 
@@ -145,6 +183,12 @@ for udid in ${simulators[@]+"${simulators[@]}"}; do xcrun simctl shutdown "$udid
         done
         echo "</div>"
     done
+    # Sync: the steps in order, phone and iPhone alternating.
+    if ls "$OUT"/sync/*.png > /dev/null 2>&1; then
+        echo "<h2>sync phone → iphone → phone</h2><div class=row>"
+        for f in "$OUT"/sync/*.png; do echo "<figure><img src=\"sync/$(basename "$f")\" loading=lazy><figcaption>$(basename "$f" .png)</figcaption></figure>"; done
+        echo "</div>"
+    fi
 } > "$OUT/index.html"
 
 echo "→ $OUT/index.html"

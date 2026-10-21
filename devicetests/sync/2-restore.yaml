@@ -1,0 +1,140 @@
+# Sync, part 2: a second device, Hopp just installed. The tour's "Restore from
+# Nostr", the key from the first device (${KEY}, its backup with ${PASSWORD}),
+# the offer, the restore — then everything checked as the first device left it.
+# At the end two changes made here, for part 3 to find on the first device.
+appId: ${APP_ID}
+name: Sync restore
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible: "Welcome to Hopp"
+    timeout: 15000
+- repeat:
+    times: 4
+    commands:
+      - tapOn: "Next"
+- extendedWaitUntil:
+    visible: "Nostr, if you like"
+    timeout: 10000
+- tapOn: "Already using Hopp\\? Restore from Nostr"
+- tapOn: "nsec1… or ncryptsec1…"
+- inputText: ${KEY}
+- tapOn: "Password of the backup"
+- inputText: ${PASSWORD}
+# No hideKeyboard: iOS cannot (the simulator's keyboard stays out of the way), and "Use key" is in view.
+- tapOn: "Use key"
+# The offer, with what the relays hold: one show, E297 begun.
+- extendedWaitUntil:
+    visible: "Restore from your other devices"
+    timeout: 60000
+- assertVisible: "Shows: 1 · in progress: 1"
+- waitForAnimationToEnd
+- takeScreenshot: sync-2-offer
+- tapOn: "Restore"
+- extendedWaitUntil:
+    visible: "Synced just now"
+    timeout: 180000
+- assertVisible: "Hopp device check"
+- takeScreenshot: sync-2-nostr
+- tapOn: "Back"
+# The library: the show, and E296 in "Up next".
+- tapOn: "Library"
+- extendedWaitUntil:
+    visible: "Nodesignal.*"
+    timeout: 60000
+- tapOn: "Up next"
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E296.*"
+    timeout: 30000
+- takeScreenshot: sync-2-up-next
+- tapOn: "Back"
+# Home: E297 to continue, E296 a favourite.
+- tapOn: "Home"
+- extendedWaitUntil:
+    visible: "Continue listening"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: sync-2-home
+# Below the other sections on a phone.
+- scrollUntilVisible:
+    element: "Favourites"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E296.*"
+- takeScreenshot: sync-2-favourites
+# The listening habits: the Playback page as the first device set it (iOS reports a
+# chosen chip's label as selected).
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Playback"
+- tapOn: "Playback"
+- assertVisible:
+    text: "1.3×"
+    selected: true
+- assertVisible:
+    text: "5 s"
+    below: "Skip back"
+    selected: true
+- assertVisible:
+    text: "45 s"
+    below: "Skip forward"
+    selected: true
+- takeScreenshot: sync-2-playback
+# Two changes here: skip back 15 s, E296 no favourite any more.
+- tapOn:
+    text: "15 s"
+    below: "Skip back"
+    above: "Skip forward"
+- tapOn: "Back"
+- tapOn: "Back"
+- tapOn: "Library"
+- runFlow:
+    when:
+      notVisible: "Up next"
+    commands:
+      - tapOn: "Library"
+- tapOn: "Nodesignal.*"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E296.*"
+- tapOn: "Nodesignal-Talk - E296.*"
+- tapOn: "Remove from favourites"
+# E297 where the first device left it, played on here with its habits.
+- tapOn: "Back"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E297.*"
+    direction: UP
+- tapOn: "Nodesignal-Talk - E297.*"
+- extendedWaitUntil:
+    visible: "Continue · .* left"
+    timeout: 15000
+- takeScreenshot: sync-2-episode
+- tapOn: "Continue · .* left"
+- extendedWaitUntil:
+    visible: "Pause"
+    timeout: 30000
+# The skip buttons with their seconds: in the full player (the iPhone's mini player has none).
+- tapOn: ".* / 1:27:47"
+- extendedWaitUntil:
+    visible: "Back 15 seconds.*"
+    timeout: 15000
+- assertVisible: "Forward 45 seconds.*"
+- waitForAnimationToEnd
+- takeScreenshot: sync-2-player
+- tapOn:
+    text: "Pause"
+    above: "Boost"
+- tapOn: "Close player"
+# Out now, not with the next round.
+- tapOn: "Home"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Nostr identity"
+- tapOn: "Nostr identity"
+- scrollUntilVisible:
+    element: "Sync now"
+- tapOn: "Sync now"
+- extendedWaitUntil:
+    visible: "Synced just now"
+    timeout: 60000

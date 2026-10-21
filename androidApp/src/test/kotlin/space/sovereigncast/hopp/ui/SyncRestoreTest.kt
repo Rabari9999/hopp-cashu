@@ -128,7 +128,7 @@ class SyncRestoreTest {
         rule.onNode(hasText("nsec1… or ncryptsec1…") and hasSetTextAction()).performTextInput(Bech32.encode("nsec", keys.secretKey))
         tap("Use key")
         waitFor("Restore from your other devices")
-        waitFor("1 shows, 0 episodes in progress")
+        waitFor("Shows: 1 · in progress: 0")
         tap("Restore")
         rule.waitUntil(30_000) { runBlocking { koin.get<SettingsRepository>().settings.first().nostrSync } }
         // The show, with the speed it had there.
