@@ -135,6 +135,7 @@
     <string name="wallet_scanned">✓ QR-Code gelesen. Das Kamerabild wurde nirgends gespeichert – Hopp hat nur die Verbindung übernommen.</string>
     <string name="wallet_limit_tip">Tipp: Setze in deiner Wallet ein Ausgabelimit für diese Verbindung – Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
     <string name="wallet_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="wallet_no_nip44">Diese Wallet spricht nur die alte NIP-04-Verschlüsselung; Hopp braucht NIP-44. Aktualisiere die Wallet oder verbinde eine andere.</string>
     <string name="wallet_connected">Verbunden: %1$s</string>
     <string name="wallet_balance">Guthaben: %1$s sats</string>
     <string name="wallet_balance_unknown">Die Wallet gibt ihr Guthaben nicht preis</string>

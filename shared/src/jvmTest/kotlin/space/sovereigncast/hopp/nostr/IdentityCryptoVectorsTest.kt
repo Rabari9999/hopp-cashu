@@ -76,5 +76,10 @@ class IdentityCryptoVectorsTest {
         assert(exported.startsWith("ncryptsec1"))
         assertContentEquals(secret, Nip49.decrypt(exported, "Pässwort"))
         assertFailsWith<Nip49Exception> { Nip49.decrypt(exported, "falsch") }
+        // Security audit 2026-10-20, L-01: a log_n past what a phone's heap takes
+        // (22 would be 4 GiB) is refused before scrypt allocates anything.
+        val tooStrong = Bech32.encode("ncryptsec", byteArrayOf(0x02, (Nip49.MAX_LOG_N + 1).toByte()) + ByteArray(16) + ByteArray(24) + byteArrayOf(0x01) + ByteArray(48))
+        val refused = assertFailsWith<Nip49Exception> { Nip49.decrypt(tooStrong, "Pässwort") }
+        assert("log_n" in refused.message!!)
     }
 }

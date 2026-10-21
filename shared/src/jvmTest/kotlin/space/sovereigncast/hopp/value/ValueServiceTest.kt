@@ -128,6 +128,19 @@ class ValueServiceTest {
         assertTrue(stuck.connect(uri()).canPayInvoice)
     }
 
+    /** Security review 2026-10-20, L-4: a wallet without NIP-44 could never read a request —
+     *  every payment would be an unknown outcome. Refused at connect, nothing stored. */
+    @Test
+    fun aWalletWithoutNip44IsNotConnected() = test {
+        val old = FakeWallet(relay, encryption = "nip04").also { it.publishInfo() }
+        val e = assertFailsWith<space.sovereigncast.hopp.value.nwc.NwcException> {
+            wallet.connect("nostr+walletconnect://${old.keys.publicKeyHex}?relay=wss://relay.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        }
+        assertEquals(WalletRepository.UNSUPPORTED_ENCRYPTION, e.code)
+        assertNull(wallet.wallet.value)
+        assertNull(secrets.get("nwc_uri"))
+    }
+
     @Test
     fun aWalletIsKeptOnlyOnceItAnswered() = test {
         assertFailsWith<IllegalArgumentException> { wallet.connect("nostr+walletconnect://nonsense") }

@@ -90,6 +90,8 @@ import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.wallet_support_note
 import space.sovereigncast.hopp.resources.secrets_unreadable
 import space.sovereigncast.hopp.resources.wallet_uri_hint
+import space.sovereigncast.hopp.resources.wallet_no_nip44
+import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.resources.wallet_uri_hide
 import space.sovereigncast.hopp.resources.wallet_uri_show
 import space.sovereigncast.hopp.ui.library.EmptyState
@@ -151,7 +153,9 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             }
             // What happened to the picture, said where it matters (device feedback 2026-10-14).
             if (scanned) Text(stringResource(Res.string.wallet_scanned), color = Hopp.colors.valueText, style = MaterialTheme.typography.bodyMedium)
-            (connect as? ConnectState.Failed)?.let { Text(stringResource(Res.string.wallet_failed, it.reason), color = colors.error) }
+            (connect as? ConnectState.Failed)?.let {
+                Text(if (it.code == WalletRepository.UNSUPPORTED_ENCRYPTION) stringResource(Res.string.wallet_no_nip44) else stringResource(Res.string.wallet_failed, it.reason), color = colors.error)
+            }
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
             Text(stringResource(Res.string.wallet_connected, w.label), style = MaterialTheme.typography.titleMedium)

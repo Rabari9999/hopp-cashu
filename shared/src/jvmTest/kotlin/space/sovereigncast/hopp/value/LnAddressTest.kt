@@ -88,6 +88,21 @@ class LnAddressTest {
         Unit
     }
 
+    /** Security review 2026-10-20, L-2: the callback must be https (LUD-06) — http only for an onion service. */
+    @Test
+    fun aPlainHttpCallbackIsRefused() = runBlocking {
+        fun with(callback: String) = LnAddressClient(HttpClient(MockEngine { request ->
+            if (request.url.encodedPath == "/.well-known/lnurlp/host") respond(
+                """{"tag":"payRequest","callback":"$callback","minSendable":1000,"maxSendable":100000000,"metadata":${kotlinx.serialization.json.JsonPrimitive(metadata)}}""",
+                headers = headersOf(HttpHeaders.ContentType to listOf("application/json")),
+            ) else respond("", HttpStatusCode.NotFound)
+        }))
+        assertFailsWith<LnAddressException> { with("http://wallet.test/cb/host").payRequest("host@wallet.test") }
+        assertFailsWith<LnAddressException> { with("ftp://wallet.test/cb/host").payRequest("host@wallet.test") }
+        assertEquals("https://wallet.test/cb/host", with("https://wallet.test/cb/host").payRequest("host@wallet.test").callback)
+        assertEquals("http://abc.onion/cb", with("http://abc.onion/cb").payRequest("host@wallet.test").callback)
+    }
+
     @Test
     fun theKeysendRouteOfALightningAddress() = runBlocking {
         val ln = LnAddressClient(client { "" })

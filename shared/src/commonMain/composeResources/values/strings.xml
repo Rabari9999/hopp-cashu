@@ -135,6 +135,7 @@
     <string name="wallet_scanned">✓ QR code read. The camera picture was not saved anywhere — Hopp only kept the connection.</string>
     <string name="wallet_limit_tip">Tip: set a spending limit for this connection in your wallet — Hopp keeps its own daily budget on top.</string>
     <string name="wallet_failed">Could not connect: %1$s</string>
+    <string name="wallet_no_nip44">This wallet speaks only the old NIP-04 encryption; Hopp needs NIP-44. Update the wallet, or connect another.</string>
     <string name="wallet_connected">Connected: %1$s</string>
     <string name="wallet_balance">Balance: %1$s sats</string>
     <string name="wallet_balance_unknown">The wallet does not share its balance</string>

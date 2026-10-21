@@ -18,6 +18,10 @@ class Nip49Exception(message: String) : Exception(message)
  */
 object Nip49 {
     const val LOG_N = 16
+    /** The most an imported key may ask for: scrypt takes 128·8·2^log_n bytes —
+     *  256 MiB here, 4 GiB at the format's 22 — and a phone has no such heap
+     *  (security audit 2026-10-20, L-01). Exports use [LOG_N], as other clients do. */
+    const val MAX_LOG_N = 18
 
     /** Hopp knows nothing of how the key was handled before it made it, but
      *  it never left the device unencrypted: 0x01. */
@@ -36,7 +40,7 @@ object Nip49 {
         val (hrp, data) = try { Bech32.decode(ncryptsec) } catch (e: Exception) { throw Nip49Exception("not an ncryptsec") }
         if (hrp != "ncryptsec" || data.size != 91 || data[0] != 0x02.toByte()) throw Nip49Exception("not an ncryptsec")
         val logN = data[1].toInt() and 0xff
-        if (logN !in 1..22) throw Nip49Exception("unsupported log_n $logN")
+        if (logN !in 1..MAX_LOG_N) throw Nip49Exception("unsupported log_n $logN")
         val salt = data.copyOfRange(2, 18)
         val nonce = data.copyOfRange(18, 42)
         val ad = data.copyOfRange(42, 43)

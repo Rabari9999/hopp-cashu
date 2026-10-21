@@ -13,6 +13,7 @@ import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.platform.SecretUnreadable
 import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.NwcConnection
+import space.sovereigncast.hopp.value.nwc.NwcException
 import space.sovereigncast.hopp.value.nwc.WalletInfo
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -76,6 +77,11 @@ class WalletRepository(
         val connection = NwcConnection.parse(uri)
         val client = NwcClient(connection, connector, { clock.now() }, 20.seconds)
         val info = client.info()
+        // Hopp speaks NIP-44 only; a wallet that does not (no `encryption` tag
+        // means NIP-04, NIP-47) could never read a request — every payment
+        // would end as an unknown outcome and count against the budget
+        // (security review 2026-10-20, L-4). Refused here, with the reason.
+        if (NIP44 !in info.encryptions) throw NwcException(UNSUPPORTED_ENCRYPTION, "the wallet encrypts with ${info.encryptions.joinToString()} only; Hopp speaks $NIP44")
         // Name and node key, if the wallet answers get_info — not required.
         val (alias, pubkey) = if ("get_info" in info.methods) runCatching { client.nodeInfo() }.getOrDefault(null to null) else null to null
         val wallet = ConnectedWallet(alias ?: info.alias, info.methods, info.encryptions, connection.relays.first(), connection.lud16, pubkey)
@@ -95,8 +101,11 @@ class WalletRepository(
     /** null when the wallet does not answer or does not tell. */
     suspend fun balanceMsat(): Long? = runCatching { client()?.balanceMsat() }.getOrNull()
 
-    private companion object {
-        const val URI = "nwc_uri"
-        const val INFO = "nwc_info"
+    companion object {
+        private const val URI = "nwc_uri"
+        private const val INFO = "nwc_info"
+        private const val NIP44 = "nip44_v2"
+        /** [NwcException.code] of a wallet refused at connect for speaking NIP-04 only. */
+        const val UNSUPPORTED_ENCRYPTION = "UNSUPPORTED_ENCRYPTION"
     }
 }

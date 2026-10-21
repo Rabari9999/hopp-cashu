@@ -44,8 +44,15 @@ class LnAddressClient(private val http: HttpClient) {
         val (user, domain) = parts(address)
         val body = getJson("https://$domain/.well-known/lnurlp/$user")
         if (body["tag"]?.jsonPrimitive?.contentOrNull != "payRequest") throw LnAddressException("no payRequest at $address")
+        // LUD-06: the callback is https (http only for an onion service). Over
+        // plain http anyone on the way could hand Hopp an invoice of the right
+        // amount for another wallet — the description hash is optional (M-04),
+        // so the amount and the TLS channel are what bind the invoice to the
+        // address (security review 2026-10-20, L-2).
+        val callback = body["callback"]!!.jsonPrimitive.content
+        if (!isTlsOrOnion(callback)) throw LnAddressException("callback is not https: $callback")
         return PayRequest(
-            callback = body["callback"]!!.jsonPrimitive.content,
+            callback = callback,
             minMsat = body["minSendable"]!!.jsonPrimitive.long,
             maxMsat = body["maxSendable"]!!.jsonPrimitive.long,
             metadata = body["metadata"]!!.jsonPrimitive.content,
@@ -100,6 +107,15 @@ class LnAddressClient(private val http: HttpClient) {
             throw LnAddressException("invoice does not commit to the pay request")
         }
         return pr
+    }
+
+    private fun isTlsOrOnion(url: String): Boolean {
+        val parsed = runCatching { io.ktor.http.Url(url) }.getOrNull() ?: return false
+        return when (parsed.protocol.name) {
+            "https" -> true
+            "http" -> parsed.host.endsWith(".onion", ignoreCase = true)
+            else -> false
+        }
     }
 
     private suspend fun getJson(url: String): JsonObject {

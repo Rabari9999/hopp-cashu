@@ -323,8 +323,12 @@ class IdentityRepository(
                 ?: throw KeyImportException(KeyImportException.Reason.Unreadable)
             t.startsWith("ncryptsec1") -> {
                 if (password.isNullOrEmpty()) throw KeyImportException(KeyImportException.Reason.NeedsPassword)
-                withContext(Dispatchers.Default) { runCatching { Nip49.decrypt(t, password) }.getOrNull() }
-                    ?: throw KeyImportException(KeyImportException.Reason.WrongPassword)
+                withContext(Dispatchers.Default) {
+                    try { Nip49.decrypt(t, password) } catch (e: space.sovereigncast.hopp.nostr.Nip49Exception) {
+                        // Only a wrong password is one; a bad or too strong ncryptsec is unreadable (audit 2026-10-20, L-01).
+                        throw KeyImportException(if (e.message == "wrong password") KeyImportException.Reason.WrongPassword else KeyImportException.Reason.Unreadable)
+                    }
+                }
             }
             else -> throw KeyImportException(KeyImportException.Reason.Unreadable)
         }

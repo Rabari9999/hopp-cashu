@@ -284,3 +284,13 @@ the code before:
   not known): found nowhere *and* a relay not answering throws
   `ListNotRead`, nothing is published, the page says so and the listener
   tries again (`RelayPublisherTest`, `CommentsTest`, `IdentityTest`).
+- **The lows, in the same round:** an imported `ncryptsec` may ask for
+  `log_n` up to 18 (256 MiB of scrypt memory; the format's 22 would be
+  4 GiB and crashed the app on a pasted key — audit L-01), and such a key
+  reads as "unreadable", not "wrong password"; an LNURL `callback` must be
+  https — http only for an onion service, LUD-06 — since the amount and the
+  TLS channel are what bind an invoice without description hash to the
+  address; and a wallet whose info event does not list `nip44_v2` is refused
+  at connect with its own text — Hopp speaks NIP-44 only, and every payment
+  to such a wallet ended as an unknown outcome that counted against the
+  budget (`IdentityCryptoVectorsTest`, `LnAddressTest`, `ValueServiceTest`).
