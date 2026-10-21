@@ -26,6 +26,7 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -73,6 +74,33 @@ class IdentityTest {
         val key = Nip49.decrypt(backup, "correct horse")
         assertEquals(identities.identity.value?.pubkey, LocalSigner(space.sovereigncast.hopp.nostr.KeyPair(key)).pubkey)
         assertTrue(identities.identity.value?.exported == true)
+    }
+
+    /** Security review 2026-10-20: the key store does not answer for the moment.
+     *  Read as "no identity", Hopp offered to make one — and that replaced the
+     *  key for good. Now the entry is unreadable, not absent: nothing is made or
+     *  imported over it; it is back once the store answers; signing out is the way past it. */
+    @Test
+    fun anUnreadableKeyIsNeitherLostNorReplaced() = runBlocking<Unit> {
+        identities.create("Thorsten")
+        val me = assertNotNull(identities.identity.value)
+        secrets.unreadable += "nostr_identity_key"
+        val later = IdentityRepository(secrets, RelayPublisher(relay), { now })
+        assertNull(later.identity.value)
+        assertTrue(later.unreadable.value)
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.create("Someone else") }
+        val other = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { now })
+        other.create("Other")
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.importKey(other.nsec()!!) }
+        assertNull(later.identity.value, "still nothing made in its place")
+        secrets.unreadable -= "nostr_identity_key"
+        assertEquals(me, IdentityRepository(secrets, RelayPublisher(relay), { now }).identity.value, "there again once the store answers")
+        secrets.unreadable += "nostr_identity_key"
+        val stuck = IdentityRepository(secrets, RelayPublisher(relay), { now })
+        stuck.signOut()
+        assertTrue(!stuck.unreadable.value)
+        stuck.create("Anew")
+        assertTrue(stuck.identity.value?.pubkey != me.pubkey)
     }
 
     @Test

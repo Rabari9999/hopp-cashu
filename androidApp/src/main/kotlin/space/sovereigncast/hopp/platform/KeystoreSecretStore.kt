@@ -15,6 +15,12 @@ import javax.crypto.spec.GCMParameterSpec
  * Keystore; the ciphertext sits in its own preferences file, which the backup
  * rules leave out — restored on another device it could not be decrypted
  * anyway, the key stays behind.
+ *
+ * An entry that is there and does not decrypt — the Keystore not answering
+ * for the moment, or its key gone — is [SecretUnreadable], not "nothing
+ * stored" (security review 2026-10-20): read as nothing, the app offered to
+ * make a new Nostr key, and that write replaced the old one for good. Only
+ * removing (`put(name, null)`) gets past such an entry.
  */
 class KeystoreSecretStore(context: Context) : SecretStore {
     private val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -34,16 +40,19 @@ class KeystoreSecretStore(context: Context) : SecretStore {
 
     override fun get(name: String): String? {
         val stored = prefs.getString(name, null) ?: return null
-        return runCatching {
+        return try {
             val bytes = Base64.decode(stored, Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 0, 12))
             String(cipher.doFinal(bytes, 12, bytes.size - 12), Charsets.UTF_8)
-        }.getOrNull() // a key lost with a reinstall: as if nothing was stored
+        } catch (e: Exception) {
+            throw SecretUnreadable(name, e)
+        }
     }
 
     override fun put(name: String, value: String?) {
         if (value == null) { prefs.edit().remove(name).apply(); return }
+        get(name) // there and unreadable: refused, not replaced
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
         val sealed = cipher.iv + cipher.doFinal(value.toByteArray(Charsets.UTF_8))
         prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).apply()

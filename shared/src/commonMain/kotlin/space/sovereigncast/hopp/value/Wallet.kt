@@ -10,6 +10,7 @@ import space.sovereigncast.hopp.data.Clock
 import space.sovereigncast.hopp.nostr.KtorRelayConnector
 import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.platform.SecretStore
+import space.sovereigncast.hopp.platform.SecretUnreadable
 import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.NwcConnection
 import space.sovereigncast.hopp.value.nwc.WalletInfo
@@ -48,22 +49,30 @@ class WalletRepository(
     private val timeout: Duration = 45.seconds,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val _unreadable = MutableStateFlow(false)
+    /** A connection is stored that the secret store could not give up ([SecretUnreadable]) —
+     *  not replaced by a new one; [disconnect] is the way past it (security review 2026-10-20). */
+    val unreadable: StateFlow<Boolean> = _unreadable.asStateFlow()
     private val _wallet = MutableStateFlow(load())
     val wallet: StateFlow<ConnectedWallet?> = _wallet.asStateFlow()
 
-    private fun load(): ConnectedWallet? {
-        if (secrets.get(URI) == null) return null
-        return secrets.get(INFO)?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() } ?: ConnectedWallet()
+    private fun load(): ConnectedWallet? = try {
+        if (secrets.get(URI) == null) null
+        else secrets.get(INFO)?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() } ?: ConnectedWallet()
+    } catch (e: SecretUnreadable) {
+        _unreadable.value = true
+        null
     }
 
     fun client(): NwcClient? {
-        val connection = secrets.get(URI)?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
+        val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
         return NwcClient(connection, connector, { clock.now() }, timeout)
     }
 
     /** Checks the string, asks the wallet what it can, and only then keeps it.
      *  Throws with the reason when either fails — nothing is stored then. */
     suspend fun connect(uri: String): ConnectedWallet {
+        if (_unreadable.value) throw SecretUnreadable(URI)
         val connection = NwcConnection.parse(uri)
         val client = NwcClient(connection, connector, { clock.now() }, 20.seconds)
         val info = client.info()
@@ -80,6 +89,7 @@ class WalletRepository(
         secrets.put(URI, null)
         secrets.put(INFO, null)
         _wallet.value = null
+        _unreadable.value = false
     }
 
     /** null when the wallet does not answer or does not tell. */

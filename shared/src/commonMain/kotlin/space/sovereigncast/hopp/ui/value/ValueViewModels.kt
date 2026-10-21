@@ -35,6 +35,8 @@ class WalletViewModel(
     private val settings: SettingsRepository,
 ) : ViewModel() {
     val connected: StateFlow<ConnectedWallet?> = wallet.wallet
+    /** A stored connection the key store could not give up — shown, not replaced (security review 2026-10-20). */
+    val unreadable: StateFlow<Boolean> = wallet.unreadable
     val current: StateFlow<Settings?> = state(settings.settings, null)
     val spentToday: StateFlow<Long> = state(value.spentTodayMsat, 0L)
     private val _balance = MutableStateFlow<Long?>(null)

@@ -107,6 +107,27 @@ class ValueServiceTest {
         it.second["pubkey"]!!.jsonPrimitive.content to it.second["amount"]!!.jsonPrimitive.long / 1000
     }
 
+    /** Security review 2026-10-20: a connection the key store cannot give up for
+     *  the moment is not "no wallet" — nothing is connected over it; it is back
+     *  once the store answers; disconnecting is the way past it. */
+    @Test
+    fun anUnreadableConnectionIsNeitherLostNorReplaced() = test {
+        wallet.connect(uri())
+        secrets.unreadable += "nwc_uri"
+        val later = WalletRepository(secrets, http, { now }, relay)
+        assertNull(later.wallet.value)
+        assertTrue(later.unreadable.value)
+        assertNull(later.client())
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.connect(uri()) }
+        secrets.unreadable -= "nwc_uri"
+        assertTrue(WalletRepository(secrets, http, { now }, relay).wallet.value != null, "there again once the store answers")
+        secrets.unreadable += "nwc_uri"
+        val stuck = WalletRepository(secrets, http, { now }, relay)
+        stuck.disconnect()
+        assertTrue(!stuck.unreadable.value)
+        assertTrue(stuck.connect(uri()).canPayInvoice)
+    }
+
     @Test
     fun aWalletIsKeptOnlyOnceItAnswered() = test {
         assertFailsWith<IllegalArgumentException> { wallet.connect("nostr+walletconnect://nonsense") }

@@ -126,6 +126,7 @@
     <string name="settings_sees_searches">Sees your searches when switched on.</string>
     <string name="wallet_title">Wallet</string>
     <string name="wallet_intro">Connect a wallet over Nostr Wallet Connect (NWC) to boost and stream sats. Alby Hub, Coinos, LNbits, Zeus and others offer it.</string>
+    <string name="secrets_unreadable">What Hopp keeps here cannot be read right now — the phone’s key store did not answer. Nothing was changed: restart the phone and look again. Only “forget” below replaces it.</string>
     <string name="wallet_uri_hint">Connection string (nostr+walletconnect://…)</string>
     <string name="wallet_uri_show">Show</string>
     <string name="wallet_uri_hide">Hide</string>

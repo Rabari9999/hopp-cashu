@@ -265,3 +265,12 @@ the code before:
   the budget, and the wallet's answer settles it; a process killed in
   between leaves a trace, not nothing. Boosts with several shares still log
   after the last share; streaming has its in-flight marker.
+- **A secret store that did not answer read as "nothing stored" (found in
+  the same review).** `KeystoreSecretStore.get` turned every failure — the
+  Keystore not answering after a boot, say — into null; Hopp then showed no
+  identity and no wallet, and making a new identity wrote over the key that
+  was only unreadable for the moment. `SecretStore` now tells
+  [`SecretUnreadable`] from "none stored", on Android and iOS; nothing is
+  written over such an entry, the wallet and identity pages say so and offer
+  only "forget" (which removes it), and the entry is back once the store
+  answers (`IdentityTest`, `ValueServiceTest`).
