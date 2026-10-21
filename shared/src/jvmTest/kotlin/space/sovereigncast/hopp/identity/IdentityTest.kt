@@ -292,6 +292,24 @@ class IdentityTest {
         removingAllLeavesOneToWriteTo(identities)
     }
 
+    /** Security audit 2026-10-20, M-08: the relays cannot be read, publishing
+     *  works. The other app's newer list may be there: Hopp's local copy is
+     *  not written over it; once the relays answer, the change joins it. */
+    @Test
+    fun aRelayListThatCannotBeReadIsNotReplaced() = runBlocking<Unit> {
+        identities.create("X")
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.fromHex(secrets.get("nostr_identity_key")!!)
+        relay.publish(Event.sign(keys, 10002, "", listOf(listOf("r", "wss://other.example")), now + 10))
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        relay.readsFail = true
+        assertFailsWith<space.sovereigncast.hopp.comments.ListNotRead> { identities.addRelay("my.relay.example") }
+        assertTrue(published.none { it.kind == 10002 }, "nothing published")
+        assertEquals(IdentityRepository.DEFAULT_RELAYS, identities.identity.value!!.relays.map { it.url }, "the local copy as it was")
+        relay.readsFail = false
+        assertEquals(listOf("wss://other.example", "wss://my.relay.example"), identities.addRelay("my.relay.example").map { it.url })
+    }
+
     private suspend fun removingAllLeavesOneToWriteTo(repo: IdentityRepository) {
         var list = repo.relays()
         for (r in list.toList()) list = repo.removeRelay(r.url)

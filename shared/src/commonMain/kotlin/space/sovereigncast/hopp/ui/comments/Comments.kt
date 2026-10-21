@@ -88,6 +88,7 @@ import space.sovereigncast.hopp.resources.zap_unknown
 import space.sovereigncast.hopp.resources.zap_failed
 import space.sovereigncast.hopp.resources.zap_send
 import space.sovereigncast.hopp.resources.comments_failed
+import space.sovereigncast.hopp.resources.comments_list_not_read
 import space.sovereigncast.hopp.resources.comments_from_relays
 import space.sovereigncast.hopp.resources.comments_intro
 import space.sovereigncast.hopp.resources.comments_load
@@ -205,7 +206,7 @@ class CommentsViewModel(
     private val _sending = MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending.asStateFlow()
     /** Why the last action failed, for a line under the field. */
-    enum class Failure { NotPublished, Rejected, Other }
+    enum class Failure { NotPublished, Rejected, ListNotRead, Other }
     val error = MutableStateFlow<Failure?>(null)
     /** A public action waits for "public, for good" to be acknowledged, once (ADR 0021, 8). */
     val pending = MutableStateFlow<(() -> Unit)?>(null)
@@ -371,6 +372,7 @@ class CommentsViewModel(
 
     private fun reason(e: Throwable): Failure = when (e) {
         is NotPublished -> Failure.NotPublished
+        is space.sovereigncast.hopp.comments.ListNotRead -> Failure.ListNotRead
         is SignerRejected -> Failure.Rejected
         else -> Failure.Other
     }
@@ -514,6 +516,7 @@ private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<S
             val why = stringResource(when (f) {
                 CommentsViewModel.Failure.NotPublished -> Res.string.comments_not_published
                 CommentsViewModel.Failure.Rejected -> Res.string.comments_signer_rejected
+                CommentsViewModel.Failure.ListNotRead -> Res.string.comments_list_not_read
                 CommentsViewModel.Failure.Other -> Res.string.comments_failed_other
             })
             Text(stringResource(Res.string.comments_failed_send, why), color = colors.error, style = MaterialTheme.typography.bodySmall)

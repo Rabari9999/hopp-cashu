@@ -274,3 +274,13 @@ the code before:
   written over such an entry, the wallet and identity pages say so and offer
   only "forget" (which removes it), and the entry is back once the store
   answers (`IdentityTest`, `ValueServiceTest`).
+- **M-04 / M-08 — a mute list or relay list that could not be read was
+  replaced.** `RelayPublisher.latest` answered null both for "no relay has
+  it" and "the relays could not be read"; `CommentWriter.mute` and
+  `IdentityRepository.changeRelays` then published a new list over the one
+  that was there — the mute list with its private part gone, the relay list
+  from Hopp's local copy over what another app had set. The read is
+  three-valued now (`latestChecked`: found / none, and every relay said so /
+  not known): found nowhere *and* a relay not answering throws
+  `ListNotRead`, nothing is published, the page says so and the listener
+  tries again (`RelayPublisherTest`, `CommentsTest`, `IdentityTest`).

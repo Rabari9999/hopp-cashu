@@ -629,6 +629,7 @@
     <string name="comments_later">Später</string>
     <string name="comments_failed_send">Nicht gesendet: %1$s</string>
     <string name="comments_not_published">kein Relay hat ihn angenommen</string>
+    <string name="comments_list_not_read">deine Stummliste war nicht von jedem Relay zu lesen – nichts wurde geändert; versuch es später noch einmal</string>
     <string name="comments_signer_rejected">dein Signer hat abgelehnt</string>
     <string name="comments_failed_other">etwas ist schiefgelaufen</string>
     <string name="comments_reply_hint">Deine Antwort schreiben…</string>
@@ -796,4 +797,5 @@
     <string name="nostr_relay_bad">Das ist keine Relay-Adresse. Sie beginnt mit wss://.</string>
     <string name="nostr_relay_unreachable">Dieses Relay antwortet nicht.</string>
     <string name="nostr_relay_not_published">Die Liste konnte auf keinem Relay gespeichert werden. Versuch es später noch einmal.</string>
+    <string name="nostr_relay_not_read">Die Liste war nicht von jedem Relay zu lesen – nichts wurde geändert. Versuch es später noch einmal.</string>
 </resources>

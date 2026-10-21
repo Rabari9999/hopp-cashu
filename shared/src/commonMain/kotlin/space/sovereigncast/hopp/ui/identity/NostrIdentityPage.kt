@@ -107,6 +107,7 @@ import space.sovereigncast.hopp.resources.nostr_publish_again
 import space.sovereigncast.hopp.resources.nostr_publish_failed
 import space.sovereigncast.hopp.resources.nostr_share
 import space.sovereigncast.hopp.resources.nostr_sign_out
+import space.sovereigncast.hopp.resources.nostr_relay_not_read
 import space.sovereigncast.hopp.resources.secrets_unreadable
 import space.sovereigncast.hopp.resources.nostr_sign_out_confirm
 import space.sovereigncast.hopp.resources.nostr_sign_out_text
@@ -283,8 +284,9 @@ class NostrIdentityViewModel(
         data object Loading : Relays
         data class Shown(val list: List<space.sovereigncast.hopp.identity.RelayEntry>, val working: Boolean = false, val problem: RelayProblem? = null, val pending: String? = null) : Relays
     }
-    /** [Unreachable]: offered anyway; [NotPublished]: no relay took the new list. */
-    enum class RelayProblem { BadAddress, Unreachable, NotPublished }
+    /** [Unreachable]: offered anyway; [NotRead]: the list was found nowhere and a relay did not answer, so nothing was written;
+     *  [NotPublished]: no relay took the new list. */
+    enum class RelayProblem { BadAddress, Unreachable, NotRead, NotPublished }
     private val _relays = MutableStateFlow<Relays>(Relays.Loading)
     val relays: StateFlow<Relays> = _relays.asStateFlow()
 
@@ -314,6 +316,7 @@ class NostrIdentityViewModel(
                     shown.copy(working = false, pending = pending, problem = when (e) {
                         is space.sovereigncast.hopp.identity.BadRelayAddress -> RelayProblem.BadAddress
                         is Unreachable -> RelayProblem.Unreachable
+                        is space.sovereigncast.hopp.comments.ListNotRead -> RelayProblem.NotRead
                         else -> RelayProblem.NotPublished
                     })
                 },
@@ -601,6 +604,7 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
                     if (s.problem != null) Text(stringResource(when (s.problem) {
                         NostrIdentityViewModel.RelayProblem.BadAddress -> Res.string.nostr_relay_bad
                         NostrIdentityViewModel.RelayProblem.Unreachable -> Res.string.nostr_relay_unreachable
+                        NostrIdentityViewModel.RelayProblem.NotRead -> Res.string.nostr_relay_not_read
                         NostrIdentityViewModel.RelayProblem.NotPublished -> Res.string.nostr_relay_not_published
                     }), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

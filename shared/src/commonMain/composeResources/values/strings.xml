@@ -629,6 +629,7 @@
     <string name="comments_later">Later</string>
     <string name="comments_failed_send">Not sent: %1$s</string>
     <string name="comments_not_published">no relay took it</string>
+    <string name="comments_list_not_read">your mute list could not be read from every relay — nothing was changed; try again later</string>
     <string name="comments_signer_rejected">your signer said no</string>
     <string name="comments_failed_other">something went wrong</string>
     <string name="comments_reply_hint">Write your answer…</string>
@@ -796,4 +797,5 @@
     <string name="nostr_relay_bad">That is no relay address. It starts with wss://.</string>
     <string name="nostr_relay_unreachable">This relay does not answer.</string>
     <string name="nostr_relay_not_published">The list could not be saved on any relay. Try again later.</string>
+    <string name="nostr_relay_not_read">The list could not be read from every relay — nothing was changed. Try again later.</string>
 </resources>

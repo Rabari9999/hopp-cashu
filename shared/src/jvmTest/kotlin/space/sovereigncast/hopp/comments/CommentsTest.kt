@@ -33,6 +33,7 @@ import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -465,6 +466,36 @@ class CommentsTest {
         val list = publisher.latest(10000, me.pubkey, listOf("wss://relay.damus.io"))!!
         assertEquals("encrypted-private-part", list.content)
         assertEquals(listOf(listOf("p", alice.publicKeyHex), listOf("p", troll.publicKeyHex)), list.tags)
+    }
+
+    /** Security audit 2026-10-20, M-04: the relays cannot be read (reads drop,
+     *  publishing works). "None found" is not known then — no new list goes
+     *  out over the one that is there with its private part. Read again once
+     *  the relays answer, the mute lands in that list. */
+    @Test
+    fun aMuteListThatCannotBeReadIsNotReplaced() = test {
+        identities.create("Me")
+        val me = identities.signer()!!
+        relay.publish(me.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(10000, "encrypted-private-part", listOf(listOf("p", alice.publicKeyHex)), now - 100)))
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        relay.readsFail = true
+        assertFailsWith<ListNotRead> { writer.mute(troll.publicKeyHex) }
+        assertTrue(published.none { it.kind == 10000 }, "nothing published")
+        relay.readsFail = false
+        writer.mute(troll.publicKeyHex)
+        val list = publisher.latest(10000, me.pubkey, listOf("wss://relay.damus.io"))!!
+        assertEquals("encrypted-private-part", list.content)
+        assertEquals(listOf(listOf("p", alice.publicKeyHex), listOf("p", troll.publicKeyHex)), list.tags)
+    }
+
+    /** No list anywhere and every relay said so: a first mute makes one. */
+    @Test
+    fun aFirstMuteMakesAListOnceEveryRelayAnswered() = test {
+        identities.create("Me")
+        val me = identities.signer()!!
+        writer.mute(troll.publicKeyHex)
+        assertEquals(listOf(listOf("p", troll.publicKeyHex)), publisher.latest(10000, me.pubkey, listOf("wss://relay.damus.io"))!!.tags)
     }
 
     /** Device feedback 2026-10-16: boosts as comments, as Fountain does. */

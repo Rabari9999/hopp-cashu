@@ -32,7 +32,22 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
 
     /** The newest valid event of [kind] by [author] on any of [relays], or null. [settle]: see [query]. */
     suspend fun latest(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Event? =
-        gather(relays, settle) { url -> latestOn(kind, author, url) }.flatten().maxByOrNull { it.created_at }
+        latestChecked(kind, author, relays, settle).event
+
+    /**
+     * What a read of an author's newest event came to: [event] — null for none
+     * found — and whether [complete]: every relay answered to its end. Null and
+     * incomplete is "not known", not "none": a replaceable list (NIP-51 mutes,
+     * NIP-65 relays) must not be written anew over that (security audit
+     * 2026-10-20, M-04/M-08 — the relay holding the list was the one not
+     * answering, and the new list went out without what it held).
+     */
+    data class Latest(val event: Event?, val complete: Boolean)
+
+    suspend fun latestChecked(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Latest {
+        val got = gather(relays, settle) { url -> latestOn(kind, author, url) }
+        return Latest(got.results.flatten().maxByOrNull { it.created_at }, got.complete)
+    }
 
     /**
      * Every valid event matching any of [filters] (NIP-01 filters, one REQ) on
@@ -43,11 +58,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      */
     suspend fun query(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): List<Event> =
         // Checked before made unique: a forged copy from a fast relay must not hide the real event.
-        gather(relays, settle) { url -> queryOn(filters, url) }.flatten().filter { it.isValid() }.distinctBy { it.id }
+        gather(relays, settle) { url -> queryOn(filters, url) }.results.flatten().filter { it.isValid() }.distinctBy { it.id }
+
+    /** What [gather] came to; [complete] when every relay answered — none unreachable, none cut off by the settle time. */
+    private class Gathered<T>(val results: List<T>, val complete: Boolean)
 
     /** [one] on every relay at once; what each answered — null from one that could not be reached.
      *  An answer of nothing is an answer too: it starts the settle time. */
-    private suspend fun <T : Any> gather(relays: List<String>, settle: Duration?, one: suspend (String) -> T?): List<T> = coroutineScope {
+    private suspend fun <T : Any> gather(relays: List<String>, settle: Duration?, one: suspend (String) -> T?): Gathered<T> = coroutineScope {
         val urls = relays.distinct()
         // A box per relay: null inside is a relay without an answer, null outside the settle time running out.
         val results = Channel<Answer<T>>(Channel.UNLIMITED)
@@ -55,16 +73,18 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         val out = mutableListOf<T>()
         var until: TimeMark? = null
         var received = 0
+        var answered = 0
         while (received < urls.size) {
             val left = until?.let { -it.elapsedNow() }
             val box = if (left == null) results.receive() else withTimeoutOrNull(left) { results.receive() } ?: break
             received++
             val r = box.value ?: continue
+            answered++
             out += r
             if (settle != null && until == null) until = TimeSource.Monotonic.markNow() + settle
         }
         jobs.forEach { it.cancel() }
-        out
+        Gathered(out, answered == urls.size)
     }
 
     private class Answer<T>(val value: T?)

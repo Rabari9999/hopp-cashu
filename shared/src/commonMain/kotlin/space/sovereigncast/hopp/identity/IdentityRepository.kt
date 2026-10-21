@@ -286,7 +286,13 @@ class IdentityRepository(
         val me = _identity.value ?: throw space.sovereigncast.hopp.comments.NoIdentity()
         val signer = signer() ?: throw space.sovereigncast.hopp.comments.NoIdentity()
         val lookup = (me.relays.map { it.url } + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
-        val current = publisher.latest(10002, me.pubkey, lookup, 3000.milliseconds) ?: publisher.latest(10002, me.pubkey, lookup)
+        val quick = publisher.latestChecked(10002, me.pubkey, lookup, 3000.milliseconds)
+        val read = if (quick.event != null) quick else publisher.latestChecked(10002, me.pubkey, lookup)
+        val current = read.event
+        // Found nowhere, and a relay did not answer: the list may be there, newer
+        // than what Hopp kept — not written over from the local copy (security
+        // audit 2026-10-20, M-08).
+        if (current == null && !read.complete) throw space.sovereigncast.hopp.comments.ListNotRead()
         val before = relayEntries(current).ifEmpty { me.relays }.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
         val after = change(before)
         if (after == before && current != null) return@withLock after.also { list -> _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = list)) } }

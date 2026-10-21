@@ -17,6 +17,9 @@ class NotPublished : Exception("no relay took the event")
 /** No Nostr identity to sign with. */
 class NoIdentity : Exception("no Nostr identity")
 
+/** A replaceable list (mutes, relays) was found nowhere, and not every relay answered: not known, so not written anew. */
+class ListNotRead : Exception("the list could not be read from every relay")
+
 /** NIP-56's report types Hopp offers. */
 enum class ReportType(val tag: String) { Spam("spam"), Profanity("profanity"), Illegal("illegal"), Other("other") }
 
@@ -124,9 +127,13 @@ class CommentWriter(
         // Nothing within the settle time may only mean that the relay holding the
         // list is slow — an index relay says "none" at once. Every relay is asked
         // to the end before a new list goes out over the old one (code review
-        // 2026-10-17, H4).
-        val current = publisher.latest(MUTE_LIST, me.pubkey, relays, 3000.milliseconds)
-            ?: publisher.latest(MUTE_LIST, me.pubkey, relays)
+        // 2026-10-17, H4). And "none" counts only when every relay said so: with
+        // one not answering, the list may sit there, with its private part — a
+        // new one would replace it (security audit 2026-10-20, M-04).
+        val quick = publisher.latestChecked(MUTE_LIST, me.pubkey, relays, 3000.milliseconds)
+        val read = if (quick.event != null) quick else publisher.latestChecked(MUTE_LIST, me.pubkey, relays)
+        val current = read.event
+        if (current == null && !read.complete) throw ListNotRead()
         val tags = current?.tags.orEmpty()
         if (tags.any { it.size >= 2 && it[0] == "p" && it[1] == pubkey }) return@withLock
         publish(UnsignedEvent(MUTE_LIST, current?.content.orEmpty(), tags + listOf(listOf("p", pubkey)), now()), mine + LOOKUP)
