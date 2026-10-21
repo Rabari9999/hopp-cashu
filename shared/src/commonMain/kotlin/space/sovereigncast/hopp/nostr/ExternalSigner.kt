@@ -40,12 +40,16 @@ interface ExternalSigner {
 
     companion object {
         /** NIP-98 for Sovereigncast; comments, answers (1, 1111), likes (7), the mute list (10000)
-         *  and reports (1984) since stage 3; the sync documents (30078) since stage 5 —
-         *  the signer app lets the listener choose. */
-        val SIGNED_KINDS = listOf(Nip98.KIND, 1, 1111, 7, 10000, 1984, 10002, Nip78.KIND)
-        /** Sync encrypts to the listener's own key and opens it again (ADR 0021, 5). */
-        val ENCRYPTION = listOf("nip44_encrypt", "nip44_decrypt")
-        val PERMISSIONS = SIGNED_KINDS.map { SignerPermission("sign_event", it) } + ENCRYPTION.map { SignerPermission(it) }
+         *  and reports (1984) since stage 3 — the signer app lets the listener choose. */
+        val SIGNED_KINDS = listOf(Nip98.KIND, 1, 1111, 7, 10000, 1984, 10002)
+        /**
+         * Not asked for good: encryption and the sync keyring (kind 30078). A standing
+         * `nip44_decrypt` would open everything ever encrypted to the listener — NIP-17
+         * messages too — to whoever holds Hopp's session. Sync needs them once per
+         * device, to open the sync key or make the first ([space.sovereigncast.hopp.sync.SyncKeys]),
+         * and the signer asks then (ADR 0021, 5, amended 2026-10-21).
+         */
+        val PERMISSIONS = SIGNED_KINDS.map { SignerPermission("sign_event", it) }
 
         fun permissionsJson(permissions: List<SignerPermission>): String = buildJsonArray {
             permissions.forEach { p -> add(buildJsonObject { put("type", p.type); p.kind?.let { put("kind", it) } }) }

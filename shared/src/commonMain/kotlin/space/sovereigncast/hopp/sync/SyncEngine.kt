@@ -41,20 +41,23 @@ sealed interface SyncOutcome {
  * Keeps documents in step with the listener's relays (ADR 0021, 5). Every
  * sync reads first and merges per entry before anything is sent: a document
  * on the relays is replaced whole, so sending without reading would drop what
- * another device added since.
+ * another device added since. The documents are signed and sealed with the
+ * sync key ([SyncKeys]), not the listener's own.
  */
 class SyncEngine(
     private val store: SyncStore,
     private val relays: SyncRelays,
     private val identity: IdentityRepository,
+    private val keys: SyncKeys,
     private val nowMs: () -> Long,
 ) {
     private val lock = Mutex()
 
     /** [seed]: entries of time 0 from [SyncedDocument.snapshot], taken only where neither side has the key. */
     suspend fun sync(doc: SyncedDocument, interactive: Boolean = false, seed: Map<String, SyncEntry> = emptyMap()): SyncOutcome = lock.withLock {
-        val signer = identity.signer(interactive) ?: return SyncOutcome.NoIdentity
+        if (identity.identity.value == null) return SyncOutcome.NoIdentity
         try {
+            val signer = keys.signer(interactive) ?: return SyncOutcome.NoIdentity
             val urls = identity.writeRelays()
             val cutoff = nowMs() - REMOVALS_KEPT.inWholeMilliseconds
             val now = nowMs()
@@ -91,16 +94,16 @@ class SyncEngine(
 
     /**
      * What the relays hold of document [name], read without taking anything —
-     * for the offer to restore. Null: nothing there. [Sealed]: there, but the
-     * signer would have to ask before it opens.
+     * for the offer to restore. Null: nothing there. [Sealed]: the listener has
+     * a sync key, but the signer would have to ask before it opens.
      */
     suspend fun peek(name: String): Peek? {
-        val signer = identity.signer(interactive = false) ?: return null
-        val urls = identity.writeRelays()
+        if (identity.identity.value == null) return null
         return try {
-            relays.fetch(signer, name, urls)?.let { Peek.Open(it) }
+            val signer = keys.signer(interactive = false, create = false) ?: return null
+            relays.fetch(signer, name, identity.writeRelays())?.let { Peek.Open(it) }
         } catch (e: SignerNeedsListener) {
-            if (relays.exists(signer.pubkey, name, urls)) Peek.Sealed else null
+            Peek.Sealed
         } catch (e: SignerRejected) {
             null
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -114,6 +117,9 @@ class SyncEngine(
         data class Open(val entries: Map<String, SyncEntry>) : Peek
         data object Sealed : Peek
     }
+
+    /** This device forgets the sync key; the keyring stays on the relays. */
+    suspend fun forgetKey() = lock.withLock { keys.forget() }
 
     /** Whether [doc] changed here since the relays last took it. */
     fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)

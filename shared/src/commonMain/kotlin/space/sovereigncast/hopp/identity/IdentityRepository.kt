@@ -372,9 +372,9 @@ class IdentityRepository(
         private const val BUNKER_KEY = "nostr_bunker_client_key"
 
         /** What Hopp asks a remote signer to allow for good: NIP-98 for votes and suggestions,
-         *  since stage 3 comments, likes, the mute list and reports, since stage 5 the sync
-         *  documents and their encryption. */
-        val BUNKER_PERMS = (ExternalSigner.SIGNED_KINDS.map { "sign_event:$it" } + ExternalSigner.ENCRYPTION).joinToString(",")
+         *  since stage 3 comments, likes, the mute list and reports. Never encryption — see
+         *  [ExternalSigner.PERMISSIONS]. */
+        val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
 
         /** Where Hopp waits for a signer that takes up a nostrconnect:// code. */
         val CONNECT_RELAYS = listOf("wss://relay.nsec.app", "wss://nos.lol")

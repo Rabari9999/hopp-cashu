@@ -169,7 +169,8 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **Never synced:** the NWC connection, keys, the wallet's budget and history.
 - **External signers:** a sync needs encrypt and sign each time. With Amber,
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
-  app is open and never blocks playback.
+  app is open and never blocks playback. *Superseded 2026-10-21 by the sync
+  key, below.*
 - *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
   (`hopp/queue`); of the settings only the listening habits. The `d` tags
   stay readable; Hopp fetches on start and on coming to the foreground, with
@@ -370,6 +371,31 @@ switches.
    the relays, with what it holds; turning sync on merges, on a new device
    a restore. Turning it off forgets this device's notes; the relays keep
    theirs (8). A document of a newer format is left alone.
+   *Amended 2026-10-21 (maintainer), before any release carried sync — the
+   sync key:* a standing `nip44_decrypt` permission opens everything ever
+   encrypted to the listener, NIP-17 messages included, to whoever holds
+   Hopp's signer session; for a web client (planned) that session lives in a
+   browser. So the documents are no longer sealed to the listener's key. A
+   key pair of its own, the **sync key**, signs and seals them (NIP-44 to
+   itself); it travels once as the **keyring**, a kind-30078 event by the
+   listener with `d` = `hopp/keyring`, NIP-44-sealed to the listener's key
+   (`{"v":1,"key":"<hex>"}`). A device opens the keyring once — the only time
+   sync asks the signer — and keeps the key in its secret store; turning sync
+   off forgets it. The first device makes the keyring, and only when at least
+   half of the write relays answer the read to its end with none: a keyring
+   out of reach is never replaced by a new one (the library of a lost phone
+   would stay under a key nobody has), nor is one that does not open. A
+   device looks at most once a minute whether the keyring changed — two
+   devices that made one at the same moment both end with the one the
+   relays keep, and the loser's entries follow, since every device keeps its
+   own. Signers are no longer asked for standing encryption or kind-30078
+   permissions (`ExternalSigner.PERMISSIONS`, `BUNKER_PERMS`); Amber or a
+   bunker asks the listener at that one moment, and in the background
+   nothing waits for a signer any more. Relays see the keyring under the
+   listener's npub, the documents under the sync key; they can still link
+   the two by IP and time. Not built yet: a new sync key to lock out a lost
+   device or web session (the old documents deleted, NIP-09).
+   Tests: `SyncKeysTest`.
 
 ## Consequences
 

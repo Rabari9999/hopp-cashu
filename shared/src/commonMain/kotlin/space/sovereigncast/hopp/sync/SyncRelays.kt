@@ -19,8 +19,8 @@ class SyncNotPublished : Exception("no relay took the sync document")
 
 /**
  * The relays' side of sync (ADR 0021, 5): a document's parts read back and
- * opened with the listener's key, or sealed and sent. Only events by the
- * listener count — anyone can post a kind 30078 with the same `d` tag.
+ * opened with the sync key ([SyncKeys]), or sealed and sent. Only events by
+ * that key count — anyone can post a kind 30078 with the same `d` tag.
  */
 class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: () -> Long) {
     private val lastSent = mutableMapOf<String, Long>()
@@ -46,16 +46,6 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             try { SyncCodec.decode(text) } catch (x: SerializationException) { null } catch (x: IllegalArgumentException) { null }
         }
         return SyncCodec.join(parts)
-    }
-
-    /** Whether the listener ([pubkey]) has [doc] on any of [relays] — without opening it. */
-    suspend fun exists(pubkey: String, doc: String, relays: List<String>): Boolean {
-        val filter = buildJsonObject {
-            putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
-            putJsonArray("authors") { add(JsonPrimitive(pubkey)) }
-            putJsonArray("#d") { add(JsonPrimitive(SyncCodec.dTag(doc))) }
-        }
-        return publisher.query(listOf(filter), relays, settle = 2.seconds).any { it.pubkey == pubkey && it.kind == Nip78.KIND }
     }
 
     /** Seals [entries] and sends every part; the relays that took them all. */

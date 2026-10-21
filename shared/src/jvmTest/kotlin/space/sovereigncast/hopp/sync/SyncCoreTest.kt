@@ -131,7 +131,8 @@ class SyncCoreTest {
         var ms = nowSeconds * 1000
         val store = SyncStore(db()) { ms }
         // Events by the device's own clock: two in the same second would be a tie on the relays.
-        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity) { ms }
+        val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
+        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
         init { if (nsec != null) runBlocking { identity.importKey(nsec) } }
     }
 
@@ -157,7 +158,12 @@ class SyncCoreTest {
         // The content is sealed: the relay holds no title, and the d tag names the document.
         val events = RelayPublisher(relay).query(listOf(kotlinx.serialization.json.Json.parseToJsonElement("""{"kinds":[30078]}""") as JsonObject), listOf("wss://r"))
         assertTrue(events.isNotEmpty() && events.none { "show-a" in it.content || "\"A\"" in it.content })
-        assertTrue(events.all { e -> e.tags.any { it == listOf("d", "hopp/test") } && e.pubkey == keys.publicKeyHex })
+        // The listener signed the keyring only; the document is the sync key's, the same on both devices.
+        val (ring, docs) = events.partition { it.pubkey == keys.publicKeyHex }
+        assertEquals(listOf(listOf("d", SyncKeys.DTAG)), ring.single().tags)
+        val syncKey = phone.keys.signer(interactive = false)!!.pubkey
+        assertEquals(syncKey, tablet.keys.signer(interactive = false)!!.pubkey)
+        assertTrue(docs.isNotEmpty() && docs.all { e -> e.tags.any { it == listOf("d", "hopp/test") } && e.pubkey == syncKey })
 
         // Unsubscribed on the tablet: the phone follows, and does not bring it back.
         tablet.ms += 2_000

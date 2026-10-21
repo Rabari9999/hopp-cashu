@@ -133,7 +133,8 @@ class BunkerTest {
     @Test
     fun aBunkerEncryptsToTheListenerAndAKeyHereOpensIt() = runBlocking<Unit> {
         identities.signInWithBunker(bunker.address)
-        assertTrue("nip44_encrypt" in IdentityRepository.BUNKER_PERMS && "nip44_decrypt" in IdentityRepository.BUNKER_PERMS)
+        // Asked each time, never allowed for good (ADR 0021, 5): sync needs it once per device.
+        assertTrue("nip44" !in IdentityRepository.BUNKER_PERMS && "30078" !in IdentityRepository.BUNKER_PERMS)
         val signer = identities.signer()!!
         val sealed = signer.encryptToSelf("""{"v":1}""")
         assertEquals(listOf(bunker.userKeys.publicKeyHex, """{"v":1}"""), bunker.params[bunker.methods.lastIndexOf("nip44_encrypt")])

@@ -110,12 +110,12 @@ class SyncManager(
     /** [enable] in the app's own scope — a page that started it may close meanwhile. */
     suspend fun enableAndWait(): SyncStatus = scope.async { enable() }.await()
 
-    /** Turns sync off: this device forgets what it knew; the relays keep theirs (ADR 0021, 8). */
+    /** Turns sync off: this device forgets what it knew and the sync key; the relays keep theirs (ADR 0021, 8). */
     suspend fun disable() {
         pending?.cancel()
         journal.enabled = false
         settings.update { it.copy(nostrSync = false) }
-        round.withLock { store.clear() }
+        round.withLock { store.clear(); engine.forgetKey() }
         _status.value = SyncStatus()
     }
 

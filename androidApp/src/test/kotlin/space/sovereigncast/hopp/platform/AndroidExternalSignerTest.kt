@@ -142,10 +142,9 @@ class AndroidExternalSignerTest {
         val (pubkey, signerPackage) = withSignerScreen({ signer.login(ExternalSigner.PERMISSIONS) }) { intent ->
             assertEquals("nostrsigner:", intent.dataString)
             assertEquals("get_public_key", intent.getStringExtra("type"))
-            // NIP-98, since stage 3 comments, likes, the mute list and reports, since stage 5 sync.
+            // NIP-98, since stage 3 comments, likes, the mute list and reports; never encryption (ADR 0021, 5).
             val signing = ExternalSigner.SIGNED_KINDS.map { """{"type":"sign_event","kind":$it}""" }
-            val encryption = listOf("""{"type":"nip44_encrypt"}""", """{"type":"nip44_decrypt"}""")
-            assertEquals((signing + encryption).joinToString(",", "[", "]"), intent.getStringExtra("permissions"))
+            assertEquals(signing.joinToString(",", "[", "]"), intent.getStringExtra("permissions"))
             // An npub, as some signers answer: taken as the hex key.
             Activity.RESULT_OK to Intent().putExtra("result", npub(me)).putExtra("package", pkg)
         }

@@ -29,6 +29,13 @@ listener's relays that only their key opens.
   minutes) and on pull-to-refresh in the library. No standing relay
   connection.
 
+*Changed 2026-10-21 (maintainer), before release:* the documents are signed
+and sealed with a **sync key** of their own, which travels once as the
+keyring `hopp/keyring` sealed to the listener's key; signers keep no standing
+encryption permission. Why and how: ADR 0021, stage 5, amendment of
+2026-10-21. Sections 1 and 2 below describe the first build; where they say
+"to the listener's own key" for the documents, read "with the sync key".
+
 ## What to build
 
 ### 1. Encryption through the signer

@@ -20,6 +20,7 @@ import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.KeyPair
@@ -113,11 +114,17 @@ class SyncRestoreTest {
     fun aKeyBroughtBackOffersTheLibraryAndRestoresIt() {
         val relays = KeepingRelays()
         loadKoinModules(module { single { RelayPublisher(relays) } })
-        // What the listener's phone left on the relays: one show, sealed with their key.
+        // What the listener's phone left on the relays: the keyring, sealed with their key,
+        // and one show under the sync key in it.
         val keys = KeyPair.generate()
+        val syncKey = KeyPair.generate()
         runBlocking {
+            val me = LocalSigner(keys)
+            val ring = me.encryptToSelf("""{"v":1,"key":"${syncKey.secretKey.toHex()}"}""")
+            RelayPublisher(relays).publish(me.sign(space.sovereigncast.hopp.nostr.UnsignedEvent(space.sovereigncast.hopp.nostr.Nip78.KIND, ring,
+                listOf(listOf("d", space.sovereigncast.hopp.sync.SyncKeys.DTAG)), 1_790_000_000)), listOf("wss://relay.damus.io"))
             val show = SyncDocs.show("https://pod.test/nodesignal.xml", "Nodesignal", null, 1.25f, true)
-            SyncRelays(RelayPublisher(relays)) { 1_790_000_000 }.publish(LocalSigner(keys), SyncDocs.SUBSCRIPTIONS,
+            SyncRelays(RelayPublisher(relays)) { 1_790_000_000 }.publish(LocalSigner(syncKey), SyncDocs.SUBSCRIPTIONS,
                 mapOf("url:https://pod.test/nodesignal.xml" to SyncEntry(1_790_000_000_000, d = show)), listOf("wss://relay.damus.io"))
         }
 

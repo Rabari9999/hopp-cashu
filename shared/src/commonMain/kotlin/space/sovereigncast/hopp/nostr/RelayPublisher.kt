@@ -60,6 +60,19 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         // Checked before made unique: a forged copy from a fast relay must not hide the real event.
         gather(relays, settle) { url -> queryOn(filters, url) }.results.flatten().filter { it.isValid() }.distinctBy { it.id }
 
+    /**
+     * What [query] finds, and how many of [relays] answered it to its end
+     * (`EOSE`) — a relay that dropped the connection halfway counts as not
+     * answering. For a decision that must not rest on "nothing found" when
+     * the relay holding it was the one that failed (the sync key, ADR 0021 5).
+     */
+    data class Checked(val events: List<Event>, val answered: Int, val asked: Int)
+
+    suspend fun queryChecked(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): Checked {
+        val got = gather(relays, settle) { url -> queryOn(filters, url, toTheEnd = true) }
+        return Checked(got.results.flatten().filter { it.isValid() }.distinctBy { it.id }, got.results.size, relays.distinct().size)
+    }
+
     /** What [gather] came to; [complete] when every relay answered — none unreachable, none cut off by the settle time. */
     private class Gathered<T>(val results: List<T>, val complete: Boolean)
 
@@ -89,10 +102,12 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
 
     private class Answer<T>(val value: T?)
 
-    /** What [url] holds for [filters]; null when it could not be reached. */
-    private suspend fun queryOn(filters: List<JsonObject>, url: String): List<Event>? {
+    /** What [url] holds for [filters]; null when it could not be reached — with [toTheEnd],
+     *  also when it did not answer up to `EOSE`. */
+    private suspend fun queryOn(filters: List<JsonObject>, url: String, toTheEnd: Boolean = false): List<Event>? {
         val found = mutableListOf<Event>()
         var reached = false
+        var ended = false
         withTimeoutOrNull(timeout) {
             val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull
             reached = true
@@ -105,14 +120,15 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                                 val arr = json.parseToJsonElement(text).jsonArray
                                 when (arr[0].jsonPrimitive.content) {
                                     "EVENT" -> { found += json.decodeFromJsonElement(Event.serializer(), arr[2]); null }
-                                    "EOSE", "CLOSED" -> true
+                                    "EOSE" -> true
+                                    "CLOSED" -> false
                                     else -> null
                                 }
                             }.getOrNull()
                         }.first()
                     }
                     session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
-                    done.await()
+                    ended = done.await()
                     runCatching { session.send("""["CLOSE","$sub"]""") }
                 }
             } catch (e: Exception) {
@@ -121,7 +137,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 runCatching { session.close() }
             }
         }
-        return found.toList().takeIf { reached }
+        return found.toList().takeIf { reached && (ended || !toTheEnd) }
     }
 
     /** Whether [url] takes a connection and answers a request at all. */

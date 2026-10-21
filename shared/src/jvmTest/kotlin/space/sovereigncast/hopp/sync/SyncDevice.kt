@@ -43,8 +43,10 @@ internal class SyncDevice(relay: FakeRelay, scope: CoroutineScope, nsec: String,
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val settings = SettingsRepository(db, journal)
     val queue = QueueRepository(db, journal)
-    val identity = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
-    val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity) { ms }
+    val secrets = MemorySecretStore()
+    val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
+    val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
+    val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {
         listOf(
             SubscriptionsDocument(db, podcasts),
