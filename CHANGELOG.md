@@ -10,6 +10,12 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Nostr:** Sync subscriptions, progress, favourites, "Up next" and listening habits between your devices – encrypted, no Hopp server.
 - **Nostr:** On a new device, restore your library from Nostr after signing in.
 - **Tour:** "I already use Hopp" on the first page, and "Restore" beside "Set up" on the Nostr page, lead straight to restoring from Nostr.
+- **Tour:** "I’m coming from another podcast app" leads to moving your subscriptions over, with where each app keeps its export.
+- **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
+
+### 🐛 Fixes
+- **Tour:** Back from a page the tour opened returns to the tour.
+
 
 ## [0.2.2] - 2026-10-20
 

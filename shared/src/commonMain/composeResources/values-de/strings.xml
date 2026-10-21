@@ -816,4 +816,14 @@
     <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
     <string name="onboarding_returning">Ich nutze Hopp schon</string>
     <string name="nostr_restore_hint">Melde dich mit dem Nostr-Schlüssel deines anderen Geräts an – danach holt Hopp deine Bibliothek zurück.</string>
+    <string name="onboarding_moving">Ich komme von einer anderen Podcast-App</string>
+    <string name="move_text">Deine bisherige App exportiert deine Abos als OPML-Datei, Hopp liest sie ein. Wo du den Export findest:</string>
+    <string name="move_antennapod">Einstellungen → Import/Export → OPML-Export</string>
+    <string name="move_pocketcasts">Profil → Einstellungen → Import &amp; Export → Podcasts exportieren</string>
+    <string name="move_podcastaddict">Einstellungen → Sichern/Wiederherstellen → OPML-Export</string>
+    <string name="move_overcast">Einstellungen → OPML exportieren</string>
+    <string name="move_other">Anderswo: in den Einstellungen der App nach „OPML“ oder „Export“ suchen. Apple Podcasts und Spotify haben keinen Export – deine Shows findest du unter „Entdecken“.</string>
+    <string name="move_import">OPML-Datei wählen</string>
+    <string name="move_export_title">Abos mitnehmen</string>
+    <string name="move_export_text">Als OPML-Datei, zur Sicherung oder für eine andere App.</string>
 </resources>

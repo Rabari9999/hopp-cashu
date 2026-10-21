@@ -24,4 +24,7 @@
     <string name="scan_close">Schließen</string>
     <string name="scan_no_camera">Hopp braucht die Kamera nur, um den QR-Code zu lesen.</string>
     <string name="files_summary">Heruntergeladene Folgen</string>
+    <string name="skip_back">%1$d Sekunden zurück</string>
+    <string name="skip_forward">%1$d Sekunden vor</string>
+    <string name="next_chapter">Nächstes Kapitel</string>
 </resources>

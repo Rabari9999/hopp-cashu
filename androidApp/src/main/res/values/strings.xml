@@ -27,4 +27,8 @@
     <string name="scan_close">Close</string>
     <string name="scan_no_camera">Hopp needs the camera only to read the QR code.</string>
     <string name="files_summary">Downloaded episodes</string>
+    <!-- Lock screen and notification -->
+    <string name="skip_back">Back %1$d seconds</string>
+    <string name="skip_forward">Forward %1$d seconds</string>
+    <string name="next_chapter">Next chapter</string>
 </resources>

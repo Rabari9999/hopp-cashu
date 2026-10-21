@@ -50,6 +50,8 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -259,15 +261,29 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 Toggle(stringResource(Res.string.settings_fyyd), stringResource(Res.string.settings_sees_searches), s.fyydSearch) { on -> vm.update { it.copy(fyydSearch = on) } }
                 Toggle(stringResource(Res.string.settings_apple), stringResource(Res.string.settings_sees_searches), s.appleSearch) { on -> vm.update { it.copy(appleSearch = on) } }
             }
+            // Moving over from another podcast app (maintainer, 2026-10-21): where its export is,
+            // then one button; taking the subscriptions along below.
             SettingsPage.Subscriptions -> {
-                Note(stringResource(Res.string.settings_opml_note))
-                val importState by vm.import.collectAsState()
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) { Text(stringResource(Res.string.opml_import)) }
-                    OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
+                Section(stringResource(Res.string.opml_section))
+                Note(stringResource(Res.string.move_text))
+                listOf(
+                    "AntennaPod" to Res.string.move_antennapod, "Pocket Casts" to Res.string.move_pocketcasts,
+                    "Podcast Addict" to Res.string.move_podcastaddict, "Overcast" to Res.string.move_overcast,
+                ).forEach { (app, path) ->
+                    Column {
+                        Text(app, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(path), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    }
                 }
+                Note(stringResource(Res.string.move_other))
+                val importState by vm.import.collectAsState()
+                Button(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) { Text(stringResource(Res.string.move_import)) }
                 if (importState == AddState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
                 (importState as? AddState.Imported)?.let { Text(stringResource(Res.string.result_imported, it.subscribed, it.already, it.failed)) }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Section(stringResource(Res.string.move_export_title))
+                Note(stringResource(Res.string.move_export_text))
+                OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
             }
             SettingsPage.About -> {
                 SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

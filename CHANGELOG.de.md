@@ -10,6 +10,12 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Nostr:** Abos, Hörstand, Favoriten, „Als Nächstes“ und Hörgewohnheiten zwischen deinen Geräten abgleichen – verschlüsselt, ohne Hopp-Server.
 - **Nostr:** Auf einem neuen Gerät nach der Anmeldung die Bibliothek aus Nostr wiederherstellen.
 - **Tour:** „Ich nutze Hopp schon“ auf der ersten Seite und „Wiederherstellen“ neben „Einrichten“ auf der Nostr-Seite führen direkt zur Wiederherstellung aus Nostr.
+- **Tour:** „Ich komme von einer anderen Podcast-App“ führt zum Umzug deiner Abos, mit dem Weg zum Export der bekannten Apps.
+- **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
+
+### 🐛 Fixes
+- **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
+
 
 ## [0.2.2] - 2026-10-20
 

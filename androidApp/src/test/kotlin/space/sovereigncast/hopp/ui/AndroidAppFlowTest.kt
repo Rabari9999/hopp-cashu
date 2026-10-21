@@ -280,6 +280,10 @@ class AndroidAppFlowTest {
     /** The top-most of several — now playing lies over the page it came from. */
     private fun tapTop(text: String) = rule.onAllNodes(hasText(text) and hasClickAction()).onLast().performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
+    /** The system's back — gesture or key —, not the app bar's arrow. */
+    private fun systemBack() = rule.runOnUiThread {
+        ((rule as androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>).activity as androidx.activity.ComponentActivity).onBackPressedDispatcher.onBackPressed()
+    }
 
     /** The back catalogue never lands in New (device feedback 2026-10-12) — nor, since
      *  "From your shows" left (2026-10-13), anywhere on Home. */
@@ -1336,7 +1340,9 @@ class AndroidAppFlowTest {
         rule.setContent { App(actions) }
         rule.onNode(hasContentDescription("Settings")).performClick()
         rule.onNode(hasText("Subscriptions") and hasClickAction()).performScrollTo().performClick()
-        tap("Import OPML")
+        // Where other apps keep their export, then one button (maintainer, 2026-10-21).
+        waitFor("AntennaPod")
+        tap("Choose OPML file")
         waitFor("1 subscribed, 0 already there, 0 failed")
         back(); back()
         tap("Library"); waitFor("Test Show")
@@ -1619,6 +1625,28 @@ class AndroidAppFlowTest {
         // The ways in with an existing account, open at once, saying what the key is for.
         waitFor("nsec1… or ncryptsec1…")
         waitFor("Hopp then brings your library back", substring = true)
+        until { settings().onboardingDone }
+    }
+
+    /** Left for a page from the tour, back comes back to the tour where it was (maintainer, 2026-10-21). */
+    @Test
+    fun backFromAPageTheTourOpenedReturnsToTheTour() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        tap("I already use Hopp")
+        waitFor("nsec1… or ncryptsec1…")
+        // Back — on a device the sign-in sheet takes the first one — leads to the tour, not Home.
+        repeat(2) { if (!has("Welcome to Hopp")) { systemBack(); rule.waitForIdle() } }
+        waitFor("Welcome to Hopp")
+        check(!has("Join the conversation on Nostr")) { "the Nostr page stayed on top of the tour" }
+        // From the second page, by the arrow: back on the second page.
+        tap("Next")
+        tap("I’m coming from another podcast app")
+        waitFor("AntennaPod")
+        rule.onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        waitFor("Subscribe to shows")
+        tap("Skip")
         until { settings().onboardingDone }
     }
 

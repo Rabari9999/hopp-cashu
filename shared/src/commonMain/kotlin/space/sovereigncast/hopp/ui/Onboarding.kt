@@ -62,6 +62,7 @@ import space.sovereigncast.hopp.resources.onboarding_nostr_comments
 import space.sovereigncast.hopp.resources.onboarding_nostr_votes
 import space.sovereigncast.hopp.resources.onboarding_nostr_boosts
 import space.sovereigncast.hopp.resources.onboarding_nostr_restore
+import space.sovereigncast.hopp.resources.onboarding_moving
 import space.sovereigncast.hopp.resources.onboarding_returning
 import space.sovereigncast.hopp.resources.onboarding_nostr_sync
 import space.sovereigncast.hopp.resources.onboarding_nostr_setup
@@ -86,11 +87,13 @@ private class TourPage(
     val restore: StringResource? = null,
     /** The welcome page: a quiet way in for those who use Hopp already, before any page explains Nostr. */
     val returning: Boolean = false,
+    /** The subscribing page: for those who come from another podcast app, their shows over (OPML). */
+    val moving: Boolean = false,
 )
 
 private val ALL_PAGES = listOf(
     TourPage(null, false, Res.string.onboarding_welcome_title, Res.string.onboarding_welcome_text, returning = true),
-    TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text),
+    TourPage(Icons.Rounded.Search, false, Res.string.onboarding_subscribe_title, Res.string.onboarding_subscribe_text, moving = true),
     TourPage(Icons.AutoMirrored.Rounded.List, false, Res.string.onboarding_library_title, Res.string.onboarding_library_text),
     TourPage(HoppIcons.Hop, true, Res.string.onboarding_v4v_title, Res.string.onboarding_v4v_text),
     // Nostr, optional (maintainer, 2026-10-16): what it is, what Hopp does with it — sync, announced
@@ -112,10 +115,19 @@ private val ALL_PAGES = listOf(
  * 2026-10-10); [onDone] says whether the listener took it.
  */
 @Composable
-fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onRestore: () -> Unit = onNostr, onDone: (connectWallet: Boolean) -> Unit) {
+fun OnboardingScreen(
+    hasWallet: Boolean = false,
+    /** The page to open at: where the listener left the tour for one of the pages below. */
+    initialPage: Int = 0,
+    /** Each gets the page the tour is at, to come back to it. */
+    onNostr: (page: Int) -> Unit = {},
+    onRestore: (page: Int) -> Unit = onNostr,
+    onMove: (page: Int) -> Unit = {},
+    onDone: (connectWallet: Boolean) -> Unit,
+) {
     // A wallet already connected (tour again, or after an update): no page asking for one.
     val PAGES = if (hasWallet) ALL_PAGES.dropLast(1) else ALL_PAGES
-    val pager = rememberPagerState { PAGES.size }
+    val pager = rememberPagerState(initialPage = initialPage.coerceIn(0, PAGES.lastIndex)) { PAGES.size }
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
     val last = pager.currentPage == PAGES.lastIndex
@@ -196,11 +208,12 @@ fun OnboardingScreen(hasWallet: Boolean = false, onNostr: () -> Unit = {}, onRes
                     val restore = page.restore
                     when {
                         setup != null && restore != null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onNostr, modifier = Modifier.weight(1f)) { Text(stringResource(setup), maxLines = 1) }
-                            OutlinedButton(onClick = onRestore, modifier = Modifier.weight(1f)) { Text(stringResource(restore), maxLines = 1) }
+                            OutlinedButton(onClick = { onNostr(pager.currentPage) }, modifier = Modifier.weight(1f)) { Text(stringResource(setup), maxLines = 1) }
+                            OutlinedButton(onClick = { onRestore(pager.currentPage) }, modifier = Modifier.weight(1f)) { Text(stringResource(restore), maxLines = 1) }
                         }
-                        setup != null -> OutlinedButton(onClick = onNostr, modifier = Modifier.fillMaxWidth()) { Text(stringResource(setup)) }
-                        page.returning -> TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_returning)) }
+                        setup != null -> OutlinedButton(onClick = { onNostr(pager.currentPage) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(setup)) }
+                        page.returning -> TextButton(onClick = { onRestore(pager.currentPage) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_returning)) }
+                        page.moving -> TextButton(onClick = { onMove(pager.currentPage) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.onboarding_moving)) }
                         else -> TextButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("") }
                     }
                 }
