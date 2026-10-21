@@ -83,4 +83,33 @@ class QueueAndSettingsSyncTest {
         assertEquals(30, phone.settings.current().skipBackSeconds)
         assertEquals(21_000, phone.settings.current().dailyBudgetSats)
     }
+
+    /** Device feedback 2026-10-21: a phone that never had a boost name, and a new device that
+     *  took the name from the Nostr profile — the restore wiped it, and Home greeted no one. */
+    @Test
+    fun aBoostNameNobodyGaveDoesNotWipeTheProfileName() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.settings.update { it.copy(skipForwardSeconds = 45) }
+        phone.sync.enable()
+
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.settings.update { it.copy(senderName = "Thorsten") }
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertEquals("Thorsten", tablet.settings.current().senderName)
+        assertEquals(45, tablet.settings.current().skipForwardSeconds)
+
+        // Relays from a build before this fix hold the blank name as a seed: still not taken.
+        SettingsDocument(tablet.settings).apply(mapOf("sender_name" to SyncEntry(0, d = SyncDocs.setting(""))))
+        assertEquals("Thorsten", tablet.settings.current().senderName)
+
+        // Cleared on purpose on the phone: that one counts.
+        phone.ms += 60_000
+        phone.settings.update { it.copy(senderName = "x") }
+        phone.settings.update { it.copy(senderName = "") }
+        phone.sync.syncNow()
+        tablet.ms += 120_000
+        tablet.sync.syncNow()
+        assertEquals("", tablet.settings.current().senderName)
+    }
 }

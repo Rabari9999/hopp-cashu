@@ -55,10 +55,19 @@ class SettingsDocument(private val settings: SettingsRepository) : SyncedDocumen
     /** This device's settings join only where the relays have nothing: on a second device
      *  turned on, the first one's habits are taken. */
     override suspend fun snapshot(): Map<String, SyncEntry> =
-        settings.synced().mapValues { (_, v) -> SyncEntry(0, d = SyncDocs.setting(v)) }
+        settings.synced().filterNot { (k, v) -> k == NAME && v.isBlank() }.mapValues { (_, v) -> SyncEntry(0, d = SyncDocs.setting(v)) }
 
+    /** A boost name nobody gave (a blank one from a device's start, time 0) never empties one
+     *  here — device feedback 2026-10-21: a restore wiped the name just read from the Nostr
+     *  profile, and Home greeted no one. A name cleared on purpose has a time and is taken. */
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        settings.applySynced(entries.filterValues { !it.del }.mapNotNull { (k, e) -> e.d.text("v")?.let { k to it } }.toMap())
+        settings.applySynced(
+            entries.filterValues { !it.del }
+                .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.let { k to it } }
+                .toMap(),
+        )
         return entries.keys
     }
+
+    private companion object { const val NAME = "sender_name" }
 }

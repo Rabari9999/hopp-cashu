@@ -83,6 +83,7 @@ class HomeViewModel(
     private val settings: SettingsRepository,
     private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository,
     sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+    identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
 ) : RefreshingViewModel(podcasts, sync) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
@@ -106,9 +107,14 @@ class HomeViewModel(
     val savedOrder: StateFlow<List<String>> = state(settings.settings.map { it.homeOrder }, emptyList())
     val hidden: StateFlow<Set<String>> = state(settings.settings.map { it.homeHidden }, emptySet())
     /** Who Home greets: the name the listener boosts with, if they gave one (device feedback
-     *  2026-10-13). A Nostr profile's name is to take its place once Hopp signs in with Nostr
-     *  (phase 2) — this is the one place to change. */
-    val greetName: StateFlow<String?> = state(settings.settings.map { it.senderName.trim().takeIf { n -> n.isNotEmpty() } }, null)
+     *  2026-10-13), else their Nostr profile's name (device feedback 2026-10-21: after a
+     *  restore from Nostr the boost name was empty, and Home greeted no one). */
+    val greetName: StateFlow<String?> = state(
+        combine(settings.settings, identities?.identity ?: kotlinx.coroutines.flow.flowOf(null)) { s, me ->
+            s.senderName.trim().takeIf { it.isNotEmpty() } ?: me?.name?.trim()?.takeIf { it.isNotEmpty() }
+        },
+        null,
+    )
     fun toggle(section: String) = viewModelScope.launch {
         settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
     }

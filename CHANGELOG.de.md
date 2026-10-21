@@ -17,6 +17,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
+- **Startseite:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
 
 
 ## [0.2.2] - 2026-10-20

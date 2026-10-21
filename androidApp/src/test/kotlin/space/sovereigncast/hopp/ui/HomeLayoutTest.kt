@@ -100,6 +100,18 @@ class HomeLayoutTest {
         rule.waitUntil(10_000) { screen().any { "Satoshi" in it } }
     }
 
+    /** No boost name, but a Nostr profile with one: that greets (device feedback 2026-10-21 —
+     *  restored from Nostr, Home greeted no one, even after a restart). */
+    @Test
+    fun homeGreetsByTheNostrNameWhenThereIsNoBoostName() {
+        runBlocking {
+            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
+            settings.update { it.copy(senderName = "") }
+        }
+        home()
+        rule.waitUntil(10_000) { screen().any { "Nakamoto" in it } }
+    }
+
     /** Device feedback 2026-10-17: a long greeting shrinks to one line instead of running off. */
     @Test @Config(qualifiers = "en-w360dp-h800dp")
     fun aLongGreetingFitsOneLine() {

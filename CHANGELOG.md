@@ -17,6 +17,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ### 🐛 Fixes
 - **Tour:** Back from a page the tour opened returns to the tour.
+- **Home:** Greets you by your Nostr name when no boost name is set, also after restoring from Nostr.
 
 
 ## [0.2.2] - 2026-10-20
