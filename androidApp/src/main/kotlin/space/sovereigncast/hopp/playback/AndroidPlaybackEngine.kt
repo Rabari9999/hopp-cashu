@@ -90,6 +90,8 @@ class AndroidPlaybackEngine(context: Context) : PlaybackEngine {
 
     // Applied by PlaybackService from the settings — ExoPlayer's own feature.
     override val supportsSkipSilence: Boolean = true
+    // Android's LoudnessEnhancer, applied by PlaybackService from the settings.
+    override val supportsVolumeBoost: Boolean = true
 
     /** Releases the controller only; the service keeps playing. */
     override fun release() {

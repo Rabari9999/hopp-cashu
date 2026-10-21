@@ -194,6 +194,9 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 if (engine.supportsSkipSilence) Toggle(stringResource(Res.string.skip_silence), stringResource(Res.string.settings_skip_silence_note), s.skipSilence) { on ->
                     vm.update { it.copy(skipSilence = on) }
                 }
+                if (engine.supportsVolumeBoost) Toggle(stringResource(Res.string.volume_boost), stringResource(Res.string.settings_volume_boost_note), s.volumeBoost) { on ->
+                    vm.update { it.copy(volumeBoost = on) }
+                }
             }
             SettingsPage.Downloads -> {
                 Section(stringResource(Res.string.settings_downloads))

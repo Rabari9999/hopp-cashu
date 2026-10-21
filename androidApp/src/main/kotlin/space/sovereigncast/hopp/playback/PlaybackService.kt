@@ -70,6 +70,7 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             koin.get<SettingsRepository>().settings.collect {
                 exo.skipSilenceEnabled = it.skipSilence
+                louder.on = it.volumeBoost
                 val changed = skipBackMs != it.skipBackSeconds * 1000L || skipForwardMs != it.skipForwardSeconds * 1000L
                 skipBackMs = it.skipBackSeconds * 1000L
                 skipForwardMs = it.skipForwardSeconds * 1000L
@@ -77,6 +78,12 @@ class PlaybackService : MediaLibraryService() {
                 if (changed) session?.setMediaButtonPreferences(buttons())
             }
         }
+
+        // The volume boost works on the player's audio session — a new one, and it moves along.
+        louder.attach(exo.audioSessionId)
+        exo.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) = louder.attach(audioSessionId)
+        })
 
         val tree = MediaTree(this, koin.get(), koin.get(), koin.get(), koin.get())
         // The skip buttons from the start; the boost joins once the wallet is known (below).
@@ -100,6 +107,7 @@ class PlaybackService : MediaLibraryService() {
         private set
 
     private var boostShown = false
+    private val louder = Louder()
     private var skipBackMs = Settings().skipBackSeconds * 1000L
     private var skipForwardMs = Settings().skipForwardSeconds * 1000L
     private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
@@ -278,9 +286,39 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        louder.release()
         session?.run { player.release(); release() }
         session = null
         scope.cancel()
         super.onDestroy()
+    }
+}
+
+/**
+ * The volume boost (maintainer 2026-10-21: some shows and episodes are quiet):
+ * Android's LoudnessEnhancer on the player's audio session, [GAIN_MB] louder
+ * while [on]. A device without the effect plays as it was.
+ */
+internal class Louder {
+    private var effect: android.media.audiofx.LoudnessEnhancer? = null
+    var on = false
+        set(value) { field = value; runCatching { effect?.enabled = value } }
+
+    fun attach(audioSessionId: Int) {
+        release()
+        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) return
+        effect = runCatching {
+            android.media.audiofx.LoudnessEnhancer(audioSessionId).apply { setTargetGain(GAIN_MB); enabled = on }
+        }.getOrNull()
+    }
+
+    fun release() {
+        runCatching { effect?.release() }
+        effect = null
+    }
+
+    companion object {
+        /** In millibels: +8 dB — clearly louder, not yet distorted on speech. */
+        const val GAIN_MB = 800
     }
 }

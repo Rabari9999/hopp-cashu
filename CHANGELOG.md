@@ -13,6 +13,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Tour:** "I’m coming from another podcast app" leads to moving your subscriptions over, with where each app keeps its export.
 - **Library:** Share another app's OPML export to Hopp, or open it with Hopp: it asks, then subscribes.
 - **Library:** Choose and export OPML files on the iPhone and iPad too.
+- **Player:** Raise the volume of quiet shows (Android), in the playback settings and beside the speeds.
+- **Boosts:** Hopp shows what your wallet holds and sends no boost it cannot cover.
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 
 ### 🐛 Fixes

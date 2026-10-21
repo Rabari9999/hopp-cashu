@@ -94,6 +94,7 @@
     <string name="speed_title">Geschwindigkeit</string>
     <string name="speed_note">Gilt für diese Show. Standard: %1$s× (Einstellungen → Wiedergabe)</string>
     <string name="skip_silence">Stille überspringen</string>
+    <string name="volume_boost">Lautstärke anheben</string>
     <string name="show_auto_download">Neue Folgen im WLAN laden</string>
     <string name="settings_playback">Wiedergabe</string>
     <string name="settings_skip_back">Zurückspringen</string>
@@ -169,6 +170,8 @@
     <string name="boost_send">%1$s sats boosten</string>
     <string name="boost_send_over">Über dem Budget – trotzdem %1$s sats boosten</string>
     <string name="boost_via">über %1$s (NWC) · Budget heute: %2$s sats übrig</string>
+    <string name="boost_via_balance">über %1$s (NWC) · in der Wallet: %2$s sats · Budget heute: %3$s sats übrig</string>
+    <string name="boost_low_balance">In der Wallet sind nur %1$s sats – zu wenig für diesen Boost samt Gebühren.</string>
     <string name="boost_no_wallet">Wallet verbinden, um zu boosten</string>
     <string name="boost_why_nwc">Ein Boost wird so aufgeteilt, wie der Podcast es festlegt – oft auf mehrere Empfänger, manche nur per Keysend erreichbar. Das geht nur mit einer verbundenen Wallet (NWC); eine Wallet-App bekommt immer nur eine Rechnung. Release Boosting und Boost2Unlock bei Sovereigncast-Shows bezahlst du auch mit jeder Wallet-App.</string>
     <string name="boost_no_value">Diese Show hat keinen Value-Block – sie kann keine Boosts empfangen.</string>
@@ -414,6 +417,7 @@
     <string name="settings_about_title">Über Hopp</string>
     <string name="settings_about_note">Version, Tour, Quellcode</string>
     <string name="settings_skip_silence_note">Kürzt Pausen im Ton</string>
+    <string name="settings_volume_boost_note">Macht leise Shows und Folgen lauter</string>
     <string name="settings_boost_feedback">Nach einem Boost in der App</string>
     <string name="settings_quick_boost_feedback">Nach einem Schnell-Boost (Sperrbildschirm)</string>
     <string name="settings_zap_feedback">Nach einem Zap</string>

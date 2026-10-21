@@ -98,4 +98,18 @@ class KeyboardAndPointerTest {
         waitFor("Kept for this show. Default: 1× (Settings → Playback)")
         check(player.state.value.speed == speedBefore) { "the right-click also changed the speed, as a tap would" }
     }
+
+    /** Quiet shows louder, beside skipping silence where all speeds are (maintainer 2026-10-21). */
+    @Test
+    fun theSpeedSheetRaisesTheVolume() {
+        play()
+        player.expand()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Playback speed")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Playback speed")).performMouseInput { rightClick() }
+        waitFor("Raise volume")
+        check(has("Skip silence")) { "skipping silence went" }
+        rule.onNode(hasText("Raise volume") and androidx.compose.ui.test.isToggleable()).performClick()
+        val settings = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>()
+        until { kotlinx.coroutines.runBlocking { settings.current().volumeBoost } }
+    }
 }

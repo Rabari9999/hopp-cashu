@@ -18,6 +18,8 @@ data class Settings(
     val skipForwardSeconds: Int = 30,
     /** Android only (ADR 0012); iOS ignores it. */
     val skipSilence: Boolean = false,
+    /** Quiet shows louder (maintainer 2026-10-21) — where the player can ([PlaybackEngine.supportsVolumeBoost]). */
+    val volumeBoost: Boolean = false,
     /** The speed of every show whose speed the listener has not set on its own
      *  (device feedback 2026-10-19). */
     val defaultSpeed: Float = 1f,
@@ -128,7 +130,7 @@ data class Settings(
         /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
          *  2026-10-20) — not the wallet, budgets, storage, refresh rules or anything of this device. */
         val SYNCED = setOf(
-            "skip_back", "skip_forward", "skip_silence", "default_speed", "sender_name", "quick_boost_sats",
+            "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
             "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list",
         )
 
@@ -138,6 +140,7 @@ data class Settings(
                 skipBackSeconds = values["skip_back"]?.toIntOrNull() ?: d.skipBackSeconds,
                 skipForwardSeconds = values["skip_forward"]?.toIntOrNull() ?: d.skipForwardSeconds,
                 skipSilence = values["skip_silence"]?.toBooleanStrictOrNull() ?: d.skipSilence,
+                volumeBoost = values["volume_boost"]?.toBooleanStrictOrNull() ?: d.volumeBoost,
                 defaultSpeed = values["default_speed"]?.toFloatOrNull()?.takeIf { it > 0f } ?: d.defaultSpeed,
                 storageLimitMb = values["storage_limit_mb"]?.toIntOrNull() ?: d.storageLimitMb,
                 fyydSearch = values["fyyd_search"]?.toBooleanStrictOrNull() ?: d.fyydSearch,
@@ -193,6 +196,7 @@ data class Settings(
         "skip_back" to skipBackSeconds.toString(),
         "skip_forward" to skipForwardSeconds.toString(),
         "skip_silence" to skipSilence.toString(),
+        "volume_boost" to volumeBoost.toString(),
         "default_speed" to defaultSpeed.toString(),
         "storage_limit_mb" to storageLimitMb.toString(),
         "fyyd_search" to fyydSearch.toString(),

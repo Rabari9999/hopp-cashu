@@ -94,6 +94,7 @@
     <string name="speed_title">Speed</string>
     <string name="speed_note">Kept for this show. Default: %1$s× (Settings → Playback)</string>
     <string name="skip_silence">Skip silence</string>
+    <string name="volume_boost">Raise volume</string>
     <string name="show_auto_download">Download new episodes on Wi-Fi</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_skip_back">Skip back</string>
@@ -169,6 +170,8 @@
     <string name="boost_send">Boost %1$s sats</string>
     <string name="boost_send_over">Over budget — boost %1$s sats anyway</string>
     <string name="boost_via">via %1$s (NWC) · budget left today: %2$s sats</string>
+    <string name="boost_via_balance">via %1$s (NWC) · in the wallet: %2$s sats · budget left today: %3$s sats</string>
+    <string name="boost_low_balance">The wallet holds only %1$s sats — not enough for this boost and its fees.</string>
     <string name="boost_no_wallet">Connect a wallet to boost</string>
     <string name="boost_why_nwc">A boost is split the way the podcast sets it — often among several recipients, some reachable only by keysend. That takes a connected wallet (NWC); a wallet app only ever gets one invoice. Release Boosting and Boost2Unlock at Sovereigncast shows you can also pay with any wallet app.</string>
     <string name="boost_no_value">This show has no value block — it cannot receive boosts.</string>
@@ -414,6 +417,7 @@
     <string name="settings_about_title">About Hopp</string>
     <string name="settings_about_note">Version, tour, source code</string>
     <string name="settings_skip_silence_note">Shortens pauses in the audio</string>
+    <string name="settings_volume_boost_note">Makes quiet shows and episodes louder</string>
     <string name="settings_boost_feedback">After a boost in the app</string>
     <string name="settings_quick_boost_feedback">After a quick boost (lock screen)</string>
     <string name="settings_zap_feedback">After a zap</string>

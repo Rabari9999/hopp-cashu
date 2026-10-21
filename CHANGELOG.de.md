@@ -13,11 +13,13 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Tour:** „Ich komme von einer anderen Podcast-App“ führt zum Umzug deiner Abos, mit dem Weg zum Export der bekannten Apps.
 - **Bibliothek:** Den OPML-Export einer anderen App an Hopp teilen oder mit Hopp öffnen: Hopp fragt kurz und abonniert.
 - **Bibliothek:** OPML-Dateien auch auf iPhone und iPad wählen und exportieren.
+- **Player:** Leise Shows lauter stellen (Android), in den Wiedergabe-Einstellungen und neben den Geschwindigkeiten.
+- **Boosts:** Hopp zeigt, was in deiner Wallet ist, und sendet keinen Boost, den sie nicht deckt.
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
-- **Startseite:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
+- **Home:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
 
 
 ## [0.2.2] - 2026-10-20

@@ -16,7 +16,7 @@ listener's relays that only their key opens.
 - **What travels:** subscriptions (with the show's own speed and
   auto-download), progress (position, played, last played), **favourites**
   and **"Up next"**, and the **listening habits** among the settings: skip
-  back and forward, the default speed, skip silence, the boost name, the
+  back and forward, the default speed, skip silence, the volume boost (2026-10-21), the boost name, the
   quick-boost amount, Home's order, hidden and folded sections, the
   library's order and view.
 - **Never:** the NWC connection, keys, the daily budget, streaming and its

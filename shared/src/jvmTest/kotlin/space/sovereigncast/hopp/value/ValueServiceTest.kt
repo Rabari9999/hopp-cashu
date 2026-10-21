@@ -324,6 +324,32 @@ class ValueServiceTest {
         assertEquals(QuickBoost.Off, value.quickBoost(ep, 30))
     }
 
+    /** Maintainer 2026-10-21: a boost the wallet cannot carry is not sent at all — not half of it. */
+    @Test
+    fun aQuickBoostLargerThanTheWalletIsNotSent() = test {
+        val ep = episode()
+        wallet.connect(uri())
+        fake.balanceMsat = 50_000
+        assertEquals(QuickBoost.LowBalance(50), value.quickBoost(ep, 30), "100 sats from a wallet with 50")
+        assertTrue(keysends().isEmpty())
+        fake.balanceMsat = 100_000
+        assertEquals(QuickBoost.LowBalance(100), value.quickBoost(ep, 30), "exactly the amount leaves nothing for fees")
+        fake.balanceMsat = 102_000
+        assertEquals(100L, (value.quickBoost(ep, 30) as QuickBoost.Sent).paidSats)
+    }
+
+    /** A wallet that does not tell its balance is not asked: the boost goes, the wallet decides. */
+    @Test
+    fun aWalletWithoutABalanceIsNotHeldBack() = test {
+        walletMethods = listOf("pay_invoice", "pay_keysend", "get_info")
+        val ep = episode()
+        wallet.connect(uri())
+        assertNull(value.walletBalanceMsat())
+        assertTrue(value.covers(null, 1_000_000))
+        assertEquals(100L, (value.quickBoost(ep, 30) as QuickBoost.Sent).paidSats)
+        assertTrue(fake.requests.none { it.first == "get_balance" })
+    }
+
     /** The streaming sheet (device feedback 2026-10-11): what waits for whom,
      *  heard and not yet split as well as owed, and when the next batch goes. */
     @Test

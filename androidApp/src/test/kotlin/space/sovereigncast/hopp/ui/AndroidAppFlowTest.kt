@@ -77,6 +77,9 @@ private class FakeEngine : PlaybackEngine {
     override fun seekTo(positionMs: Long) { s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { s.value = s.value.copy(speed = speed) }
     override fun release() = Unit
+    // As Android's engine: the switches for both show (ExoPlayer, LoudnessEnhancer).
+    override val supportsSkipSilence = true
+    override val supportsVolumeBoost = true
 }
 
 /** A show in Nodesignal's podcast:podroll (the test feed nodesignal-podhome.xml). */
