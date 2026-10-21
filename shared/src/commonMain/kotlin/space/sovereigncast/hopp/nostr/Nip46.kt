@@ -96,6 +96,21 @@ class Nip46Client(
     suspend fun getPublicKey(): String =
         request("get_public_key", emptyList()).trim().lowercase().takeIf(::isHexKey) ?: throw Nip46Exception("not a public key")
 
+    /**
+     * [getPublicKey] right after `connect`: a signer still saving the new connection
+     * (Amber writes it after a short pause) answers "no permission" for a moment —
+     * asked again then, a few times.
+     */
+    suspend fun getPublicKeyPatiently(tries: Int = 4, pause: Duration = 1.5.seconds): String {
+        repeat(tries - 1) {
+            try { return getPublicKey() } catch (e: Nip46Exception) {
+                if (e.message?.contains("permission", ignoreCase = true) != true) throw e
+            }
+            kotlinx.coroutines.delay(pause)
+        }
+        return getPublicKey()
+    }
+
     /** The signer's own relays, if it wants others (NIP-46 "switching relays"). */
     suspend fun switchRelays() {
         val answer = runCatching { request("switch_relays", emptyList(), 20.seconds) }.getOrNull() ?: return

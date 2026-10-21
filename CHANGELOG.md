@@ -15,10 +15,12 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Library:** Choose and export OPML files on the iPhone and iPad too.
 - **Player:** Raise the volume of quiet shows (Android), in the playback settings and beside the speeds.
 - **Boosts:** Hopp shows what your wallet holds and sends no boost it cannot cover.
+- **Player:** While you drag the position, a bubble shows where you would land, with the chapter.
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 
 ### 🐛 Fixes
 - **Tour:** Back from a page the tour opened returns to the tour.
+- **Nostr:** Connecting Amber as a bunker no longer fails with "no permission"; a used-up bunker address is named as such.
 - **Home:** Greets you by your Nostr name when no boost name is set, also after restoring from Nostr.
 - **Boosts:** A share whose payment had no clear answer from the wallet is no longer paid a second time.
 - **Sovereigncast:** Release Boosting, Boost2Unlock and suggestions count against the daily budget too.

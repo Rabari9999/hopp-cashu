@@ -39,6 +39,13 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
     var secret: String? = "s3cret"
     var authUrlFirst: String? = null
     var signWith: KeyPair? = null
+    /** As Amber (device feedback 2026-10-21): an address connects once, and a request
+     *  right after switch_relays finds the connection being rewritten. */
+    var amberLike = false
+    /** As many requests after connect answered "no permission" — the connection not saved yet. */
+    var notYetSaved = 0
+    private var connected = false
+    private var rewriting = false
     val methods = mutableListOf<String>()
     val params = mutableListOf<List<String>>()
 
@@ -60,10 +67,18 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
             relay.publish(Event.sign(bunkerKeys, 24133, Nip44.encrypt(content, key), listOf(listOf("p", e.pubkey)), now()))
         }
         authUrlFirst?.let { url -> authUrlFirst = null; reply("auth_url", url) }
+        if (method != "connect" && (rewriting || notYetSaved > 0)) {
+            rewriting = false; if (notYetSaved > 0) notYetSaved--
+            reply(null, "no permission"); return
+        }
         when (method) {
-            "connect" -> if (secret != null && p.getOrNull(1) != secret) reply(null, "invalid secret") else reply("ack")
+            "connect" -> when {
+                secret != null && p.getOrNull(1) != secret -> reply(null, "invalid secret")
+                amberLike && connected -> reply(null, "already connected")
+                else -> { connected = true; reply("ack") }
+            }
             "get_public_key" -> reply(userKeys.publicKeyHex)
-            "switch_relays" -> reply("null")
+            "switch_relays" -> { reply("null"); if (amberLike) rewriting = true }
             "sign_event" -> {
                 val ev = Json.parseToJsonElement(p[0]).jsonObject
                 val tags = ev["tags"]!!.jsonArray.map { t -> t.jsonArray.map { it.jsonPrimitive.content } }
@@ -142,6 +157,30 @@ class BunkerTest {
         val local = space.sovereigncast.hopp.nostr.LocalSigner(bunker.userKeys)
         assertEquals("""{"v":1}""", local.decryptFromSelf(sealed))
         assertEquals("back", signer.decryptFromSelf(local.encryptToSelf("back")))
+    }
+
+    /** Device feedback 2026-10-21, Amber as bunker: "no permission", then "already connected". */
+    @Test
+    fun anAmberBunkerSignsInThoughItIsSlowToSaveTheConnection() = runBlocking<Unit> {
+        bunker.amberLike = true
+        bunker.notYetSaved = 1
+        val me = identities.signInWithBunker(bunker.address)
+        assertEquals(bunker.userKeys.publicKeyHex, me.pubkey)
+        // The key before the relays: after switch_relays Amber rewrites the connection.
+        assertTrue(bunker.methods.lastIndexOf("get_public_key") < bunker.methods.indexOf("switch_relays"), bunker.methods.toString())
+        assertEquals(me, identities.identity.value)
+    }
+
+    @Test
+    fun aBunkerThatNeverAnswersTheKeyIsLeftAndItsAddressIsUsedUp() = runBlocking<Unit> {
+        bunker.amberLike = true
+        bunker.notYetSaved = 10
+        assertFailsWith<Nip46Exception> { identities.signInWithBunker(bunker.address) }
+        assertNull(identities.identity.value)
+        assertEquals("logout", bunker.methods.last(), "the half connection is ended")
+        bunker.notYetSaved = 0
+        val again = assertFailsWith<Nip46Exception> { identities.signInWithBunker(bunker.address) }
+        assertEquals("already connected", again.message)
     }
 
     @Test

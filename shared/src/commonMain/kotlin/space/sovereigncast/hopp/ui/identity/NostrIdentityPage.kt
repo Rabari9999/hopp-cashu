@@ -214,6 +214,11 @@ class NostrIdentityViewModel(
     val signerError: StateFlow<SignerError?> = _signerError.asStateFlow()
     enum class SignerError { Rejected, Failed }
 
+    private companion object {
+        /** A bunker address the signer will not take (again): Amber's and nsec.app's answers to `connect`. */
+        val USED_UP = listOf("already connected", "invalid secret", "secret not in use", "no secret")
+    }
+
     /** Signs in with the signer app; its profile name becomes the boost name when none is set. */
     fun signInWithSigner() = work {
         _signerError.value = null
@@ -243,7 +248,8 @@ class NostrIdentityViewModel(
         data object Idle : Bunker
         data object Connecting : Bunker
         data class Offer(val uri: String) : Bunker
-        data class Failed(val reason: String) : Bunker
+        /** [usedUp]: the signer refused the address itself — taken before, or not its own. */
+        data class Failed(val reason: String, val usedUp: Boolean = false) : Bunker
     }
     private val _bunker = MutableStateFlow<Bunker>(Bunker.Idle)
     val bunker: StateFlow<Bunker> = _bunker.asStateFlow()
@@ -277,7 +283,10 @@ class NostrIdentityViewModel(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            _bunker.value = Bunker.Failed(e.message ?: e::class.simpleName.orEmpty())
+            val reason = e.message ?: e::class.simpleName.orEmpty()
+            // Amber's words for an address it will not take again (device feedback 2026-10-21).
+            val usedUp = e is space.sovereigncast.hopp.nostr.Nip46Exception && USED_UP.any { reason.contains(it, ignoreCase = true) }
+            _bunker.value = Bunker.Failed(reason, usedUp)
         } finally {
             _authUrl.value = null
             _loadingProfile.value = false
@@ -550,7 +559,10 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
                 label = { Text(stringResource(Res.string.nostr_bunker_hint)) },
             )
             (state as? NostrIdentityViewModel.Bunker.Failed)?.let {
-                Text(stringResource(Res.string.nostr_bunker_failed, it.reason), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    if (it.usedUp) stringResource(Res.string.nostr_bunker_used_up) else stringResource(Res.string.nostr_bunker_failed, it.reason),
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                )
             }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { vm.connectBunker(address) }, enabled = address.trim().startsWith("bunker://")) { Text(stringResource(Res.string.nostr_bunker_connect)) }

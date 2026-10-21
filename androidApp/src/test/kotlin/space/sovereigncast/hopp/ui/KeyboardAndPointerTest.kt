@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyPress
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.rightClick
 import org.junit.Rule
@@ -111,5 +112,21 @@ class KeyboardAndPointerTest {
         rule.onNode(hasText("Raise volume") and androidx.compose.ui.test.isToggleable()).performClick()
         val settings = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>()
         until { kotlinx.coroutines.runBlocking { settings.current().volumeBoost } }
+    }
+
+    /** Device feedback 2026-10-21: where a drag would land shows before the finger lets go. */
+    @Test
+    fun draggingThePositionShowsWhereItWouldLand() {
+        play()
+        player.expand()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Playback position")).fetchSemanticsNodes().isNotEmpty() }
+        val bar = rule.onNode(hasContentDescription("Playback position"))
+        bar.performTouchInput { down(centerLeft + androidx.compose.ui.geometry.Offset(4f, 0f)); moveTo(center) }
+        // Half of the hour: in the bubble and in the time below.
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("30:00").fetchSemanticsNodes().size >= 2 }
+        check(player.state.value.positionMs < 60_000) { "it seeked before the finger let go" }
+        bar.performTouchInput { up() }
+        until { player.state.value.positionMs in 1_700_000L..1_900_000L }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("30:00").fetchSemanticsNodes().size <= 1 }
     }
 }

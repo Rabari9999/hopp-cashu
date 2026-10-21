@@ -15,10 +15,12 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Bibliothek:** OPML-Dateien auch auf iPhone und iPad wählen und exportieren.
 - **Player:** Leise Shows lauter stellen (Android), in den Wiedergabe-Einstellungen und neben den Geschwindigkeiten.
 - **Boosts:** Hopp zeigt, was in deiner Wallet ist, und sendet keinen Boost, den sie nicht deckt.
+- **Player:** Beim Ziehen der Position zeigt eine Blase, wo du landest, mit dem Kapitel.
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
+- **Nostr:** Amber als Bunker verbinden scheitert nicht mehr an „no permission“; eine schon verbrauchte Bunker-Adresse wird als solche benannt.
 - **Home:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
 - **Boosts:** Ein Anteil, zu dem die Wallet keine klare Antwort gab, wird nicht mehr ein zweites Mal bezahlt.
 - **Sovereigncast:** Release Boosting, Boost2Unlock und Vorschläge zählen jetzt auch gegen das Tagesbudget.

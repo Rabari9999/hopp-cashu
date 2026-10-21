@@ -254,16 +254,25 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             )
 
             Spacer(Modifier.height(10.dp))
+            // Where a drag would land, before the finger lets go (device feedback 2026-10-21).
+            var dragTo by remember { mutableStateOf<Float?>(null) }
             ChapterProgressBar(
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.seekTo((f * duration).toLong()) },
                 trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
+                preview = { f ->
+                    val at = (f * duration).toLong()
+                    listOfNotNull(formatTime(at), chapters.current(at)?.title?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                },
+                onPreview = { dragTo = it },
             )
+            val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
+            val timeStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = if (dragTo != null) FontWeight.Bold else null)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatTime(position), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text("−" + formatTime((duration - position).coerceAtLeast(0)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(formatTime(shownAt), style = timeStyle, color = colors.onSurfaceVariant)
+                Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = timeStyle, color = colors.onSurfaceVariant)
             }
 
             // Controls: speed, −15 (hold: previous chapter), play, +30 (hold: next chapter), sleep.

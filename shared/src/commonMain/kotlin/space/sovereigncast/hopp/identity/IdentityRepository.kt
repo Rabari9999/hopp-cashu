@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.identity
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -142,7 +143,8 @@ class IdentityRepository(
         val keys = KeyPair.generate()
         val client = Nip46Client(keys, bunker.remoteSignerPubkey, bunker.relays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
         client.connect(bunker.secret, BUNKER_PERMS)
-        return finishBunker(keys, client)
+        // Connected, then failed: the signer forgets the half connection (its address is used up).
+        return try { finishBunker(keys, client) } catch (e: Exception) { withContext(NonCancellable) { client.logout() }; throw e }
     }
 
     /** A `nostrconnect://` code for the listener's signer — the other way round. */
@@ -154,8 +156,11 @@ class IdentityRepository(
 
     private suspend fun finishBunker(keys: KeyPair, client: Nip46Client): NostrIdentity {
         requireReadable()
+        // The key first, the relays after (device feedback 2026-10-21): Amber answers
+        // switch_relays and then deletes and rewrites the connection — a get_public_key in
+        // between came back "no permission", and the bunker address was used up.
+        val pubkey = client.getPublicKeyPatiently()
         client.switchRelays()
-        val pubkey = client.getPublicKey()
         secrets.put(KEY, null)
         secrets.put(BUNKER_KEY, keys.secretKey.toHex())
         val me = NostrIdentity(pubkey, NostrIdentity.Source.Bunker, null, remoteSigner = client.remoteSignerPubkey, signerRelays = client.relays)

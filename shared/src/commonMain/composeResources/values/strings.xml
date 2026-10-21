@@ -593,6 +593,7 @@
     <string name="nostr_bunker_auth">Your signer asks you to confirm on its page.</string>
     <string name="nostr_bunker_auth_open">Open confirmation</string>
     <string name="nostr_bunker_failed">Could not connect: %1$s</string>
+    <string name="nostr_bunker_used_up">This bunker address has been used already. Create a new connection in your signer and paste its new address here.</string>
     <string name="sheet_comments">Comments</string>
     <string name="comments_intro">Comments come from Nostr. When you load them, up to five relays see your IP address and this episode.</string>
     <string name="comments_load">Load comments</string>

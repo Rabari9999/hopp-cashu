@@ -68,10 +68,13 @@ private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcas
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" length="48000000" type="audio/mpeg"/><podcast:chapters url="https://cdn.test/1.json" type="application/json+chapters"/></item>
 </channel></rss>"""
 
+/** Every episode plays an hour long here. */
+private const val HOUR = 3_600_000L
+
 private class FakeEngine : PlaybackEngine {
     private val s = MutableStateFlow(PlaybackState())
     override val state: StateFlow<PlaybackState> = s
-    override fun load(item: PlaybackItem, playWhenReady: Boolean) { s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs) }
+    override fun load(item: PlaybackItem, playWhenReady: Boolean) { s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = HOUR) }
     override fun play() { s.value = s.value.copy(isPlaying = true) }
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { s.value = s.value.copy(positionMs = positionMs) }

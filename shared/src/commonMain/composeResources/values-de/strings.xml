@@ -593,6 +593,7 @@
     <string name="nostr_bunker_auth">Dein Signer bittet dich, auf seiner Seite zu bestätigen.</string>
     <string name="nostr_bunker_auth_open">Bestätigung öffnen</string>
     <string name="nostr_bunker_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="nostr_bunker_used_up">Diese Bunker-Adresse wurde schon verwendet. Lege in deinem Signer eine neue Verbindung an und füge die neue Adresse hier ein.</string>
     <string name="sheet_comments">Kommentare</string>
     <string name="comments_intro">Kommentare kommen von Nostr. Beim Laden sehen bis zu fünf Relays deine IP-Adresse und diese Folge.</string>
     <string name="comments_load">Kommentare laden</string>
