@@ -16,6 +16,10 @@ import space.sovereigncast.hopp.resources.settings_downloads_used
 import space.sovereigncast.hopp.resources.cancel
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -264,6 +268,26 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
             // Moving over from another podcast app (maintainer, 2026-10-21): where its export is,
             // then one button; taking the subscriptions along below.
             SettingsPage.Subscriptions -> {
+                // A file handed over from another app: asked first, at the top.
+                var incoming by remember { mutableStateOf<SettingsViewModel.OpmlFile?>(null) }
+                LaunchedEffect(Unit) { space.sovereigncast.hopp.ui.IncomingLinks.takeOpmlDraft()?.let { incoming = vm.opmlFile(it) } }
+                incoming?.let { file ->
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.secondaryContainer).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stringResource(Res.string.opml_incoming_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(when {
+                            file.shows == 0 -> stringResource(Res.string.opml_incoming_none)
+                            file.already > 0 -> stringResource(Res.string.opml_incoming_some_here, file.shows, file.already)
+                            else -> stringResource(Res.string.opml_incoming_count, file.shows)
+                        })
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (file.shows > file.already) Button(onClick = { vm.importOpml(file.text); incoming = null }) { Text(stringResource(Res.string.opml_incoming_import)) }
+                            TextButton(onClick = { incoming = null }) { Text(stringResource(if (file.shows > file.already) Res.string.cancel else Res.string.opml_incoming_close)) }
+                        }
+                    }
+                }
                 Section(stringResource(Res.string.opml_section))
                 Note(stringResource(Res.string.move_text))
                 listOf(

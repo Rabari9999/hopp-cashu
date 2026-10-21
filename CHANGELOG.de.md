@@ -11,6 +11,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Nostr:** Auf einem neuen Gerät nach der Anmeldung die Bibliothek aus Nostr wiederherstellen.
 - **Tour:** „Ich nutze Hopp schon“ auf der ersten Seite und „Wiederherstellen“ neben „Einrichten“ auf der Nostr-Seite führen direkt zur Wiederherstellung aus Nostr.
 - **Tour:** „Ich komme von einer anderen Podcast-App“ führt zum Umzug deiner Abos, mit dem Weg zum Export der bekannten Apps.
+- **Bibliothek:** Den OPML-Export einer anderen App an Hopp teilen oder mit Hopp öffnen: Hopp fragt kurz und abonniert.
+- **Bibliothek:** OPML-Dateien auch auf iPhone und iPad wählen und exportieren.
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 
 ### 🐛 Fixes

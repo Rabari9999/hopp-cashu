@@ -262,6 +262,17 @@ class SettingsViewModel(
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
+
+    /** An OPML file another app handed over: how many shows it names, and how many of them are here already. */
+    data class OpmlFile(val text: String, val shows: Int, val already: Int)
+
+    suspend fun opmlFile(text: String): OpmlFile {
+        val entries = space.sovereigncast.hopp.data.Opml.parse(text)
+        val here = podcasts.shows.first().map { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) }.toSet()
+        val keys = entries.map { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) }.toSet()
+        return OpmlFile(text, keys.size, keys.count { it in here })
+    }
+
     private val _import = MutableStateFlow<AddState>(AddState.Idle)
     val import: StateFlow<AddState> = _import.asStateFlow()
     fun importOpml(text: String) {

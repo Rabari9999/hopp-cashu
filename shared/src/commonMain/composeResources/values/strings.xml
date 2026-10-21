@@ -826,4 +826,10 @@
     <string name="move_import">Choose OPML file</string>
     <string name="move_export_title">Take your subscriptions along</string>
     <string name="move_export_text">As an OPML file, for a backup or another app.</string>
+    <string name="opml_incoming_title">Subscriptions from another app</string>
+    <string name="opml_incoming_count">The file names %1$d shows. Subscribe to them in Hopp?</string>
+    <string name="opml_incoming_some_here">The file names %1$d shows, %2$d of them you have already. Subscribe to the others?</string>
+    <string name="opml_incoming_none">There are no shows in this file — is it an OPML export?</string>
+    <string name="opml_incoming_import">Subscribe</string>
+    <string name="opml_incoming_close">Close</string>
 </resources>

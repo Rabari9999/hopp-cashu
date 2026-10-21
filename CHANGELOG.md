@@ -11,6 +11,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Nostr:** On a new device, restore your library from Nostr after signing in.
 - **Tour:** "I already use Hopp" on the first page, and "Restore" beside "Set up" on the Nostr page, lead straight to restoring from Nostr.
 - **Tour:** "I’m coming from another podcast app" leads to moving your subscriptions over, with where each app keeps its export.
+- **Library:** Share another app's OPML export to Hopp, or open it with Hopp: it asks, then subscribes.
+- **Library:** Choose and export OPML files on the iPhone and iPad too.
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 
 ### 🐛 Fixes

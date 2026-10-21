@@ -826,4 +826,10 @@
     <string name="move_import">OPML-Datei wählen</string>
     <string name="move_export_title">Abos mitnehmen</string>
     <string name="move_export_text">Als OPML-Datei, zur Sicherung oder für eine andere App.</string>
+    <string name="opml_incoming_title">Abos aus einer anderen App</string>
+    <string name="opml_incoming_count">In der Datei stehen %1$d Shows. In Hopp abonnieren?</string>
+    <string name="opml_incoming_some_here">In der Datei stehen %1$d Shows, %2$d davon hast du schon. Die übrigen abonnieren?</string>
+    <string name="opml_incoming_none">In dieser Datei stehen keine Shows – ist es ein OPML-Export?</string>
+    <string name="opml_incoming_import">Abonnieren</string>
+    <string name="opml_incoming_close">Schließen</string>
 </resources>

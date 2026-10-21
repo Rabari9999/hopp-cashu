@@ -279,6 +279,23 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                 player.minimize(); IncomingLinks.handOverWallet(uri); nav.navigate(WalletRoute)
             }
         }
+        launch {
+            // An OPML file from another app: the subscriptions page, which asks first. Over the
+            // tour too — whoever shares a file knows what they came for.
+            IncomingLinks.opml.collect { text ->
+                if (text == null) return@collect
+                IncomingLinks.opml.value = null
+                IncomingLinks.handOverOpml(text)
+                if (tour || appSettings?.onboardingDone == false) {
+                    tour = false
+                    settingsRepo.update { it.copy(onboardingDone = true) }
+                }
+                withContext(Dispatchers.Main) {
+                    player.minimize()
+                    nav.navigate(SettingsPageRoute(SettingsPage.Subscriptions.name))
+                }
+            }
+        }
         // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
         // subscribed under this address — its page on Library; each through its
         // tab, as a tap would.

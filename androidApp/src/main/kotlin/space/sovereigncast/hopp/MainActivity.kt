@@ -78,10 +78,36 @@ class MainActivity : ComponentActivity(), PlatformActions {
     }
 
     private fun takeLink(intent: Intent?) {
+        if (intent != null && takeOpml(intent)) return
         val uri = intent?.data ?: return
         if (uri.scheme?.startsWith("nostr") == true) IncomingLinks.walletUri.value = uri.toString()
         // "Open in Hopp": anything else without a feed opens Hopp as it is.
         else IncomingLinks.linkFrom(uri.toString())?.let { IncomingLinks.show.value = it }
+    }
+
+    /**
+     * An OPML file from another app — opened with Hopp or shared to it, as a
+     * file or as text. Read whole only up to Limits.OPML, as a picked one is.
+     */
+    private fun takeOpml(intent: Intent): Boolean {
+        val stream: android.net.Uri? = when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == "content" }
+            Intent.ACTION_SEND ->
+                if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            else -> null
+        }
+        val text = when {
+            stream != null -> runCatching {
+                contentResolver.openInputStream(stream)?.use { readAtMost(it, space.sovereigncast.hopp.net.Limits.OPML + 1) }
+            }.getOrNull()?.takeIf { it.size <= space.sovereigncast.hopp.net.Limits.OPML }?.decodeToString()
+            intent.action == Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+            else -> null
+        }
+        if (text == null && stream == null) return false
+        // Unreadable, too large or no OPML (any XML can come this way): the page says there are no shows in it.
+        IncomingLinks.opml.value = text?.takeIf(IncomingLinks::isOpml).orEmpty()
+        return true
     }
 
     /** Up to [max] bytes of [input] (InputStream.readNBytes needs Android 13). */
