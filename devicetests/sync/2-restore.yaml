@@ -1,5 +1,5 @@
-# Sync, part 2: a second device, Hopp just installed. The tour's "Restore from
-# Nostr", the key from the first device (${KEY}, its backup with ${PASSWORD}),
+# Sync, part 2: a second device, Hopp just installed. The welcome page's "I already
+# use Hopp", the key from the first device (${KEY}, its backup with ${PASSWORD}),
 # the offer, the restore — then everything checked as the first device left it.
 # At the end two changes made here, for part 3 to find on the first device.
 appId: ${APP_ID}
@@ -12,14 +12,8 @@ name: Sync restore
 - extendedWaitUntil:
     visible: "Welcome to Hopp"
     timeout: 15000
-- repeat:
-    times: 4
-    commands:
-      - tapOn: "Next"
-- extendedWaitUntil:
-    visible: "Nostr, if you like"
-    timeout: 10000
-- tapOn: "Already using Hopp\\? Restore from Nostr"
+- tapOn: "I already use Hopp"
+- assertVisible: ".*Hopp then brings your library back.*"
 - tapOn: "nsec1… or ncryptsec1…"
 - inputText: ${KEY}
 - tapOn: "Password of the backup"

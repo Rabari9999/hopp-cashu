@@ -1526,7 +1526,7 @@ class AndroidAppFlowTest {
         tap("Next")
         // Nostr, optional (2026-10-16): what it is and what Hopp does with it.
         waitFor("Nostr, if you like")
-        check(has("Set up Nostr now")) { "the tour offers to set up Nostr right away" }
+        check(has("Set up") && has("Restore")) { "the tour offers to set up Nostr, or restore from it, right away" }
         tap("Next")
         waitFor("Connect your wallet")
         check(has("Zeus", substring = true) && !has("Primal, Coinos", substring = true)) { "Primal's NWC does not do what Hopp needs" }
@@ -1600,7 +1600,7 @@ class AndroidAppFlowTest {
         waitFor("Welcome to Hopp")
         repeat(4) { tap("Next") }
         waitFor("Nostr, if you like")
-        tap("Set up Nostr now")
+        tap("Set up")
         waitFor("Join the conversation on Nostr")
         until { settings().onboardingDone }
     }
@@ -1615,8 +1615,20 @@ class AndroidAppFlowTest {
         waitFor("Nostr, if you like")
         check(!has("Soon")) { "sync is no longer to come" }
         check(has("your library and progress on every device", substring = true))
-        tap("Already using Hopp? Restore from Nostr")
-        // The ways in with an existing account, open at once.
+        tap("Restore")
+        // The ways in with an existing account, open at once, saying what the key is for.
+        waitFor("nsec1… or ncryptsec1…")
+        waitFor("Hopp then brings your library back", substring = true)
+        until { settings().onboardingDone }
+    }
+
+    /** Who uses Hopp already need not page through the tour (maintainer, 2026-10-21). */
+    @Test
+    fun theWelcomePageLeadsBackToALibraryOnNostr() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        tap("I already use Hopp")
         waitFor("nsec1… or ncryptsec1…")
         until { settings().onboardingDone }
     }

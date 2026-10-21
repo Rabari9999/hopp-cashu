@@ -650,7 +650,7 @@
     <string name="onboarding_nostr_votes">deine Sovereigncast-Stimmen auf jedem Gerät</string>
     <string name="onboarding_nostr_boosts">Boosts auf Wunsch als öffentlicher Kommentar</string>
     <string name="np_no_value">Diese Show nimmt keine Sats an – ihr Feed nennt keine Empfänger.</string>
-    <string name="onboarding_nostr_setup">Nostr jetzt einrichten</string>
+    <string name="onboarding_nostr_setup">Einrichten</string>
     <string name="nostr_vault_save_android">Im Passwortmanager sichern</string>
     <string name="nostr_vault_save_ios">Im iCloud-Schlüsselbund sichern</string>
     <string name="nostr_vault_note_android">Google Passwortmanager, Bitwarden, KeePassDX … – auf einem neuen Handy mit einem Tipp zurück.</string>
@@ -797,7 +797,7 @@
     <string name="nostr_relay_unreachable">Dieses Relay antwortet nicht.</string>
     <string name="nostr_relay_not_published">Die Liste konnte auf keinem Relay gespeichert werden. Versuch es später noch einmal.</string>
     <string name="nostr_relay_not_read">Die Liste war nicht von jedem Relay zu lesen – nichts wurde geändert. Versuch es später noch einmal.</string>
-    <string name="onboarding_nostr_restore">Hopp schon in Gebrauch? Aus Nostr wiederherstellen</string>
+    <string name="onboarding_nostr_restore">Wiederherstellen</string>
     <string name="sync_restore_title">Von deinen anderen Geräten wiederherstellen</string>
     <string name="sync_restore_counts">Shows: %1$d · angefangen: %2$d</string>
     <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“ und deine Hörgewohnheiten liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
@@ -814,4 +814,6 @@
     <string name="sync_failed">Kein Relay erreicht. Hopp versucht es später wieder.</string>
     <string name="sync_now">Jetzt abgleichen</string>
     <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
+    <string name="onboarding_returning">Ich nutze Hopp schon</string>
+    <string name="nostr_restore_hint">Melde dich mit dem Nostr-Schlüssel deines anderen Geräts an – danach holt Hopp deine Bibliothek zurück.</string>
 </resources>

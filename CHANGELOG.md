@@ -9,7 +9,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🆕 New Features
 - **Nostr:** Sync subscriptions, progress, favourites, "Up next" and listening habits between your devices – encrypted, no Hopp server.
 - **Nostr:** On a new device, restore your library from Nostr after signing in.
-- **Tour:** "Already using Hopp?" leads straight to restoring from Nostr.
+- **Tour:** "I already use Hopp" on the first page, and "Restore" beside "Set up" on the Nostr page, lead straight to restoring from Nostr.
 
 ## [0.2.2] - 2026-10-20
 

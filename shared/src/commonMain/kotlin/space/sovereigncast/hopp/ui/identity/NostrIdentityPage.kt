@@ -71,6 +71,7 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.nostr_restore_hint
 import space.sovereigncast.hopp.resources.sync_failed
 import space.sovereigncast.hopp.resources.sync_last_hours
 import space.sovereigncast.hopp.resources.sync_last_minutes
@@ -442,7 +443,8 @@ private fun Unreadable(vm: NostrIdentityViewModel) {
 @Composable
 private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel) {
     var name by rememberSaveable(boostName) { mutableStateOf(boostName) }
-    var signIn by rememberSaveable { mutableStateOf(NostrSignInRequest.take()) }
+    val toRestore = rememberSaveable { NostrSignInRequest.take() }
+    var signIn by rememberSaveable { mutableStateOf(toRestore) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
@@ -460,6 +462,8 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
     if (signIn) ModalBottomSheet(onDismissRequest = { signIn = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.nostr_have_account), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            // From the tour's "Restore": what the key is for here.
+            if (toRestore) Text(stringResource(Res.string.nostr_restore_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
             SignIn(busy, vm)
         }
     }

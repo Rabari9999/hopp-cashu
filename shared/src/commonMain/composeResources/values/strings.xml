@@ -650,7 +650,7 @@
     <string name="onboarding_nostr_votes">your Sovereigncast votes on every device</string>
     <string name="onboarding_nostr_boosts">boosts as public comments, if you want</string>
     <string name="np_no_value">This show takes no sats — its feed names no value recipients.</string>
-    <string name="onboarding_nostr_setup">Set up Nostr now</string>
+    <string name="onboarding_nostr_setup">Set up</string>
     <string name="nostr_vault_save_android">Save in password manager</string>
     <string name="nostr_vault_save_ios">Save in iCloud Keychain</string>
     <string name="nostr_vault_note_android">Google Password Manager, Bitwarden, KeePassDX … — back on a new phone with one tap.</string>
@@ -797,7 +797,7 @@
     <string name="nostr_relay_unreachable">This relay does not answer.</string>
     <string name="nostr_relay_not_published">The list could not be saved on any relay. Try again later.</string>
     <string name="nostr_relay_not_read">The list could not be read from every relay — nothing was changed. Try again later.</string>
-    <string name="onboarding_nostr_restore">Already using Hopp? Restore from Nostr</string>
+    <string name="onboarding_nostr_restore">Restore</string>
     <string name="sync_restore_title">Restore from your other devices</string>
     <string name="sync_restore_counts">Shows: %1$d · in progress: %2$d</string>
     <string name="sync_restore_text">Your subscriptions, progress, “Up next” and listening habits are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
@@ -814,4 +814,6 @@
     <string name="sync_failed">No relay reached. Hopp tries again later.</string>
     <string name="sync_now">Sync now</string>
     <string name="onboarding_nostr_sync">your library and progress on every device — encrypted, no Hopp server</string>
+    <string name="onboarding_returning">I already use Hopp</string>
+    <string name="nostr_restore_hint">Sign in with the Nostr key of your other device — Hopp then brings your library back.</string>
 </resources>

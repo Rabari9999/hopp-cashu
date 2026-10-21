@@ -121,9 +121,11 @@ again, starts from the library the listener had.
   time and each show appears as its feed is in; showing the library at once
   from the document's titles and covers is left for later, if a restore
   feels slow on the device.
-- *As built:* the tour's link sits in the Nostr page itself, under its
-  points, not among the buttons — the footer keeps its height on every page
-  (the tour was cut off on a phone held sideways before).
+- *Changed 2026-10-21 (maintainer):* the link in the page fell off small
+  phones and looked like an aside. Now the footer, which never scrolls,
+  carries it: "Set up | Restore" side by side on the Nostr page, and a quiet
+  "I already use Hopp" on the welcome page, so those who return need not
+  page through the tour. The sign-in sheet then says what the key is for.
 
 ### 7. Page, privacy, docs
 
