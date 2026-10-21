@@ -239,3 +239,17 @@ the code before:
   for its fee first (`ValueService.feeReserve`: 1 %, at least a sat) — a
   reserve, not a cap; the wallet's own budget on the connection is the cap.
   An instance payment is logged even when its page closes mid-payment.
+
+### Payment safety, audit of 2026-10-20 (Zettbot, Hopp 0.2.2 RC)
+
+- **H-01 — a send that failed after the relay took the request counted as
+  "not paid".** `NwcClient` turned only a cancellation during `send` into an
+  unknown outcome; an ordinary I/O error (the socket closing as the frame
+  left) came back as a plain failure, and the LNURL fallback paid the share
+  again. Every exception from the moment the EVENT is sent is
+  `OUTCOME_UNKNOWN` now; a failure before it (the REQ) stays a plain failure,
+  nothing was out (`NwcClientTest`, `BoostSenderTest`).
+- **M-01 — an authentic answer of the wrong shape threw past the unknown
+  path.** A scalar `result`, or an `error` whose `code` is no string, raised a
+  JSON exception that counted as "not paid". Every field of the answer is read
+  as "if it has this shape"; what has not is unknown.
