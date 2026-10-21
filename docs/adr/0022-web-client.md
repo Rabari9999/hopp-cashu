@@ -2,8 +2,10 @@
 
 - **Status:** proposed — the concept; decided by the maintainer so far:
   login by NIP-46 and NIP-07, payments by WebLN, comments and boosts in the
-  web, the sync key (built 2026-10-21, ADR 0021 stage 5). The rest waits for
-  the spike (§10, stage W1).
+  web, the sync key (built 2026-10-21, ADR 0021 stage 5; checked on devices
+  with Amber and a bunker the same day), the full Sovereigncast feature set,
+  and the address `https://play.sovereigncast.space` — built and tested
+  locally first. The rest waits for the spike (§10, stage W1).
 - **Date:** 2026-10-21
 
 ## Context
@@ -120,9 +122,10 @@ its signer once more.
 
 ### 5. Hosting
 
-- **(A) A hosted PWA** on an origin of its own, e.g.
-  `web.hopp.sovereigncast.space` — not a path of the website, whose
-  scripts would share the origin. Static files only, no code on the server.
+- **(A) A hosted PWA** on an origin of its own: **`https://play.sovereigncast.space`**
+  (maintainer, 2026-10-21) — not a path of the website, whose scripts
+  would share the origin. Static files only, no code on the server. Before
+  it goes there, it is built and tested locally.
 - **(B) An Umbrel app** with the web client and the proxy (§6) on the
   listener's own node, beside Alby Hub (`umbrel-app-store`). Nobody else
   serves the code or sees the feeds; from outside through Tor or Tailscale.
@@ -222,10 +225,61 @@ database or admin.
 
 ### 11. Open
 
-- Who runs the proxy, and on which domain the web client lives.
-- Whether the web carries the full Sovereigncast feature set or that of the
-  `appstore` build (ADR 0009). On the web App Review does not apply, so the
-  full set is the default.
+Gathered 2026-10-21; the order agreed with the maintainer: first 1 and 7,
+the spike (W1) alongside.
+
+Before the local build:
+
+1. **The Listener API sends no CORS** (`listener_api.py`: "a native app has
+   no browser origin"). `PODCAST_MANAGER_CORS_ORIGIN` is no way: it opens
+   the whole app, the dashboard and its session cookies included. Needed:
+   CORS on the `/listener` routes only, without credentials — safe because
+   they authenticate with NIP-98, not cookies. Self-hosted instances need
+   that version; for older ones the web reads through the proxy or shows
+   no Sovereigncast layer.
+2. **The proxy:** who runs it and where — proposed
+   `feeds.sovereigncast.space`, a container beside Nodesignal's instance but
+   apart from it; locally a container in OrbStack.
+3. **Testing on the iPhone before deploying:** service workers and passkeys
+   need HTTPS, `localhost` serves only the Mac. A local certificate
+   (`mkcert`) or Tailscale on the LAN; Playwright (Chromium, WebKit) for the
+   automated part — Maestro does not drive the web.
+4. **When the spike counts as failed:** a bundle over ~10 MB, more than
+   4 s to the first screen on an iPhone, a screen reader that cannot use it,
+   or the crypto not passing the NIP-44 vectors.
+
+Before `play.sovereigncast.space` goes live:
+
+5. **Hosting with headers of our own:** GitLab Pages sets no custom
+   response headers, so CSP, HSTS and COOP need a server of our own (Caddy
+   or nginx). Who holds the domain and DNS, with two-factor login.
+6. **Imprint and privacy policy:** a website run from Germany needs an
+   imprint (§ 5 DDG); the proxy processes IP addresses, so the privacy
+   policy states its legal basis, retention and server location (GDPR),
+   and possibly a processing agreement with the host.
+7. **"End all other sessions"** — a new sync key (§3), useful to the apps
+   as well.
+8. **A wallet interface in `shared`** before W3 (§4).
+9. **Releasing the web:** the same version numbers as the apps; who signs
+   the hash event (as for Zapstore, through the Amber bunker); the
+   reproducible build on the Mac runner, not on CI minutes.
+
+To decide along the way:
+
+10. **The name** on `play.sovereigncast.space`: Hopp (ADR 0004)?
+11. **Deep links:** `sovereigncast.space/open` could offer "Listen in the
+    browser" beside the stores.
+12. **The domain's neighbours:** `play.` shares the site with the website;
+    unproblematic as long as nothing there sets cookies for the whole
+    domain. Nodesignal's instance is on `pm.nodesignal.space`.
+
+Earlier:
+
+- ~~Who runs the proxy, and on which domain the web client lives~~ — the
+  domain is decided (§5); the proxy is point 2 above.
+- ~~Whether the web carries the full Sovereigncast feature set~~ — decided
+  2026-10-21: the full set, as the `altstore` build (ADR 0009); App Review
+  does not apply on the web.
 - Whether a home-screen app on iOS should get Web Push for new episodes
   (needs a push service, ADR 0007).
 

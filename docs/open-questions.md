@@ -88,5 +88,7 @@ since 2026-10-10 F-Droid and Zapstore are the first release channels (ADR 0011).
 Concept → [ADR 0022](adr/0022-web-client.md) (proposed): a web client as a
 way onto the iPhone while the App Store is out of reach. Decided so far:
 NIP-46 and NIP-07 only, WebLN for payments, comments and boosts, the sync
-key (ADR 0021, 5). Open: who runs the feed proxy and on which domain; the
-spike (stage W1) decides whether Compose on the web carries it.
+key (ADR 0021, 5), the full Sovereigncast feature set, the address
+`https://play.sovereigncast.space`, built and tested locally first. Open:
+who runs the feed proxy and on which domain; the spike (stage W1) decides
+whether Compose on the web carries it.

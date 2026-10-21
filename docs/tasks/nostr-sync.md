@@ -1,6 +1,6 @@
 # Task — Sync across devices over Nostr (ADR 0021, stage 5)
 
-- **Status:** built 2026-10-20 (packages 1–7); the check on two devices with the maintainer's key is left
+- **Status:** built 2026-10-20 (packages 1–7), sync key 2026-10-21; checked on two devices with the maintainer's key, with Amber and with a bunker, 2026-10-21
 - **ADR:** 0021 §5 (sync), 0006 (identity), 0015 (privacy), 0013 (offline)
 
 ## Why
