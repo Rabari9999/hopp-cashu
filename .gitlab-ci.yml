@@ -13,6 +13,10 @@ workflow:
       when: never
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "web"
+    # A branch with an open MR gets the MR pipeline only — the push ran the
+    # same two jobs on the same commit a second time (!6, 2026-10-21).
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS
+      when: never
     - changes:
         - shared/**/*
         - androidApp/**/*
