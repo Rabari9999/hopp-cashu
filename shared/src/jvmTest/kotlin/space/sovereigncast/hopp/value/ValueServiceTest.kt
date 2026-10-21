@@ -107,6 +107,40 @@ class ValueServiceTest {
         it.second["pubkey"]!!.jsonPrimitive.content to it.second["amount"]!!.jsonPrimitive.long / 1000
     }
 
+    /** Security review 2026-10-20: a connection the key store cannot give up for
+     *  the moment is not "no wallet" — nothing is connected over it; it is back
+     *  once the store answers; disconnecting is the way past it. */
+    @Test
+    fun anUnreadableConnectionIsNeitherLostNorReplaced() = test {
+        wallet.connect(uri())
+        secrets.unreadable += "nwc_uri"
+        val later = WalletRepository(secrets, http, { now }, relay)
+        assertNull(later.wallet.value)
+        assertTrue(later.unreadable.value)
+        assertNull(later.client())
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.connect(uri()) }
+        secrets.unreadable -= "nwc_uri"
+        assertTrue(WalletRepository(secrets, http, { now }, relay).wallet.value != null, "there again once the store answers")
+        secrets.unreadable += "nwc_uri"
+        val stuck = WalletRepository(secrets, http, { now }, relay)
+        stuck.disconnect()
+        assertTrue(!stuck.unreadable.value)
+        assertTrue(stuck.connect(uri()).canPayInvoice)
+    }
+
+    /** Security review 2026-10-20, L-4: a wallet without NIP-44 could never read a request —
+     *  every payment would be an unknown outcome. Refused at connect, nothing stored. */
+    @Test
+    fun aWalletWithoutNip44IsNotConnected() = test {
+        val old = FakeWallet(relay, encryption = "nip04").also { it.publishInfo() }
+        val e = assertFailsWith<space.sovereigncast.hopp.value.nwc.NwcException> {
+            wallet.connect("nostr+walletconnect://${old.keys.publicKeyHex}?relay=wss://relay.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        }
+        assertEquals(WalletRepository.UNSUPPORTED_ENCRYPTION, e.code)
+        assertNull(wallet.wallet.value)
+        assertNull(secrets.get("nwc_uri"))
+    }
+
     @Test
     fun aWalletIsKeptOnlyOnceItAnswered() = test {
         assertFailsWith<IllegalArgumentException> { wallet.connect("nostr+walletconnect://nonsense") }
@@ -493,6 +527,20 @@ class ValueServiceTest {
         assertEquals(1, results.count { it is QuickBoost.Sent }, results.toString())
         assertEquals(9, results.count { it == QuickBoost.OverBudget }, results.toString())
         assertEquals(listOf(host to 90L, cohost to 10L), keysends())
+    }
+
+    /** Security audit 2026-10-20: invoices — a zap's, an instance's — are paid
+     *  under the same lock as every payment: ten at once, budget for one. */
+    @Test
+    fun parallelInvoicePaymentsStayWithinTheBudget() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(dailyBudgetSats = 150) }
+        val invoice = TestInvoices.make(100_000, ByteArray(32))
+        val results = (1..10).map { scope.async { runCatching { value.payInvoice(ValueService.KIND_ZAP, null, null, null, 100_000, null, "Alice", "alice@zap.test") { invoice } } } }.map { it.await() }
+        assertEquals(1, results.count { it.isSuccess }, results.toString())
+        assertEquals(9, results.count { it.exceptionOrNull() is OverBudgetException }, results.toString())
+        assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
+        assertEquals(101_000L, db.paymentQueries.spentSince(0).executeAsOne(), "100 sats and the fee")
     }
 
     /** Device feedback 2026-10-08: a boost to the whole show — its block, no

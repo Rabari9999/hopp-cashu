@@ -126,6 +126,7 @@
     <string name="settings_sees_searches">Sees your searches when switched on.</string>
     <string name="wallet_title">Wallet</string>
     <string name="wallet_intro">Connect a wallet over Nostr Wallet Connect (NWC) to boost and stream sats. Alby Hub, Coinos, LNbits, Zeus and others offer it.</string>
+    <string name="secrets_unreadable">What Hopp keeps here cannot be read right now — the phone’s key store did not answer. Nothing was changed: restart the phone and look again. Only “forget” below replaces it.</string>
     <string name="wallet_uri_hint">Connection string (nostr+walletconnect://…)</string>
     <string name="wallet_uri_show">Show</string>
     <string name="wallet_uri_hide">Hide</string>
@@ -134,6 +135,7 @@
     <string name="wallet_scanned">✓ QR code read. The camera picture was not saved anywhere — Hopp only kept the connection.</string>
     <string name="wallet_limit_tip">Tip: set a spending limit for this connection in your wallet — Hopp keeps its own daily budget on top.</string>
     <string name="wallet_failed">Could not connect: %1$s</string>
+    <string name="wallet_no_nip44">This wallet speaks only the old NIP-04 encryption; Hopp needs NIP-44. Update the wallet, or connect another.</string>
     <string name="wallet_connected">Connected: %1$s</string>
     <string name="wallet_balance">Balance: %1$s sats</string>
     <string name="wallet_balance_unknown">The wallet does not share its balance</string>
@@ -256,6 +258,7 @@
     <string name="sc_failed_expired">No confirmation — the invoice expired.</string>
     <string name="sc_failed_unknown">No answer from the wallet — it may have paid. Look in the payment history before you pay again.</string>
     <string name="sc_failed_no_round">The round has just ended.</string>
+    <string name="sc_failed_budget">More than today’s budget allows — nothing was paid (Settings → Wallet &amp; payments).</string>
     <string name="sc_failed">Did not work: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>
     <string name="sc_b2u_name">Boost2Unlock</string>
@@ -627,6 +630,7 @@
     <string name="comments_later">Later</string>
     <string name="comments_failed_send">Not sent: %1$s</string>
     <string name="comments_not_published">no relay took it</string>
+    <string name="comments_list_not_read">your mute list could not be read from every relay — nothing was changed; try again later</string>
     <string name="comments_signer_rejected">your signer said no</string>
     <string name="comments_failed_other">something went wrong</string>
     <string name="comments_reply_hint">Write your answer…</string>
@@ -794,4 +798,5 @@
     <string name="nostr_relay_bad">That is no relay address. It starts with wss://.</string>
     <string name="nostr_relay_unreachable">This relay does not answer.</string>
     <string name="nostr_relay_not_published">The list could not be saved on any relay. Try again later.</string>
+    <string name="nostr_relay_not_read">The list could not be read from every relay — nothing was changed. Try again later.</string>
 </resources>

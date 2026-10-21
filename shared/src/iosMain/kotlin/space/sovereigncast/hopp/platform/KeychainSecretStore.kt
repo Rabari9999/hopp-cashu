@@ -23,6 +23,7 @@ import platform.Foundation.dataUsingEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
+import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessible
 import platform.Security.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -48,24 +49,32 @@ class KeychainSecretStore(private val service: String = "space.sovereigncast.hop
         return q
     }
 
+    /** Not there: null. There and not readable — the Keychain refusing, or
+     *  data that is no text: [SecretUnreadable] (security review 2026-10-20). */
     override fun get(name: String): String? = memScoped {
         val q = query(name)
         CFDictionaryAddValue(q, kSecReturnData, kCFBooleanTrue)
         CFDictionaryAddValue(q, kSecMatchLimit, kSecMatchLimitOne)
         val result = alloc<CFTypeRefVar>()
-        if (SecItemCopyMatching(q, result.ptr) != errSecSuccess) return null
-        val data = CFBridgingRelease(result.value) as? NSData ?: return null
-        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
+        when (val status = SecItemCopyMatching(q, result.ptr)) {
+            errSecSuccess -> Unit
+            errSecItemNotFound -> return null
+            else -> throw SecretUnreadable(name, IllegalStateException("SecItemCopyMatching: $status"))
+        }
+        val data = CFBridgingRelease(result.value) as? NSData ?: throw SecretUnreadable(name)
+        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString() ?: throw SecretUnreadable(name)
     }
 
     override fun put(name: String, value: String?) {
-        SecItemDelete(query(name))
-        if (value == null) return
-        val q = query(name)
+        if (value == null) { SecItemDelete(query(name)); return }
+        get(name) // there and unreadable: refused, not replaced
         @Suppress("CAST_NEVER_SUCCEEDS")
         val data = (value as NSString).dataUsingEncoding(NSUTF8StringEncoding) ?: return
+        SecItemDelete(query(name))
+        val q = query(name)
         CFDictionaryAddValue(q, kSecValueData, CFBridgingRetain(data))
         CFDictionaryAddValue(q, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
-        SecItemAdd(q, null)
+        val status = SecItemAdd(q, null)
+        check(status == errSecSuccess) { "SecItemAdd: $status" }
     }
 }

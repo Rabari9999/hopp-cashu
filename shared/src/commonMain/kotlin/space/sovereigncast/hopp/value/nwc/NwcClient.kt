@@ -186,10 +186,15 @@ class NwcClient(
             // Cancelled while the EVENT goes out, it may be out: unknown, as
             // after it (security audit 2026-10-18) — not a cancellation, which
             // tells the caller nothing was sent and the share may be paid again.
+            // The same for a send that fails with any other exception (security
+            // audit 2026-10-20, H-01): the socket may close after the frame has
+            // left; the relay — or the wallet — may well have it.
             try {
                 session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), request)) }.toString())
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw unknown("cancelled while sending")
+            } catch (e: Exception) {
+                throw unknown("the send failed (${e.message ?: e::class.simpleName}); the request may be out")
             }
             // From here on the wallet may have the request: only its own answer —
             // a result, or an error it reports — says what happened. A timeout, a
@@ -218,12 +223,15 @@ class NwcClient(
                 json.parseToJsonElement(Nip44.decrypt(event.content, conversationKey)).jsonObject
             }.getOrElse { throw NwcException(NwcException.OUTCOME_UNKNOWN, "unreadable answer: ${it.message}") }
             // An answer to another method proves nothing about this one (M-02).
+            // Every field read as "if it has this shape": an authentic answer
+            // of the wrong shape — a scalar result, say — is unknown, never an
+            // exception that counts as "not paid" (security audit 2026-10-20, M-01).
             val type = (body["result_type"] as? JsonPrimitive)?.contentOrNull
             if (type != method) throw unknown("answer for ${type ?: "no method"}, not $method")
-            body["error"]?.takeIf { it is JsonObject }?.jsonObject?.let { err ->
-                throw NwcException(err["code"]?.jsonPrimitive?.contentOrNull ?: "ERROR", err["message"]?.jsonPrimitive?.contentOrNull ?: "")
+            (body["error"] as? JsonObject)?.let { err ->
+                throw NwcException((err["code"] as? JsonPrimitive)?.contentOrNull ?: "ERROR", (err["message"] as? JsonPrimitive)?.contentOrNull ?: "")
             }
-            body["result"]?.jsonObject ?: throw NwcException(NwcException.OUTCOME_UNKNOWN, "answer without result")
+            body["result"] as? JsonObject ?: throw unknown("answer without a result object")
         }
     }
 

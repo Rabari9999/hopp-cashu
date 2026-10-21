@@ -26,7 +26,8 @@ private fun <T> ViewModel.state(flow: Flow<T>, initial: T): StateFlow<T> =
 sealed interface ConnectState {
     data object Idle : ConnectState
     data object Working : ConnectState
-    data class Failed(val reason: String) : ConnectState
+    /** [code]: the wallet's NwcException code, if it was one — [WalletRepository.UNSUPPORTED_ENCRYPTION] has a text of its own. */
+    data class Failed(val reason: String, val code: String? = null) : ConnectState
 }
 
 class WalletViewModel(
@@ -35,6 +36,8 @@ class WalletViewModel(
     private val settings: SettingsRepository,
 ) : ViewModel() {
     val connected: StateFlow<ConnectedWallet?> = wallet.wallet
+    /** A stored connection the key store could not give up — shown, not replaced (security review 2026-10-20). */
+    val unreadable: StateFlow<Boolean> = wallet.unreadable
     val current: StateFlow<Settings?> = state(settings.settings, null)
     val spentToday: StateFlow<Long> = state(value.spentTodayMsat, 0L)
     private val _balance = MutableStateFlow<Long?>(null)
@@ -52,7 +55,7 @@ class WalletViewModel(
             _connect.value = try {
                 wallet.connect(uri); refreshBalance(); ConnectState.Idle
             } catch (e: Exception) {
-                ConnectState.Failed(e.message ?: e::class.simpleName ?: "error")
+                ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
             }
         }
     }

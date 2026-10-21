@@ -126,6 +126,7 @@
     <string name="settings_sees_searches">Sieht deine Suchen, wenn eingeschaltet.</string>
     <string name="wallet_title">Wallet</string>
     <string name="wallet_intro">Verbinde eine Wallet über Nostr Wallet Connect (NWC), um zu boosten und Sats zu streamen. Alby Hub, Coinos, LNbits, Zeus und andere bieten das an.</string>
+    <string name="secrets_unreadable">Was Hopp hier aufbewahrt, lässt sich gerade nicht lesen – der Schlüsselspeicher des Telefons hat nicht geantwortet. Es wurde nichts verändert: Starte das Telefon neu und schau noch einmal. Nur „Vergessen“ unten ersetzt es.</string>
     <string name="wallet_uri_hint">Verbindungs-String (nostr+walletconnect://…)</string>
     <string name="wallet_uri_show">Anzeigen</string>
     <string name="wallet_uri_hide">Verbergen</string>
@@ -134,6 +135,7 @@
     <string name="wallet_scanned">✓ QR-Code gelesen. Das Kamerabild wurde nirgends gespeichert – Hopp hat nur die Verbindung übernommen.</string>
     <string name="wallet_limit_tip">Tipp: Setze in deiner Wallet ein Ausgabelimit für diese Verbindung – Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
     <string name="wallet_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="wallet_no_nip44">Diese Wallet spricht nur die alte NIP-04-Verschlüsselung; Hopp braucht NIP-44. Aktualisiere die Wallet oder verbinde eine andere.</string>
     <string name="wallet_connected">Verbunden: %1$s</string>
     <string name="wallet_balance">Guthaben: %1$s sats</string>
     <string name="wallet_balance_unknown">Die Wallet gibt ihr Guthaben nicht preis</string>
@@ -256,6 +258,7 @@
     <string name="sc_failed_expired">Keine Bestätigung – die Rechnung ist abgelaufen.</string>
     <string name="sc_failed_unknown">Keine Antwort von der Wallet – vielleicht wurde bezahlt. Schau in den Zahlungsverlauf, bevor du noch einmal zahlst.</string>
     <string name="sc_failed_no_round">Die Runde ist gerade zu Ende gegangen.</string>
+    <string name="sc_failed_budget">Mehr, als das Tagesbudget erlaubt – es wurde nichts bezahlt (Einstellungen → Wallet &amp; Zahlungen).</string>
     <string name="sc_failed">Hat nicht geklappt: %1$s</string>
     <string name="sc_rb_name">Release Boosting</string>
     <string name="sc_b2u_name">Boost2Unlock</string>
@@ -627,6 +630,7 @@
     <string name="comments_later">Später</string>
     <string name="comments_failed_send">Nicht gesendet: %1$s</string>
     <string name="comments_not_published">kein Relay hat ihn angenommen</string>
+    <string name="comments_list_not_read">deine Stummliste war nicht von jedem Relay zu lesen – nichts wurde geändert; versuch es später noch einmal</string>
     <string name="comments_signer_rejected">dein Signer hat abgelehnt</string>
     <string name="comments_failed_other">etwas ist schiefgelaufen</string>
     <string name="comments_reply_hint">Deine Antwort schreiben…</string>
@@ -794,4 +798,5 @@
     <string name="nostr_relay_bad">Das ist keine Relay-Adresse. Sie beginnt mit wss://.</string>
     <string name="nostr_relay_unreachable">Dieses Relay antwortet nicht.</string>
     <string name="nostr_relay_not_published">Die Liste konnte auf keinem Relay gespeichert werden. Versuch es später noch einmal.</string>
+    <string name="nostr_relay_not_read">Die Liste war nicht von jedem Relay zu lesen – nichts wurde geändert. Versuch es später noch einmal.</string>
 </resources>

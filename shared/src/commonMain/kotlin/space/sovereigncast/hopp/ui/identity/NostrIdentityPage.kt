@@ -107,6 +107,8 @@ import space.sovereigncast.hopp.resources.nostr_publish_again
 import space.sovereigncast.hopp.resources.nostr_publish_failed
 import space.sovereigncast.hopp.resources.nostr_share
 import space.sovereigncast.hopp.resources.nostr_sign_out
+import space.sovereigncast.hopp.resources.nostr_relay_not_read
+import space.sovereigncast.hopp.resources.secrets_unreadable
 import space.sovereigncast.hopp.resources.nostr_sign_out_confirm
 import space.sovereigncast.hopp.resources.nostr_sign_out_text
 import space.sovereigncast.hopp.ui.LocalPlatformActions
@@ -116,6 +118,8 @@ class NostrIdentityViewModel(
     private val settings: SettingsRepository,
 ) : ViewModel() {
     val identity: StateFlow<NostrIdentity?> = identities.identity
+    /** A stored identity the key store could not give up — shown, never made anew (security review 2026-10-20). */
+    val unreadable: StateFlow<Boolean> = identities.unreadable
 
     /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
     private val _loadingProfile = MutableStateFlow(false)
@@ -280,8 +284,9 @@ class NostrIdentityViewModel(
         data object Loading : Relays
         data class Shown(val list: List<space.sovereigncast.hopp.identity.RelayEntry>, val working: Boolean = false, val problem: RelayProblem? = null, val pending: String? = null) : Relays
     }
-    /** [Unreachable]: offered anyway; [NotPublished]: no relay took the new list. */
-    enum class RelayProblem { BadAddress, Unreachable, NotPublished }
+    /** [Unreachable]: offered anyway; [NotRead]: the list was found nowhere and a relay did not answer, so nothing was written;
+     *  [NotPublished]: no relay took the new list. */
+    enum class RelayProblem { BadAddress, Unreachable, NotRead, NotPublished }
     private val _relays = MutableStateFlow<Relays>(Relays.Loading)
     val relays: StateFlow<Relays> = _relays.asStateFlow()
 
@@ -311,6 +316,7 @@ class NostrIdentityViewModel(
                     shown.copy(working = false, pending = pending, problem = when (e) {
                         is space.sovereigncast.hopp.identity.BadRelayAddress -> RelayProblem.BadAddress
                         is Unreachable -> RelayProblem.Unreachable
+                        is space.sovereigncast.hopp.comments.ListNotRead -> RelayProblem.NotRead
                         else -> RelayProblem.NotPublished
                     })
                 },
@@ -342,6 +348,7 @@ class NostrIdentityViewModel(
 @Composable
 fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
     val identity by vm.identity.collectAsState()
+    val unreadable by vm.unreadable.collectAsState()
     val settings by vm.current.collectAsState()
     val busy by vm.busy.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -349,8 +356,15 @@ fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
         // Device feedback 2026-10-16: too much text, too many ways at once. One way in for
         // the newcomer — a name and "Get started" —, everything for an existing account
         // behind one link; once in, the profile, one backup card, two switches.
-        if (me == null) Welcome(settings?.senderName.orEmpty(), busy, vm) else Signed(me, settings, busy, vm)
+        if (me == null && unreadable) Unreadable(vm) else if (me == null) Welcome(settings?.senderName.orEmpty(), busy, vm) else Signed(me, settings, busy, vm)
     }
+}
+
+/** An identity is stored and cannot be read right now: said so, with the one way past it. */
+@Composable
+private fun Unreadable(vm: NostrIdentityViewModel) {
+    Text(stringResource(Res.string.secrets_unreadable), color = MaterialTheme.colorScheme.error)
+    OutlinedButton(onClick = vm::signOut, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_sign_out)) }
 }
 
 /** No identity yet: what it is, in a line, and one button. */
@@ -590,6 +604,7 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
                     if (s.problem != null) Text(stringResource(when (s.problem) {
                         NostrIdentityViewModel.RelayProblem.BadAddress -> Res.string.nostr_relay_bad
                         NostrIdentityViewModel.RelayProblem.Unreachable -> Res.string.nostr_relay_unreachable
+                        NostrIdentityViewModel.RelayProblem.NotRead -> Res.string.nostr_relay_not_read
                         NostrIdentityViewModel.RelayProblem.NotPublished -> Res.string.nostr_relay_not_published
                     }), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

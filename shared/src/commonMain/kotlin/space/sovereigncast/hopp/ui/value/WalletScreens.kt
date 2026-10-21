@@ -88,7 +88,10 @@ import space.sovereigncast.hopp.resources.wallet_rate_value
 import space.sovereigncast.hopp.resources.wallet_spent_today
 import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.wallet_support_note
+import space.sovereigncast.hopp.resources.secrets_unreadable
 import space.sovereigncast.hopp.resources.wallet_uri_hint
+import space.sovereigncast.hopp.resources.wallet_no_nip44
+import space.sovereigncast.hopp.value.WalletRepository
 import space.sovereigncast.hopp.resources.wallet_uri_hide
 import space.sovereigncast.hopp.resources.wallet_uri_show
 import space.sovereigncast.hopp.ui.library.EmptyState
@@ -111,6 +114,7 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
     val balance by vm.balanceMsat.collectAsState()
     val connect by vm.connect.collectAsState()
     val spent by vm.spentToday.collectAsState()
+    val unreadable by vm.unreadable.collectAsState()
     val colors = MaterialTheme.colorScheme
     // The connection string can spend: plain remember, not saveable — it never
     // goes into the saved state — masked unless asked, cleared once connected,
@@ -124,7 +128,11 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val w = wallet
-        if (w == null) {
+        if (w == null && unreadable) {
+            // There is a connection, unreadable for now: nothing to connect over it (security review 2026-10-20).
+            Text(stringResource(Res.string.secrets_unreadable), color = colors.error)
+            OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
+        } else if (w == null) {
             Text(stringResource(Res.string.wallet_intro))
             OutlinedTextField(uri, { uri = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.wallet_uri_hint)) },
                 singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -145,7 +153,9 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             }
             // What happened to the picture, said where it matters (device feedback 2026-10-14).
             if (scanned) Text(stringResource(Res.string.wallet_scanned), color = Hopp.colors.valueText, style = MaterialTheme.typography.bodyMedium)
-            (connect as? ConnectState.Failed)?.let { Text(stringResource(Res.string.wallet_failed, it.reason), color = colors.error) }
+            (connect as? ConnectState.Failed)?.let {
+                Text(if (it.code == WalletRepository.UNSUPPORTED_ENCRYPTION) stringResource(Res.string.wallet_no_nip44) else stringResource(Res.string.wallet_failed, it.reason), color = colors.error)
+            }
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
             Text(stringResource(Res.string.wallet_connected, w.label), style = MaterialTheme.typography.titleMedium)

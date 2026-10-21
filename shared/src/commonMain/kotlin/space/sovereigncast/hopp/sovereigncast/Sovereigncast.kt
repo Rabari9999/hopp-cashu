@@ -27,6 +27,7 @@ import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.directory.feedKey
 import space.sovereigncast.hopp.model.Podcast
 import space.sovereigncast.hopp.value.Bolt11
+import space.sovereigncast.hopp.value.InvoicePayment
 import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
 import kotlin.time.Duration.Companion.minutes
@@ -241,11 +242,20 @@ class SovereigncastRepository(
         return invoice
     }
 
-    /** Pays through the connected wallet; returns the routing fee if the wallet says. */
-    suspend fun payWithWallet(invoice: Invoice): Long? {
-        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
-        return client.payInvoice(invoice.bolt11).feesPaidMsat
-    }
+    /** Whether [amountSats] fits today's budget now — asked before the instance is asked for an invoice. */
+    suspend fun budgetAllows(amountSats: Long): Boolean = value.budgetAllows(amountSats * 1000)
+
+    /**
+     * Pays through the connected wallet — like every payment from it: under
+     * the spending lock, within today's budget, in the history before the
+     * wallet is asked (security audit 2026-10-20). Throws
+     * [space.sovereigncast.hopp.value.OverBudgetException], or what the wallet threw.
+     */
+    suspend fun payWithWallet(podcastId: Long, layer: ScLayer, target: ScTarget, invoice: Invoice, amountSats: Long, message: String?, episodeTitle: String?): InvoicePayment =
+        value.payInvoice(kindOf(target), podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host) { invoice.bolt11 }
+
+    /** The wallet paid, the instance has not confirmed it (yet): said so in the history. */
+    suspend fun unconfirmed(payment: InvoicePayment) = value.setReason(payment.id, UNCONFIRMED)
 
     /** Waits until the instance has seen the payment — paid elsewhere, or by
      *  the wallet a moment ago. True when paid, false when expired or too long. */
@@ -267,18 +277,19 @@ class SovereigncastRepository(
     suspend fun log(
         podcastId: Long, layer: ScLayer, target: ScTarget, episodeTitle: String?, amountSats: Long, message: String?, feesMsat: Long?,
         status: String = "paid", reason: String? = null,
-    ) = value.logInvoicePayment(
-        when (target) {
-            ScTarget.ReleaseBoosting -> ValueService.KIND_RELEASE_BOOSTING
-            is ScTarget.Boost2Unlock -> ValueService.KIND_BOOST2UNLOCK
-            is ScTarget.NewSuggestion, is ScTarget.SuggestionBoost -> ValueService.KIND_SUGGESTION
-        },
-        podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host, feesMsat, status, reason,
-    )
+    ) = value.logInvoicePayment(kindOf(target), podcastId, layer.show.title, episodeTitle, amountSats * 1000, message, layer.show.title, layer.host, feesMsat, status, reason)
+
+    private fun kindOf(target: ScTarget) = when (target) {
+        ScTarget.ReleaseBoosting -> ValueService.KIND_RELEASE_BOOSTING
+        is ScTarget.Boost2Unlock -> ValueService.KIND_BOOST2UNLOCK
+        is ScTarget.NewSuggestion, is ScTarget.SuggestionBoost -> ValueService.KIND_SUGGESTION
+    }
 
     companion object {
         /** Re-ask the instance at most once a day (ADR 0002 verification is cheap but not free). */
         const val REVERIFY_SECONDS = 24 * 3600L
+        /** The reason in the history: the wallet paid, the instance had not said so yet. */
+        const val UNCONFIRMED = "unconfirmed"
 
         /** `<podcast:txt purpose="sovereigncast">https://…</podcast:txt>` — https only (ADR 0002). */
         fun markerOf(podcast: Podcast): String? = podcast.txt

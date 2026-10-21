@@ -154,6 +154,61 @@ class NwcClientTest {
         assertTrue(e.outcomeUnknown, e.toString())
     }
 
+    /** The send fails with an ordinary I/O error after the relay took the frame
+     *  (security audit 2026-10-20, H-01): the wallet paid; a plain failure here
+     *  had the LNURL fallback pay the share again. */
+    @Test
+    fun aSendThatFailsAfterTheRelayTookTheEventIsAnUnknownOutcome() = runBlocking {
+        val failing = RelayConnector { url ->
+            val session = relay.connect(url) as FakeRelay.Session
+            object : RelaySession by session {
+                override suspend fun send(message: String) {
+                    session.send(message)
+                    if (message.startsWith("[\"EVENT\"")) throw java.io.IOException("socket closed")
+                }
+            }
+        }
+        val c = NwcClient(NwcConnection.parse(uri), failing, now = { 1_780_000_000 }, timeout = 5.seconds)
+        val e = assertFailsWith<NwcException> { c.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertTrue(e.outcomeUnknown, e.toString())
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first }, "the wallet had it")
+    }
+
+    /** A send that fails before anything could be out — the REQ already — is a
+     *  plain failure, not unknown: nothing reached the relay. */
+    @Test
+    fun aSendThatFailsBeforeTheEventIsAPlainFailure() = runBlocking {
+        val failing = RelayConnector { url ->
+            val session = relay.connect(url) as FakeRelay.Session
+            object : RelaySession by session {
+                override suspend fun send(message: String) {
+                    if (message.startsWith("[\"REQ\"")) throw java.io.IOException("socket closed")
+                    session.send(message)
+                }
+            }
+        }
+        val c = NwcClient(NwcConnection.parse(uri), failing, now = { 1_780_000_000 }, timeout = 5.seconds)
+        assertFailsWith<java.io.IOException> { c.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertTrue(wallet.requests.isEmpty())
+    }
+
+    /** An authentic answer of the wrong shape (security audit 2026-10-20, M-01):
+     *  a scalar `result`, or an `error` that is no object — unknown, not an
+     *  exception that counts as "not paid". */
+    @Test
+    fun anAnswerOfTheWrongShapeIsAnUnknownOutcome() = runBlocking {
+        answer { it["result"] = JsonPrimitive("ok") }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
+        answer { it["result"] = kotlinx.serialization.json.JsonNull }
+        assertTrue(assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }.outcomeUnknown)
+        answer { it["error"] = JsonPrimitive("boom") }
+        // An error that is not an object is no error the wallet reported; the result decides.
+        assertEquals("00".repeat(32), client.payKeysend(1_000, "02d0fd6c", emptyList()).preimage)
+        answer { it["error"] = kotlinx.serialization.json.buildJsonObject { put("code", kotlinx.serialization.json.buildJsonObject { }) } }
+        val e = assertFailsWith<NwcException> { client.payKeysend(1_000, "02d0fd6c", emptyList()) }
+        assertEquals("ERROR", e.code)
+    }
+
     /** Cancelled after the request went out (M1): the same unknown outcome as a
      *  dropped connection, so the caller does not pay the share again. */
     @Test

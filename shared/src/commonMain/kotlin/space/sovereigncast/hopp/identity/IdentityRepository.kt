@@ -34,6 +34,7 @@ import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.nostr.npub
 import space.sovereigncast.hopp.platform.SecretStore
+import space.sovereigncast.hopp.platform.SecretUnreadable
 
 /** A pasted key that cannot be used. */
 class KeyImportException(val reason: Reason) : Exception(reason.name) {
@@ -89,20 +90,33 @@ class IdentityRepository(
     val externalSigner: ExternalSigner? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val _unreadable = MutableStateFlow(false)
+    /**
+     * The secret store holds an identity it could not give up ([SecretUnreadable]:
+     * the platform's key store not answering). There is one — none is made or
+     * imported in its place; [signOut] is the one way past it (security review
+     * 2026-10-20: read as "none", a new key replaced the old one for good).
+     */
+    val unreadable: StateFlow<Boolean> = _unreadable.asStateFlow()
     private val _identity = MutableStateFlow(load())
     val identity: StateFlow<NostrIdentity?> = _identity.asStateFlow()
 
-    private fun load(): NostrIdentity? {
-        val info = secrets.get(INFO)?.let { runCatching { json.decodeFromString(NostrIdentity.serializer(), it) }.getOrNull() } ?: return null
+    private fun load(): NostrIdentity? = try {
+        val info = secrets.get(INFO)?.let { runCatching { json.decodeFromString(NostrIdentity.serializer(), it) }.getOrNull() }
         // A key made here without its key is no identity; one in a signer app has no key here.
-        return info.takeIf { !it.holdsKey || secrets.get(KEY) != null }
+        info?.takeIf { !it.holdsKey || secrets.get(KEY) != null }
+    } catch (e: SecretUnreadable) {
+        _unreadable.value = true
+        null
     }
+
+    private fun requireReadable() { if (_unreadable.value) throw SecretUnreadable(KEY) }
 
     /** Who signs for the listener now, or null without an identity. */
     fun signer(): NostrSigner? {
         val me = _identity.value ?: return null
         return when (me.source) {
-            NostrIdentity.Source.Local -> secrets.get(KEY)?.let { runCatching { LocalSigner(KeyPair.fromHex(it)) }.getOrNull() }
+            NostrIdentity.Source.Local -> runCatching { secrets.get(KEY) }.getOrNull()?.let { runCatching { LocalSigner(KeyPair.fromHex(it)) }.getOrNull() }
             NostrIdentity.Source.Amber -> {
                 val app = externalSigner ?: return null
                 ExternalNostrSigner(me.pubkey, me.signerPackage ?: return null, app)
@@ -138,6 +152,7 @@ class IdentityRepository(
         finishBunker(offer.clientKeys, Nip46Client.awaitConnect(offer, publisher.connector, { clock.now() }))
 
     private suspend fun finishBunker(keys: KeyPair, client: Nip46Client): NostrIdentity {
+        requireReadable()
         client.switchRelays()
         val pubkey = client.getPublicKey()
         secrets.put(KEY, null)
@@ -160,6 +175,7 @@ class IdentityRepository(
      * (ADR 0021, 4). Throws [SignerRejected] when the listener says no there.
      */
     suspend fun signInWithSigner(): NostrIdentity {
+        requireReadable()
         val app = externalSigner ?: throw SignerUnavailable("no signer app")
         val (pubkey, signerPackage) = app.login(ExternalSigner.PERMISSIONS)
         secrets.put(KEY, null)
@@ -200,6 +216,7 @@ class IdentityRepository(
      * [publishProfile] can try again. Returns the relays that took the profile.
      */
     suspend fun create(name: String): Set<String> {
+        requireReadable()
         val keys = KeyPair.generate()
         secrets.put(KEY, keys.secretKey.toHex())
         save(NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, name.trim().ifEmpty { null }, relays = DEFAULT_RELAYS.map { RelayEntry(it) }))
@@ -269,7 +286,13 @@ class IdentityRepository(
         val me = _identity.value ?: throw space.sovereigncast.hopp.comments.NoIdentity()
         val signer = signer() ?: throw space.sovereigncast.hopp.comments.NoIdentity()
         val lookup = (me.relays.map { it.url } + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
-        val current = publisher.latest(10002, me.pubkey, lookup, 3000.milliseconds) ?: publisher.latest(10002, me.pubkey, lookup)
+        val quick = publisher.latestChecked(10002, me.pubkey, lookup, 3000.milliseconds)
+        val read = if (quick.event != null) quick else publisher.latestChecked(10002, me.pubkey, lookup)
+        val current = read.event
+        // Found nowhere, and a relay did not answer: the list may be there, newer
+        // than what Hopp kept — not written over from the local copy (security
+        // audit 2026-10-20, M-08).
+        if (current == null && !read.complete) throw space.sovereigncast.hopp.comments.ListNotRead()
         val before = relayEntries(current).ifEmpty { me.relays }.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
         val after = change(before)
         if (after == before && current != null) return@withLock after.also { list -> _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = list)) } }
@@ -281,7 +304,7 @@ class IdentityRepository(
     }
 
     /** The key Hopp holds, as NIP-19 nsec — for the password manager or another app; null for a key held elsewhere. */
-    fun nsec(): String? = _identity.value?.takeIf { it.holdsKey }?.let { secrets.get(KEY) }?.let { Bech32.encode("nsec", it.hexToBytes()) }
+    fun nsec(): String? = _identity.value?.takeIf { it.holdsKey }?.let { runCatching { secrets.get(KEY) }.getOrNull() }?.let { Bech32.encode("nsec", it.hexToBytes()) }
 
     /** The key is kept somewhere beyond this device: the backup reminder is done. */
     fun markBackedUp() { _identity.value?.let { if (!it.exported) save(it.copy(exported = true)) } }
@@ -293,14 +316,19 @@ class IdentityRepository(
      * backed up — it came from somewhere.
      */
     suspend fun importKey(text: String, password: String? = null): NostrIdentity {
+        requireReadable()
         val t = text.trim().removePrefix("nostr:")
         val secret = when {
             t.startsWith("nsec1") -> runCatching { Bech32.decode(t) }.getOrNull()?.takeIf { it.first == "nsec" && it.second.size == 32 }?.second
                 ?: throw KeyImportException(KeyImportException.Reason.Unreadable)
             t.startsWith("ncryptsec1") -> {
                 if (password.isNullOrEmpty()) throw KeyImportException(KeyImportException.Reason.NeedsPassword)
-                withContext(Dispatchers.Default) { runCatching { Nip49.decrypt(t, password) }.getOrNull() }
-                    ?: throw KeyImportException(KeyImportException.Reason.WrongPassword)
+                withContext(Dispatchers.Default) {
+                    try { Nip49.decrypt(t, password) } catch (e: space.sovereigncast.hopp.nostr.Nip49Exception) {
+                        // Only a wrong password is one; a bad or too strong ncryptsec is unreadable (audit 2026-10-20, L-01).
+                        throw KeyImportException(if (e.message == "wrong password") KeyImportException.Reason.WrongPassword else KeyImportException.Reason.Unreadable)
+                    }
+                }
             }
             else -> throw KeyImportException(KeyImportException.Reason.Unreadable)
         }
@@ -328,6 +356,7 @@ class IdentityRepository(
         secrets.put(BUNKER_KEY, null)
         secrets.put(INFO, null)
         _identity.value = null
+        _unreadable.value = false
     }
 
     private fun save(identity: NostrIdentity) {

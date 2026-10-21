@@ -239,3 +239,58 @@ the code before:
   for its fee first (`ValueService.feeReserve`: 1 %, at least a sat) — a
   reserve, not a cap; the wallet's own budget on the connection is the cap.
   An instance payment is logged even when its page closes mid-payment.
+
+### Payment safety, audit of 2026-10-20 (Zettbot, Hopp 0.2.2 RC)
+
+- **H-01 — a send that failed after the relay took the request counted as
+  "not paid".** `NwcClient` turned only a cancellation during `send` into an
+  unknown outcome; an ordinary I/O error (the socket closing as the frame
+  left) came back as a plain failure, and the LNURL fallback paid the share
+  again. Every exception from the moment the EVENT is sent is
+  `OUTCOME_UNKNOWN` now; a failure before it (the REQ) stays a plain failure,
+  nothing was out (`NwcClientTest`, `BoostSenderTest`).
+- **M-01 — an authentic answer of the wrong shape threw past the unknown
+  path.** A scalar `result`, or an `error` whose `code` is no string, raised a
+  JSON exception that counted as "not paid". Every field of the answer is read
+  as "if it has this shape"; what has not is unknown.
+- **Instance payments past the budget and the lock (found in the same
+  review).** Release Boosting, Boost2Unlock and suggestions paid their invoice
+  straight from `NwcClient`: no daily budget, no fee reserve, not under the
+  spending lock that keeps boosts, zaps and streaming batches apart, and in
+  the history only afterwards. They go through `ValueService.payInvoice` now,
+  as zaps do: one at a time, within the budget — checked before the instance
+  is asked for an invoice, so it keeps no suggestion that is never paid — and
+  **journalled before the wallet is asked** (audit M-09, for single
+  invoices): the row is written as an unknown outcome that counts against
+  the budget, and the wallet's answer settles it; a process killed in
+  between leaves a trace, not nothing. Boosts with several shares still log
+  after the last share; streaming has its in-flight marker.
+- **A secret store that did not answer read as "nothing stored" (found in
+  the same review).** `KeystoreSecretStore.get` turned every failure — the
+  Keystore not answering after a boot, say — into null; Hopp then showed no
+  identity and no wallet, and making a new identity wrote over the key that
+  was only unreadable for the moment. `SecretStore` now tells
+  [`SecretUnreadable`] from "none stored", on Android and iOS; nothing is
+  written over such an entry, the wallet and identity pages say so and offer
+  only "forget" (which removes it), and the entry is back once the store
+  answers (`IdentityTest`, `ValueServiceTest`).
+- **M-04 / M-08 — a mute list or relay list that could not be read was
+  replaced.** `RelayPublisher.latest` answered null both for "no relay has
+  it" and "the relays could not be read"; `CommentWriter.mute` and
+  `IdentityRepository.changeRelays` then published a new list over the one
+  that was there — the mute list with its private part gone, the relay list
+  from Hopp's local copy over what another app had set. The read is
+  three-valued now (`latestChecked`: found / none, and every relay said so /
+  not known): found nowhere *and* a relay not answering throws
+  `ListNotRead`, nothing is published, the page says so and the listener
+  tries again (`RelayPublisherTest`, `CommentsTest`, `IdentityTest`).
+- **The lows, in the same round:** an imported `ncryptsec` may ask for
+  `log_n` up to 18 (256 MiB of scrypt memory; the format's 22 would be
+  4 GiB and crashed the app on a pasted key — audit L-01), and such a key
+  reads as "unreadable", not "wrong password"; an LNURL `callback` must be
+  https — http only for an onion service, LUD-06 — since the amount and the
+  TLS channel are what bind an invoice without description hash to the
+  address; and a wallet whose info event does not list `nip44_v2` is refused
+  at connect with its own text — Hopp speaks NIP-44 only, and every payment
+  to such a wallet ended as an unknown outcome that counted against the
+  budget (`IdentityCryptoVectorsTest`, `LnAddressTest`, `ValueServiceTest`).

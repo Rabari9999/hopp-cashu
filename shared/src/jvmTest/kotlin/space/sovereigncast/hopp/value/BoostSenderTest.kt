@@ -124,6 +124,44 @@ class BoostSenderTest {
         assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
     }
 
+    /** Security audit 2026-10-20, H-01: the relay took the keysend and the send
+     *  then failed with an I/O error. The wallet paid, so no invoice may follow. */
+    @Test
+    fun aKeysendWhoseSendFailedAfterwardsIsNotFollowedByAnInvoice() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Cutting", "lnaddress", "withroute@w.test", 100)))
+        val failing = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            val session = relay.connect(url) as FakeRelay.Session
+            object : space.sovereigncast.hopp.nostr.RelaySession by session {
+                override suspend fun send(message: String) {
+                    session.send(message)
+                    if (message.startsWith("[\"EVENT\"")) throw java.io.IOException("socket closed")
+                }
+            }
+        }
+        val client = NwcClient(
+            NwcConnection.parse("nostr+walletconnect://${wallet.keys.publicKeyHex}?relay=wss://r&secret=${KeyPair.generate().secretKey.toHex()}"),
+            failing, now = { 1 }, timeout = 5.seconds,
+        )
+        val sender = BoostSender(client, LnAddressClient(http), WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2")))
+        val result = sender.send(block, 10_000, ctx).single()
+        assertIs<ShareResult.Failed>(result)
+        assertTrue(result.outcomeUnknown)
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
+    }
+
+    /** Security audit 2026-10-20, M-01: the wallet paid and answered with a
+     *  scalar result. Authentic, useless — unknown, and no invoice follows. */
+    @Test
+    fun aKeysendAnsweredWithAScalarResultIsNotFollowedByAnInvoice() = runBlocking {
+        val block = ValueBlock("lightning", "keysend", recipients = listOf(r("Cutting", "lnaddress", "withroute@w.test", 100)))
+        wallet.tamper = { response -> kotlinx.serialization.json.JsonObject(response.toMutableMap().also { it["result"] = JsonPrimitive("ok") }) }
+        val sender = BoostSender(nwc, LnAddressClient(http), WalletInfo(setOf("pay_keysend", "pay_invoice"), setOf("nip44_v2")))
+        val result = sender.send(block, 10_000, ctx).single()
+        assertIs<ShareResult.Failed>(result)
+        assertTrue(result.outcomeUnknown)
+        assertEquals(listOf("pay_keysend"), wallet.requests.map { it.first })
+    }
+
     /** The paying wallet's own Lightning address is not paid — wallets refuse
      *  a payment to themselves, and podcasters often boost their own show. */
     @Test

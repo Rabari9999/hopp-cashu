@@ -26,6 +26,7 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -73,6 +74,33 @@ class IdentityTest {
         val key = Nip49.decrypt(backup, "correct horse")
         assertEquals(identities.identity.value?.pubkey, LocalSigner(space.sovereigncast.hopp.nostr.KeyPair(key)).pubkey)
         assertTrue(identities.identity.value?.exported == true)
+    }
+
+    /** Security review 2026-10-20: the key store does not answer for the moment.
+     *  Read as "no identity", Hopp offered to make one — and that replaced the
+     *  key for good. Now the entry is unreadable, not absent: nothing is made or
+     *  imported over it; it is back once the store answers; signing out is the way past it. */
+    @Test
+    fun anUnreadableKeyIsNeitherLostNorReplaced() = runBlocking<Unit> {
+        identities.create("Thorsten")
+        val me = assertNotNull(identities.identity.value)
+        secrets.unreadable += "nostr_identity_key"
+        val later = IdentityRepository(secrets, RelayPublisher(relay), { now })
+        assertNull(later.identity.value)
+        assertTrue(later.unreadable.value)
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.create("Someone else") }
+        val other = IdentityRepository(MemorySecretStore(), RelayPublisher(relay), { now })
+        other.create("Other")
+        assertFailsWith<space.sovereigncast.hopp.platform.SecretUnreadable> { later.importKey(other.nsec()!!) }
+        assertNull(later.identity.value, "still nothing made in its place")
+        secrets.unreadable -= "nostr_identity_key"
+        assertEquals(me, IdentityRepository(secrets, RelayPublisher(relay), { now }).identity.value, "there again once the store answers")
+        secrets.unreadable += "nostr_identity_key"
+        val stuck = IdentityRepository(secrets, RelayPublisher(relay), { now })
+        stuck.signOut()
+        assertTrue(!stuck.unreadable.value)
+        stuck.create("Anew")
+        assertTrue(stuck.identity.value?.pubkey != me.pubkey)
     }
 
     @Test
@@ -262,6 +290,24 @@ class IdentityTest {
         assertEquals(list, identities.identity.value!!.relays)
         assertTrue("wss://my.relay.example" in identities.writeRelays())
         removingAllLeavesOneToWriteTo(identities)
+    }
+
+    /** Security audit 2026-10-20, M-08: the relays cannot be read, publishing
+     *  works. The other app's newer list may be there: Hopp's local copy is
+     *  not written over it; once the relays answer, the change joins it. */
+    @Test
+    fun aRelayListThatCannotBeReadIsNotReplaced() = runBlocking<Unit> {
+        identities.create("X")
+        val keys = space.sovereigncast.hopp.nostr.KeyPair.fromHex(secrets.get("nostr_identity_key")!!)
+        relay.publish(Event.sign(keys, 10002, "", listOf(listOf("r", "wss://other.example")), now + 10))
+        val published = mutableListOf<Event>()
+        relay.listeners += { published += it }
+        relay.readsFail = true
+        assertFailsWith<space.sovereigncast.hopp.comments.ListNotRead> { identities.addRelay("my.relay.example") }
+        assertTrue(published.none { it.kind == 10002 }, "nothing published")
+        assertEquals(IdentityRepository.DEFAULT_RELAYS, identities.identity.value!!.relays.map { it.url }, "the local copy as it was")
+        relay.readsFail = false
+        assertEquals(listOf("wss://other.example", "wss://my.relay.example"), identities.addRelay("my.relay.example").map { it.url })
     }
 
     private suspend fun removingAllLeavesOneToWriteTo(repo: IdentityRepository) {

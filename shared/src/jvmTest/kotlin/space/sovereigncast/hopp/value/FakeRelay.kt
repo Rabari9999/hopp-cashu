@@ -29,6 +29,8 @@ class FakeRelay : RelayConnector {
     var rejectEvents = false
     /** A lying relay (security audit 2026-10-18, H-01): passes every event on and still answers "refused". */
     var passOnAndReject = false
+    /** Reads fail — the connection drops on every REQ — while publishing still works (security audit 2026-10-20, M-04/M-08). */
+    var readsFail = false
     val listeners = mutableListOf<(Event) -> Unit>()
 
     inner class Session : RelaySession {
@@ -53,6 +55,7 @@ class FakeRelay : RelayConnector {
         val arr = json.parseToJsonElement(text).jsonArray
         when (arr[0].jsonPrimitive.content) {
             "REQ" -> {
+                if (readsFail) { session.channel.close(); return }
                 val id = arr[1].jsonPrimitive.content
                 val filters = arr.drop(2).map { it.jsonObject }
                 session.subs[id] = filters.first()

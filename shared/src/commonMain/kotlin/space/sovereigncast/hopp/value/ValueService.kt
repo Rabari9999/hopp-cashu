@@ -104,6 +104,9 @@ data class PendingShare(val name: String, val msat: Long)
 /** More than today's budget has left. */
 class OverBudgetException : Exception("over today's budget")
 
+/** A single invoice the wallet paid: its row in the history (to add a reason later) and the wallet's fee. */
+data class InvoicePayment(val id: Long, val feesMsat: Long?)
+
 /** A streaming catch-up after time offline: paid within the budget (ADR 0014). */
 data class StreamNotice(val paidSats: Long, val episodes: Int)
 
@@ -301,6 +304,9 @@ class ValueService(
         pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, unknown, json.encodeToString(lineList, listOf(line)))
     }
 
+    /** Whether [amountMsat] and its fee reserve fit today's budget now — a look ahead; [payInvoice] decides. */
+    suspend fun budgetAllows(amountMsat: Long): Boolean = amountMsat + feeReserve(amountMsat) <= budgetLeftMsat.first()
+
     /**
      * A zap (NIP-57) — on a comment (device feedback 2026-10-19): one invoice
      * from [invoice], paid from the connected wallet within today's budget,
@@ -309,25 +315,62 @@ class ValueService(
     suspend fun zap(
         podcastId: Long?, episodeId: Long?, amountMsat: Long, message: String?, recipientName: String?, address: String,
         invoice: suspend () -> String,
-    ): Long? = spending.withLock {
-        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
-        if (amountMsat + feeReserve(amountMsat) > budgetLeftMsat.first()) throw OverBudgetException()
+    ): Long? {
         val show = podcastId?.let { podcasts.show(it).first() }
         val episode = episodeId?.let { episodes.item(it) }
+        return payInvoice(KIND_ZAP, podcastId, show?.title ?: episode?.podcastTitle, episode?.title, amountMsat, message, recipientName, address, invoice).feesMsat
+    }
+
+    /**
+     * One invoice paid from the connected wallet — a zap's, or an instance's
+     * for Release Boosting, Boost2Unlock and suggestions (security audit
+     * 2026-10-20: those went to the wallet past the budget and the lock). Like
+     * every payment: one at a time, within today's budget with room for the
+     * fee — checked before [invoice] is even asked for — and in the history.
+     * The row is written *before* the wallet is asked, as an unknown outcome
+     * (M-09): killed in between, Hopp finds a payment that may have left the
+     * wallet, not nothing; the wallet's answer then settles it. Throws
+     * [OverBudgetException], or what the wallet or [invoice] threw.
+     */
+    suspend fun payInvoice(
+        kind: String, podcastId: Long?, podcastTitle: String?, episodeTitle: String?, amountMsat: Long,
+        message: String?, recipientName: String?, recipientAddress: String, invoice: suspend () -> String,
+    ): InvoicePayment = spending.withLock {
+        val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
+        if (!budgetAllows(amountMsat)) throw OverBudgetException()
         val pr = invoice()
-        suspend fun log(status: String, fees: Long?, reason: String? = null) = logInvoicePayment(
-            KIND_ZAP, podcastId, show?.title ?: episode?.podcastTitle, episode?.title, amountMsat, message, recipientName, address, fees, status, reason,
-        )
+        fun line(status: String, fees: Long?, reason: String?) =
+            PaymentLine(recipientName, recipientAddress, amountMsat, status, feesMsat = fees, route = "invoice", reason = reason)
+        val id = withContext(Dispatchers.IO) {
+            db.transactionWithResult {
+                pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, 0, message, 0, amountMsat, json.encodeToString(lineList, listOf(line("unknown", null, IN_FLIGHT_REASON))))
+                pq.lastInsertId().executeAsOne()
+            }
+        }
+        suspend fun settle(status: String, fees: Long?, reason: String?) = withContext(NonCancellable + Dispatchers.IO) {
+            val counted = if (status == "paid") amountMsat else 0L
+            val unknown = if (status == "unknown") amountMsat else 0L
+            pq.settle(counted, if (status == "paid") fees ?: 0 else 0, unknown, json.encodeToString(lineList, listOf(line(status, fees, reason))), id)
+        }
         try {
             val paid = client.payInvoice(pr)
-            log("paid", paid.feesPaidMsat)
-            paid.feesPaidMsat
+            settle("paid", paid.feesPaidMsat, null)
+            InvoicePayment(id, paid.feesPaidMsat)
         } catch (e: CancellationException) {
+            // Before the request went out — after it the client answers "unknown": nothing was sent.
+            settle("failed", null, "cancelled")
             throw e
         } catch (e: Exception) {
-            withContext(NonCancellable) { log(if ((e as? NwcException)?.outcomeUnknown == true) "unknown" else "failed", null, e.message) }
+            settle(if ((e as? NwcException)?.outcomeUnknown == true) "unknown" else "failed", null, e.message)
             throw e
         }
+    }
+
+    /** [reason] onto a payment's lines — the instance has not confirmed what the wallet paid, say. */
+    suspend fun setReason(paymentId: Long, reason: String) = withContext(Dispatchers.IO) {
+        val row = pq.selectById(paymentId).executeAsOneOrNull() ?: return@withContext
+        val lines = runCatching { json.decodeFromString(lineList, row.results_json) }.getOrDefault(emptyList())
+        pq.setResults(json.encodeToString(lineList, lines.map { it.copy(reason = reason) }), paymentId)
     }
 
     /** Sends a boost and logs it; returns each recipient's outcome. */
@@ -607,6 +650,8 @@ class ValueService(
         const val RAIL_LIGHTNING = "lightning"
         /** [last_error] prefix while a settlement payment has been handed to the wallet and not answered. */
         private const val IN_FLIGHT = "hopp:in_flight:"
+        /** The reason on a journalled invoice payment's line until the wallet answers. */
+        const val IN_FLIGHT_REASON = "in flight"
         /** The marker for [msat] on the way to the wallet. */
         internal fun inFlightMarker(msat: Long) = IN_FLIGHT + msat
         /** What a marker says was on the way, or null when the row is not in flight. */
