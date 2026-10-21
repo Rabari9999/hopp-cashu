@@ -20,6 +20,12 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
 - **Home:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
+- **Boosts:** Ein Anteil, zu dem die Wallet keine klare Antwort gab, wird nicht mehr ein zweites Mal bezahlt.
+- **Sovereigncast:** Release Boosting, Boost2Unlock und Vorschläge zählen jetzt auch gegen das Tagesbudget.
+- **Wallet:** Eine Wallet, die Hopps Verschlüsselung nicht spricht, wird beim Verbinden mit Begründung abgelehnt.
+- **Datenschutz:** Ist der Schlüsselspeicher des Geräts kurz nicht lesbar, sagt Hopp das, statt Schlüssel oder Wallet zu verlieren.
+- **Kommentare:** Stummschalten und Relays ändern überschreiben deine Listen nicht mehr, wenn die Relays nicht lesbar waren.
+- **Nostr:** Der Import eines verschlüsselten Schlüssels mit extremer Sicherheitsstufe bringt die App nicht mehr zum Absturz.
 
 
 ## [0.2.2] - 2026-10-20

@@ -20,6 +20,12 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🐛 Fixes
 - **Tour:** Back from a page the tour opened returns to the tour.
 - **Home:** Greets you by your Nostr name when no boost name is set, also after restoring from Nostr.
+- **Boosts:** A share whose payment had no clear answer from the wallet is no longer paid a second time.
+- **Sovereigncast:** Release Boosting, Boost2Unlock and suggestions count against the daily budget too.
+- **Wallet:** A wallet that cannot speak Hopp's encryption is refused when connecting, with the reason.
+- **Privacy:** If the device's key store cannot be read for a moment, Hopp says so instead of losing your key or wallet.
+- **Comments:** Muting and changing relays no longer overwrite your lists when the relays could not be read.
+- **Nostr:** Importing an encrypted key with an extreme security setting no longer crashes the app.
 
 
 ## [0.2.2] - 2026-10-20
