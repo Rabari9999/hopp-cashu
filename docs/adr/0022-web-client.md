@@ -90,10 +90,11 @@ The web is why the sync key exists (ADR 0021, 5, amended 2026-10-21): a
 stolen NIP-46 client key cannot open the listener's messages, because the
 signer never allowed decryption for good. A stolen sync key does open the
 library. **Before the web is released, Hopp must be able to make a new
-sync key:** on the Nostr page of any device, "End all other sessions": a
-new key in a new keyring, the documents published again under it, the old
-ones deleted (NIP-09, signed by the old key). Every other device then asks
-its signer once more.
+sync key:** on the Nostr page of any device, "Renew sync key": a new key in
+a new keyring, the documents published again under it, the old ones
+emptied and deleted (NIP-09, signed by the old key). Every other device
+then asks its signer once more. *Built 2026-10-21 (ADR 0021, 5).* The
+listener also ends the old session in their signer, which the page says.
 
 ### 4. Payments: WebLN first, NWC later, never a wallet of its own
 
@@ -226,7 +227,8 @@ database or admin.
 ### 11. Open
 
 Gathered 2026-10-21; the order agreed with the maintainer: first 1 and 7,
-the spike (W1) alongside.
+the spike (W1) alongside. Point 1 is on `podcasting_tools` branch
+`feat/listener-api-cors` (CORS on `/api/listener/` only).
 
 Before the local build:
 
@@ -257,8 +259,7 @@ Before `play.sovereigncast.space` goes live:
    imprint (§ 5 DDG); the proxy processes IP addresses, so the privacy
    policy states its legal basis, retention and server location (GDPR),
    and possibly a processing agreement with the host.
-7. **"End all other sessions"** — a new sync key (§3), useful to the apps
-   as well.
+7. ~~**A new sync key** (§3)~~ — built 2026-10-21 as "Renew sync key".
 8. **A wallet interface in `shared`** before W3 (§4).
 9. **Releasing the web:** the same version numbers as the apps; who signs
    the hash event (as for Zapstore, through the Amber bunker); the
@@ -293,8 +294,8 @@ Earlier:
   stays in the browser and how to remove it.
 - **Payments (ADR 0005):** a wallet interface in `shared` before W3; the
   daily budget per browser.
-- **Sync (ADR 0021, 5):** "End all other sessions" — a new sync key — is a
-  must before W2 ships, and helps the apps too (a lost phone).
+- **Sync (ADR 0021, 5):** "Renew sync key" — built — helps the apps too (a
+  lost phone, a signer session no longer trusted).
 - **iOS (ADR 0009):** the web takes pressure off the App Store, but does not
   replace a native app: no downloads, weaker background playback, no
   CarPlay. The `altstore` and `appstore` plans stay.

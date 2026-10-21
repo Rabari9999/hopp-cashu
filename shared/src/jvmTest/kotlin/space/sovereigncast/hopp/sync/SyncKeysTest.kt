@@ -50,10 +50,13 @@ class SyncKeysTest {
         var ms = nowSeconds * 1000
         val secrets = MemorySecretStore()
         val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, app)
-        val store = SyncStore(HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })) { ms }
+        val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+        val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
         val doc = Doc()
+        val journal = SyncJournal(store)
+        val sync = SyncManager(engine, store, journal, space.sovereigncast.hopp.data.SettingsRepository(db, journal), scope, { listOf(doc) }, { ms }, publishDelay = kotlin.time.Duration.parse("1h"))
         init {
             runBlocking {
                 if (app != null) identity.signInWithSigner()
@@ -173,5 +176,63 @@ class SyncKeysTest {
         assertTrue(device.secrets.get("nostr_sync_key") != null)
         device.sync.disable()
         assertNull(device.secrets.get("nostr_sync_key"))
+    }
+
+    // ── a new sync key (ADR 0022, 3) ──────────────────────────────────────────
+
+    @Test
+    fun aRenewedKeyLocksOutTheOldOneAndTheOtherDevicesFollow() = runBlocking<Unit> {
+        val listener = KeyPair.generate()
+        val phoneApp = FakeSignerApp(listener); val tabletApp = FakeSignerApp(listener); val browserApp = FakeSignerApp(listener)
+        val phone = Device(phoneApp); val tablet = Device(tabletApp); val browser = Device(browserApp)
+        phone.record("show-a", "A")
+        phone.sync.enable(); tablet.sync.enable(); browser.sync.enable()
+        assertEquals(setOf("show-a"), browser.doc.applied.keys)
+        val old = phone.keys.signer(interactive = false)!!.pubkey
+        assertEquals(old, browser.keys.signer(interactive = false)!!.pubkey)
+
+        // The browser is gone; the phone renews. Its signer is asked as for the first keyring.
+        phone.ms += 2 * 60_000
+        phone.record("show-b", "B")
+        val asked = phoneApp.requests.size
+        assertTrue(phone.sync.renewKey())
+        assertEquals(listOf("nip44_encrypt", "sign_event:${Nip78.KIND}"), phoneApp.requests.drop(asked))
+        assertNotEquals(old, phone.keys.signer(interactive = false)!!.pubkey)
+
+        // What the old key sealed is empty on the relays, and deleted (NIP-09).
+        val byOld = stored().filter { it.pubkey == old }
+        assertTrue(byOld.isNotEmpty())
+        byOld.groupBy { e -> e.tags.first { it[0] == "d" }[1] }.values
+            .forEach { versions -> assertEquals("", versions.maxBy { it.created_at }.content) }
+        val deletions = RelayPublisher(relay).query(listOf(Json.parseToJsonElement("""{"kinds":[5],"authors":["$old"]}""") as JsonObject), listOf("wss://r"))
+        assertTrue(deletions.single().tags.contains(listOf("a", "${Nip78.KIND}:$old:hopp/test")))
+
+        // The browser's session, still holding the old key, gets nothing new without the listener.
+        browserApp.allowed = false
+        browser.ms += 2 * 60_000
+        assertIs<SyncOutcome.WaitsForSigner>(browser.engine.sync(browser.doc))
+        assertTrue("show-b" !in browser.doc.applied)
+
+        // The tablet asks its signer once, then has it all again.
+        tabletApp.allowed = false
+        tablet.ms += 2 * 60_000
+        assertIs<SyncOutcome.WaitsForSigner>(tablet.engine.sync(tablet.doc))
+        val before = tabletApp.requests.size
+        assertEquals(SyncOutcome.Done(1, false), tablet.engine.sync(tablet.doc, interactive = true))
+        assertEquals(listOf("nip44_decrypt"), tabletApp.requests.drop(before))
+        assertEquals(setOf("show-a", "show-b"), tablet.doc.applied.keys)
+    }
+
+    @Test
+    fun aRenewalTheSignerRefusesChangesNothing() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val ring = keyrings(app.keys.publicKeyHex).single()
+        app.reject = true
+        assertEquals(false, phone.sync.renewKey())
+        assertEquals(listOf(ring.id), keyrings(app.keys.publicKeyHex).map { it.id })
+        assertEquals(SyncOutcome.Done(0, false), phone.engine.sync(phone.doc))
     }
 }

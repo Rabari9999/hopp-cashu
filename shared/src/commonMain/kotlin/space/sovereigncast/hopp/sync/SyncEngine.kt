@@ -118,6 +118,12 @@ class SyncEngine(
         data object Sealed : Peek
     }
 
+    /** A new sync key (ADR 0022, 3); the old one, for [retire] once the documents are out. */
+    suspend fun renewKey() = lock.withLock { keys.renew() }
+
+    /** What the old key sealed goes from the relays. */
+    suspend fun retire(old: space.sovereigncast.hopp.nostr.KeyPair) = lock.withLock { keys.retire(old) }
+
     /** This device forgets the sync key; the keyring stays on the relays. */
     suspend fun forgetKey() = lock.withLock { keys.forget() }
 

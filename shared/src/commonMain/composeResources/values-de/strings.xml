@@ -817,6 +817,11 @@
     <string name="sync_waits">Deine Signer-App muss es einmal erlauben.</string>
     <string name="sync_newer">Ein anderes Gerät hat ein neueres Hopp. Aktualisiere Hopp, um weiter abzugleichen.</string>
     <string name="sync_failed">Kein Relay erreicht. Hopp versucht es später wieder.</string>
+    <string name="sync_renew">Abgleich-Schlüssel erneuern</string>
+    <string name="sync_renew_text">Für ein verlorenes Gerät oder einen Browser, den du nicht mehr nutzt: Deine Bibliothek bekommt einen neuen Schlüssel, der alte öffnet nichts, was danach kommt. Deine anderen Geräte fragen deinen Signer einmal und machen dann weiter. Beende die alte Sitzung auch in deiner Signer-App.</string>
+    <string name="sync_renew_confirm">Erneuern</string>
+    <string name="sync_renewed">✓ Neuer Abgleich-Schlüssel. Deine anderen Geräte fragen deinen Signer einmal.</string>
+    <string name="sync_renew_failed">Nicht erneuert – dein Signer hat abgelehnt oder kein Relay war erreichbar. Nichts hat sich geändert.</string>
     <string name="sync_now">Jetzt abgleichen</string>
     <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
     <string name="onboarding_returning">Ich nutze Hopp schon</string>

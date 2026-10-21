@@ -81,7 +81,10 @@ class SyncKeys(
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
         val key = when {
             newest != null && held != null && newest.id == held.keyring -> held.key
-            newest != null -> open(newest, interactive).also { keep(me.pubkey, it, newest.id) }
+            newest != null -> open(newest, interactive).also { keep(me.pubkey, it, newest.id) }.also { new ->
+                // Moving off a key — renewed elsewhere, or two made at once: what it sealed goes.
+                if (held != null && held.key != new) runCatching { retire(KeyPair.fromHex(held.key), urls) }
+            }
             // None found, but this device has the key: a relay that lost it is no reason to change it.
             held != null -> held.key
             !create -> return null
@@ -91,6 +94,57 @@ class SyncKeys(
         }
         checkedAtMs = now
         LocalSigner(KeyPair.fromHex(key))
+    }
+
+    /**
+     * A new sync key in a new keyring, for a lost device or a browser session
+     * the listener no longer trusts (ADR 0022, 3): what the old key holds opens
+     * nothing that comes after. The listener's signer is asked, as for the
+     * first keyring. The old key is returned for [retire] once the documents
+     * are out under the new one. Throws when nothing changed — no keyring known
+     * here, the signer said no, or no relay took the new one.
+     */
+    suspend fun renew(): KeyPair = lock.withLock {
+        val me = identity.identity.value ?: throw SignerUnavailable("no identity")
+        val held = held(me.pubkey) ?: throw SyncKeyringNotKnown()
+        val urls = identity.writeRelays()
+        // Later than the keyring it replaces, or relays could keep the old one (NIP-01: same second, lower id).
+        val current = publisher.query(listOf(filter(me.pubkey)), urls).filter { it.pubkey == me.pubkey && it.dTag() == DTAG }.maxOfOrNull { it.created_at } ?: 0
+        val signer = identity.signer(interactive = true) ?: throw SignerUnavailable("no signer for the listener's key")
+        val key = KeyPair.generate().secretKey.toHex()
+        val content = signer.encryptToSelf(json.encodeToString(Keyring.serializer(), Keyring(VERSION, key)))
+        val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", DTAG)), maxOf(nowMs() / 1000, current + 1)))
+        if (publisher.publish(event, urls).isEmpty()) throw SyncNotPublished()
+        keep(me.pubkey, key, event.id)
+        checkedAtMs = nowMs()
+        KeyPair.fromHex(held.key)
+    }
+
+    /**
+     * What [old] signed goes: every document replaced by an empty one — relays
+     * keep only the newest of an address, NIP-09 or not — then a deletion
+     * (NIP-09) of all of them. Signed with the old key itself; the listener's
+     * signer is not needed. A device still on the old key may send its copy
+     * once more before it sees the new keyring; it retires it as it moves.
+     */
+    suspend fun retire(old: KeyPair, urls: List<String>? = null) {
+        val to = urls ?: identity.writeRelays()
+        val signer = LocalSigner(old)
+        val filter = buildJsonObject {
+            putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
+            putJsonArray("authors") { add(JsonPrimitive(old.publicKeyHex)) }
+        }
+        val latest = publisher.query(listOf(filter), to).filter { it.pubkey == old.publicKeyHex && it.kind == Nip78.KIND }
+            .groupBy { it.dTag() }.filterKeys { it != null }.mapValues { (_, events) -> events.maxOf { it.created_at } }
+        if (latest.isEmpty()) return
+        val now = nowMs() / 1000
+        var last = now
+        for ((d, at) in latest) {
+            val ts = maxOf(now, at + 1).also { last = maxOf(last, it) }
+            publisher.publish(signer.sign(UnsignedEvent(Nip78.KIND, "", listOf(listOf("d", d!!)), ts)), to)
+        }
+        val addresses = latest.keys.map { listOf("a", "${Nip78.KIND}:${old.publicKeyHex}:$it") }
+        publisher.publish(signer.sign(UnsignedEvent(DELETION, "sync key renewed", addresses + listOf(listOf("k", "${Nip78.KIND}")), last)), to)
     }
 
     /** This device forgets the key — sync turned off, or signed out. The keyring stays on the relays. */
@@ -140,6 +194,8 @@ class SyncKeys(
     companion object {
         const val VERSION = 1
         const val DTAG = "hopp/keyring"
+        /** NIP-09. */
+        private const val DELETION = 5
         private const val SECRET = "nostr_sync_key"
         /** How often a device looks whether the keyring changed (another device's, made at the same moment). */
         val CHECK_EVERY = 1.minutes

@@ -79,6 +79,11 @@ import space.sovereigncast.hopp.resources.sync_last_now
 import space.sovereigncast.hopp.resources.sync_newer
 import space.sovereigncast.hopp.resources.sync_note
 import space.sovereigncast.hopp.resources.sync_now
+import space.sovereigncast.hopp.resources.sync_renew
+import space.sovereigncast.hopp.resources.sync_renew_confirm
+import space.sovereigncast.hopp.resources.sync_renew_failed
+import space.sovereigncast.hopp.resources.sync_renew_text
+import space.sovereigncast.hopp.resources.sync_renewed
 import space.sovereigncast.hopp.resources.sync_running
 import space.sovereigncast.hopp.resources.sync_title
 import space.sovereigncast.hopp.resources.sync_waits
@@ -181,6 +186,19 @@ class NostrIdentityViewModel(
     fun setSync(on: Boolean) {
         val sync = sync ?: return
         if (on) restore() else viewModelScope.launch { sync.disable(); lookForRestore() }
+    }
+
+    /** A new sync key (ADR 0022, 3): null not asked, true done, false nothing changed. */
+    private val _renewed = MutableStateFlow<Boolean?>(null)
+    val renewed: StateFlow<Boolean?> = _renewed.asStateFlow()
+    private val _renewing = MutableStateFlow(false)
+    val renewing: StateFlow<Boolean> = _renewing.asStateFlow()
+
+    fun renewSyncKey() {
+        val sync = sync ?: return
+        if (_renewing.value) return
+        _renewing.value = true; _renewed.value = null
+        viewModelScope.launch { try { _renewed.value = sync.renewKey() } finally { _renewing.value = false } }
     }
 
     /** A round now, the signer app allowed to ask — after it said it needs the listener. */
@@ -628,6 +646,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     val restoring by vm.restoring.collectAsState()
     SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
     if (settings?.nostrSync == true) SyncStatusLine(vm)
+    // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
+    if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -680,6 +700,30 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         Text(text.orEmpty(), Modifier.weight(1f), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
         if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
     }
+}
+
+/** A new sync key, for a lost device or a browser no longer used (ADR 0022, 3) — asked first. */
+@Composable
+private fun RenewSyncKey(vm: NostrIdentityViewModel) {
+    val renewing by vm.renewing.collectAsState()
+    val renewed by vm.renewed.collectAsState()
+    var confirm by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            when (renewed) { true -> stringResource(Res.string.sync_renewed); false -> stringResource(Res.string.sync_renew_failed); null -> "" },
+            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            color = if (renewed == false) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (renewing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+        else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew)) }
+    }
+    if (confirm) AlertDialog(
+        onDismissRequest = { confirm = false },
+        title = { Text(stringResource(Res.string.sync_renew)) },
+        text = { Text(stringResource(Res.string.sync_renew_text)) },
+        confirmButton = { TextButton(onClick = { confirm = false; vm.renewSyncKey() }) { Text(stringResource(Res.string.sync_renew_confirm)) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
 }
 
 /** The listener's other devices left a library on the relays (ADR 0021, 5): one button takes it. */

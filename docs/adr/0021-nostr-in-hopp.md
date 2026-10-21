@@ -393,8 +393,15 @@ switches.
    bunker asks the listener at that one moment, and in the background
    nothing waits for a signer any more. Relays see the keyring under the
    listener's npub, the documents under the sync key; they can still link
-   the two by IP and time. Not built yet: a new sync key to lock out a lost
-   device or web session (the old documents deleted, NIP-09).
+   the two by IP and time. *Built the same day:* "Renew sync key" on the
+   Nostr page (identities in a signer only — a lost phone that held the key
+   itself has it anyway): a round, a new keyring, the documents out under
+   the new key, then everything the old key signed replaced by an empty
+   event and deleted (NIP-09), signed with the old key itself. A device that
+   moves off a key — renewed elsewhere, or two made at once — retires it the
+   same way, so a device that sent its copy once more before it noticed
+   cleans up after itself. Other devices ask their signer once; a session
+   that keeps the old key gets nothing new without the listener.
    Tests: `SyncKeysTest`.
 
 ## Consequences

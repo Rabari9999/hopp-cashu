@@ -119,6 +119,23 @@ class SyncManager(
         _status.value = SyncStatus()
     }
 
+    /**
+     * A new sync key (ADR 0022, 3): for a lost device or a browser the listener
+     * no longer uses. First a round, so this device has everything the old key
+     * held; then the new keyring; the documents out under it; and what the old
+     * key sealed deleted. The listener's other devices ask their signer once
+     * and go on. False: nothing changed — the round, the signer or the relays
+     * did not get through.
+     */
+    suspend fun renewKey(): Boolean {
+        if (!settings.current().nostrSync) return false
+        if (syncNow(interactive = true).problem != null) return false
+        val old = try { engine.renewKey() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { return false }
+        syncNow()
+        runCatching { engine.retire(old) }
+        return true
+    }
+
     /** One round over every document; [interactive]: the signer app may be opened. */
     suspend fun syncNow(interactive: Boolean = false, seeds: Map<String, Map<String, SyncEntry>> = emptyMap()): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
