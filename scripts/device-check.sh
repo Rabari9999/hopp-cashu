@@ -28,7 +28,7 @@ wants() { for d in "${DEVICES[@]}"; do [[ $d == "$1" ]] && return 0; done; retur
 
 # ── builds ────────────────────────────────────────────────────────────────
 if [[ "${BUILD:-0}" == 1 ]]; then
-    if wants phone || wants tablet; then ./gradlew --no-daemon -q :androidApp:assembleFossBeta || exit 1; fi
+    if wants phone || wants tablet; then ./gradlew --no-daemon -q :androidApp:assembleFossBeta -Phopp.beta.deviceCheck=true || exit 1; fi
     if wants iphone || wants ipad; then
         # The simulator wants arm64 only: a generic destination asks for x86_64 too,
         # which the Kotlin framework is not built for. Signed ad hoc, not unsigned: an

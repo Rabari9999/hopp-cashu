@@ -35,9 +35,15 @@ never update a release install.
 
 ## Beta builds (added 2026-10-12)
 
-Betas carry release code and, until a beta key exists, the public debug key —
-anyone can build an APK that installs over such a beta (security review
-2026-10-10, M-07). They show as **"Hopp β"** on the home screen and never claim
+Betas carry release code and a beta key of their own. Until 2026-10-22 they
+fell back to the public debug key without one — anyone could build an APK
+that installs over such a beta and reads its data (security review
+2026-10-10, M-07; sync audit 2026-10-22, H-04). Since then **no beta is built
+without the beta key**: packaging one stops with a pointer here, and CI
+builds a beta only where the key's variables are set. The one exception is
+the device check (`scripts/device-check.sh`, `-Phopp.beta.deviceCheck=true`):
+its emulators get a beta with the debug key, its version marked `-local`,
+never handed on. They show as **"Hopp β"** on the home screen and never claim
 to be the release. Since 2026-10-14 a beta is an app of its own,
 `space.sovereigncast.hopp.beta`: it installs next to the release, with its own
 library and wallet connection. (Debug builds keep `space.sovereigncast.hopp` —
@@ -50,6 +56,10 @@ Links Android verifies for Hopp (`/open`, ADR 0002) go to the release only;
    `HOPP_BETA_KEYSTORE` as a **File** variable with the keystore, and
    `HOPP_BETA_KEYSTORE_PASSWORD` (plus `HOPP_BETA_KEY_PASSWORD` if it differs,
    `HOPP_BETA_KEY_ALIAS` if not `hopp-beta`).
-3. The next pipeline on `main` signs the beta with it. Testers install that beta
-   once by hand (another signature cannot update the old one); from then on it
-   updates as before. Without the variables the build falls back to the debug key.
+3. The next pipeline on a protected branch signs the beta with it (protected
+   variables reach protected branches and tags only — protect a release branch
+   such as `0.3.0` to get its betas from CI). Testers install that beta once
+   by hand after uninstalling the old one (another signature cannot update
+   it); from then on it updates as before.
+4. For a beta built on the Mac, the same three environment variables point at
+   the keystore there (kept outside the repository, backed up like any key).
