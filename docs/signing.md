@@ -52,10 +52,14 @@ Links Android verifies for Hopp (`/open`, ADR 0002) go to the release only;
 `hopp://` and `nostr+walletconnect:` offer both apps. To give them a key of their own:
 
 1. Create it once, off CI: `keytool -genkeypair -keystore hopp-beta.jks -alias hopp-beta -keyalg EC -groupname secp256r1 -validity 10000`.
-2. In GitLab → Settings → CI/CD → Variables, add (protected, masked where possible):
-   `HOPP_BETA_KEYSTORE` as a **File** variable with the keystore, and
+2. GitLab variables hold text only, so the keystore goes in as base64:
+   `base64 -i ~/Documents/hopp-beta.jks | pbcopy` copies it as one line. In
+   GitLab → Settings → CI/CD → Variables → Add variable: type **Variable**,
+   visibility **Masked and hidden**, **Protect variable** on, key
+   `HOPP_BETA_KEYSTORE_BASE64`, value pasted. Then the same for
    `HOPP_BETA_KEYSTORE_PASSWORD` (plus `HOPP_BETA_KEY_PASSWORD` if it differs,
-   `HOPP_BETA_KEY_ALIAS` if not `hopp-beta`).
+   `HOPP_BETA_KEY_ALIAS` if not `hopp-beta`). The pipeline writes the keystore
+   out for the beta build and deletes it after.
 3. The next pipeline on a protected branch signs the beta with it (protected
    variables reach protected branches and tags only — protect a release branch
    such as `0.3.0` to get its betas from CI). Testers install that beta once

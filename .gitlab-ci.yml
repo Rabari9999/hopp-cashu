@@ -67,14 +67,22 @@ android-debug:
     # The app on Android's own Compose, lifecycle and SQLite, no device.
     - ./gradlew --console=plain :androidApp:testFossDebugUnitTest
     - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug
-    # A beta only with the beta key (security audit 2026-10-22, H-04; docs/signing.md).
-    - if [ -n "$HOPP_BETA_KEYSTORE" ]; then ./gradlew --console=plain :androidApp:assembleFossBeta; else echo "No beta key here: no beta built."; fi
+    # A beta only with the beta key (security audit 2026-10-22, H-04; docs/signing.md). GitLab
+    # variables hold text, the keystore is binary: it comes as base64 and is written out here.
+    - |
+      if [ -n "$HOPP_BETA_KEYSTORE_BASE64" ]; then
+        echo "$HOPP_BETA_KEYSTORE_BASE64" | base64 -d > "$CI_PROJECT_DIR/hopp-beta.jks"
+        HOPP_BETA_KEYSTORE="$CI_PROJECT_DIR/hopp-beta.jks" ./gradlew --console=plain :androidApp:assembleFossBeta
+        rm -f "$CI_PROJECT_DIR/hopp-beta.jks"
+      else
+        echo "No beta key here: no beta built."
+      fi
   artifacts:
     when: always
     expire_in: 2 weeks
     paths:
       - androidApp/build/outputs/apk/*/debug/*.apk
-      # Release code, debug key: the build to judge smoothness with.
+      # Release code, the beta key: the build testers get and judge smoothness with.
       - androidApp/build/outputs/apk/*/beta/*.apk
     reports:
       junit: androidApp/build/test-results/testFossDebugUnitTest/*.xml
