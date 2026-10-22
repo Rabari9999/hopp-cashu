@@ -84,6 +84,7 @@ class SettingsDocument(private val settings: SettingsRepository) : SyncedDocumen
             "quick_boost_sats" -> v.toIntOrNull()?.let { it in 0..1_000_000 } == true
             "library_sort" -> v in Settings.sortChoices
             "home_order", "home_hidden", "home_collapsed" -> v.length <= 2_000
+            "take_part_hidden" -> v.length <= 40_000
             else -> false
         }
     }

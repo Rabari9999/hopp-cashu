@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
@@ -1601,6 +1602,39 @@ class AndroidAppFlowTest {
         waitFor("✓ Sovereigncast")
         // Straight to the round's sheet, not only the show (device feedback 2026-10-22).
         waitFor("21 sats bring it out a minute earlier")
+    }
+
+    /** Single entries under "Take part" hide on their own, come back with Undo or from
+     *  "Customize Home", and the show's page still shows them (device feedback 2026-10-22). */
+    @Test
+    fun takePartHidesOneEntryAtATime() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Home")
+        waitFor("RELEASE BOOSTING · Nodesignal")
+        // This round only: the suggestions stay.
+        rule.onAllNodes(hasText("E297 - BTC++ Berlin") and hasClickAction()).onFirst().performTouchInput { longClick() }
+        tap("Hide this round")
+        until { !has("RELEASE BOOSTING · Nodesignal") }
+        check(has("Topics awaiting your vote: 1")) { screen().toString() }
+        check(settings().takePartHidden == listOf("rb:$SC_GUID/e297")) { settings().takePartHidden.toString() }
+        // Undo brings it back at once.
+        tap("Undo")
+        waitFor("RELEASE BOOSTING · Nodesignal")
+        check(settings().takePartHidden.isEmpty())
+        // The whole show: "Take part" is empty and goes; "Your shows" keeps the show.
+        rule.onAllNodes(hasText("Topics awaiting your vote: 1") and hasClickAction()).onFirst().performTouchInput { longClick() }
+        tap("Nothing from Nodesignal here")
+        until { !has("Take part") }
+        check(has("Your shows")) { screen().toString() }
+        // Back from "Customize Home".
+        rule.onNode(hasContentDescription("Customize Home")).performClick()
+        rule.onNode(hasScrollAction()).performScrollToNode(hasText("Show again"))
+        waitFor("Hidden under “Take part”")
+        check(has("Everything"))
+        tap("Show again")
+        until { settings().takePartHidden.isEmpty() }
     }
 
     // ── device feedback 2026-10-10 (later) ─────────────────────────────────

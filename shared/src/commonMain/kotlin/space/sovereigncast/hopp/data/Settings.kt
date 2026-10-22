@@ -76,6 +76,9 @@ data class Settings(
     val homeOrder: List<String> = emptyList(),
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
+    /** Single entries under Home's "Take part" the listener hid, oldest first ([space.sovereigncast.hopp.ui.library.TakePart],
+     *  device feedback 2026-10-22). */
+    val takePartHidden: List<String> = emptyList(),
     /** With a Nostr identity, still vote and suggest without it (ADR 0021, 7). */
     val scAnonymous: Boolean = false,
     /** The listener was told, once, that what Hopp publishes stays public (ADR 0021, 8). */
@@ -129,9 +132,12 @@ data class Settings(
 
         /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
          *  2026-10-20) — not the wallet, budgets, storage, refresh rules or anything of this device. */
+        /** The newest this many entries hidden under "Take part" are kept — ended rounds pile up otherwise. */
+        const val TAKE_PART_HIDDEN_MAX = 200
+
         val SYNCED = setOf(
             "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
-            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list",
+            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
         )
 
         internal fun from(values: Map<String, String>): Settings {
@@ -167,6 +173,7 @@ data class Settings(
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
+                takePartHidden = values["take_part_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.distinct()?.takeLast(TAKE_PART_HIDDEN_MAX) ?: d.takePartHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
                 nostrPublicNoted = values["nostr_public_noted"]?.toBooleanStrictOrNull() ?: d.nostrPublicNoted,
                 nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
@@ -222,6 +229,7 @@ data class Settings(
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
+        "take_part_hidden" to takePartHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),
         "nostr_public_noted" to nostrPublicNoted.toString(),
         "nostr_backup_reminded" to nostrBackupReminded.toString(),

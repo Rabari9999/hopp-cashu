@@ -101,6 +101,17 @@ class HomeViewModel(
 
     override suspend fun afterRefresh() { sc.refresh() }
 
+    /** "Take part" without what the listener hid there (device feedback 2026-10-22);
+     *  [actions] stays whole — "Your shows" still counts down to a release. */
+    val takePart: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(
+        combine(sc.actions.map { it.orEmpty() }, settings.settings.map { it.takePartHidden.toSet() }) { all, hidden ->
+            all.filterNot { TakePart.hides(hidden, it) }
+        },
+        emptyList(),
+    )
+    fun hideTakePart(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = TakePart.add(it.takePartHidden, key)) } }
+    fun showTakePartAgain(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = it.takePartHidden - key) } }
+
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
     /** The listener's order of Home's sections (empty: Hopp's own) and what they hid. */
@@ -264,6 +275,11 @@ class SettingsViewModel(
     fun deleteAllDownloads() = viewModelScope.launch { downloads.removeAll() }
 
     val current: StateFlow<Settings?> = state(settings.settings, null)
+    /** Show titles by podcast:guid — for what was hidden under Home's "Take part". */
+    val showTitles: StateFlow<Map<String, String>> = state(
+        podcasts.shows.map { l -> l.mapNotNull { s -> s.podcastGuid?.takeIf { it.isNotEmpty() }?.let { it to s.title } }.toMap() },
+        emptyMap(),
+    )
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }

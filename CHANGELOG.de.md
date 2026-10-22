@@ -18,6 +18,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Beim Ziehen der Position zeigt eine Blase, wo du landest, mit dem Kapitel.
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 - **Home:** Release Boosting und Boost2Unlock unter „Mitmachen“ öffnen direkt ihre Details in der Show.
+- **Home:** Einzelne Einträge unter „Mitmachen“ ausblenden – eine Runde, die Vorschläge einer Show oder eine ganze Show – und unter „Home anpassen“ wieder einblenden.
 
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.

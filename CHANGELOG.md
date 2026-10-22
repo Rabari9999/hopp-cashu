@@ -18,6 +18,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** While you drag the position, a bubble shows where you would land, with the chapter.
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 - **Home:** A Release Boosting or Boost2Unlock under "Take part" opens straight to its details on the show.
+- **Home:** Hide single entries under "Take part" – a round, a show's suggestions or a whole show – and bring them back under "Customize Home".
 
 ### 🐛 Fixes
 - **Tour:** Back from a page the tour opened returns to the tour.

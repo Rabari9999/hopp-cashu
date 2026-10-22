@@ -431,8 +431,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         ) {
                             composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
-                                    onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
-                                    onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting, unlock = a.episodeGuid)) },
+                                    onCommunity = { nav.navigate(ShowRoute(it, community = true)) }, snackbar = snackbar,
+                                    onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
+                                        unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
                                     onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) })
                             } }

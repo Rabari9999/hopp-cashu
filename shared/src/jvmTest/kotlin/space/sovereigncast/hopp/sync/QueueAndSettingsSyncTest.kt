@@ -84,6 +84,18 @@ class QueueAndSettingsSyncTest {
         assertEquals(21_000, phone.settings.current().dailyBudgetSats)
     }
 
+    /** What was hidden under Home's "Take part" stays hidden on the other device (device feedback 2026-10-22). */
+    @Test
+    fun whatWasHiddenUnderTakePartFollows() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.settings.update { it.copy(takePartHidden = listOf("suggestions:g1", "rb:g2/e7")) }
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertEquals(listOf("suggestions:g1", "rb:g2/e7"), tablet.settings.current().takePartHidden)
+    }
+
     /** Device feedback 2026-10-21: a phone that never had a boost name, and a new device that
      *  took the name from the Nostr profile — the restore wiped it, and Home greeted no one. */
     @Test

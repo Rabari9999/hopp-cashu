@@ -176,7 +176,11 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
     val colors = MaterialTheme.colorScheme
     val s = settings ?: return
     // Home's sections are dragged, which wants a lazy list of its own rather than this column.
-    if (page == SettingsPage.Home) { HomeSectionsEditor(s) { change -> vm.update(change) }; return }
+    if (page == SettingsPage.Home) {
+        val titles by vm.showTitles.collectAsState()
+        HomeSectionsEditor(s, titles) { change -> vm.update(change) }
+        return
+    }
     if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
