@@ -3,7 +3,15 @@ appId: ${APP_ID}
 name: Settings
 ---
 - launchApp
-- tapOn: "Settings"
+# Home lays itself out again while its feeds load: settled first, tapped again if nothing changed
+# (device check 2026-10-22).
+- waitForAnimationToEnd
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Playback"
+    timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: 05-settings
 - scrollUntilVisible:

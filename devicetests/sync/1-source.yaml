@@ -9,8 +9,16 @@ name: Sync source
 ---
 - launchApp:
     stopApp: true
+# Home refreshes its feeds right after the start and lays itself out again: a tap then
+# can land on nothing (device check 2026-10-22). Settled first, and tapped again if nothing changed.
+- waitForAnimationToEnd
 # Listening habits: speed, skip back and forward.
-- tapOn: "Settings"
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Playback"
+    timeout: 15000
 - scrollUntilVisible:
     element: "Playback"
 - tapOn: "Playback"
