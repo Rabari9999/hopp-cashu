@@ -102,10 +102,11 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                 }
                 lines.forEachIndexed { i, (label, value) ->
                     if (i > 0) HorizontalDivider(color = colors.surfaceVariant)
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    // The label keeps its line; a long value wraps on the right, one item per line (device feedback 2026-10-22).
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+                        Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, softWrap = false)
                         Spacer(Modifier.size(12.dp))
-                        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
+                        Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
                     }
                 }
             }
@@ -119,7 +120,7 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
     }
 }
 
-/** What the last round brought, per document: "2 progress · 1 show", or "nothing". */
+/** What the last round brought, per document, one per line: "1 show", "2 progress" — or "nothing". */
 @Composable
 private fun got(applied: Map<String, Int>): String {
     val parts = listOfNotNull(
@@ -128,7 +129,7 @@ private fun got(applied: Map<String, Int>): String {
         applied[SyncDocs.QUEUE]?.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.home_sync_got_queue, it, it) },
         applied[SyncDocs.SETTINGS]?.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.home_sync_got_settings, it, it) },
     )
-    return if (parts.isEmpty()) stringResource(Res.string.home_sync_nothing) else parts.joinToString(" · ")
+    return if (parts.isEmpty()) stringResource(Res.string.home_sync_nothing) else parts.joinToString("\n")
 }
 
 /** Why the last round did not go through, in a few words. */
