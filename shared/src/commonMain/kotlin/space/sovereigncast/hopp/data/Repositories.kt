@@ -181,7 +181,9 @@ class PodcastRepository(
         val now = clock.now()
         val fetch = autoDownload && autoDownloads()
         val id = withContext(Dispatchers.IO) {
-            db.transactionWithResult {
+            db.transactionWithResult<Long?> {
+                // Subscribed meanwhile — another tap, or the same feed fetched in parallel: that one stands.
+                if (q.selectByFeedUrl(feedUrl).executeAsOneOrNull() != null) return@transactionWithResult null
                 val p = feed.podcast
                 q.insert(feedUrl, p.podcastGuid, p.title ?: feedUrl, p.author, p.imageUrl,
                     json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"))
@@ -190,8 +192,8 @@ class PodcastRepository(
                 if (!autoDownload) q.setAutoDownload(0, id)
                 for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, fetch)
                 id
-            }.also { noteShow(it, sync) }
-        }
+            }?.also { noteShow(it, sync) }
+        } ?: return SubscribeResult.AlreadySubscribed(withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOne().id })
         if (fetch) downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
@@ -273,7 +275,9 @@ class PodcastRepository(
     /** Subscribes to every feed of an OPML file that is not subscribed yet. */
     suspend fun importOpml(text: String, parallel: Int = 4): List<Pair<String, SubscribeResult>> = coroutineScope {
         val gate = Semaphore(parallel)
-        Opml.parse(text).map { entry ->
+        // One subscription per address: the same feed twice in a file, subscribed at once, made the
+        // second one fail on the database (CI 2026-10-22).
+        Opml.parse(text).distinctBy { it.feedUrl }.map { entry ->
             async { gate.withPermit { entry.feedUrl to subscribe(entry.feedUrl) } }
         }.awaitAll()
     }
