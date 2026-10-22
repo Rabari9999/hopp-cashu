@@ -1580,7 +1580,7 @@ class AndroidAppFlowTest {
         check(settings().boostFeedback == "errors" && settings().quickBoostFeedback == "errors") { settings().toString() }
     }
 
-    /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show. */
+    /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show at the round. */
     @Test
     fun homeShowsWhatRunsAtYourShows() {
         rule.setContent { App() }
@@ -1599,6 +1599,8 @@ class AndroidAppFlowTest {
         waitFor("Take part")
         rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
         waitFor("✓ Sovereigncast")
+        // Straight to the round's sheet, not only the show (device feedback 2026-10-22).
+        waitFor("21 sats bring it out a minute earlier")
     }
 
     // ── device feedback 2026-10-10 (later) ─────────────────────────────────

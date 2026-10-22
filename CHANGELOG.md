@@ -17,6 +17,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Boosts:** Hopp shows what your wallet holds and sends no boost it cannot cover.
 - **Player:** While you drag the position, a bubble shows where you would land, with the chapter.
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
+- **Home:** A Release Boosting or Boost2Unlock under "Take part" opens straight to its details on the show.
 
 ### 🐛 Fixes
 - **Tour:** Back from a page the tour opened returns to the tour.

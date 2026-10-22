@@ -64,6 +64,8 @@ data class ShowAction(
     val publishAt: String?,
     /** Suggestions only: how many the listener has not voted for yet. */
     val waiting: Int = 0,
+    /** Boost2Unlock only: which episode, so a tap on Home opens its sheet. */
+    val episodeGuid: String? = null,
 ) {
     enum class Kind { ReleaseBoosting, Boost2Unlock, Suggestions }
 }
@@ -184,7 +186,7 @@ class SovereigncastRepository(
                 val waiting = if (c.suggestions) runCatching { suggestions(layer).suggestions }.getOrDefault(emptyList())
                     .count { "${show.podcastGuid}/${it.id}" !in votes } else 0
                 listOfNotNull(rb?.let { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.ReleaseBoosting, it.episode.title, it.raisedSats, it.goalSats, it.publishAt) }) +
-                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null) } +
+                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null, episodeGuid = it.episode.episodeGuid) } +
                     listOfNotNull(ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Suggestions, "", 0, 0, null, waiting).takeIf { waiting > 0 })
             }
         }.awaitAll().flatten()

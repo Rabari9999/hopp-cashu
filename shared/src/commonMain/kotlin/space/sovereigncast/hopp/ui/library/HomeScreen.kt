@@ -98,6 +98,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
     onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
+    onAction: (ShowAction) -> Unit = { onShow(it.podcastId) },
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
@@ -172,9 +173,10 @@ fun HomeScreen(
                             val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
                             // By index: two episodes of a show can share a title, and a repeated key crashes (code review 2026-10-17, H7).
                             itemsIndexed(shown, key = { i, _ -> "a$i" }) { _, a ->
-                                // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
+                                // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12);
+                                // a round or an unlock straight to its sheet on the show (device feedback 2026-10-22).
                                 if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
-                                else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
+                                else ShowActionRow(a, Modifier.animateItem()) { onAction(a) }
                             }
                             if (actions.size > shown.size) item(key = "a-more") {
                                 TextButton(onClick = { allActions = true }, modifier = Modifier.padding(horizontal = 8.dp)) {

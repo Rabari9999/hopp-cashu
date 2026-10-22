@@ -17,6 +17,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Boosts:** Hopp zeigt, was in deiner Wallet ist, und sendet keinen Boost, den sie nicht deckt.
 - **Player:** Beim Ziehen der Position zeigt eine Blase, wo du landest, mit dem Kapitel.
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
+- **Home:** Release Boosting und Boost2Unlock unter „Mitmachen“ öffnen direkt ihre Details in der Show.
 
 ### 🐛 Fixes
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.

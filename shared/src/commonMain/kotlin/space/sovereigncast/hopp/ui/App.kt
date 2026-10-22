@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavBackStackEntry
+import space.sovereigncast.hopp.sovereigncast.ShowAction
 import space.sovereigncast.hopp.ui.library.EpisodeNav
 import space.sovereigncast.hopp.ui.library.EpisodeScreen
 import space.sovereigncast.hopp.ui.library.LocalEpisodeNav
@@ -151,7 +152,9 @@ private val SETTINGS_ROUTES = listOf(
 /** [fromTour]: opened from the tour at that page — back returns to it (maintainer, 2026-10-21). */
 @Serializable data class SettingsPageRoute(val page: String, val fromTour: Int? = null)
 /** A show's page; [community] opens its Community tab (Home's "vote", device feedback 2026-10-12). */
-@Serializable data class ShowRoute(val id: Long, val community: Boolean = false, val boosts: Boolean = false)
+/** [round] / [unlock] (an episode guid): open that action's sheet once the show knows it. */
+@Serializable data class ShowRoute(val id: Long, val community: Boolean = false, val boosts: Boolean = false,
+                                   val round: Boolean = false, val unlock: String? = null)
 /** An episode's page; [startSeconds] from a shared link offers playing from there. */
 @Serializable data class EpisodeRoute(val id: Long, val startSeconds: Long? = null)
 /** What the directory already knows rides along, so the page shows it at once. */
@@ -429,6 +432,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
+                                    onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting, unlock = a.episodeGuid)) },
                                     onLibrary = { selectTab(tabs[1]) },
                                     onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) })
                             } }
@@ -518,7 +522,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     route.id,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                            openCommunity = route.community, openBoosts = route.boosts,
+                                            openCommunity = route.community, openBoosts = route.boosts, openRound = route.round, openUnlock = route.unlock,
                                             onBoostableAlternative = { alt -> nav.navigate(ShowPreviewRoute(alt.feedUrl, alt.title, alt.imageUrl, alt.author)) })
                                     },
                                     episode = { id, onGone ->
