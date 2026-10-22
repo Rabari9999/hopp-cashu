@@ -25,6 +25,10 @@ class SyncNotPublished(val took: Int = 0, val asked: Int = 0) : Exception("$took
 class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: () -> Long) {
     private val lastSent = mutableMapOf<String, Long>()
 
+    /** How many relays answered the last read to its end, of how many asked — for the status. */
+    var lastReach: Pair<Int, Int>? = null
+        private set
+
     /**
      * The document as the relays hold it (audit 2026-10-22, H-02): [Fetched.Complete]
      * only with every part of one revision opened, and [Fetched.Absent] only with
@@ -41,6 +45,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             putJsonArray("#d") { SyncCodec.dTags(doc).forEach { add(JsonPrimitive(it)) } }
         }
         val got = publisher.queryChecked(listOf(filter), relays, settle = 2.seconds)
+        lastReach = got.answered to got.asked
         // Per part the newest; for the same second the lower id, as relays keep it (NIP-01).
         val newest = got.events
             .filter { it.kind == Nip78.KIND && it.pubkey == signer.pubkey }

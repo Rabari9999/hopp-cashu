@@ -116,6 +116,7 @@ fun HomeScreen(
     onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
     onAction: (ShowAction) -> Unit = { onShow(it.podcastId) },
     snackbar: SnackbarHostState? = null,
+    onSyncSettings: () -> Unit = {},
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
@@ -160,11 +161,16 @@ fun HomeScreen(
         val savedOrder by vm.savedOrder.collectAsState()
         val hidden by vm.hidden.collectAsState()
         val greetName by vm.greetName.collectAsState()
+        val syncStatus by vm.syncStatus.collectAsState()
+        var syncOpen by remember { mutableStateOf(false) }
+        syncStatus?.takeIf { syncOpen }?.let { st ->
+            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }) { syncOpen = false }
+        }
         var allActions by remember { mutableStateOf(false) }
         LazyColumn {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12):
             // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize) }
+            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize, syncStatus) { syncOpen = true } }
             // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
             HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
                 when (key) {
@@ -346,7 +352,8 @@ private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
  *  alone it was out of sight below six sections). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null,
+                     sync: space.sovereigncast.hopp.sync.SyncStatus? = null, onSync: () -> Unit = {}) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     // By name when the listener gave one for their boosts (device feedback 2026-10-13).
@@ -371,7 +378,12 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
             FittingLine(hello, MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-            Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            // One line, the sync mark at its end, always seen (maintainer 2026-10-22: a wrap looked poor).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(listOfNotNull(news, updated).joinToString(" · "), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (sync != null && (sync.running || sync.lastSyncedMs != null || sync.problem != null)) SyncMark(sync, onSync)
+            }
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
             Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)
@@ -400,7 +412,7 @@ private fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
 }
 
 @Composable
-private fun ago(seconds: Long): String = when {
+internal fun ago(seconds: Long): String = when {
     seconds < 60 -> stringResource(Res.string.home_just_now)
     seconds < 3_600 -> stringResource(Res.string.home_minutes_ago, (seconds / 60).toInt())
     seconds < 86_400 -> stringResource(Res.string.home_hours_ago, (seconds / 3_600).toInt())

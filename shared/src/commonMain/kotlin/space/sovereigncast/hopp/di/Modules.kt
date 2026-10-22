@@ -110,7 +110,7 @@ fun sharedModule(platform: Platform) = module {
     single { SettingsRepository(get(), get()) }
     single { QueueRepository(get(), get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
-    single { PodcastRepository(get(), get(), get(), get(), get(), get()) }
+    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { get<SettingsRepository>().current().autoDownloads } }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }

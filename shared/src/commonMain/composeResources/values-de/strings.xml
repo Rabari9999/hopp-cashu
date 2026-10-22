@@ -103,7 +103,9 @@
     <string name="settings_downloads">Downloads</string>
     <string name="settings_storage">Speicher für Downloads</string>
     <string name="settings_unlimited">Unbegrenzt</string>
-    <string name="settings_downloads_text">Neue Folgen laden im WLAN; gespielte werden nach 24 Stunden gelöscht. Ist der Speicher voll, gehen die ältesten ungespielten zuerst.</string>
+    <string name="settings_downloads_text">Gespielte Folgen werden nach 24 Stunden gelöscht. Ist der Speicher voll, gehen die ältesten ungespielten zuerst.</string>
+    <string name="settings_auto_downloads">Neue Folgen herunterladen</string>
+    <string name="settings_auto_downloads_note">Nur im WLAN. Aus: nur was du selbst herunterlädst.</string>
     <string name="settings_downloads_used">Heruntergeladen: %1$s in %2$d Folgen</string>
     <string name="settings_downloads_browse">In Dateien anzeigen</string>
     <string name="settings_downloads_delete">Alle Downloads löschen</string>
@@ -868,4 +870,48 @@
         <item quantity="other">✓ Deine Bibliothek ist zurück: %1$d Shows, mit Hörstand, Favoriten und „Als Nächstes“.</item>
     </plurals>
     <string name="sync_restored">✓ Mit deinen anderen Geräten abgeglichen.</string>
+    <string name="home_sync_label">Sync</string>
+    <string name="home_sync_done">Abgeglichen</string>
+    <string name="home_sync_not_done">Nicht abgeglichen</string>
+    <string name="home_sync_when">%1$s · über Nostr</string>
+    <string name="home_sync_last">Zuletzt abgeglichen</string>
+    <string name="home_sync_relays">Relays</string>
+    <string name="home_sync_of">%1$d von %2$d</string>
+    <string name="home_sync_got">Zuletzt geholt</string>
+    <string name="home_sync_to_send">Noch zu senden</string>
+    <string name="home_sync_nothing">nichts</string>
+    <string name="home_sync_waiting">Wartet hier</string>
+    <string name="home_sync_retry">Erneut versuchen</string>
+    <string name="home_sync_short_signer">Dein Signer muss bestätigen</string>
+    <string name="home_sync_short_newer">Braucht ein neueres Hopp</string>
+    <string name="home_sync_short_part">Nur ein Teil kam an</string>
+    <string name="home_sync_short_taken">Nur %1$d von %2$d Relays haben angenommen</string>
+    <string name="home_sync_short_large">Zu groß für den Abgleich</string>
+    <string name="home_sync_short_failed">Nicht durchgekommen</string>
+    <string name="home_sync_short_none">Kein Relay erreicht</string>
+    <string name="home_sync_short_few">Nur %1$d von %2$d Relays haben geantwortet</string>
+    <plurals name="home_sync_changes">
+        <item quantity="one">%1$d Änderung</item>
+        <item quantity="other">%1$d Änderungen</item>
+    </plurals>
+    <plurals name="home_sync_waiting_n">
+        <item quantity="one">%1$d Folge (Feed nicht erreichbar)</item>
+        <item quantity="other">%1$d Folgen (Feed nicht erreichbar)</item>
+    </plurals>
+    <plurals name="home_sync_got_shows">
+        <item quantity="one">%1$d Abo</item>
+        <item quantity="other">%1$d Abos</item>
+    </plurals>
+    <plurals name="home_sync_got_progress">
+        <item quantity="one">%1$d Hörstand</item>
+        <item quantity="other">%1$d Hörstände</item>
+    </plurals>
+    <plurals name="home_sync_got_queue">
+        <item quantity="one">%1$d in Als Nächstes</item>
+        <item quantity="other">%1$d in Als Nächstes</item>
+    </plurals>
+    <plurals name="home_sync_got_settings">
+        <item quantity="one">%1$d Einstellung</item>
+        <item quantity="other">%1$d Einstellungen</item>
+    </plurals>
 </resources>

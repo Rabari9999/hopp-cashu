@@ -95,6 +95,9 @@ data class Settings(
     /** A finished download goes to the end of "Up next", as in AntennaPod
      *  (device feedback 2026-10-19). */
     val downloadsToQueue: Boolean = true,
+    /** New episodes of shows that allow it download by themselves, on Wi-Fi only; off: only what the
+     *  listener asks for (device feedback 2026-10-22: too much came that was never heard). */
+    val autoDownloads: Boolean = true,
     /** Who a zap on a comment names, as in Amethyst (device feedback 2026-10-19): "public",
      *  "private" (only the author sees who sent it) or "anonymous". */
     val zapPrivacy: String = ZAP_PUBLIC,
@@ -181,6 +184,7 @@ data class Settings(
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
                 zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
                 downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
+                autoDownloads = values["auto_downloads"]?.toBooleanStrictOrNull() ?: d.autoDownloads,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
                 nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
             )
@@ -237,6 +241,7 @@ data class Settings(
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
         "downloads_to_queue" to downloadsToQueue.toString(),
+        "auto_downloads" to autoDownloads.toString(),
         "zap_privacy" to zapPrivacy,
         "nostr_sync" to nostrSync.toString(),
     )

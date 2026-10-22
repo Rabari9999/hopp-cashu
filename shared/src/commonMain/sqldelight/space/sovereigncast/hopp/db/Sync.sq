@@ -37,6 +37,9 @@ UPDATE sync_entry SET pending = 0 WHERE doc = ? AND key = ? AND updated_at = ?;
 pendingKeys:
 SELECT key FROM sync_entry WHERE doc = ? AND pending = 1;
 
+pendingCount:
+SELECT count(*) FROM sync_entry WHERE pending = 1;
+
 anyPending:
 SELECT count(*) FROM sync_entry WHERE doc = ? AND pending = 1;
 

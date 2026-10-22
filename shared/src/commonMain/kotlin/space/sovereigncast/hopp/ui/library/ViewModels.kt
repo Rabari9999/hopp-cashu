@@ -112,6 +112,15 @@ class HomeViewModel(
     fun hideTakePart(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = TakePart.add(it.takePartHidden, key)) } }
     fun showTakePartAgain(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = it.takePartHidden - key) } }
 
+    /** Sync's state for Home's greeting line — null while sync is off (maintainer 2026-10-22). */
+    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus?> = state(
+        sync?.let { s -> combine(settings.settings.map { it.nostrSync }, s.status) { on, st -> st.takeIf { on } } } ?: kotlinx.coroutines.flow.flowOf(null),
+        null,
+    )
+    private val syncer = sync
+    /** A round now, from the sync window; the signer may ask. */
+    fun syncNow() { val s = syncer ?: return; viewModelScope.launch { s.syncNow(interactive = true) } }
+
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
     /** The listener's order of Home's sections (empty: Hopp's own) and what they hid. */
@@ -273,6 +282,11 @@ class SettingsViewModel(
     val downloadBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
     val downloadCount: StateFlow<Long> = state(downloads.downloadedCount, 0L)
     fun deleteAllDownloads() = viewModelScope.launch { downloads.removeAll() }
+    /** Off: what waits for Wi-Fi unasked is dropped too. */
+    fun setAutoDownloads(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(autoDownloads = on) }
+        if (!on) downloads.dropAutomatic()
+    }
 
     val current: StateFlow<Settings?> = state(settings.settings, null)
     /** Show titles by podcast:guid — for what was hidden under Home's "Take part". */

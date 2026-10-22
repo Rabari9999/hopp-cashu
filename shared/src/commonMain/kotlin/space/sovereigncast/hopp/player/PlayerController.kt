@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -79,7 +80,13 @@ class PlayerController(
     val sleep: StateFlow<SleepTimer> = _sleep.asStateFlow()
     private val _settings = MutableStateFlow(Settings())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
-    val state: StateFlow<PlaybackState> get() = engine.state
+    /** The engine's state — or, for an episode shown but not loaded yet (restored after a restart),
+     *  where it was left, so the player does not say 0:00. */
+    val state: StateFlow<PlaybackState> = kotlinx.coroutines.flow.combine(engine.state, _current) { s, c ->
+        val item = c?.item
+        if (item == null || s.itemId != null) s
+        else PlaybackState(positionMs = item.positionMs, durationMs = (item.durationSeconds ?: 0) * 1000L, speed = s.speed)
+    }.stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Eagerly, engine.state.value)
 
     private var lastSaved = 0L
     /** Set while this controller loads an episode: until the engine reports
@@ -115,6 +122,12 @@ class PlayerController(
                     engine.setSpeed(it.defaultSpeed)
                 }
             }
+        }
+        // After a restart (device feedback 2026-10-22: a reboot left the player empty): the episode
+        // last listened to, paused where it was — unless something is playing already.
+        scope.launch {
+            val last = episodes.inProgress.first().firstOrNull() ?: return@launch
+            if (_current.value == null && engine.state.value.itemId == null) open(last, load = false, autoplay = false)
         }
         // What is still owed from before — offline, or the app closed mid-batch —
         // is caught up soon after the start; from then on batches follow listening.
@@ -205,8 +218,25 @@ class PlayerController(
             _expanded.value = expand
             return
         }
-        scope.launch { queue.remove(item.id); open(item, load = !loaded, autoplay = true) }
+        scope.launch { keepInterrupted(item.id); queue.remove(item.id); open(item, load = !loaded, autoplay = true) }
         _expanded.value = expand
+    }
+
+    /**
+     * Another episode starts: the one playing until now, begun and not finished, goes back
+     * to the top of "Up next" at its position — and plays on after the new one (device
+     * feedback 2026-10-22: it was gone from the queue).
+     */
+    private suspend fun keepInterrupted(next: Long) {
+        val now = _current.value?.item ?: return
+        if (now.id == next || now.played || clip?.itemId == next) return
+        val s = engine.state.value
+        val loaded = s.itemId == now.id.toString()
+        val pos = if (loaded) s.positionMs else now.positionMs
+        val ended = loaded && s.durationMs > 0 && pos >= s.durationMs - 1_500
+        if (pos < STARTED_MS || ended) return
+        if (loaded) episodes.savePosition(now.id, pos, paused = true)
+        queue.playNext(now.id)
     }
 
     /**
@@ -267,7 +297,7 @@ class PlayerController(
         if (engine.state.value.itemId == item.id.toString() && _current.value?.item?.id == item.id) {
             engine.seekTo(positionMs); engine.play(); return
         }
-        scope.launch { queue.remove(item.id); open(item.copy(positionMs = positionMs, played = false), load = true, autoplay = true) }
+        scope.launch { keepInterrupted(item.id); queue.remove(item.id); open(item.copy(positionMs = positionMs, played = false), load = true, autoplay = true) }
     }
 
     private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean) {
@@ -341,7 +371,13 @@ class PlayerController(
     fun expand() { if (_current.value != null) _expanded.value = true }
     fun minimize() { _expanded.value = false }
     /** Loading counts as playing: a tap while a stream starts stops it, it does not ask again. */
-    fun togglePlay() = engine.state.value.let { if (it.isPlaying || it.isBuffering) engine.pause() else engine.play() }
+    fun togglePlay() {
+        val s = engine.state.value
+        // Restored after a restart and not loaded yet: loaded now, from where it was.
+        val shown = _current.value?.item
+        if (shown != null && s.itemId != shown.id.toString() && _remoteClip.value == null) { play(shown, expand = _expanded.value); return }
+        if (s.isPlaying || s.isBuffering) engine.pause() else engine.play()
+    }
     /** Whether episode [id] is playing here now — sync leaves its position alone until it pauses. */
     fun isPlaying(id: Long): Boolean = engine.state.value.let { it.isPlaying && it.itemId == id.toString() }
 
@@ -359,8 +395,16 @@ class PlayerController(
         _current.value?.takeIf { it.item.id == id }?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
     }
 
-    fun seekTo(ms: Long) = engine.seekTo(ms.coerceAtLeast(0))
-    fun skipBy(deltaMs: Long) = seekTo(engine.state.value.positionMs + deltaMs)
+    fun seekTo(ms: Long) {
+        // Shown, not loaded (after a restart): loaded there, paused.
+        val shown = _current.value?.item
+        if (shown != null && engine.state.value.itemId == null && _remoteClip.value == null) {
+            scope.launch { open(shown.copy(positionMs = ms.coerceAtLeast(0), played = false), load = true, autoplay = false) }
+            return
+        }
+        engine.seekTo(ms.coerceAtLeast(0))
+    }
+    fun skipBy(deltaMs: Long) = seekTo(state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)
     fun skipForward() = skipBy(_settings.value.skipForwardSeconds * 1000L)
     fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let(engine::seekTo) }
@@ -398,6 +442,8 @@ class PlayerController(
     }
 
     companion object {
+        /** From here on an episode counts as begun: one left earlier is not put back in "Up next". */
+        const val STARTED_MS = 10_000L
         /** The engine's item id for a [RemoteClip] — not a number, so the
          *  episode bookkeeping above never takes it for one. */
         const val REMOTE_CLIP_ID = "sovereigncast-clip"

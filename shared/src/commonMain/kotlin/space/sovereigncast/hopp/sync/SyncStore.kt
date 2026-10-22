@@ -95,6 +95,9 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
 
     fun markFetched(doc: String, at: Long) = db.transaction { q.ensureDoc(doc); q.setFetched(at, doc) }
 
+    /** Entries changed here and not yet taken by the relays, over every document. */
+    fun pendingCount(): Int = q.pendingCount().executeAsOne().toInt()
+
     /** The entries of [doc] changed here and not yet taken by the relays. */
     fun pendingKeys(doc: String): Set<String> = q.pendingKeys(doc).executeAsList().toSet()
 

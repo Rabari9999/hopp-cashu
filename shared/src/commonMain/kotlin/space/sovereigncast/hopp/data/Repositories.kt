@@ -117,6 +117,8 @@ class PodcastRepository(
     private val downloads: DownloadScheduler = DownloadScheduler.None,
     /** Subscribing, unsubscribing and a show's own settings, noted for sync (ADR 0021, 5). */
     private val journal: SyncJournal = SyncJournal.Off,
+    /** Whether automatic downloads are on at all (Settings.autoDownloads); a show's own switch comes on top. */
+    private val autoDownloads: suspend () -> Boolean = { true },
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
@@ -177,6 +179,7 @@ class PodcastRepository(
             return SubscribeResult.AlreadySubscribed(it.id)
         }
         val now = clock.now()
+        val fetch = autoDownload && autoDownloads()
         val id = withContext(Dispatchers.IO) {
             db.transactionWithResult {
                 val p = feed.podcast
@@ -185,11 +188,11 @@ class PodcastRepository(
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
                 if (!autoDownload) q.setAutoDownload(0, id)
-                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload)
+                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, fetch)
                 id
             }.also { noteShow(it, sync) }
         }
-        if (autoDownload) downloads.schedule(manual = false)
+        if (fetch) downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
 
@@ -209,6 +212,7 @@ class PodcastRepository(
             return 0
         }
         val feed: Feed = withContext(Dispatchers.Default) { FeedParser.parse(result.bytes) }
+        val fetch = row.auto_download == 1L && autoDownloads()
         val added = withContext(Dispatchers.IO) {
             db.transactionWithResult {
                 result.movedTo?.let { moved -> if (q.selectByFeedUrl(moved).executeAsOneOrNull() == null) q.updateFeedUrl(moved, id) }
@@ -222,13 +226,13 @@ class PodcastRepository(
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
                             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
                     } else {
-                        insertEpisode(id, e, inInbox = true, now, autoDownload = row.auto_download == 1L); added++
+                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added++
                     }
                 }
                 added
             }
         }
-        if (added > 0 && row.auto_download == 1L) downloads.schedule(manual = false)
+        if (added > 0 && fetch) downloads.schedule(manual = false)
         return added
     }
 

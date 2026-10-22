@@ -34,6 +34,10 @@ data class SyncStatus(
     val pending: Int = 0,
     /** How many documents this round sent: none means the relays held all this device has. */
     val sent: Int = 0,
+    /** How many relays answered the last read to its end, of how many (Home's sync window). */
+    val relays: Pair<Int, Int>? = null,
+    /** Changes made here the relays have not taken yet. */
+    val toSend: Int = 0,
 )
 
 /** What renewing the sync key came to (delta audit 2026-10-22, HN-06/MN-10). */
@@ -182,7 +186,8 @@ class SyncManager(
         }
         // A key moved off goes only now: every document went through under the new one, nothing waits (HN-06).
         if (problem == null && pending == 0) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
-        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent)
+        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
+            engine.reach(), runCatching { engine.toSend() }.getOrDefault(0))
         _status.value
     }
 

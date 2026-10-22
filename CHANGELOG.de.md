@@ -19,8 +19,13 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 - **Home:** Release Boosting und Boost2Unlock unter „Mitmachen“ öffnen direkt ihre Details in der Show.
 - **Home:** Einzelne Einträge unter „Mitmachen“ ausblenden – eine Runde, die Vorschläge einer Show oder eine ganze Show – und unter „Home anpassen“ wieder einblenden.
+- **Home:** Ein kleines Zeichen neben „aktualisiert“ zeigt, wie der Abgleich lief; ein Tipp zeigt Relays, was kam und was noch gesendet wird.
+- **Downloads:** Automatisches Herunterladen ganz abschalten – dann lädt nur, was du selbst herunterlädst.
 
 ### 🐛 Fixes
+- **Downloads:** Automatische Downloads laufen nicht mehr über mobile Daten weiter, sobald das WLAN weg ist.
+- **Player:** Eine Folge, die du für eine andere verlässt, kommt wieder an die Spitze von „Als Nächstes“ und läuft danach weiter.
+- **Player:** Nach einem Neustart ist die zuletzt gehörte Folge wieder im Player, dort wo du aufgehört hast.
 - **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
 - **Nostr:** Amber als Bunker verbinden scheitert nicht mehr an „no permission“; eine schon verbrauchte Bunker-Adresse wird als solche benannt.
 - **Home:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.

@@ -112,6 +112,24 @@ class HomeLayoutTest {
         rule.waitUntil(10_000) { screen().any { "Nakamoto" in it } }
     }
 
+    /** Maintainer 2026-10-22: with sync on, Home's line says how it went, and a tap tells a little more. */
+    @Test
+    fun homeShowsHowSyncWent() {
+        home()
+        check(!has("In sync") && rule.onAllNodes(hasContentDescription("Sync")).fetchSemanticsNodes().isEmpty()) { "sync is off" }
+        runBlocking {
+            val koin = org.koin.mp.KoinPlatform.getKoin()
+            koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
+            koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
+        }
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sync") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Sync") and hasClickAction()).performClick()
+        waitFor("In sync")
+        check(has("3 of 3") && has("Still to send") && has("nothing")) { screen().toString() }
+        tap("Settings")
+        waitFor("Sync across devices")
+    }
+
     /** Device feedback 2026-10-17: a long greeting shrinks to one line instead of running off. */
     @Test @Config(qualifiers = "en-w360dp-h800dp")
     fun aLongGreetingFitsOneLine() {

@@ -68,7 +68,7 @@ class DownloadsAndQueueTest {
     private val scheduler = DownloadScheduler { scheduled += it }
     private val clock = Clock { now }
     private val settings = SettingsRepository(db)
-    private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler)
+    private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler) { settings.current().autoDownloads }
     private val episodes = EpisodeRepository(db, http, clock)
     private val downloads = DownloadRepository(db, http, clock, files, scheduler, settings)
     private val queue = QueueRepository(db)
@@ -167,6 +167,29 @@ class DownloadsAndQueueTest {
         items = 4
         podcasts.refresh(id)
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState, "unless the show is switched off")
+    }
+
+    /** Device feedback 2026-10-22: automatic downloads switched off — nothing new is fetched unasked,
+     *  what waited for Wi-Fi is dropped, and a run that left Wi-Fi takes no automatic one more. */
+    @Test
+    fun automaticDownloadsCanBeSwitchedOffAndStopOffWifi() = test {
+        items = 3
+        val id = subscribe()
+        // On: the newest waits for Wi-Fi; a run that leaves Wi-Fi after the asked-for one takes none more.
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 3").downloadState)
+        downloads.request(byTitle(id, "Ep 1").id)
+        // On Wi-Fi when the run starts, on mobile data from the second episode on.
+        var asked = 0
+        assertTrue(downloads.runPending { asked++ == 0 })
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 1").downloadState)
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 3").downloadState, "fetched over mobile data")
+        // Off: what waited goes, and a refresh queues nothing.
+        settings.update { it.copy(autoDownloads = false) }
+        downloads.dropAutomatic()
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 3").downloadState)
+        items = 4
+        podcasts.refresh(id)
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)
     }
 
     /** Device feedback 2026-10-19: as in AntennaPod, a download is ready in "Up next". */

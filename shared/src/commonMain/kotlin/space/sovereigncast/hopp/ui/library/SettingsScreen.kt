@@ -6,6 +6,8 @@ import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
+import space.sovereigncast.hopp.resources.settings_auto_downloads
+import space.sovereigncast.hopp.resources.settings_auto_downloads_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue_note
 import space.sovereigncast.hopp.resources.nostr_title
 import space.sovereigncast.hopp.resources.nostr_entry_none
@@ -209,6 +211,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                     if (mb == 0) stringResource(Res.string.settings_unlimited) else formatBytes(mb * 1024L * 1024L)
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
+                // One switch for all shows (device feedback 2026-10-22); a show's own in its menu comes on top.
+                Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
+                    vm.setAutoDownloads(on)
+                }
                 Toggle(stringResource(Res.string.settings_downloads_queue), stringResource(Res.string.settings_downloads_queue_note), s.downloadsToQueue) { on ->
                     vm.update { it.copy(downloadsToQueue = on) }
                 }

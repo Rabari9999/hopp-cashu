@@ -19,8 +19,13 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 - **Home:** A Release Boosting or Boost2Unlock under "Take part" opens straight to its details on the show.
 - **Home:** Hide single entries under "Take part" – a round, a show's suggestions or a whole show – and bring them back under "Customize Home".
+- **Home:** A small mark beside "updated" shows how sync went; a tap shows relays, what came and what is still to send.
+- **Downloads:** Switch automatic downloads off altogether – then only what you download yourself is fetched.
 
 ### 🐛 Fixes
+- **Downloads:** Automatic downloads no longer go on over mobile data once Wi-Fi is gone.
+- **Player:** An episode you leave for another goes back to the top of "Up next" and plays on after it.
+- **Player:** After a restart the episode you listened to last is back in the player, where you left it.
 - **Tour:** Back from a page the tour opened returns to the tour.
 - **Nostr:** Connecting Amber as a bunker no longer fails with "no permission"; a used-up bunker address is named as such.
 - **Home:** Greets you by your Nostr name when no boost name is set, also after restoring from Nostr.

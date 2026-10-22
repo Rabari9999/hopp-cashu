@@ -150,6 +150,10 @@ UPDATE episode SET download_manual = 1 WHERE download_state IN (1, 2);
 waitingCount:
 SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
 
+-- Automatic downloads turned off: what waits for Wi-Fi without being asked for goes (device feedback 2026-10-22).
+dropAutoQueue:
+UPDATE episode SET download_state = 0, download_failures = 0 WHERE download_state = 1 AND download_manual = 0;
+
 setDownloadState:
 UPDATE episode SET download_state = ? WHERE id = ?;
 

@@ -197,6 +197,12 @@ class SyncEngine(
     /** This device forgets the sync key; the keyring stays on the relays. */
     suspend fun forgetKey() = lock.withLock { keys.forget() }
 
+    /** How many relays answered the last read, of how many. */
+    fun reach(): Pair<Int, Int>? = relays.lastReach
+
+    /** Entries changed here the relays have not taken yet, over every document. */
+    fun toSend(): Int = store.pendingCount()
+
     /** Whether [doc] changed here since the relays last took it. */
     fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
 
