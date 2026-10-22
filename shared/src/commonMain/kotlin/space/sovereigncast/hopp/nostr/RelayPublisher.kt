@@ -15,6 +15,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import space.sovereigncast.hopp.crypto.secureRandomBytes
+import space.sovereigncast.hopp.crypto.toHex
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
@@ -102,8 +104,13 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
 
     private class Answer<T>(val value: T?)
 
-    /** What [url] holds for [filters]; null when it could not be reached — with [toTheEnd],
-     *  also when it did not answer up to `EOSE`. */
+    /**
+     * What [url] holds for [filters]; null when it could not be reached — with [toTheEnd],
+     * also when it did not answer up to `EOSE`. Only answers to this request count, only
+     * events the filters ask for, and only so much (security audit 2026-10-22, M-07): a
+     * relay sending more than [MAX_EVENTS] events or [MAX_BYTES] is cut off, and its
+     * answer counts as not to the end.
+     */
     private suspend fun queryOn(filters: List<JsonObject>, url: String, toTheEnd: Boolean = false): List<Event>? {
         val found = mutableListOf<Event>()
         var reached = false
@@ -113,13 +120,21 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
             reached = true
             try {
                 coroutineScope {
-                    val sub = "hopp-query"
+                    val sub = "hopp-" + secureRandomBytes(6).toHex()
+                    var bytes = 0L
                     val done = async(start = CoroutineStart.UNDISPATCHED) {
                         session.incoming.mapNotNull { text ->
+                            bytes += text.length
+                            if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
+                            if (text.length > MAX_MESSAGE) return@mapNotNull null
                             runCatching {
                                 val arr = json.parseToJsonElement(text).jsonArray
+                                if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
                                 when (arr[0].jsonPrimitive.content) {
-                                    "EVENT" -> { found += json.decodeFromJsonElement(Event.serializer(), arr[2]); null }
+                                    "EVENT" -> {
+                                        json.decodeFromJsonElement(Event.serializer(), arr[2]).takeIf { NostrFilter.matchesAny(it, filters) }?.let(found::add)
+                                        null
+                                    }
                                     "EOSE" -> true
                                     "CLOSED" -> false
                                     else -> null
@@ -138,6 +153,15 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
             }
         }
         return found.toList().takeIf { reached && (ended || !toTheEnd) }
+    }
+
+    companion object {
+        /** At most this many events from one relay for one request. */
+        const val MAX_EVENTS = 5_000
+        /** At most this much text from one relay for one request. */
+        const val MAX_BYTES = 16L * 1024 * 1024
+        /** A single message larger than this is passed over (an event holds 64 KiB of content). */
+        const val MAX_MESSAGE = 512 * 1024
     }
 
     /** Whether [url] takes a connection and answers a request at all. */

@@ -31,6 +31,8 @@ class FakeRelay : RelayConnector {
     var passOnAndReject = false
     /** Reads fail — the connection drops on every REQ — while publishing still works (security audit 2026-10-20, M-04/M-08). */
     var readsFail = false
+    /** Events a read leaves out — a relay that lost them, or holds back (security audit 2026-10-22). */
+    var hide: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
 
     inner class Session : RelaySession {
@@ -60,7 +62,7 @@ class FakeRelay : RelayConnector {
                 val filters = arr.drop(2).map { it.jsonObject }
                 session.subs[id] = filters.first()
                 synchronized(this) {
-                    filters.flatMap { filter -> stored.filter { matches(filter, it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }
+                    filters.flatMap { filter -> stored.filter { matches(filter, it) && !hide(it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }
                 }.forEach { session.channel.trySend(eventMessage(id, it)) }
                 session.channel.trySend("""["EOSE","$id"]""")
             }

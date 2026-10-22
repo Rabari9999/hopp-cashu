@@ -37,7 +37,7 @@ class SyncLiveTest {
         for (doc in listOf(SyncDocs.SUBSCRIPTIONS, SyncDocs.PROGRESS, SyncDocs.QUEUE, SyncDocs.SETTINGS)) {
             if (signer == null) break
             val r = runCatching { SyncRelays(publisher, now).fetch(signer, doc, identity.writeRelays()) }
-            println("$doc: " + r.map { it?.keys }.getOrElse { "ERROR $it" })
+            println("$doc: " + r.map { it::class.simpleName }.getOrElse { "ERROR $it" })
             println("  peek: " + engine.peek(doc)?.let { it::class.simpleName })
         }
     }

@@ -62,10 +62,12 @@ class ProgressDocument(
                 key.startsWith("fav\n") -> episodes.applyFavorite(id, if (e.del) null else e.d.long("at"))
                 key.startsWith("pos\n") -> {
                     if (playing(id)) continue
-                    val pos = e.d.long("pos") ?: 0
+                    // Never a place before the start (audit 2026-10-22, M-04).
+                    val pos = (e.d.long("pos") ?: 0).coerceAtLeast(0)
                     val played = e.d.bool("played") ?: false
-                    episodes.applyProgress(id, pos, played, e.d.long("at") ?: (e.t / 1000))
-                    adopt(id, pos, played)
+                    episodes.applyProgress(id, pos, played, e.d.long("at")?.coerceAtLeast(0) ?: (e.t / 1000))
+                    // The player follows as an aside: its failing leaves the entry applied (M-06).
+                    runCatching { adopt(id, pos, played) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
                 }
             }
             done += key

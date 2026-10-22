@@ -403,6 +403,45 @@ switches.
    cleans up after itself. Other devices ask their signer once; a session
    that keeps the old key gets nothing new without the listener.
    Tests: `SyncKeysTest`.
+   *Amended 2026-10-22 (external sync audit, before any release carried
+   sync):* what the relays answer is never taken for more than it is.
+   - **Reads and writes meet.** A document goes out only when a majority
+     of the write relays took every part; it counts as absent only when a
+     majority answered to the end without it. A read with a part missing,
+     of another revision, under another part's address or not opening is
+     *incomplete*: what arrived is applied, nothing is sent over it. Too
+     few relays answering is *not known*: nothing happens.
+   - **The keyring.** Made only by the listener turning sync on (never by a
+     round in the background), and only when *every* write relay answered
+     to the end without one. A device keeps the keyring event with the key
+     and sends it once a run to the relays again, so one that lost it gets
+     it back; a keyring older than the one it holds is never taken (NIP-01
+     order: later, or the same second and the lower id).
+   - **Local changes.** Entries from the relays are written only where they
+     win over what is here at that moment (compare and set), and checked
+     again right before they are applied: a change the listener makes while
+     a round is on its way survives it. What is still to send is kept per
+     entry, not by the newest time.
+   - **Time.** A version goes out later than the newest one read; an entry
+     dated more than a day ahead of this device is not taken. A device away
+     longer than removal markers are kept (90 days) removes what it holds
+     unchanged and no longer finds in a complete document, instead of
+     bringing it back.
+   - **Size and values.** A document that does not fit its 16 parts is not
+     sent at all (it was cut before); a show's title and image are kept
+     short; speeds, positions and settings from elsewhere are taken only
+     within what Hopp itself could set. "Up next" breaks a tie in sort keys
+     by the show and episode as sync names them, so every device shows one
+     order. A show restored without downloads fetches nothing.
+   - **Relays and signers.** Only answers to Hopp's own subscription count,
+     only events its filters ask for, at most 5,000 events or 16 MiB a
+     relay. A bunker is not asked in the background, as Amber is not opened;
+     its confirmation page reaches the Nostr page from any request.
+   What stays: relays can hold back or show a stale view — signatures prove
+   who wrote, not that it is the newest; "none found" from relays that all
+   answered is still not proof against relays that lie; a changed relay
+   list breaks the overlap of reads and writes until the documents went out
+   again. Tests: `SyncAuditTest`, `SyncCoreTest`, `BunkerTest`.
 
 ## Consequences
 

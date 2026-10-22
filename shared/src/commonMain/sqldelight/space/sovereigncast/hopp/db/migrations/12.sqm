@@ -1,0 +1,3 @@
+-- Version 12 → 13: a sync entry changed here and not yet taken by the relays
+-- (security audit 2026-10-22, M-02) — per entry, not by the newest time.
+ALTER TABLE sync_entry ADD COLUMN pending INTEGER NOT NULL DEFAULT 0;

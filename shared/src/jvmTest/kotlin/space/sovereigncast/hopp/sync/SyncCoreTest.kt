@@ -71,7 +71,7 @@ class SyncCoreTest {
         val parts = SyncCodec.split(entries, "r1")
         assertTrue(parts.size > 1)
         parts.forEach { assertTrue(SyncCodec.encode(it).encodeToByteArray().size <= SyncCodec.MAX_PART_BYTES, "a part over NIP-44's limit") }
-        assertEquals(entries, SyncCodec.join(parts.map { SyncCodec.decode(SyncCodec.encode(it)) }))
+        assertEquals(entries, SyncCodec.join(parts.associate { it.part to SyncCodec.decode(SyncCodec.encode(it)) }))
         assertEquals(listOf("hopp/progress", "hopp/progress#2"), SyncCodec.dTags("progress").take(2))
     }
 
@@ -79,7 +79,31 @@ class SyncCoreTest {
     fun partsOfAnotherRevisionAreNotMixedIn() {
         val old = SyncCodec.split(mapOf("gone" to SyncEntry(1)), "old").single().copy(part = 2, parts = 2)
         val now = SyncCodec.split(mapOf("here" to SyncEntry(2)), "new").single()
-        assertEquals(setOf("here"), SyncCodec.join(listOf(now, old)).keys)
+        assertEquals(setOf("here"), SyncCodec.join(mapOf(1 to now, 2 to old))!!.keys)
+    }
+
+    /** Security audit 2026-10-22, H-02/M-04: only a whole revision is a document. */
+    @Test
+    fun aDocumentIsWholeOnlyWithEveryPartOfItsRevision() {
+        val entries = (1..3000).associate { "k$it" to SyncEntry(1_760_000_000_000L + it, d = data("pos" to "$it")) }
+        val parts = SyncCodec.split(entries, "r").associateBy { it.part }
+        assertTrue(parts.size >= 2)
+        assertNull(SyncCodec.join(parts - 2), "a part missing")
+        assertNull(SyncCodec.join(parts + (2 to parts[2]!!.copy(rev = "other"))), "a part of another revision")
+        assertNull(SyncCodec.join(parts + (2 to parts[1]!!)), "a part under another part's address")
+        assertNull(SyncCodec.join(mapOf(1 to parts[1]!!.copy(parts = 0))), "a count out of range")
+        assertNull(SyncCodec.join(mapOf(1 to parts[1]!!.copy(parts = SyncCodec.MAX_PARTS + 1))))
+        // What arrived of it may still be applied — never sent over.
+        assertEquals((parts - 2).values.flatMap { it.entries.keys }.toSet(), SyncCodec.joinWhatArrived(parts - 2).keys)
+    }
+
+    /** M-04: nothing is cut silently — too much is an error, not a smaller document. */
+    @Test
+    fun aDocumentTooLargeIsNotCut() {
+        val big = data("blob" to "x".repeat(SyncCodec.MAX_PART_BYTES))
+        assertFailsWith<SyncTooLarge> { SyncCodec.split(mapOf("one" to SyncEntry(1, d = big)), "r", "favourites") }
+        val many = (1..60_000).associate { "favourite-of-a-long-listening-life-$it" to SyncEntry(it.toLong(), d = data("show" to "guid:$it", "guid" to "episode-$it")) }
+        assertFailsWith<SyncTooLarge> { SyncCodec.split(many, "r", "progress") }
     }
 
     @Test
@@ -97,7 +121,7 @@ class SyncCoreTest {
     fun aChangeHereIsLaterThanWhatItReplacesEvenWithAClockBehind() {
         var now = 1_000L
         val store = SyncStore(db()) { now }
-        store.putAll("subscriptions", mapOf("show" to SyncEntry(5_000, d = data("by" to "the other device, clock ahead"))))
+        store.putIfNewer("subscriptions", mapOf("show" to SyncEntry(5_000, d = data("by" to "the other device, clock ahead"))))
         val mine = store.record("subscriptions", "show", data(), deleted = true)
         assertEquals(5_001, mine.t)
         assertTrue(store.entry("subscriptions", "show")!!.del)
@@ -106,17 +130,40 @@ class SyncCoreTest {
     }
 
     @Test
-    fun oldRemovalMarkersGoAndThePublishedMarkIsKept() {
-        val store = SyncStore(db()) { 0 }
-        store.putAll("queue", mapOf("old" to SyncEntry(10, del = true), "new" to SyncEntry(500, del = true), "live" to SyncEntry(10)))
+    fun oldRemovalMarkersGoAndWhatIsUnsentIsKnownPerEntry() {
+        var now = 1_000L
+        val store = SyncStore(db()) { now }
+        store.putIfNewer("queue", mapOf("old" to SyncEntry(10, del = true), "new" to SyncEntry(500, del = true), "live" to SyncEntry(10)))
         store.pruneRemoved("queue", 100)
         assertEquals(setOf("new", "live"), store.entries("queue").keys)
+        assertFalse(store.unpublished("queue"), "from the relays: nothing to send")
+        // Audit 2026-10-22, M-02: an entry dated far ahead does not hide a later change to another.
+        store.putIfNewer("queue", mapOf("ahead" to SyncEntry(9_000_000_000_000)))
+        val change = store.record("queue", "live", data("v" to "here"))
         assertTrue(store.unpublished("queue"))
-        store.markPublished("queue", 500)
+        store.markSent("queue", mapOf("live" to change))
         assertFalse(store.unpublished("queue"))
+        // Sent an older version of it: the change made meanwhile stays to send.
+        now = 2_000
+        val later = store.record("queue", "live", data("v" to "again"))
+        store.markSent("queue", mapOf("live" to change))
+        assertTrue(store.unpublished("queue"))
+        store.markSent("queue", mapOf("live" to later))
         store.clear()
         assertTrue(store.entries("queue").isEmpty())
-        assertNull(store.publishedUpTo("queue"))
+    }
+
+    /** Audit 2026-10-22, H-03: a change made while a sync was on its way is not written over. */
+    @Test
+    fun anOlderEntryFromTheRelaysNeverReplacesANewerOneHere() {
+        var now = 1_000L
+        val store = SyncStore(db()) { now }
+        now = 5_000
+        store.record("progress", "ep", data("pos" to "here"))
+        assertTrue(store.putIfNewer("progress", mapOf("ep" to SyncEntry(3_000, d = data("pos" to "older")))).isEmpty())
+        assertEquals("\"here\"", store.entry("progress", "ep")!!.d["pos"].toString())
+        assertTrue(store.stillNewer("progress", mapOf("ep" to SyncEntry(3_000))).isEmpty())
+        assertEquals(setOf("ep"), store.putIfNewer("progress", mapOf("ep" to SyncEntry(6_000, d = data("pos" to "newer")))))
     }
 
     // ── engine, against a relay ─────────────────────────────────────────────
@@ -145,7 +192,8 @@ class SyncCoreTest {
         val docPhone = MemoryDocument(); val docTablet = MemoryDocument()
 
         phone.store.record("test", "show-a", data("title" to "A"))
-        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(docPhone))
+        // The first keyring only with the listener there (audit 2026-10-22, H-01).
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(docPhone, interactive = true))
         // The tablet adds its own before it ever synced: neither is lost.
         tablet.ms += 2_000
         tablet.store.record("test", "show-b", data("title" to "B"))
@@ -181,7 +229,7 @@ class SyncCoreTest {
         val forged = stranger.sign(UnsignedEvent(Nip78.KIND, stranger.encryptToSelf("""{"v":1,"rev":"x","entries":{"evil":{"t":1}}}"""), listOf(listOf("d", "hopp/test")), nowSeconds))
         relay.publish(forged)
         val doc = MemoryDocument()
-        assertEquals(SyncOutcome.Done(0, false), me.engine.sync(doc))
+        assertEquals(SyncOutcome.Done(0, false), me.engine.sync(doc, interactive = true))
         assertTrue(doc.applied.isEmpty())
     }
 
@@ -195,10 +243,10 @@ class SyncCoreTest {
         val me = Device(space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey))
         me.store.record("test", "x", data())
         relay.rejectEvents = true
-        assertIs<SyncOutcome.Failed>(me.engine.sync(MemoryDocument()))
+        assertIs<SyncOutcome.Failed>(me.engine.sync(MemoryDocument(), interactive = true))
         assertTrue(me.store.unpublished("test"))
         relay.rejectEvents = false
-        assertEquals(SyncOutcome.Done(0, true), me.engine.sync(MemoryDocument()))
+        assertEquals(SyncOutcome.Done(0, true), me.engine.sync(MemoryDocument(), interactive = true))
         assertFalse(me.store.unpublished("test"))
     }
 }

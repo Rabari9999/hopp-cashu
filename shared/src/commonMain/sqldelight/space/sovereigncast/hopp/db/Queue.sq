@@ -4,8 +4,11 @@ CREATE TABLE queue (
     sort_key INTEGER NOT NULL
 );
 
+-- The same place, the same order on every device (security audit 2026-10-22, M-05): after
+-- the sort key, the show and episode as sync names them — never this device's ids.
 selectAll:
-SELECT episode_id FROM queue ORDER BY sort_key;
+SELECT q.episode_id FROM queue q LEFT JOIN episode e ON e.id = q.episode_id LEFT JOIN podcast p ON p.id = e.podcast_id
+ORDER BY q.sort_key, CASE WHEN p.podcast_guid IS NULL OR p.podcast_guid = '' THEN 'url:' || p.feed_url ELSE 'guid:' || p.podcast_guid END, e.guid;
 
 deleteByPodcast:
 DELETE FROM queue WHERE episode_id IN (SELECT id FROM episode WHERE podcast_id = ?);
@@ -13,7 +16,7 @@ DELETE FROM queue WHERE episode_id IN (SELECT id FROM episode WHERE podcast_id =
 selectItems:
 SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
 FROM queue q JOIN episode e ON e.id = q.episode_id JOIN podcast p ON p.id = e.podcast_id
-ORDER BY q.sort_key;
+ORDER BY q.sort_key, CASE WHEN p.podcast_guid IS NULL OR p.podcast_guid = '' THEN 'url:' || p.feed_url ELSE 'guid:' || p.podcast_guid END, e.guid;
 
 minKey:
 SELECT coalesce(min(sort_key), 0) FROM queue;
@@ -28,7 +31,8 @@ remove:
 DELETE FROM queue WHERE episode_id = ?;
 
 first:
-SELECT episode_id FROM queue ORDER BY sort_key LIMIT 1;
+SELECT q.episode_id FROM queue q LEFT JOIN episode e ON e.id = q.episode_id LEFT JOIN podcast p ON p.id = e.podcast_id
+ORDER BY q.sort_key, CASE WHEN p.podcast_guid IS NULL OR p.podcast_guid = '' THEN 'url:' || p.feed_url ELSE 'guid:' || p.podcast_guid END, e.guid LIMIT 1;
 
 -- At the end, unless it is in the queue already: there it keeps its place.
 addLast:

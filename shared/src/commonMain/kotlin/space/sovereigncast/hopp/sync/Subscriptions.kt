@@ -30,10 +30,11 @@ object SyncDocs {
     /** A show on every device: its `podcast:guid`, else its feed address. */
     fun showKey(guid: String?, feedUrl: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:$feedUrl"
 
+    /** Title and image are for the restore offer only; kept short, so no feed's oddity makes an entry too large (M-04). */
     fun show(feedUrl: String, title: String?, image: String?, speed: Float?, autoDownload: Boolean): JsonObject = buildJsonObject {
         put("url", feedUrl)
-        title?.let { put("title", it) }
-        image?.let { put("image", it) }
+        title?.let { put("title", it.take(300)) }
+        image?.takeIf { it.length <= 2048 }?.let { put("image", it) }
         speed?.let { put("speed", it) }
         put("autoDl", autoDownload)
     }
@@ -76,6 +77,10 @@ object SyncDocs {
 class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: PodcastRepository) : SyncedDocument {
     override val name = SyncDocs.SUBSCRIPTIONS
 
+    private companion object {
+        val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
+    }
+
     private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean)
 
     private suspend fun local(): List<Local> = withContext(Dispatchers.IO) {
@@ -104,16 +109,17 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
                             e.del -> { mine?.let { podcasts.unsubscribe(it.id, sync = false) }; key }
                             url == null -> key
                             else -> {
-                                val id = mine?.id ?: when (val r = podcasts.subscribe(url, sync = false)) {
+                                val autoDownload = e.d.bool("autoDl") ?: true
+                                val id = mine?.id ?: when (val r = podcasts.subscribe(url, sync = false, autoDownload = autoDownload)) {
                                     is SubscribeResult.Subscribed -> r.podcastId
                                     is SubscribeResult.AlreadySubscribed -> r.podcastId
                                     // Unreachable now: tried again on the next sync.
                                     is SubscribeResult.Failed -> return@withPermit null
                                 }
-                                val speed = e.d.float("speed")
+                                // Only a speed Hopp plays (audit 2026-10-22, M-04): another device's odd value is not taken.
+                                val speed = e.d.float("speed")?.takeIf { it.isFinite() && it in SPEEDS }
                                 if (mine == null || mine.speed != speed) podcasts.setSpeed(id, speed, sync = false)
-                                val autoDownload = e.d.bool("autoDl") ?: true
-                                if (mine == null || mine.autoDownload != autoDownload) podcasts.setAutoDownload(id, autoDownload, sync = false)
+                                if (mine != null && mine.autoDownload != autoDownload) podcasts.setAutoDownload(id, autoDownload, sync = false)
                                 key
                             }
                         }

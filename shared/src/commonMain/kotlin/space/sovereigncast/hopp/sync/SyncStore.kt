@@ -21,19 +21,38 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
      * wins with a change made after seeing the other's.
      */
     fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false): SyncEntry {
-        val before = entry(doc, key)
-        val entry = SyncEntry(maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
-        put(doc, key, entry)
-        return entry
+        return db.transactionWithResult {
+            val before = entry(doc, key)
+            val entry = SyncEntry(maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
+            put(doc, key, entry, pending = true)
+            entry
+        }
     }
 
-    /** Entries as they came from the relays. */
-    fun putAll(doc: String, entries: Map<String, SyncEntry>) = db.transaction {
-        entries.forEach { (key, e) -> put(doc, key, e) }
+    /**
+     * Entries from the relays (or this device's own, [pending]), each only where
+     * it wins over what is here now — compare and set in one transaction, so a
+     * change the listener made while a sync was on its way is never written
+     * over by an older one (security audit 2026-10-22, H-03). The keys taken.
+     */
+    fun putIfNewer(doc: String, entries: Map<String, SyncEntry>, pending: Boolean = false): Set<String> = db.transactionWithResult {
+        entries.filter { (key, e) ->
+            val now = entry(doc, key)
+            (now == null || e.winsOver(now)).also { if (it) put(doc, key, e, pending) }
+        }.keys
     }
 
-    private fun put(doc: String, key: String, e: SyncEntry) =
-        q.putEntry(doc, key, e.d.toString(), e.t, if (e.del) 1L else 0L)
+    /** Of [entries], those still newer than what is here — checked again right before they are applied. */
+    fun stillNewer(doc: String, entries: Map<String, SyncEntry>): Map<String, SyncEntry> =
+        entries.filter { (key, e) -> entry(doc, key)?.let { e.winsOver(it) } ?: true }
+
+    /** The relays hold these versions: entries changed here since stay pending. */
+    fun markSent(doc: String, entries: Map<String, SyncEntry>) = db.transaction {
+        entries.forEach { (key, e) -> q.markSent(doc, key, e.t) }
+    }
+
+    private fun put(doc: String, key: String, e: SyncEntry, pending: Boolean) =
+        q.putEntry(doc, key, e.d.toString(), e.t, if (e.del) 1L else 0L, if (pending) 1L else 0L)
 
     /** Entries no device needs any more, gone without a marker. */
     fun remove(doc: String, keys: Set<String>) = db.transaction { keys.forEach { q.removeEntry(doc, it) } }
@@ -50,11 +69,12 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
 
     fun markFetched(doc: String, at: Long) = db.transaction { q.ensureDoc(doc); q.setFetched(at, doc) }
 
-    /** Whether [doc] changed here since the relays last took it. */
-    fun unpublished(doc: String): Boolean {
-        val newest = q.newest(doc).executeAsOneOrNull()?.MAX ?: return false
-        return newest > (publishedUpTo(doc) ?: Long.MIN_VALUE)
-    }
+    /** The entries of [doc] changed here and not yet taken by the relays. */
+    fun pendingKeys(doc: String): Set<String> = q.pendingKeys(doc).executeAsList().toSet()
+
+    /** Whether an entry of [doc] changed here and the relays have not taken it — per entry, so an
+     *  entry with a time far ahead cannot hide a later change to another (audit 2026-10-22, M-02). */
+    fun unpublished(doc: String): Boolean = q.anyPending(doc).executeAsOne() > 0
 
     /** Sync turned off: what this device knew goes; the relays keep theirs (ADR 0021, 8). */
     fun clear() = db.transaction { q.clearEntries(); q.clearDocs() }

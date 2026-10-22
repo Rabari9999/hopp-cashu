@@ -30,6 +30,8 @@ data class SyncStatus(
     val problem: SyncOutcome? = null,
     /** What the last round took from the relays, per document. */
     val applied: Map<String, Int> = emptyMap(),
+    /** Entries from elsewhere that wait here — a feed out of reach (audit 2026-10-22, M-06). */
+    val pending: Int = 0,
 )
 
 /** Sync turned on brought something from the listener's other devices: [shows] of it subscriptions. */
@@ -71,14 +73,14 @@ class SyncManager(
         for (doc in documents()) {
             val known = store.entries(doc.name)
             val (timed, untimed) = doc.snapshot().filterKeys { it !in known }.entries.partition { it.value.t > 0 }
-            store.putAll(doc.name, timed.associate { it.toPair() })
+            store.putIfNewer(doc.name, timed.associate { it.toPair() }, pending = true)
             seeds[doc.name] = untimed.associate { it.toPair() }
         }
         settings.update { it.copy(nostrSync = true) }
         journal.enabled = true
         val status = syncNow(interactive = true, seeds)
         // Something came from elsewhere: the app says so and shows it (maintainer, 2026-10-21).
-        if (status.problem == null && status.applied.values.sum() > 0) {
+        if (status.applied.values.sum() > 0) {
             _restored.tryEmit(Restored(status.applied[SyncDocs.SUBSCRIPTIONS] ?: 0, status.applied.values.sum()))
         }
         return status
@@ -142,12 +144,15 @@ class SyncManager(
         _status.value = _status.value.copy(running = true)
         var problem: SyncOutcome? = null
         val applied = mutableMapOf<String, Int>()
+        var pending = 0
         for (doc in documents()) {
-            val outcome = engine.sync(doc, interactive, seeds[doc.name].orEmpty())
-            if (outcome is SyncOutcome.Done) applied[doc.name] = outcome.applied
-            else { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+            when (val outcome = engine.sync(doc, interactive, seeds[doc.name].orEmpty())) {
+                is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending }
+                is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
+                else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+            }
         }
-        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied)
+        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending)
         _status.value
     }
 

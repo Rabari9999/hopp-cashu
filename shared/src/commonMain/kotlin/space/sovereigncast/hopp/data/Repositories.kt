@@ -147,7 +147,9 @@ class PodcastRepository(
 
     /** Fetch, parse, store. The newest episode lands in "New"; the back
      *  catalogue does not flood it. */
-    suspend fun subscribe(input: String, sync: Boolean = true): SubscribeResult {
+    /** [autoDownload]: the show's setting from the start — a restore brings it along, and nothing
+     *  is fetched for a show that takes no downloads (security audit 2026-10-22, M-09). */
+    suspend fun subscribe(input: String, sync: Boolean = true, autoDownload: Boolean = true): SubscribeResult {
         val url = FeedFetcher.normalize(input) ?: return SubscribeResult.Failed("not a feed address")
         withContext(Dispatchers.IO) { q.selectByFeedUrl(url).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
@@ -164,13 +166,13 @@ class PodcastRepository(
             return SubscribeResult.Failed(e.message ?: "not a podcast feed")
         }
         if (feed.episodes.isEmpty() && feed.podcast.title == null) return SubscribeResult.Failed("not a podcast feed")
-        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified, sync)
+        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified, sync, autoDownload)
     }
 
     /** Subscribes to a feed that is already fetched and parsed — the show page
      *  before subscribing has done both, and doing them twice was the slow
      *  part of subscribing (device feedback 2026-10-08). */
-    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?, sync: Boolean = true): SubscribeResult {
+    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?, sync: Boolean = true, autoDownload: Boolean = true): SubscribeResult {
         withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
         }
@@ -182,11 +184,12 @@ class PodcastRepository(
                     json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"))
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
-                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)
+                if (!autoDownload) q.setAutoDownload(0, id)
+                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload)
                 id
             }.also { noteShow(it, sync) }
         }
-        downloads.schedule(manual = false)
+        if (autoDownload) downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
 

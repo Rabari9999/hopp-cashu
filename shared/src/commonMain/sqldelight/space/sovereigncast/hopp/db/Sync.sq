@@ -9,6 +9,8 @@ CREATE TABLE sync_entry (
     -- Milliseconds; a change made here is always later than what it replaces.
     updated_at INTEGER NOT NULL,
     deleted INTEGER NOT NULL DEFAULT 0,
+    -- Changed here, not yet taken by the relays (security audit 2026-10-22, M-02).
+    pending INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (doc, key)
 );
 
@@ -26,7 +28,17 @@ entry:
 SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ? AND key = ?;
 
 putEntry:
-INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted) VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted, pending) VALUES (?, ?, ?, ?, ?, ?);
+
+-- The relays took this version of the entry; a newer one made meanwhile stays pending.
+markSent:
+UPDATE sync_entry SET pending = 0 WHERE doc = ? AND key = ? AND updated_at = ?;
+
+pendingKeys:
+SELECT key FROM sync_entry WHERE doc = ? AND pending = 1;
+
+anyPending:
+SELECT count(*) FROM sync_entry WHERE doc = ? AND pending = 1;
 
 removeEntry:
 DELETE FROM sync_entry WHERE doc = ? AND key = ?;

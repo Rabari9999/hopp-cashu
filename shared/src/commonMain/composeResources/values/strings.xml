@@ -571,7 +571,7 @@
     <string name="nostr_sign_out_text">The key is deleted from this device. Without a backup the identity is lost. What you published stays on Nostr.</string>
     <string name="nostr_sign_out_confirm">Sign out</string>
     <string name="pv_nostr_who">Nostr relays (relay.damus.io, nos.lol, relay.primal.net, your own relays from your relay list, the relays a show names; purplepag.es, user.kindpag.es and relay.fountain.fm to look profiles up)</string>
-    <string name="pv_nostr_sees">your IP address; when you read comments, which episode; what you publish with your Nostr identity — your profile name, comments, likes, reports and mute list; public for everyone, for good. With sync on: that you use Hopp and when your library changes — the library itself is encrypted, and only your key opens it</string>
+    <string name="pv_nostr_sees">your IP address; when you read comments, which episode; what you publish with your Nostr identity — your profile name, comments, likes, reports and mute list; public for everyone, for good. With sync on: that you use Hopp and when your library changes — the library itself is encrypted; only your devices with sync on open it. Relays still see how large it is and when it changes</string>
     <string name="pv_nostr_when">when you load an episode's comments (at once behind a VPN), and with a Nostr identity when it is made and its profile published; with sync on, at start, back in the foreground and after a change</string>
     <string name="pv_nostr_tip">Hopp asks relays only when you open the comments or use a Nostr identity. A VPN keeps your IP address from them; what you publish stays public.</string>
     <string name="nostr_amber">Sign in with Amber</string>
@@ -817,6 +817,9 @@
     <string name="sync_waits">Your signer app has to allow it once.</string>
     <string name="sync_newer">Another device has a newer Hopp. Update Hopp to keep syncing.</string>
     <string name="sync_failed">No relay reached. Hopp tries again later.</string>
+    <string name="sync_incomplete">The relays gave only part of your library. Hopp took that part and tries again later.</string>
+    <string name="sync_too_large">Too much to sync: one document is larger than Hopp sends. Nothing was cut.</string>
+    <string name="sync_pending">%1$d waiting for their feed</string>
     <string name="sync_now">Sync now</string>
     <string name="sync_renew">Renew sync key</string>
     <string name="sync_renew_text">For a lost device or a browser you no longer use: your library gets a new key, and the old one opens nothing that comes after. Your other devices ask your signer once, then go on. End the old session in your signer app too.</string>

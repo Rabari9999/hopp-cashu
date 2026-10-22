@@ -183,6 +183,17 @@ class BunkerTest {
         assertEquals("already connected", again.message)
     }
 
+    /** Security audit 2026-10-22, M-08: in the background a bunker is not asked at all, as Amber is not opened. */
+    @Test
+    fun aBunkerIsNotAskedInTheBackground() = runBlocking<Unit> {
+        identities.signInWithBunker(bunker.address)
+        val asked = bunker.methods.size
+        assertFailsWith<space.sovereigncast.hopp.nostr.SignerNeedsListener> { identities.signer(interactive = false)!!.decryptFromSelf("x") }
+        assertFailsWith<space.sovereigncast.hopp.nostr.SignerNeedsListener> { identities.signer(interactive = false)!!.encryptToSelf("x") }
+        assertEquals(asked, bunker.methods.size, "the bunker got a request")
+        assertTrue(identities.signer(interactive = true)!!.encryptToSelf("x").isNotBlank())
+    }
+
     @Test
     fun aWrongSecretIsRefused() = runBlocking<Unit> {
         val address = bunker.address.replace("s3cret", "wrong")

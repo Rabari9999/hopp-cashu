@@ -114,7 +114,7 @@ class SyncKeysTest {
         val nsec = Bech32.encode("nsec", KeyPair.generate().secretKey)
         val phone = Device(nsec = nsec)
         phone.record("show-a", "A")
-        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(phone.doc))
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(phone.doc, interactive = true))
         val before = stored().size
 
         // A new phone while the relays drop every read: "none found" is not "none there".

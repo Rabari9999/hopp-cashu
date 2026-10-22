@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.QueueRepository
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.sync.SyncDocs.long
@@ -63,11 +64,27 @@ class SettingsDocument(private val settings: SettingsRepository) : SyncedDocumen
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
         settings.applySynced(
             entries.filterValues { !it.del }
-                .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.let { k to it } }
+                .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.takeIf { valid(k, it) }?.let { k to it } }
                 .toMap(),
         )
         return entries.keys
     }
 
-    private companion object { const val NAME = "sender_name" }
+    private companion object {
+        const val NAME = "sender_name"
+        val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
+
+        /** Only a value this Hopp could have set itself is taken (security audit 2026-10-22, M-04). */
+        fun valid(key: String, v: String): Boolean = when (key) {
+            "skip_back" -> v.toIntOrNull() in Settings.skipBackChoices
+            "skip_forward" -> v.toIntOrNull() in Settings.skipForwardChoices
+            "skip_silence", "volume_boost", "library_as_list" -> v == "true" || v == "false"
+            "default_speed" -> v.toFloatOrNull()?.let { it.isFinite() && it in SPEEDS } == true
+            "sender_name" -> v.length <= 60
+            "quick_boost_sats" -> v.toIntOrNull()?.let { it in 0..1_000_000 } == true
+            "library_sort" -> v in Settings.sortChoices
+            "home_order", "home_hidden", "home_collapsed" -> v.length <= 2_000
+            else -> false
+        }
+    }
 }

@@ -274,6 +274,8 @@ class NostrIdentityViewModel(
     /** The signer wants the listener to confirm on one of its pages first. */
     private val _authUrl = MutableStateFlow<String?>(null)
     val authUrl: StateFlow<String?> = _authUrl.asStateFlow()
+    /** The same, asked while signed in — opening the sync key, say. */
+    val signerAuthUrl: StateFlow<String?> = identities.signerAuthUrl
     private var waiting: kotlinx.coroutines.Job? = null
 
     fun connectBunker(address: String) {
@@ -686,6 +688,9 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         status.running -> stringResource(Res.string.sync_running)
         problem is space.sovereigncast.hopp.sync.SyncOutcome.WaitsForSigner -> stringResource(Res.string.sync_waits)
         problem is space.sovereigncast.hopp.sync.SyncOutcome.NeedsUpdate -> stringResource(Res.string.sync_newer)
+        // Security audit 2026-10-22: a document only in part, or too large, is said as such (H-02, M-04).
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Incomplete -> stringResource(Res.string.sync_incomplete)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.sync.SyncTooLarge -> stringResource(Res.string.sync_too_large)
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> stringResource(Res.string.sync_failed)
         else -> status.lastSyncedMs?.let { last ->
             val minutes = ((now - last) / 60_000).coerceAtLeast(0)
@@ -694,11 +699,17 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
                 minutes < 60 -> stringResource(Res.string.sync_last_minutes, minutes.toInt())
                 else -> stringResource(Res.string.sync_last_hours, (minutes / 60).toInt())
             }
-        }
+        }?.let { line -> if (status.pending > 0) line + " · " + stringResource(Res.string.sync_pending, status.pending) else line }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(text.orEmpty(), Modifier.weight(1f), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
         if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+    }
+    val authUrl by vm.signerAuthUrl.collectAsState()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    authUrl?.let { url ->
+        Text(stringResource(Res.string.nostr_bunker_auth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        OutlinedButton(onClick = { runCatching { uri.openUri(url) } }) { Text(stringResource(Res.string.nostr_bunker_auth_open)) }
     }
 }
 

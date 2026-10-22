@@ -236,19 +236,33 @@ class Nip46Client(
  * external signer on iOS (ADR 0006). What comes back is checked as from
  * Amber: the listener's key, the event asked for, a valid signature.
  */
-class BunkerSigner(override val pubkey: String, private val client: Nip46Client) : NostrSigner {
+class BunkerSigner(
+    override val pubkey: String,
+    private val client: Nip46Client,
+    /** False: in the background, where the listener cannot answer the signer — it is not
+     *  asked at all ([SignerNeedsListener]), as Amber is not opened (security audit 2026-10-22, M-08). */
+    private val interactive: Boolean = true,
+    /** After each request — the confirmation page it may have shown is done with. */
+    private val onDone: () -> Unit = {},
+) : NostrSigner {
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun sign(event: UnsignedEvent): Event {
+    private suspend fun <T> asking(block: suspend () -> T): T {
+        if (!interactive) throw SignerNeedsListener()
+        try { return block() } finally { onDone() }
+    }
+
+    override suspend fun sign(event: UnsignedEvent): Event = asking {
         val signed = runCatching { json.decodeFromString(Event.serializer(), client.signEvent(event)) }
             .getOrElse { if (it is Nip46Exception) throw it else throw Nip46Exception("the signer returned no event") }
         val expected = Event.computeId(pubkey, event.createdAt, event.kind, event.tags, event.content)
         if (signed.id != expected || signed.pubkey != pubkey || !signed.isValid()) throw Nip46Exception("the signer returned another event")
-        return signed
+        signed
     }
 
-    override suspend fun encryptToSelf(plaintext: String): String =
+    override suspend fun encryptToSelf(plaintext: String): String = asking {
         client.nip44(true, pubkey, plaintext).takeIf { it.isNotBlank() } ?: throw Nip46Exception("the signer returned nothing")
+    }
 
-    override suspend fun decryptFromSelf(payload: String): String = client.nip44(false, pubkey, payload)
+    override suspend fun decryptFromSelf(payload: String): String = asking { client.nip44(false, pubkey, payload) }
 }

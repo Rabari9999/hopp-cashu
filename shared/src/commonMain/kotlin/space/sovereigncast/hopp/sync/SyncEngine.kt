@@ -27,8 +27,11 @@ interface SyncedDocument {
 }
 
 sealed interface SyncOutcome {
-    /** [applied] entries came from elsewhere; [published]: this device's went out. */
-    data class Done(val applied: Int, val published: Boolean) : SyncOutcome
+    /** [applied] entries came from elsewhere; [published]: this device's went out; [pending]:
+     *  entries from elsewhere not applicable yet (a feed out of reach) — tried again next time. */
+    data class Done(val applied: Int, val published: Boolean, val pending: Int = 0) : SyncOutcome
+    /** The relays gave the document only in part: [applied] of it taken, nothing sent (audit 2026-10-22, H-02). */
+    data class Incomplete(val applied: Int) : SyncOutcome
     data object NoIdentity : SyncOutcome
     /** The signer app would have to ask the listener — sync waits for the app to be open. */
     data object WaitsForSigner : SyncOutcome
@@ -57,28 +60,38 @@ class SyncEngine(
     suspend fun sync(doc: SyncedDocument, interactive: Boolean = false, seed: Map<String, SyncEntry> = emptyMap()): SyncOutcome = lock.withLock {
         if (identity.identity.value == null) return SyncOutcome.NoIdentity
         try {
-            val signer = keys.signer(interactive) ?: return SyncOutcome.NoIdentity
+            // A first keyring only with the listener there — never from a round in the background (audit 2026-10-22, H-01).
+            val signer = keys.signer(interactive, create = interactive) ?: return SyncOutcome.WaitsForSigner
             val urls = identity.writeRelays()
-            val cutoff = nowMs() - REMOVALS_KEPT.inWholeMilliseconds
             val now = nowMs()
+            val cutoff = now - REMOVALS_KEPT.inWholeMilliseconds
             store.pruneRemoved(doc.name, cutoff)
-            val mine = store.entries(doc.name)
-            mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it) }
-            val theirs = relays.fetch(signer, doc.name, urls).orEmpty().filter { (k, e) -> !(e.del && e.t < cutoff) && !doc.expired(k, e, now) }
+            var mine = store.entries(doc.name)
+            mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it); mine = mine - it }
+            val fetched = relays.fetch(signer, doc.name, urls)
+            val (read, notBefore) = when (fetched) {
+                is Fetched.Complete -> fetched.entries to fetched.newestAt
+                is Fetched.Incomplete -> fetched.entries to fetched.newestAt
+                Fetched.Absent -> emptyMap<String, SyncEntry>() to 0L
+                Fetched.Unknown -> return SyncOutcome.Failed(SyncNotReached())
+            }
+            // An entry dated more than a day ahead is a clock gone wrong: not taken, and gone with the next version (M-02).
+            val theirs = read.filter { (k, e) -> !(e.del && e.t < cutoff) && !doc.expired(k, e, now) && e.t <= now + MAX_AHEAD.inWholeMilliseconds }
+            mine = mine - rebase(doc, mine, fetched, theirs, cutoff)
             val seeded = seed.filterKeys { it !in theirs && it !in mine }
-            if (seeded.isNotEmpty()) store.putAll(doc.name, seeded)
+            if (seeded.isNotEmpty()) store.putIfNewer(doc.name, seeded, pending = true)
             val merged = SyncMerge.merge((mine + seeded).filter { (k, e) -> !doc.expired(k, e, now) }, theirs)
-            val applied = if (merged.fromThem.isEmpty()) emptySet() else doc.apply(merged.fromThem)
-            store.putAll(doc.name, merged.fromThem.filterKeys { it in applied })
+            // Checked again right before: what the listener changed while the relays answered stays (H-03).
+            val toApply = store.stillNewer(doc.name, merged.fromThem)
+            val applied = if (toApply.isEmpty()) emptySet() else doc.apply(toApply)
+            store.putIfNewer(doc.name, toApply.filterKeys { it in applied })
+            if (fetched is Fetched.Incomplete) return SyncOutcome.Incomplete(applied.size)
             store.markFetched(doc.name, nowMs())
             val publish = merged.theyLack
-            if (publish) {
-                relays.publish(signer, doc.name, merged.all, urls)
-                store.markPublished(doc.name, merged.all.values.maxOf { it.t })
-            } else {
-                merged.all.values.maxOfOrNull { it.t }?.let { store.markPublished(doc.name, it) }
-            }
-            SyncOutcome.Done(applied.size, publish)
+            if (publish) relays.publish(signer, doc.name, merged.all, urls, notBefore)
+            // The relays hold these versions now; anything changed here since stays pending.
+            store.markSent(doc.name, merged.all)
+            SyncOutcome.Done(applied.size, publish, pending = toApply.size - applied.size)
         } catch (e: SignerNeedsListener) {
             SyncOutcome.WaitsForSigner
         } catch (e: SignerRejected) {
@@ -93,6 +106,23 @@ class SyncEngine(
     }
 
     /**
+     * A device away longer than removal markers are kept (audit 2026-10-22, M-03):
+     * an entry it holds, not changed here since it last sent, and no longer
+     * in a complete document there was removed elsewhere, its marker gone by now —
+     * removed here too instead of brought back. The keys removed.
+     */
+    private suspend fun rebase(doc: SyncedDocument, mine: Map<String, SyncEntry>, fetched: Fetched, theirs: Map<String, SyncEntry>, cutoff: Long): Set<String> {
+        val last = store.fetchedAt(doc.name) ?: return emptySet()
+        if (last >= cutoff || fetched !is Fetched.Complete) return emptySet()
+        val changedHere = store.pendingKeys(doc.name)
+        val gone = mine.filter { (k, e) -> k !in theirs && !e.del && k !in changedHere }
+        if (gone.isEmpty()) return emptySet()
+        doc.apply(gone.mapValues { (_, e) -> SyncEntry(e.t, del = true, d = e.d) })
+        store.remove(doc.name, gone.keys)
+        return gone.keys
+    }
+
+    /**
      * What the relays hold of document [name], read without taking anything —
      * for the offer to restore. Null: nothing there. [Sealed]: the listener has
      * a sync key, but the signer would have to ask before it opens.
@@ -101,7 +131,11 @@ class SyncEngine(
         if (identity.identity.value == null) return null
         return try {
             val signer = keys.signer(interactive = false, create = false) ?: return null
-            relays.fetch(signer, name, identity.writeRelays())?.let { Peek.Open(it) }
+            when (val f = relays.fetch(signer, name, identity.writeRelays())) {
+                is Fetched.Complete -> Peek.Open(f.entries)
+                is Fetched.Incomplete -> Peek.Open(f.entries)
+                Fetched.Absent, Fetched.Unknown -> null
+            }
         } catch (e: SignerNeedsListener) {
             Peek.Sealed
         } catch (e: SignerRejected) {
@@ -131,7 +165,9 @@ class SyncEngine(
     fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
 
     companion object {
-        /** Removal markers stay this long; a device away longer starts from the relays' list. */
+        /** Removal markers stay this long; a device away longer starts from the relays' list ([rebase]). */
         val REMOVALS_KEPT = 90.days
+        /** How far ahead of this device's clock an entry may be dated. */
+        val MAX_AHEAD = 1.days
     }
 }

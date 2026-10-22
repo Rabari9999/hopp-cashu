@@ -123,9 +123,15 @@ class IdentityRepository(
                 val app = externalSigner ?: return null
                 ExternalNostrSigner(me.pubkey, me.signerPackage ?: return null, app, interactive)
             }
-            NostrIdentity.Source.Bunker -> bunkerClient(me)?.let { BunkerSigner(me.pubkey, it) }
+            // Its confirmation page reaches the Nostr page from any request, not only at sign-in (audit 2026-10-22, M-08).
+            NostrIdentity.Source.Bunker -> bunkerClient(me) { _signerAuthUrl.value = it }
+                ?.let { BunkerSigner(me.pubkey, it, interactive) { _signerAuthUrl.value = null } }
         }
     }
+
+    private val _signerAuthUrl = MutableStateFlow<String?>(null)
+    /** The remote signer wants the listener to confirm a request on its page — while it waits. */
+    val signerAuthUrl: StateFlow<String?> = _signerAuthUrl.asStateFlow()
 
     private fun bunkerClient(me: NostrIdentity, onAuthUrl: (String) -> Unit = {}): Nip46Client? {
         val keys = secrets.get(BUNKER_KEY)?.let { runCatching { KeyPair.fromHex(it) }.getOrNull() } ?: return null
