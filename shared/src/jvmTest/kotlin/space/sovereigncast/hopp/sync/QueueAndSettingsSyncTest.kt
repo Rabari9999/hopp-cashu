@@ -129,6 +129,26 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(first, second), phone.queueGuids())
     }
 
+    /** Delta audit 2, X04: at that edge, two "play last" in a row stay in the order they were added — and
+     *  "play next" goes first. */
+    @Test
+    fun atTheEdgeTheLastOneAddedIsLast() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (first, second, third, fourth) = guids(phone).take(4)
+        val show = SyncDocs.showKey(phone.row(feed).podcast_guid, feed)
+        QueueDocument(phone.db, phone.queue).apply(mapOf(SyncDocs.queueKey(show, first) to SyncEntry(phone.ms, d = SyncDocs.queued(show, first, Long.MAX_VALUE))))
+        // Either way round by name: the order must not fall to it.
+        for ((a, b) in listOf(second to third, third to second)) {
+            phone.queue.remove(phone.id(second)); phone.queue.remove(phone.id(third))
+            phone.queue.playLast(phone.id(a))
+            phone.queue.playLast(phone.id(b))
+            assertEquals(listOf(first, a, b), phone.queueGuids())
+        }
+        phone.queue.playNext(phone.id(fourth))
+        assertEquals(fourth, phone.queueGuids().first())
+    }
+
     /** What was hidden under Home's "Take part" stays hidden on the other device (device feedback 2026-10-22). */
     @Test
     fun whatWasHiddenUnderTakePartFollows() = runBlocking<Unit> {

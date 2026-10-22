@@ -93,4 +93,39 @@ class SubscriptionsSyncTest {
         // The library itself stays.
         assertEquals(setOf("https://pod.test/nodesignal.xml"), phone.urls())
     }
+
+    /** Delta audit 2 2026-10-22, HN-07 (B07): given up on the tablet, changed on the phone right while that
+     *  arrives — the show stays, and with it its progress and its place in "Up next". */
+    @Test
+    fun aShowChangedWhileItsRemovalArrivesKeepsItsEpisodes() = runBlocking<Unit> {
+        val feed = "https://pod.test/selfhosted.xml"
+        val tablet = Device()
+        tablet.podcasts.subscribe(feed)
+        tablet.sync.enable()
+        val phone = Device()
+        phone.sync.enable()
+        val id = phone.row(feed).id
+        val episode = phone.db.episodeQueries.selectByPodcast(id).executeAsList().first()
+        phone.episodes.savePosition(episode.id, 123_456, paused = true)
+        phone.queue.playLast(episode.id)
+        phone.sync.syncNow()
+
+        tablet.ms += 60_000
+        tablet.podcasts.unsubscribe(tablet.row(feed).id)
+        tablet.sync.syncNow()
+
+        phone.ms += 120_000
+        val real = SubscriptionsDocument(phone.db, phone.podcasts)
+        val racing = object : SyncedDocument by real {
+            override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (String, SyncEntry) -> Boolean): Set<String> {
+                if (entries.values.any { it.del }) phone.podcasts.setSpeed(id, 1.5f)
+                return real.apply(entries, stillWins)
+            }
+        }
+        phone.engine.sync(racing)
+        assertEquals(setOf(feed), phone.urls())
+        assertEquals(123_456L, phone.episode(feed, episode.guid).position_ms)
+        assertEquals(listOf(episode.guid), phone.queueGuids())
+        assertEquals(1.5, phone.row(feed).playback_speed)
+    }
 }

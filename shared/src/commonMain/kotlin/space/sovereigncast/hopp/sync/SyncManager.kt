@@ -144,16 +144,20 @@ class SyncManager(
      * no longer uses. In this order, each step only after the one before went
      * through (delta audit 2026-10-22, HN-06): a round under the old key with
      * nothing left waiting or unsent, so this device holds everything; the new
-     * keyring; every document out under it; a second round that finds them all
-     * there; only then what the old key sealed deleted. The listener's other
-     * devices ask their signer once and go on.
+     * keyring; every document out under it; a second round that reads them all
+     * back complete with nothing left to send; only then what the old key sealed
+     * deleted ([syncNow], delta audit 2 2026-10-22: the first round alone, its
+     * documents taken but not read back, retired the old ones before). Cut off
+     * anywhere, later rounds finish it, after a restart too. The listener's
+     * other devices ask their signer once and go on.
      */
     suspend fun renewKey(): Renewal {
         if (!settings.current().nostrSync) return Renewal.NotRenewed
         val before = syncNow(interactive = true)
         if (before.problem != null || before.pending > 0 || documents().any { engine.unpublished(it) }) return Renewal.NotRenewed
         try {
-            engine.renewKey()
+            // No round in between: one that began under the old key must not end under the new one.
+            round.withLock { engine.renewKey() }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: SyncNotPublished) {
@@ -163,32 +167,41 @@ class SyncManager(
         } catch (e: Exception) {
             return Renewal.NotRenewed
         }
-        val out = syncNow()
+        syncNow()
         val back = syncNow()
-        // Read back: every document there, nothing more to send — and the old key's gone (syncNow retires it).
-        return if (out.problem == null && back.problem == null && back.sent == 0 && !engine.movedPending()) Renewal.Done else Renewal.Unfinished
+        // Read back: every document there, nothing more to send — and the old key's gone (syncNow retires it then).
+        return if (back.problem == null && back.sent == 0 && !engine.movedPending()) Renewal.Done else Renewal.Unfinished
     }
 
     /** One round over every document; [interactive]: the signer app may be opened. */
     suspend fun syncNow(interactive: Boolean = false): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
-        var problem: SyncOutcome? = null
-        val applied = mutableMapOf<String, Int>()
-        var pending = 0
-        var sent = 0
-        for (doc in documents()) {
-            when (val outcome = engine.sync(doc, interactive)) {
-                is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
-                is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
-                else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+        try {
+            var problem: SyncOutcome? = null
+            val applied = mutableMapOf<String, Int>()
+            var pending = 0
+            var sent = 0
+            val generation = engine.keyGeneration()
+            for (doc in documents()) {
+                when (val outcome = engine.sync(doc, interactive)) {
+                    is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
+                    is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
+                    else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+                }
             }
+            // A key moved off goes only after a round under the new one, all of it, read every document back
+            // complete and had nothing to send — the relays hold under the new key all this device has, what
+            // waits for its time included (delta audit 2026-10-22 and 2, HN-06/MN-02).
+            val readBack = problem == null && pending == 0 && sent == 0 && engine.keyGeneration() == generation && engine.toSend() == 0
+            if (readBack && engine.movedPending()) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+            _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
+                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0))
+            _status.value
+        } finally {
+            // Cut off (the app closed, sync turned off): not "running" for ever (MN-07).
+            if (_status.value.running) _status.value = _status.value.copy(running = false)
         }
-        // A key moved off goes only now: every document went through under the new one, nothing waits (HN-06).
-        if (problem == null && pending == 0) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
-        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
-            engine.reach(), runCatching { engine.toSend() }.getOrDefault(0))
-        _status.value
     }
 
     /** The app came to the foreground (or started): a round, unless one ran a moment ago. */

@@ -253,19 +253,29 @@ class PodcastRepository(
         )
     }
 
-    suspend fun unsubscribe(id: Long, sync: Boolean = true) = withContext(Dispatchers.IO) {
-        if (sync) q.selectById(id).executeAsOneOrNull()?.let { r ->
-            journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true)
-        }
-        eq.downloadPathsOfPodcast(id).executeAsList().forEach { path -> path?.let { files?.delete(it) } }
-        db.transaction {
+    /**
+     * The show goes, with its episodes, progress, place in "Up next" and downloads. [onlyIf] is
+     * asked in the same transaction, right before (sync: the removal from another device still
+     * wins — delta audit 2 2026-10-22, HN-07); false leaves everything as it is. Whether it went.
+     */
+    suspend fun unsubscribe(id: Long, sync: Boolean = true, onlyIf: () -> Boolean = { true }): Boolean = withContext(Dispatchers.IO) {
+        val paths = db.transactionWithResult<List<String>?> {
+            if (!onlyIf()) return@transactionWithResult null
+            if (sync) q.selectById(id).executeAsOneOrNull()?.let { r ->
+                journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true)
+            }
+            val paths = eq.downloadPathsOfPodcast(id).executeAsList().filterNotNull()
             db.chapterCacheQueries.deleteByPodcast(id)
             db.commentQueries.deleteEventsByPodcast(id)
             db.commentQueries.deleteFetchesByPodcast(id)
             db.queueQueries.deleteByPodcast(id)
             eq.deleteByPodcast(id)
             q.delete(id)
-        }
+            paths
+        } ?: return@withContext false
+        // The files only once the show is gone.
+        paths.forEach { files?.delete(it) }
+        true
     }
 
     suspend fun exportOpml(): String = withContext(Dispatchers.IO) {
@@ -283,8 +293,9 @@ class PodcastRepository(
     }
 
     /** [speed] null: the show follows the default speed again. */
-    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(Dispatchers.IO) { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) }
-    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
+    /** The change and its note for sync in one transaction: sync never sees one without the other (HN-07). */
+    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) } }
+    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) } }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */
     private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long, autoDownload: Boolean) {

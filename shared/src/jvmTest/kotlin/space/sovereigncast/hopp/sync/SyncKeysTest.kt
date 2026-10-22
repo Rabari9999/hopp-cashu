@@ -43,7 +43,9 @@ class SyncKeysTest {
         val applied = mutableMapOf<String, SyncEntry>()
         /** Entries this device cannot apply yet — a feed out of reach. */
         var notYet = emptySet<String>()
+        var during: suspend () -> Unit = {}
         override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
+            during()
             val now = entries.filterKeys { it !in notYet }
             applied += now; return now.keys
         }
@@ -51,11 +53,15 @@ class SyncKeysTest {
     }
 
     /** A device whose listener signs in with [app] (Amber), or holds [nsec] here. */
-    private inner class Device(app: FakeSignerApp? = null, nsec: String? = null) {
+    /** [secrets] and [db] from another: the same device started again. */
+    private inner class Device(
+        app: FakeSignerApp? = null, nsec: String? = null,
+        val secrets: MemorySecretStore = MemorySecretStore(),
+        val db: HoppDatabase = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }),
+        signIn: Boolean = true,
+    ) {
         var ms = nowSeconds * 1000
-        val secrets = MemorySecretStore()
         val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, app)
-        val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
         val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
@@ -64,7 +70,7 @@ class SyncKeysTest {
         val sync = SyncManager(engine, store, journal, space.sovereigncast.hopp.data.SettingsRepository(db, journal), scope, { listOf(doc) }, { ms }, publishDelay = kotlin.time.Duration.parse("1h"))
         init {
             runBlocking {
-                if (app != null) identity.signInWithSigner()
+                if (app != null && signIn) identity.signInWithSigner()
                 if (nsec != null) identity.importKey(nsec)
             }
         }
@@ -276,11 +282,100 @@ class SyncKeysTest {
         assertTrue(stored().filter { it.pubkey == old }.all { it.content.isNotEmpty() }, "the old documents were emptied")
         relay.refuse = { false }
         phone.ms += 2 * 60_000
+        // One round sends them, the next reads them back — only then is the old key's copy emptied (delta audit 2, HN-06).
+        phone.sync.syncNow()
+        assertTrue(stored().filter { it.pubkey == old }.all { it.content.isNotEmpty() }, "emptied before the new documents were read back")
         phone.sync.syncNow()
         val fresh = Device(FakeSignerApp(app.keys))
         fresh.sync.enable()
         assertEquals(setOf("show-a"), fresh.doc.applied.keys)
         stored().filter { it.pubkey == old }.groupBy { e -> e.tags.first { it[0] == "d" }[1] }.values
             .forEach { versions -> assertEquals("", versions.maxBy { it.created_at }.content) }
+    }
+
+    // ── delta audit 2 2026-10-22 ─────────────────────────────────────────────
+
+    private suspend fun oldIntact(old: String) = stored().filter { it.pubkey == old && it.kind == Nip78.KIND }
+        .groupBy { e -> e.tags.first { it[0] == "d" }[1] }.values.all { versions -> versions.maxBy { it.created_at }.content.isNotEmpty() }
+
+    /** HN-06, B02: the new documents are taken, but not read back: not done, and the old key's stay whole
+     *  until a round reads the new ones back — after a restart too (ND-01). */
+    @Test
+    fun theOldDocumentsStayUntilTheNewOnesAreReadBack() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val old = phone.keys.signer(interactive = false)!!.pubkey
+        phone.ms += 2 * 60_000
+        // Every read of what the new key sealed comes back empty.
+        relay.hide = { it.pubkey != app.keys.publicKeyHex && it.pubkey != old }
+        assertEquals(Renewal.Unfinished, phone.sync.renewKey())
+        assertTrue(oldIntact(old), "the old documents were emptied before the new ones were read back")
+
+        relay.hide = { false }
+        val restarted = Device(app, secrets = phone.secrets, db = phone.db, signIn = false).also { it.ms = phone.ms + 2 * 60_000 }
+        assertTrue(restarted.engine.movedPending(), "the restart forgot the old key")
+        restarted.sync.syncNow()
+        assertTrue(!oldIntact(old) && !restarted.engine.movedPending())
+        val fresh = Device(FakeSignerApp(app.keys))
+        fresh.sync.enable()
+        assertEquals(setOf("show-a"), fresh.doc.applied.keys)
+    }
+
+    /** MN-10, B09: the old key's documents cannot be read when they are to go: not done — a failed read
+     *  is not an empty one — and a later round retires them. */
+    @Test
+    fun aRetireWhoseReadFailsIsNotDone() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val old = phone.keys.signer(interactive = false)!!.pubkey
+        phone.ms += 2 * 60_000
+        // The read of everything the old key sealed, as retiring it reads (no `d` asked for), fails.
+        relay.failReads = { f -> f["authors"]?.toString()?.contains(old) == true && f["#d"] == null }
+        assertEquals(Renewal.Unfinished, phone.sync.renewKey())
+        assertTrue(oldIntact(old))
+        assertTrue(phone.engine.movedPending())
+        relay.failReads = { false }
+        phone.ms += 2 * 60_000
+        phone.sync.syncNow()
+        assertTrue(!oldIntact(old) && !phone.engine.movedPending())
+    }
+
+    /** MN-02, B03: an entry dated days ahead is renewed along — under the new key, kept, and taken in on time. */
+    @Test
+    fun anEntryDatedAheadGoesAlongToTheNewKey() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val tablet = Device(FakeSignerApp(app.keys)).also { it.ms += 3 * 86_400_000L }
+        tablet.record("future", "F")
+        tablet.sync.enable()
+        val phone = Device(app).also { it.ms = tablet.ms - 3 * 86_400_000L + 1_000 }
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        phone.ms += 2 * 60_000
+        assertEquals(Renewal.Done, phone.sync.renewKey())
+        val later = Device(FakeSignerApp(app.keys)).also { it.ms = tablet.ms + 10 * 60_000 }
+        later.sync.enable()
+        assertEquals(setOf("future", "show-a"), later.doc.applied.keys)
+    }
+
+    /** MN-07: a round cut off is not shown as running for ever. */
+    @Test
+    fun aRoundCutOffIsNotRunningAnyMore() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val tablet = Device(FakeSignerApp(app.keys))
+        tablet.record("show-a", "A")
+        tablet.sync.enable()
+        val phone = Device(app)
+        phone.sync.enable()
+        tablet.ms += 60_000
+        tablet.record("show-b", "B")
+        tablet.sync.syncNow()
+        phone.ms += 2 * 60_000
+        phone.doc.during = { throw kotlinx.coroutines.CancellationException("app closed") }
+        runCatching { phone.sync.syncNow() }
+        assertEquals(false, phone.sync.status.value.running)
     }
 }

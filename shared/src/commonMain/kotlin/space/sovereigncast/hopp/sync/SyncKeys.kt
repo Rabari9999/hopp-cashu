@@ -4,6 +4,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -47,7 +49,8 @@ class SyncKeyringUnreadable(cause: Throwable? = null) : Exception("the sync keyr
  * one has any more. A keyring counts as made only once a majority took it —
  * so any majority that answers holds it (delta audit 2026-10-22, MN-08: all
  * relays were asked before, and one down stopped every first device). Until
- * then the device keeps it and sends it again, never makes a second one. An
+ * then the device keeps it — from before it goes out — and sends it again,
+ * never makes a second one, and seals nothing with it (delta audit 2). An
  * unreadable keyring is never replaced either ([SyncKeyringUnreadable]).
  */
 class SyncKeys(
@@ -64,18 +67,24 @@ class SyncKeys(
     /** Whether this run already got its keyring to a majority of the relays again. */
     private var resent = false
 
-    /** A key this device moved off — renewed, or another device's keyring won: what it sealed goes
-     *  once a round under the new one went through ([retireMoved]), not before (delta audit 2026-10-22, HN-06). */
-    private val moved = mutableListOf<KeyPair>()
+    /** Changes whenever this device moves to another key ([SyncEngine.keyGeneration]). */
+    @kotlin.concurrent.Volatile
+    var generation = 0
+        private set
 
     /**
      * A device's copy of the key: whose it is, the key, which keyring event it
      * came from, that event's time — an older keyring is never taken over it
      * (security audit 2026-10-22, M-01) — and the event itself, to send again
      * to relays that lost it (H-01). Older copies have neither: 0 and null.
+     * [committed]: a majority of the relays took the keyring. One this device
+     * made is kept before it goes out, and nothing is sealed with it until a
+     * majority has it (delta audit 2 2026-10-22, MN-08): a relay that kept it
+     * without saying so must not lead to a second key, and a key on one relay
+     * alone must not hold the library.
      */
     @Serializable
-    private data class Held(val owner: String, val key: String, val keyring: String, val at: Long = 0, val event: String? = null)
+    private data class Held(val owner: String, val key: String, val keyring: String, val at: Long = 0, val event: String? = null, val committed: Boolean = true)
 
     @Serializable
     private data class Keyring(val v: Int = VERSION, val key: String)
@@ -90,7 +99,7 @@ class SyncKeys(
         val me = identity.identity.value ?: return null
         val held = held(me.pubkey)
         val now = nowMs()
-        if (held != null && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
+        if (held != null && held.committed && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
         val urls = identity.writeRelays()
         val found = publisher.queryChecked(listOf(filter(me.pubkey)), urls)
         val newest = found.events.filter { it.pubkey == me.pubkey && it.kind == Nip78.KIND && it.dTag() == DTAG }
@@ -98,21 +107,22 @@ class SyncKeys(
         val key = when {
             newest != null && held != null && newest.id == held.keyring -> {
                 if (held.event == null) keep(me.pubkey, held.key, newest)
-                resend(held.event?.let(::parse) ?: newest, urls)
+                confirm(me.pubkey, held, held.event?.let(::parse) ?: newest, urls)
                 held.key
             }
-            // A copy from before keyring times were kept: moved only on a read every relay answered —
-            // a part of them could show an older keyring as the newest (delta audit 2026-10-22, MN-03).
-            newest != null && held != null && held.event == null && found.answered < found.asked -> held.key
+            // A copy from before keyring times were kept, and another keyring on the relays: which is newer
+            // cannot be told — even every relay answering may show an old one they all kept (delta audit
+            // 2026-10-22 and 2, MN-03). The key stays; sync turned off and on again takes the relays' one.
+            newest != null && held != null && held.event == null -> held.key
             // Older than the one this device holds — a relay that lost the newer one: not taken (M-01).
-            newest != null && held != null && !newest.isNewerThan(held) -> { held.event?.let(::parse)?.let { resend(it, urls) }; held.key }
+            newest != null && held != null && !newest.isNewerThan(held) -> { confirm(me.pubkey, held, held.event?.let(::parse), urls); held.key }
             newest != null -> open(newest, interactive).also { keep(me.pubkey, it, newest) }.also { new ->
                 // Moving off a key — renewed elsewhere, or two made at once: what it sealed goes once the
-                // documents are out under the new one (HN-06).
-                if (held != null && held.key != new) moved += KeyPair.fromHex(held.key)
+                // documents are read back under the new one (HN-06). One never committed sealed nothing.
+                if (held != null && held.committed && held.key != new) addMoved(held.key)
             }
             // None found, but this device has the key: a relay that lost it is no reason to change it — it gets it again.
-            held != null -> { held.event?.let(::parse)?.let { resend(it, urls) }; held.key }
+            held != null -> { confirm(me.pubkey, held, held.event?.let(::parse), urls); held.key }
             !create -> return null
             // Made only when a majority of the write relays answered to the end without one (H-01, MN-08): a
             // keyring is out only once a majority took it, so a majority that answers would have shown it.
@@ -145,28 +155,35 @@ class SyncKeys(
         val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", DTAG)), maxOf(nowMs() / 1000, current + 1)))
         val took = publisher.publish(event, urls)
         if (took.isEmpty()) throw SyncNotPublished(0, urls.distinct().size)
-        // Out on a relay: this device follows it, and sends it again until a majority has it.
-        keep(me.pubkey, key, event)
-        moved += KeyPair.fromHex(held.key)
+        // Out on a relay: this device follows it, and sends it again until a majority has it — nothing
+        // is sealed with it before (MN-08).
+        val committed = took.size * 2 > urls.distinct().size
+        keep(me.pubkey, key, event, committed)
+        addMoved(held.key)
         checkedAtMs = nowMs()
-        resent = took.size * 2 > urls.distinct().size
-        if (!resent) throw SyncNotPublished(took.size, urls.distinct().size)
+        resent = committed
+        if (!committed) throw SyncNotPublished(took.size, urls.distinct().size)
     }
 
     /**
-     * The key this device moved off, retired — called once a round under the new key went
-     * through for every document. True: nothing left to retire.
+     * The keys this device moved off, retired — called only once a round under the new key read
+     * every document back complete. True: nothing left to retire. The list is kept with the key,
+     * so a retirement cut off is taken up after a restart (delta audit 2 2026-10-22, ND-01).
      */
     suspend fun retireMoved(): Boolean {
-        for (old in lock.withLock { moved.toList() }) {
-            if (!retire(old)) return false
-            lock.withLock { moved.remove(old) }
+        for (old in lock.withLock { moved() }) {
+            if (!retire(KeyPair.fromHex(old))) return false
+            lock.withLock { (moved() - old).let { left -> secrets.put(MOVED, if (left.isEmpty()) null else json.encodeToString(left)) } }
         }
         return true
     }
 
     /** Whether a key this device moved off still waits to be retired. */
-    fun movedPending(): Boolean = moved.isNotEmpty()
+    fun movedPending(): Boolean = moved().isNotEmpty()
+
+    private fun moved(): List<String> = secrets.get(MOVED)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }.orEmpty()
+
+    private fun addMoved(key: String) { if (key !in moved()) secrets.put(MOVED, json.encodeToString(moved() + key)) }
 
     /**
      * What [old] signed goes: every document replaced by an empty one — relays
@@ -174,7 +191,9 @@ class SyncKeys(
      * (NIP-09) of all of them. Signed with the old key itself; the listener's
      * signer is not needed. A device still on the old key may send its copy
      * once more before it sees the new keyring; it retires it as it moves.
-     * True when a majority of the relays took every replacement and the deletion.
+     * True when a majority of the relays took every replacement and the deletion — and false when
+     * too few answered to tell what the old key holds: a read that failed is not one that found
+     * nothing (delta audit 2 2026-10-22, MN-10).
      */
     suspend fun retire(old: KeyPair, urls: List<String>? = null): Boolean {
         val to = urls ?: identity.writeRelays()
@@ -184,7 +203,9 @@ class SyncKeys(
             putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
             putJsonArray("authors") { add(JsonPrimitive(old.publicKeyHex)) }
         }
-        val latest = publisher.query(listOf(filter), to).filter { it.pubkey == old.publicKeyHex && it.kind == Nip78.KIND }
+        val read = publisher.queryChecked(listOf(filter), to)
+        if (read.asked == 0 || read.answered * 2 <= read.asked) return false
+        val latest = read.events.filter { it.pubkey == old.publicKeyHex && it.kind == Nip78.KIND }
             .groupBy { it.dTag() }.filterKeys { it != null }.mapValues { (_, events) -> events.maxOf { it.created_at } }
         if (latest.isEmpty()) return true
         val now = nowMs() / 1000
@@ -201,16 +222,34 @@ class SyncKeys(
     /** This device forgets the key — sync turned off, or signed out. The keyring stays on the relays. */
     fun forget() {
         secrets.put(SECRET, null)
+        secrets.put(MOVED, null)
         checkedAtMs = null
         resent = false
-        moved.clear()
+        generation++
     }
 
     private fun held(owner: String): Held? =
         secrets.get(SECRET)?.let { runCatching { json.decodeFromString(Held.serializer(), it) }.getOrNull() }?.takeIf { it.owner == owner }
 
-    private fun keep(owner: String, key: String, keyring: Event) =
-        secrets.put(SECRET, json.encodeToString(Held.serializer(), Held(owner, key, keyring.id, keyring.created_at, json.encodeToString(Event.serializer(), keyring))))
+    private fun keep(owner: String, key: String, keyring: Event, committed: Boolean = true) {
+        val before = secrets.get(SECRET)?.let { runCatching { json.decodeFromString(Held.serializer(), it) }.getOrNull() }
+        secrets.put(SECRET, json.encodeToString(Held.serializer(), Held(owner, key, keyring.id, keyring.created_at, json.encodeToString(Event.serializer(), keyring), committed)))
+        if (before?.key != key) generation++
+    }
+
+    /**
+     * The held keyring on the relays: one a majority took once is only sent again to those
+     * that lost it ([resend]); one not yet committed must reach a majority now — or the round
+     * stops here ([SyncNotPublished]) and nothing is sealed with it (MN-08).
+     */
+    private suspend fun confirm(owner: String, held: Held, keyring: Event?, urls: List<String>) {
+        if (held.committed) { keyring?.let { resend(it, urls) }; return }
+        val event = keyring ?: throw SyncKeyringUnreadable()
+        val took = publisher.publish(event, urls)
+        if (took.size * 2 <= urls.distinct().size) throw SyncNotPublished(took.size, urls.distinct().size)
+        keep(owner, held.key, event, committed = true)
+        resent = true
+    }
 
     private fun parse(text: String): Event? = runCatching { json.decodeFromString(Event.serializer(), text) }.getOrNull()?.takeIf { it.isValid() }
 
@@ -241,12 +280,13 @@ class SyncKeys(
         val key = KeyPair.generate().secretKey.toHex()
         val content = signer.encryptToSelf(json.encodeToString(Keyring.serializer(), Keyring(VERSION, key)))
         val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", DTAG)), nowMs() / 1000))
+        // Kept before it goes out, not yet committed: a relay may keep it without saying so, and a later
+        // round sends this one again instead of making another (delta audit 2026-10-22 and 2, MN-08).
+        keep(owner, key, event, committed = false)
         val took = publisher.publish(event, urls)
-        if (took.isEmpty()) throw SyncNotPublished(0, urls.distinct().size)
-        // Kept as soon as a relay has it: a later round sends this one again instead of making another (MN-08).
-        keep(owner, key, event)
-        resent = took.size * 2 > urls.distinct().size
-        if (!resent) throw SyncNotPublished(took.size, urls.distinct().size)
+        if (took.size * 2 <= urls.distinct().size) throw SyncNotPublished(took.size, urls.distinct().size)
+        keep(owner, key, event, committed = true)
+        resent = true
         // Read back with every check of a read (audit 2026-10-22, M-07): author, kind, address.
         val winner = publisher.query(listOf(filter(owner)), urls).filter { it.pubkey == owner && it.kind == Nip78.KIND && it.dTag() == DTAG }
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
@@ -268,6 +308,8 @@ class SyncKeys(
         /** NIP-09. */
         private const val DELETION = 5
         private const val SECRET = "nostr_sync_key"
+        /** The keys this device moved off and has not retired yet. */
+        private const val MOVED = "nostr_sync_moved"
         /** How often a device looks whether the keyring changed (another device's, made at the same moment). */
         val CHECK_EVERY = 1.minutes
     }

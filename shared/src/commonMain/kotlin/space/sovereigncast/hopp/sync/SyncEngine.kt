@@ -16,6 +16,11 @@ interface SyncedDocument {
      *  done; one that cannot be yet (a feed out of reach) is tried again next time. */
     suspend fun apply(entries: Map<String, SyncEntry>): Set<String>
 
+    /** [apply], where a step that cannot be undone (a show given up takes its episodes, progress and
+     *  place in "Up next" with it) asks [stillWins] first, in the same transaction as the step: the
+     *  listener may have changed the same thing a moment ago (delta audit 2 2026-10-22, HN-07). */
+    suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (key: String, entry: SyncEntry) -> Boolean): Set<String> = apply(entries)
+
     /** What this device has, as entries with the best time it knows — merged once,
      *  when sync is turned on. An entry of time 0 has none: it joins only where the
      *  relays have nothing (settings, the queue's order). */
@@ -76,9 +81,13 @@ class SyncEngine(
                 Fetched.Absent -> emptyMap<String, SyncEntry>() to 0L
                 is Fetched.Unknown -> return SyncOutcome.Failed(SyncNotReached(fetched.answered, fetched.asked))
             }
-            val theirs = read.filter { (k, e) -> !(e.del && e.t < cutoff) && !doc.expired(k, e, now) }
-            // An entry dated more than a day ahead is a clock gone wrong: not taken here, but carried
-            // along in what goes out — never dropped from the relays by this device (delta audit 2026-10-22, MN-02).
+            // A removal counts from when it first went out, never later than now (HN-05): one made offline
+            // and sent months later is not too old the moment it arrives.
+            val theirs = read.mapValues { (_, e) -> if (e.del) e.copy(out = e.out?.coerceAtMost(now)) else e.copy(out = null) }
+                .filter { (k, e) -> !(e.del && (e.out ?: e.t) < cutoff) && !doc.expired(k, e, now) }
+            // An entry dated more than a day ahead is a clock gone wrong: not taken into the app, but kept in
+            // the store, so it goes along in what goes out — under a new key too — and into the app once its
+            // time has come (delta audit 2026-10-22 and 2, MN-02).
             val ahead = theirs.filterValues { it.t > now + MAX_AHEAD.inWholeMilliseconds }.keys
             // A seed gives way to any value the relays hold — on a second device its defaults never
             // win over the first one's settings (HN-01).
@@ -86,13 +95,18 @@ class SyncEngine(
             if (beaten.isNotEmpty()) { store.dropSeeds(doc.name, beaten); mine = mine - beaten }
             mine = mine - rebase(doc, mine, fetched, theirs, cutoff)
             val merged = SyncMerge.merge(mine.filter { (k, e) -> !doc.expired(k, e, now) }, theirs)
+            hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
+            repair(doc, now, skip = merged.fromThem.keys)
             if (fetched is Fetched.Incomplete) return SyncOutcome.Incomplete(applied)
             store.markFetched(doc.name, nowMs())
             val publish = merged.theyLack
-            if (publish) relays.publish(signer, doc.name, merged.all, urls, notBefore)
+            // A removal made here goes out with the time it goes out (HN-05).
+            val pendingHere = store.pendingKeys(doc.name)
+            val all = merged.all.mapValues { (k, e) -> if (e.del && k in pendingHere) e.copy(out = now) else e }
+            if (publish) relays.publish(signer, doc.name, all, urls, notBefore)
             // The relays hold these versions now; anything changed here since stays pending.
-            store.markSent(doc.name, merged.all)
+            store.markSent(doc.name, all)
             SyncOutcome.Done(applied, publish, pending = waiting)
         } catch (e: SignerNeedsListener) {
             SyncOutcome.WaitsForSigner
@@ -119,12 +133,35 @@ class SyncEngine(
         val changedHere = store.pendingKeys(doc.name)
         val gone = mine.filter { (k, e) -> k !in theirs && !e.del && k !in changedHere }
         if (gone.isEmpty()) return emptySet()
-        doc.apply(gone.mapValues { (_, e) -> SyncEntry(e.t, del = true, d = e.d) })
+        store.markUnapplied(doc.name, gone.keys)
+        // Each removal only while the entry is still as it was here (delta audit 2 2026-10-22, HN-07).
+        doc.apply(gone.mapValues { (_, e) -> SyncEntry(e.t, del = true, d = e.d) }) { k, _ -> store.entry(doc.name, k) == gone[k] }
         // Removed only as it was: a change the listener made while it was applied stays, and holds
         // in the app again (delta audit 2026-10-22, HN-04).
         val removed = store.removeIfSent(doc.name, gone)
+        store.applied(doc.name, removed.associateWith { null })
         reassert(doc, gone.keys - removed)
         return removed
+    }
+
+    /** Entries dated far ahead ([MAX_AHEAD]): into the store, not the app — [repair] takes them in once their time has come. */
+    private fun hold(doc: SyncedDocument, ahead: Map<String, SyncEntry>) {
+        if (ahead.isEmpty()) return
+        store.markUnapplied(doc.name, store.putIfNewer(doc.name, ahead))
+    }
+
+    /**
+     * What the app may not hold as the store does — a round cut off halfway, a change under it the
+     * listener kept making, an entry whose time has come ([hold]) — put into the app from the store
+     * (delta audit 2 2026-10-22, HN-07/MN-02/MN-07). [skip]: keys this round just applied.
+     */
+    private suspend fun repair(doc: SyncedDocument, now: Long, skip: Set<String>) {
+        val due = store.unapplied(doc.name).filter { (k, e) -> k !in skip && (e == null || e.t <= now + MAX_AHEAD.inWholeMilliseconds) }
+        if (due.isEmpty()) return
+        // Nothing in the store: the app holds another device's entry the store never took — it comes again from the relays.
+        val ours = due.filterValues { it != null }.mapValues { it.value!! }
+        val done = if (ours.isEmpty()) emptySet() else doc.apply(ours) { k, e -> store.entry(doc.name, k) == e }
+        store.applied(doc.name, due.filterKeys { it in done || due[it] == null })
     }
 
     /**
@@ -136,21 +173,29 @@ class SyncEngine(
     private suspend fun applyNewer(doc: SyncedDocument, incoming: Map<String, SyncEntry>): Pair<Int, Int> {
         val toApply = store.stillNewer(doc.name, incoming)
         if (toApply.isEmpty()) return 0 to 0
-        val applied = doc.apply(toApply)
+        // Noted first, cleared once the app and the store agree again: cut off in between, the next round
+        // puts it right (delta audit 2 2026-10-22, MN-07).
+        store.markUnapplied(doc.name, toApply.keys)
+        val applied = doc.apply(toApply) { k, e -> store.entry(doc.name, k)?.let { e.winsOver(it) } ?: true }
         val taken = store.putIfNewer(doc.name, toApply.filterKeys { it in applied })
+        // Taken, and not applied at all (the app still has what it had): the app holds what the store does.
+        store.applied(doc.name, toApply.filterKeys { it in taken })
+        store.clearUnapplied(doc.name, toApply.keys - applied)
         reassert(doc, applied - taken)
         return taken.size to (toApply.size - applied.size)
     }
 
     /** This device's own entries for [keys] into the app once more — over what another device's
-     *  applied a moment after the listener changed them. Again while they change meanwhile. */
+     *  applied a moment after the listener changed them. Again while they change meanwhile; what
+     *  still differs after that stays noted, and the next round puts it right ([repair]). */
     private suspend fun reassert(doc: SyncedDocument, keys: Set<String>) {
         var left = keys
         repeat(REASSERT_TRIES) {
             if (left.isEmpty()) return
             val ours = left.mapNotNull { k -> store.entry(doc.name, k)?.let { k to it } }.toMap()
             if (ours.isEmpty()) return
-            doc.apply(ours)
+            val done = doc.apply(ours) { k, e -> store.entry(doc.name, k) == e }
+            store.applied(doc.name, ours.filterKeys { it in done })
             left = ours.filter { (k, e) -> store.entry(doc.name, k) != e }.keys
         }
     }
@@ -188,11 +233,15 @@ class SyncEngine(
     /** A new sync key (ADR 0022, 3); the old one is retired by [retireMoved] once the documents are out. */
     suspend fun renewKey() = lock.withLock { keys.renew() }
 
-    /** What a key this device moved off sealed goes from the relays — after a round went through under the new one. */
+    /** What a key this device moved off sealed goes from the relays — only after a round under the new one
+     *  read every document back complete with nothing left to send ([SyncManager.syncNow]). */
     suspend fun retireMoved(): Boolean = lock.withLock { keys.retireMoved() }
 
     /** Whether a key this device moved off still waits to be retired. */
     fun movedPending(): Boolean = keys.movedPending()
+
+    /** Changes whenever this device moves to another sync key: a round that saw it change did not run under one key throughout. */
+    fun keyGeneration(): Int = keys.generation
 
     /** This device forgets the sync key; the keyring stays on the relays. */
     suspend fun forgetKey() = lock.withLock { keys.forget() }

@@ -96,7 +96,11 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
         }
     }
 
-    override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> = coroutineScope {
+    override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> = apply(entries) { _, _ -> true }
+
+    /** A show given up takes its episodes, progress and place in "Up next" with it: only while the
+     *  removal still wins, asked in the same transaction (delta audit 2 2026-10-22, HN-07). */
+    override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (key: String, entry: SyncEntry) -> Boolean): Set<String> = coroutineScope {
         val here = local()
         val gate = Semaphore(4)
         entries.map { (key, e) ->
@@ -106,7 +110,7 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
                         val url = e.d.text("url")
                         val mine = here.firstOrNull { it.key == key } ?: here.firstOrNull { it.url == url }
                         when {
-                            e.del -> { mine?.let { podcasts.unsubscribe(it.id, sync = false) }; key }
+                            e.del -> { mine?.let { podcasts.unsubscribe(it.id, sync = false) { stillWins(key, e) } }; key }
                             url == null -> key
                             else -> {
                                 val autoDownload = e.d.bool("autoDl") ?: true

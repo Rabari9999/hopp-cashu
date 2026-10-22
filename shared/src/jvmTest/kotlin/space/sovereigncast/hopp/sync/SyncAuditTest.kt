@@ -64,13 +64,18 @@ class SyncAuditTest {
         override val name = "test"
         val applied = mutableMapOf<String, SyncEntry>()
         var during: suspend () -> Unit = {}
-        override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> { during(); applied += entries; return entries.keys }
+        /** After the entries are in the app. */
+        var after: suspend () -> Unit = {}
+        override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> { during(); applied += entries; after(); return entries.keys }
         override suspend fun snapshot(): Map<String, SyncEntry> = emptyMap()
+        /** Entries no device needs any more. */
+        var expire: (String) -> Boolean = { false }
+        override fun expired(key: String, entry: SyncEntry, nowMs: Long) = expire(key)
     }
 
-    private inner class Device(val relays: RelayConnector) {
+    /** [secrets]: another's — the same device started again. */
+    private inner class Device(val relays: RelayConnector, val secrets: MemorySecretStore = MemorySecretStore()) {
         var ms = nowSeconds * 1000
-        val secrets = MemorySecretStore()
         val identity = IdentityRepository(secrets, RelayPublisher(relays), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
         val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
         val store = SyncStore(db) { ms }
@@ -78,6 +83,8 @@ class SyncAuditTest {
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relays)) { ms / 1000 }, identity, keys) { ms }
         val doc = Doc()
         fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
+        /** The listener changes [key] here: in the app and in the store, as the repositories do. */
+        fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
         suspend fun syncKey() = keys.signer(interactive = false, create = false)?.pubkey
     }
 
@@ -377,6 +384,206 @@ class SyncAuditTest {
         phone.engine.sync(phone.doc, interactive = true)
         assertEquals(setOf("a", "b"), phone.doc.applied.keys)
         assertEquals(setOf("a", "b"), phone.store.entries("test").keys)
+    }
+
+    // ── delta audit 2 2026-10-22 ────────────────────────────────────────────
+
+    /** HN-02, B01: an older one-part revision still there, a newer one in two parts without its first part:
+     *  read in part, nothing sent over it — every entry of the newer one stays. */
+    @Test
+    fun anOldSmallFirstPartDoesNotHideANewerLargerRevision() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("small", "S")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        tablet.ms += 2.minutes.inWholeMilliseconds
+        val blob = "x".repeat(1_000)
+        repeat(90) { tablet.record("k$it", blob) }
+        tablet.engine.sync(tablet.doc)
+        val roots = relays.all().filter { it.d() == "hopp/test" }
+        assertTrue(roots.map { it.created_at }.distinct().size == 2 && relays.all().any { it.d() == "hopp/test#2" }, "the test needs both revisions")
+        val newRoot = roots.maxBy { it.created_at }.id
+        relays.byUrl.values.forEach { r -> r.hide = { it.id == newRoot } }
+
+        val phone = Device(relays).also { it.ms = tablet.ms + 1_000 }
+        phone.record("mine", "P")
+        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc, interactive = true))
+        relays.byUrl.values.forEach { r -> r.hide = { false } }
+        phone.engine.sync(phone.doc)
+        val third = Device(relays).also { it.ms = phone.ms }
+        third.engine.sync(third.doc, interactive = true)
+        assertEquals((0 until 90).map { "k$it" }.toSet() + "small" + "mine", third.doc.applied.keys)
+    }
+
+    /** HN-02: a document that became smaller leaves its old later parts behind — older than the new first
+     *  part, so the read is complete and goes on. */
+    @Test
+    fun aDocumentThatBecameSmallerIsStillReadComplete() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(90) { tablet.record("k$it", blob) }
+        tablet.engine.sync(tablet.doc, interactive = true)
+        assertTrue(relays.all().any { it.d() == "hopp/test#2" })
+        tablet.doc.expire = { it.startsWith("k") }
+        tablet.ms += 2.minutes.inWholeMilliseconds
+        tablet.record("only", "O")
+        tablet.engine.sync(tablet.doc)
+
+        val phone = Device(relays).also { it.ms = tablet.ms + 1_000 }
+        phone.record("mine", "P")
+        assertEquals(SyncOutcome.Done(1, true), phone.engine.sync(phone.doc, interactive = true))
+        assertEquals(setOf("only"), phone.doc.applied.keys)
+    }
+
+    /** HN-05, X01: a removal made offline and sent 100 days later, while the other device kept syncing:
+     *  it counts from when it went out — gone on both, and it stays gone. */
+    @Test
+    fun aRemovalSentMonthsLaterStillCounts() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("show", "S")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        relays.byUrl.values.forEach { it.readsFail = true }
+        phone.ms += 1_000
+        phone.record("show", "S", deleted = true)
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc))
+        relays.byUrl.values.forEach { it.readsFail = false }
+        repeat(10) { tablet.ms += 10.days.inWholeMilliseconds; tablet.engine.sync(tablet.doc) }
+
+        phone.ms = tablet.ms
+        phone.engine.sync(phone.doc)
+        tablet.ms += 1_000
+        tablet.engine.sync(tablet.doc)
+        assertEquals(true, tablet.doc.applied["show"]?.del, "the tablet did not take the removal")
+        repeat(3) {
+            phone.ms += 10.days.inWholeMilliseconds; phone.engine.sync(phone.doc)
+            tablet.ms += 10.days.inWholeMilliseconds; tablet.engine.sync(tablet.doc)
+        }
+        assertEquals(true, phone.store.entry("test", "show")?.del, "the show came back on the phone")
+        val third = Device(relays).also { it.ms = tablet.ms }
+        third.engine.sync(third.doc, interactive = true)
+        assertTrue("show" !in third.doc.applied.filterValues { !it.del }, "the show came back")
+    }
+
+    /** HN-07, B05: the listener keeps changing the entry while another device's is applied, more often than
+     *  it is put back: the store notes it, and the next round puts the app right. */
+    @Test
+    fun anAppLeftBehindIsPutRightByTheNextRound() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("ep", "remote")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        var n = 0
+        phone.doc.during = { if (n < 10) phone.change("ep", "local-${n++}") }
+        phone.engine.sync(phone.doc, interactive = true)
+        assertEquals(setOf("ep"), phone.store.unapplied("test").keys, "nothing notes that the app is behind")
+        phone.doc.during = {}
+        phone.ms += 1_000
+        phone.engine.sync(phone.doc)
+        assertEquals(phone.store.entry("test", "ep"), phone.doc.applied["ep"])
+        assertEquals(emptyMap(), phone.store.unapplied("test"))
+    }
+
+    /** MN-07, B06: changed here while another device's older entry is applied, and the round cut off right
+     *  after: the next one puts the change back into the app. */
+    @Test
+    fun aRoundCutOffAfterAnOlderEntryIsPutRight() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("ep", "remote")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        var once = true
+        phone.doc.during = { if (once) phone.change("ep", "local-new") }
+        phone.doc.after = { if (once) { once = false; throw kotlinx.coroutines.CancellationException("app closed") } }
+        runCatching { phone.engine.sync(phone.doc, interactive = true) }
+        assertEquals("\"remote\"", phone.doc.applied["ep"]!!.d["v"].toString(), "the test needs the app behind")
+        phone.ms += 1_000
+        phone.engine.sync(phone.doc)
+        assertEquals("\"local-new\"", phone.doc.applied["ep"]!!.d["v"].toString())
+        assertEquals(phone.store.entry("test", "ep"), phone.doc.applied["ep"])
+    }
+
+    /** MN-02, B03: an entry dated days ahead is kept here — in the store, not the app — and taken in once its time has come. */
+    @Test
+    fun anEntryDatedAheadIsKeptAndTakenInOnTime() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays).also { it.ms += 3.days.inWholeMilliseconds }
+        tablet.record("future", "F")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        assertTrue("future" !in phone.doc.applied)
+        assertEquals(setOf("future"), phone.store.entries("test").keys)
+        phone.ms += 3.days.inWholeMilliseconds
+        phone.engine.sync(phone.doc)
+        assertEquals(setOf("future"), phone.doc.applied.keys)
+        assertEquals(emptyMap(), phone.store.unapplied("test"))
+    }
+
+    /** MN-03, B04: a key copy from before keyring times were kept, and every relay answers with an older
+     *  keyring only: the key is not moved either. */
+    @Test
+    fun anOldKeyCopyIsNotMovedByAnOldKeyringEverywhere() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        phone.ms += 10_000
+        phone.engine.renewKey()
+        val renewed = phone.syncKey()
+        val held = Json.parseToJsonElement(phone.secrets.get("nostr_sync_key")!!) as JsonObject
+        phone.secrets.put("nostr_sync_key", JsonObject(held - "at" - "event").toString())
+        val restarted = Device(relays).also { it.ms = phone.ms + 2.minutes.inWholeMilliseconds; it.secrets.put("nostr_sync_key", phone.secrets.get("nostr_sync_key")) }
+        val newest = relays.all().filter { it.d() == SyncKeys.DTAG }.maxBy { it.created_at }.id
+        relays.byUrl.values.forEach { r -> r.hide = { it.id == newest } }
+        restarted.engine.sync(restarted.doc)
+        assertEquals(renewed, restarted.syncKey())
+    }
+
+    /** MN-08, B10: a relay keeps the first keyring without saying so, the others refuse it; started again
+     *  with that relay down, the device sends the same keyring again — no second key. */
+    @Test
+    fun aKeyringNoRelayConfirmedIsNotMadeTwice() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.byUrl[relays[0]]!!.passOnAndReject = true
+        relays.byUrl[relays[1]]!!.rejectEvents = true; relays.byUrl[relays[2]]!!.rejectEvents = true
+        val phone = Device(relays)
+        phone.record("show", "A")
+        val first = phone.engine.sync(phone.doc, interactive = true)
+        assertIs<SyncNotPublished>(assertIs<SyncOutcome.Failed>(first).error)
+        val kept = relays.all().single { it.d() == SyncKeys.DTAG }
+
+        relays.byUrl.values.forEach { it.passOnAndReject = false; it.rejectEvents = false }
+        relays.down += relays[0]
+        val again = Device(relays, phone.secrets).also { it.ms = phone.ms + 1_000 }
+        again.record("show", "A")
+        assertIs<SyncOutcome.Done>(again.engine.sync(again.doc, interactive = true))
+        assertEquals(setOf(kept.id), relays.all().filter { it.d() == SyncKeys.DTAG }.map { it.id }.toSet())
+    }
+
+    /** MN-08, X02: the keyring on one relay of three only: nothing is sealed with it — no round counts as
+     *  done — until a majority has it. */
+    @Test
+    fun nothingIsSealedWithAKeyringOnOneRelayOnly() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.byUrl[relays[1]]!!.refuse = { it.d() == SyncKeys.DTAG }; relays.byUrl[relays[2]]!!.refuse = { it.d() == SyncKeys.DTAG }
+        val phone = Device(relays)
+        phone.record("show", "A")
+        repeat(2) {
+            assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+            phone.ms += 2.minutes.inWholeMilliseconds
+        }
+        assertTrue(relays.all().none { it.d() == "hopp/test" }, "a document went out under a key one relay holds")
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        assertEquals(3, relays.all().count { it.d() == SyncKeys.DTAG })
+        val fresh = Device(relays).also { it.ms = phone.ms }
+        fresh.engine.sync(fresh.doc, interactive = true)
+        assertEquals(setOf("show"), fresh.doc.applied.keys)
     }
 
     // ── H-02 ────────────────────────────────────────────────────────────────

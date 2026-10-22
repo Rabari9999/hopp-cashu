@@ -45,13 +45,35 @@ class QueueRepository(
     }
 
     suspend fun playNext(episodeId: Long) = withContext(Dispatchers.IO) {
-        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.minKey().executeAsOne().coerceIn(-SORT_MAX, SORT_MAX) - 1) }
-        note(listOf(episodeId))
+        val moved = db.transactionWithResult {
+            qq.remove(episodeId)
+            val renumbered = renumberAtTheEdge()
+            qq.put(episodeId, qq.minKey().executeAsOne() - 1)
+            renumbered
+        }
+        note(moved + episodeId)
     }
 
     suspend fun playLast(episodeId: Long) = withContext(Dispatchers.IO) {
-        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.maxKey().executeAsOne().coerceIn(-SORT_MAX, SORT_MAX) + 1) }
-        note(listOf(episodeId))
+        val moved = db.transactionWithResult {
+            qq.remove(episodeId)
+            val renumbered = renumberAtTheEdge()
+            qq.put(episodeId, qq.maxKey().executeAsOne() + 1)
+            renumbered
+        }
+        note(moved + episodeId)
+    }
+
+    /**
+     * A place from sync at the edge ([SORT_MAX]): the queue numbered 0, 1, 2 … again, in the order it
+     * has, before one goes before or after it — at the edge, two in a row got the same place and their
+     * order fell to the episodes' names (delta audit 2 2026-10-22, ND-02). The episodes renumbered.
+     */
+    private fun renumberAtTheEdge(): List<Long> {
+        if (qq.minKey().executeAsOne() > -SORT_MAX && qq.maxKey().executeAsOne() < SORT_MAX) return emptyList()
+        val order = qq.selectAll().executeAsList()
+        order.forEachIndexed { i, id -> qq.put(id, i.toLong()) }
+        return order
     }
 
     suspend fun remove(episodeId: Long) = withContext(Dispatchers.IO) { qq.remove(episodeId); note(listOf(episodeId)) }

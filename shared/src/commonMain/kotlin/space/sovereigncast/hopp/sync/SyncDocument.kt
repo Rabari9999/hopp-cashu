@@ -7,10 +7,13 @@ import kotlinx.serialization.json.JsonObject
 /**
  * One entry of a sync document (ADR 0021, 5): a show, an episode's progress, a
  * place in "Up next", a setting. [t] is when it last changed, in milliseconds;
- * [del] marks a removal; [d] is what the document's owner keeps in it.
+ * [del] marks a removal; [d] is what the document's owner keeps in it. [out]:
+ * for a removal, when it first went out — it is kept that long from then, so
+ * one made offline and sent months later is not already too old to count
+ * (delta audit 2 2026-10-22, HN-05). It plays no part in which entry wins.
  */
 @Serializable
-data class SyncEntry(val t: Long, val del: Boolean = false, val d: JsonObject = JsonObject(emptyMap())) {
+data class SyncEntry(val t: Long, val del: Boolean = false, val d: JsonObject = JsonObject(emptyMap()), val out: Long? = null) {
     /** Whether this entry wins over [other] for the same key: the newer one, and
      *  for the same time an order every device agrees on, so all end alike. */
     fun winsOver(other: SyncEntry): Boolean = when {
@@ -55,7 +58,8 @@ class SyncNotReached(val answered: Int = 0, val asked: Int = 0) : Exception("$an
 /** What a read of a document came to (audit 2026-10-22, H-02): only [Complete] and [Absent] may be written over —
  *  each read from a majority of the relays (delta audit 2026-10-22, HN-02/HN-03). */
 sealed interface Fetched {
-    /** Every part of one revision; [newestAt]: the newest event's time, seconds — a new version must be later. */
+    /** Every part of one revision, and no part newer than it; [newestAt]: the newest event's time,
+     *  seconds — a new version must be later. */
     data class Complete(val entries: Map<String, SyncEntry>, val newestAt: Long) : Fetched
     /** A majority of the relays answered to the end, and none holds the document. */
     data object Absent : Fetched
@@ -79,7 +83,7 @@ object SyncCodec {
     @Serializable
     data class Part(val v: Int = VERSION, val rev: String, val part: Int = 1, val parts: Int = 1, val entries: Map<String, SyncEntry> = emptyMap())
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
 
     fun dTag(doc: String, part: Int = 1) = if (part == 1) "hopp/$doc" else "hopp/$doc#$part"
 

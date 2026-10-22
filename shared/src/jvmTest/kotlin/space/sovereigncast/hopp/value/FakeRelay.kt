@@ -33,6 +33,8 @@ class FakeRelay : RelayConnector {
     var readsFail = false
     /** Events a read leaves out — a relay that lost them, or holds back (security audit 2026-10-22). */
     var hide: (Event) -> Boolean = { false }
+    /** Reads whose filter this says yes to fail — the connection drops (delta audit 2 2026-10-22). */
+    var failReads: (JsonObject) -> Boolean = { false }
     /** Events it answers "refused" to and does not keep (delta audit 2026-10-22). */
     var refuse: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
@@ -62,6 +64,7 @@ class FakeRelay : RelayConnector {
                 if (readsFail) { session.channel.close(); return }
                 val id = arr[1].jsonPrimitive.content
                 val filters = arr.drop(2).map { it.jsonObject }
+                if (filters.any(failReads)) { session.channel.close(); return }
                 session.subs[id] = filters.first()
                 synchronized(this) {
                     filters.flatMap { filter -> stored.filter { matches(filter, it) && !hide(it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }

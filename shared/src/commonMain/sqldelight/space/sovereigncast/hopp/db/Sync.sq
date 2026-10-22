@@ -11,6 +11,19 @@ CREATE TABLE sync_entry (
     deleted INTEGER NOT NULL DEFAULT 0,
     -- Changed here, not yet taken by the relays (security audit 2026-10-22, M-02).
     pending INTEGER NOT NULL DEFAULT 0,
+    -- A removal: when it first went out, milliseconds — it is kept that long from then, not from
+    -- when it was made (delta audit 2 2026-10-22, HN-05). Null for others, and before it went out.
+    kept_from INTEGER,
+    PRIMARY KEY (doc, key)
+);
+
+-- Entries the app may not hold as the store does (delta audit 2 2026-10-22, HN-07/MN-02/MN-07):
+-- noted before another device's are applied and cleared once the app holds the store's again —
+-- a round cut off halfway, or changed under it, is put right by the next. One dated far ahead
+-- waits here until its time.
+CREATE TABLE sync_unapplied (
+    doc TEXT NOT NULL,
+    key TEXT NOT NULL,
     PRIMARY KEY (doc, key)
 );
 
@@ -22,17 +35,18 @@ CREATE TABLE sync_doc (
 );
 
 entries:
-SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ?;
+SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ?;
 
 entry:
-SELECT key, json, updated_at, deleted FROM sync_entry WHERE doc = ? AND key = ?;
+SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ? AND key = ?;
 
 putEntry:
-INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted, pending) VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted, pending, kept_from) VALUES (?, ?, ?, ?, ?, ?, ?);
 
--- The relays took this version of the entry; a newer one made meanwhile stays pending.
+-- The relays took this version of the entry; a newer one made meanwhile stays pending. A removal
+-- keeps the time it first went out.
 markSent:
-UPDATE sync_entry SET pending = 0 WHERE doc = ? AND key = ? AND updated_at = ?;
+UPDATE sync_entry SET pending = 0, kept_from = coalesce(kept_from, ?) WHERE doc = ? AND key = ? AND updated_at = ?;
 
 pendingKeys:
 SELECT key FROM sync_entry WHERE doc = ? AND pending = 1;
@@ -55,9 +69,18 @@ DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = ? AND pending 
 removeSeed:
 DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = 0 AND pending = 1;
 
--- Only markers the relays took: one never sent still has to go out (HN-05).
+-- Only markers the relays took: one never sent still has to go out (HN-05) — and kept from when it went out.
 pruneRemoved:
-DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND updated_at < ? AND pending = 0;
+DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND coalesce(kept_from, updated_at) < ? AND pending = 0;
+
+markUnapplied:
+INSERT OR IGNORE INTO sync_unapplied (doc, key) VALUES (?, ?);
+
+clearUnapplied:
+DELETE FROM sync_unapplied WHERE doc = ? AND key = ?;
+
+unappliedKeys:
+SELECT key FROM sync_unapplied WHERE doc = ?;
 
 newest:
 SELECT MAX(updated_at) FROM sync_entry WHERE doc = ?;
@@ -76,6 +99,9 @@ UPDATE sync_doc SET published_up_to = ? WHERE doc = ?;
 
 clearEntries:
 DELETE FROM sync_entry;
+
+clearUnappliedAll:
+DELETE FROM sync_unapplied;
 
 clearDocs:
 DELETE FROM sync_doc;

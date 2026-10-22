@@ -63,7 +63,12 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             part?.let { n to it }
         }.toMap()
         val whole = SyncCodec.join(parts)
-        return if (whole != null && majority) Fetched.Complete(whole, at) else Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at)
+        // A part as new as the first, or newer, that is not of its revision: a later revision whose first
+        // part did not come — the first one here is an older, smaller one (delta audit 2 2026-10-22, HN-02).
+        // Parts left over from a larger revision are always older: a new one goes out later than all of them.
+        val root = newest[1]
+        val later = root != null && newest.any { (n, e) -> n > 1 && e.created_at >= root.created_at && parts[n]?.rev != parts[1]?.rev }
+        return if (whole != null && majority && !later) Fetched.Complete(whole, at) else Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at)
     }
 
     /**

@@ -472,6 +472,42 @@ switches.
    - The Nostr page names what the relays did ("2 of 3 relays answered"),
      not "no relay" for every failure. Tests: `SyncAuditTest`, `SyncKeysTest`,
      `QueueAndSettingsSyncTest`, `SyncMigrationTest`.
+   *Amended a third time 2026-10-22 (second delta audit, on 346f002):*
+   - **The newest revision, not the newest complete one.** A later part as
+     new as the first, or newer, that is not of its revision makes the read
+     incomplete: a larger revision whose first part is missing must not hide
+     behind an older, smaller one still there. Parts a document left behind
+     when it became smaller are always older than its new first part.
+   - **A removal counts from when it went out.** Each removal carries the
+     time it first went out (`out`) besides the time it was made; it is
+     kept 90 days from then. One made offline and sent months later is not
+     too old the moment it arrives.
+   - **The app and the store agree, or the store says so.** Before another
+     device's entries are applied, their keys are noted (`sync_unapplied`);
+     the note goes once the app holds what the store does. A round cut off
+     halfway, or a change the listener kept making under it, is put right
+     by the next round. A show is given up — its episodes, progress and
+     place in "Up next" with it — only while the removal still wins, asked
+     in the same transaction; a show's settings change with their note for
+     sync in one transaction. An entry dated far ahead is kept in the store
+     and goes into the app once its time has come, so it goes along to a
+     new key too.
+   - **Retiring an old key needs the new documents read back.** It happens
+     only after a round under the new key, all of it, read every document
+     complete with nothing to send — not after a round that only sent them.
+     A failed read of the old key's documents is not an empty one. The keys
+     still to retire are kept with the key, so a restart finishes the job.
+   - **A first keyring is kept before it goes out and used once a majority
+     holds it.** A relay may keep it without saying so; a later round sends
+     the same one again instead of making another, and nothing is sealed
+     with it before a majority took it. A key copy from before keyring times
+     were kept is not moved at all — which keyring is newer cannot be told;
+     turning sync off and on takes the relays' one.
+   - Migration 13 → 14 marks again as unsent what the old mark said was not
+     out, on devices that ran the first version-13 migration. "Up next" is
+     numbered afresh before a place at its edge. Tests: `SyncAuditTest`,
+     `SyncKeysTest`, `SubscriptionsSyncTest`, `QueueAndSettingsSyncTest`,
+     `SyncMigrationTest`.
 
 ## Consequences
 
