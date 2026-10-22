@@ -47,8 +47,9 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     data class Latest(val event: Event?, val complete: Boolean)
 
     suspend fun latestChecked(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Latest {
+        // A relay that closed the request, or was cut off, did not answer to the end: not complete.
         val got = gather(relays, settle) { url -> latestOn(kind, author, url) }
-        return Latest(got.results.flatten().maxByOrNull { it.created_at }, got.complete)
+        return Latest(got.results.flatMap { it.events }.maxByOrNull { it.created_at }, got.complete && got.results.all { it.ended })
     }
 
     /**
@@ -168,29 +169,42 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     suspend fun reachable(url: String): Boolean =
         runCatching { latestOn(10002, "0".repeat(64), url) }.getOrNull() != null
 
-    /** The newest match on [url] (empty: none there); null when it could not be reached. */
-    private suspend fun latestOn(kind: Int, author: String, url: String): List<Event>? = withTimeoutOrNull(timeout) {
+    /** One relay's answer for [latestOn]: [ended] — it said `EOSE`; `CLOSED` is an answer, but not to the end. */
+    private class LatestAnswer(val events: List<Event>, val ended: Boolean)
+
+    /**
+     * The newest match on [url]; null when it could not be reached or never answered. Held to
+     * what [queryOn] is (delta audit 2026-10-22, MN-05): only answers to this request count,
+     * only events it asked for, and only so much.
+     */
+    private suspend fun latestOn(kind: Int, author: String, url: String): LatestAnswer? = withTimeoutOrNull(timeout) {
         val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull null
         try {
             coroutineScope {
-                val sub = "hopp-latest"
+                val sub = "hopp-" + secureRandomBytes(6).toHex()
                 val found = mutableListOf<Event>()
+                var bytes = 0L
                 val done = async(start = CoroutineStart.UNDISPATCHED) {
                     session.incoming.mapNotNull { text ->
+                        bytes += text.length
+                        if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
+                        if (text.length > MAX_MESSAGE) return@mapNotNull null
                         runCatching {
                             val arr = json.parseToJsonElement(text).jsonArray
+                            if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
                             when (arr[0].jsonPrimitive.content) {
                                 "EVENT" -> { json.decodeFromJsonElement(Event.serializer(), arr[2]).takeIf { it.kind == kind && it.pubkey == author && it.isValid() }?.let(found::add); null }
-                                "EOSE", "CLOSED" -> true
+                                "EOSE" -> true
+                                "CLOSED" -> false
                                 else -> null
                             }
                         }.getOrNull()
                     }.first()
                 }
                 session.send("""["REQ","$sub",{"kinds":[$kind],"authors":["$author"],"limit":1}]""")
-                done.await()
+                val ended = done.await()
                 runCatching { session.send("""["CLOSE","$sub"]""") }
-                listOfNotNull(found.maxByOrNull { it.created_at })
+                LatestAnswer(listOfNotNull(found.maxByOrNull { it.created_at }), ended)
             }
         } catch (e: Exception) {
             null

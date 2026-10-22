@@ -43,8 +43,18 @@ SELECT count(*) FROM sync_entry WHERE doc = ? AND pending = 1;
 removeEntry:
 DELETE FROM sync_entry WHERE doc = ? AND key = ?;
 
+-- Only the version known, and only once the relays have it: a change made meanwhile stays
+-- (delta audit 2026-10-22, HN-04).
+removeIfSent:
+DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = ? AND pending = 0;
+
+-- A local seed (time 0, never sent) the relays already hold a value for (HN-01).
+removeSeed:
+DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = 0 AND pending = 1;
+
+-- Only markers the relays took: one never sent still has to go out (HN-05).
 pruneRemoved:
-DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND updated_at < ?;
+DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND updated_at < ? AND pending = 0;
 
 newest:
 SELECT MAX(updated_at) FROM sync_entry WHERE doc = ?;

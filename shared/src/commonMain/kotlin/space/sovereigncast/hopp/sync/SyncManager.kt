@@ -32,7 +32,20 @@ data class SyncStatus(
     val applied: Map<String, Int> = emptyMap(),
     /** Entries from elsewhere that wait here — a feed out of reach (audit 2026-10-22, M-06). */
     val pending: Int = 0,
+    /** How many documents this round sent: none means the relays held all this device has. */
+    val sent: Int = 0,
 )
+
+/** What renewing the sync key came to (delta audit 2026-10-22, HN-06/MN-10). */
+enum class Renewal {
+    /** New key, every document out and read back under it, the old one's gone. */
+    Done,
+    /** Nothing changed: a round did not get through first, something waits here, or the signer or relays said no. */
+    NotRenewed,
+    /** The new key is there; its documents are not all out yet, or the old ones not yet gone —
+     *  the old ones stay until they are, and later rounds finish it. */
+    Unfinished,
+}
 
 /** Sync turned on brought something from the listener's other devices: [shows] of it subscriptions. */
 data class Restored(val shows: Int, val entries: Int)
@@ -69,16 +82,17 @@ class SyncManager(
      * ask the listener here, once.
      */
     suspend fun enable(): SyncStatus {
-        val seeds = mutableMapOf<String, Map<String, SyncEntry>>()
         for (doc in documents()) {
             val known = store.entries(doc.name)
             val (timed, untimed) = doc.snapshot().filterKeys { it !in known }.entries.partition { it.value.t > 0 }
             store.putIfNewer(doc.name, timed.associate { it.toPair() }, pending = true)
-            seeds[doc.name] = untimed.associate { it.toPair() }
+            // Kept in the store, not for this round alone: a first round the relays fail, or the app
+            // closed before it ends, must not lose the queue and the settings (delta audit 2026-10-22, HN-01).
+            store.seed(doc.name, untimed.associate { it.toPair() })
         }
         settings.update { it.copy(nostrSync = true) }
         journal.enabled = true
-        val status = syncNow(interactive = true, seeds)
+        val status = syncNow(interactive = true)
         // Something came from elsewhere: the app says so and shows it (maintainer, 2026-10-21).
         if (status.applied.values.sum() > 0) {
             _restored.tryEmit(Restored(status.applied[SyncDocs.SUBSCRIPTIONS] ?: 0, status.applied.values.sum()))
@@ -123,36 +137,52 @@ class SyncManager(
 
     /**
      * A new sync key (ADR 0022, 3): for a lost device or a browser the listener
-     * no longer uses. First a round, so this device has everything the old key
-     * held; then the new keyring; the documents out under it; and what the old
-     * key sealed deleted. The listener's other devices ask their signer once
-     * and go on. False: nothing changed — the round, the signer or the relays
-     * did not get through.
+     * no longer uses. In this order, each step only after the one before went
+     * through (delta audit 2026-10-22, HN-06): a round under the old key with
+     * nothing left waiting or unsent, so this device holds everything; the new
+     * keyring; every document out under it; a second round that finds them all
+     * there; only then what the old key sealed deleted. The listener's other
+     * devices ask their signer once and go on.
      */
-    suspend fun renewKey(): Boolean {
-        if (!settings.current().nostrSync) return false
-        if (syncNow(interactive = true).problem != null) return false
-        val old = try { engine.renewKey() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { return false }
-        syncNow()
-        runCatching { engine.retire(old) }
-        return true
+    suspend fun renewKey(): Renewal {
+        if (!settings.current().nostrSync) return Renewal.NotRenewed
+        val before = syncNow(interactive = true)
+        if (before.problem != null || before.pending > 0 || documents().any { engine.unpublished(it) }) return Renewal.NotRenewed
+        try {
+            engine.renewKey()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: SyncNotPublished) {
+            // Out on too few relays: the new key stands here and goes again; nothing retired.
+            if (e.took > 0) return Renewal.Unfinished
+            return Renewal.NotRenewed
+        } catch (e: Exception) {
+            return Renewal.NotRenewed
+        }
+        val out = syncNow()
+        val back = syncNow()
+        // Read back: every document there, nothing more to send — and the old key's gone (syncNow retires it).
+        return if (out.problem == null && back.problem == null && back.sent == 0 && !engine.movedPending()) Renewal.Done else Renewal.Unfinished
     }
 
     /** One round over every document; [interactive]: the signer app may be opened. */
-    suspend fun syncNow(interactive: Boolean = false, seeds: Map<String, Map<String, SyncEntry>> = emptyMap()): SyncStatus = round.withLock {
+    suspend fun syncNow(interactive: Boolean = false): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
         var problem: SyncOutcome? = null
         val applied = mutableMapOf<String, Int>()
         var pending = 0
+        var sent = 0
         for (doc in documents()) {
-            when (val outcome = engine.sync(doc, interactive, seeds[doc.name].orEmpty())) {
-                is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending }
+            when (val outcome = engine.sync(doc, interactive)) {
+                is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
                 is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
                 else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
             }
         }
-        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending)
+        // A key moved off goes only now: every document went through under the new one, nothing waits (HN-06).
+        if (problem == null && pending == 0) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+        _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent)
         _status.value
     }
 

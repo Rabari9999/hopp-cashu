@@ -33,6 +33,8 @@ class FakeRelay : RelayConnector {
     var readsFail = false
     /** Events a read leaves out — a relay that lost them, or holds back (security audit 2026-10-22). */
     var hide: (Event) -> Boolean = { false }
+    /** Events it answers "refused" to and does not keep (delta audit 2026-10-22). */
+    var refuse: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
 
     inner class Session : RelaySession {
@@ -68,7 +70,7 @@ class FakeRelay : RelayConnector {
             }
             "EVENT" -> {
                 val event = json.decodeFromJsonElement(Event.serializer(), arr[1])
-                val ok = event.isValid() && !rejectEvents && !passOnAndReject
+                val ok = event.isValid() && !rejectEvents && !passOnAndReject && !refuse(event)
                 session.channel.trySend("""["OK","${event.id}",$ok,"${if (ok) "" else "blocked: test"}"]""")
                 if (ok || (passOnAndReject && event.isValid())) publish(event)
             }

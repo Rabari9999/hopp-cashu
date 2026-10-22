@@ -68,12 +68,18 @@ android-debug:
     - ./gradlew --console=plain :androidApp:testFossDebugUnitTest
     - ./gradlew --console=plain :androidApp:assembleFossDebug :androidApp:assemblePlayDebug
     # A beta only with the beta key (security audit 2026-10-22, H-04; docs/signing.md). GitLab
-    # variables hold text, the keystore is binary: it comes as base64 and is written out here.
+    # variables hold text, the keystore is binary: it comes as base64 and is written out here —
+    # outside the project, readable by this user only, and gone however the build ends (delta
+    # audit 2026-10-22, MN-09). In a subshell, so the trap fires when it ends.
     - |
       if [ -n "$HOPP_BETA_KEYSTORE_BASE64" ]; then
-        echo "$HOPP_BETA_KEYSTORE_BASE64" | base64 -d > "$CI_PROJECT_DIR/hopp-beta.jks"
-        HOPP_BETA_KEYSTORE="$CI_PROJECT_DIR/hopp-beta.jks" ./gradlew --console=plain :androidApp:assembleFossBeta
-        rm -f "$CI_PROJECT_DIR/hopp-beta.jks"
+        (
+          umask 077
+          key="$(mktemp)"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$HOPP_BETA_KEYSTORE_BASE64" | base64 -d > "$key"
+          HOPP_BETA_KEYSTORE="$key" ./gradlew --console=plain :androidApp:assembleFossBeta
+        )
       else
         echo "No beta key here: no beta built."
       fi

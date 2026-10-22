@@ -84,6 +84,10 @@ import space.sovereigncast.hopp.resources.sync_renew_confirm
 import space.sovereigncast.hopp.resources.sync_renew_failed
 import space.sovereigncast.hopp.resources.sync_renew_text
 import space.sovereigncast.hopp.resources.sync_renewed
+import space.sovereigncast.hopp.resources.sync_no_relay
+import space.sovereigncast.hopp.resources.sync_too_few
+import space.sovereigncast.hopp.resources.sync_not_taken
+import space.sovereigncast.hopp.resources.sync_renew_unfinished
 import space.sovereigncast.hopp.resources.sync_running
 import space.sovereigncast.hopp.resources.sync_title
 import space.sovereigncast.hopp.resources.sync_waits
@@ -188,9 +192,9 @@ class NostrIdentityViewModel(
         if (on) restore() else viewModelScope.launch { sync.disable(); lookForRestore() }
     }
 
-    /** A new sync key (ADR 0022, 3): null not asked, true done, false nothing changed. */
-    private val _renewed = MutableStateFlow<Boolean?>(null)
-    val renewed: StateFlow<Boolean?> = _renewed.asStateFlow()
+    /** A new sync key (ADR 0022, 3): null not asked. */
+    private val _renewed = MutableStateFlow<space.sovereigncast.hopp.sync.Renewal?>(null)
+    val renewed: StateFlow<space.sovereigncast.hopp.sync.Renewal?> = _renewed.asStateFlow()
     private val _renewing = MutableStateFlow(false)
     val renewing: StateFlow<Boolean> = _renewing.asStateFlow()
 
@@ -691,7 +695,14 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         // Security audit 2026-10-22: a document only in part, or too large, is said as such (H-02, M-04).
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Incomplete -> stringResource(Res.string.sync_incomplete)
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.sync.SyncTooLarge -> stringResource(Res.string.sync_too_large)
-        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> stringResource(Res.string.sync_failed)
+        // What the relays did, said as it was (delta audit 2026-10-22, LN-01): not "no relay" when two of three answered.
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> when (val e = problem.error) {
+            is space.sovereigncast.hopp.sync.SyncNotReached -> relayLine(e.answered, e.asked)
+            is space.sovereigncast.hopp.sync.SyncKeyringNotKnown -> relayLine(e.answered, e.asked)
+            is space.sovereigncast.hopp.sync.SyncNotPublished ->
+                if (e.asked > 0) stringResource(Res.string.sync_not_taken, e.took, e.asked) else stringResource(Res.string.sync_failed)
+            else -> stringResource(Res.string.sync_failed)
+        }
         else -> status.lastSyncedMs?.let { last ->
             val minutes = ((now - last) / 60_000).coerceAtLeast(0)
             when {
@@ -713,6 +724,11 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
     }
 }
 
+/** Too few relays answered: none at all, or how many of how many. */
+@Composable
+private fun relayLine(answered: Int, asked: Int): String =
+    if (answered == 0 || asked == 0) stringResource(Res.string.sync_no_relay) else stringResource(Res.string.sync_too_few, answered, asked)
+
 /** A new sync key, for a lost device or a browser no longer used (ADR 0022, 3) — asked first. */
 @Composable
 private fun RenewSyncKey(vm: NostrIdentityViewModel) {
@@ -721,9 +737,14 @@ private fun RenewSyncKey(vm: NostrIdentityViewModel) {
     var confirm by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            when (renewed) { true -> stringResource(Res.string.sync_renewed); false -> stringResource(Res.string.sync_renew_failed); null -> "" },
+            when (renewed) {
+                space.sovereigncast.hopp.sync.Renewal.Done -> stringResource(Res.string.sync_renewed)
+                space.sovereigncast.hopp.sync.Renewal.Unfinished -> stringResource(Res.string.sync_renew_unfinished)
+                space.sovereigncast.hopp.sync.Renewal.NotRenewed -> stringResource(Res.string.sync_renew_failed)
+                null -> ""
+            },
             Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            color = if (renewed == false) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (renewed == space.sovereigncast.hopp.sync.Renewal.NotRenewed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (renewing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
         else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew)) }

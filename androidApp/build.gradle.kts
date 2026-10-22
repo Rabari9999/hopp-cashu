@@ -64,6 +64,11 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         listOfNotNull(stamp, sha).joinToString("-")
     }
 val appVersion = "0.3.0"
+// A beta's versionCode: minutes since 2026 at its commit, so every beta handed on updates the one
+// before (delta audit 2026-10-22). Its own app id, so it never meets the release's codes.
+val betaVersionCode: Int? = (git("log", "-1", "--format=%ct")?.toLongOrNull()
+    ?: System.getenv("CI_COMMIT_TIMESTAMP")?.let { OffsetDateTime.parse(it).toEpochSecond() })
+    ?.let { ((it - 1_767_225_600L) / 60).coerceAtLeast(1).toInt() }
 val betaKeystore: File? = System.getenv("HOPP_BETA_KEYSTORE")?.let(::File)?.takeIf { it.isFile && System.getenv("HOPP_BETA_KEYSTORE_PASSWORD") != null }
 // The device check's emulators only (scripts/device-check.sh): a beta with the debug key, marked
 // "-local" — never one to hand on (security audit 2026-10-22, H-04).
@@ -196,6 +201,12 @@ tasks.named("preBuild") { dependsOn(syncIosVersion) }
 // Android before 14, in the Play build only.
 dependencies {
     "playImplementation"(libs.androidx.credentials.playServices)
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("beta")) { variant ->
+        betaVersionCode?.let { code -> variant.outputs.forEach { it.versionCode.set(code) } }
+    }
 }
 
 // No beta with the public debug key (security audit 2026-10-22, H-04): packaging one stops here,

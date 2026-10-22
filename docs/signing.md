@@ -59,11 +59,14 @@ Links Android verifies for Hopp (`/open`, ADR 0002) go to the release only;
    `HOPP_BETA_KEYSTORE_BASE64`, value pasted. Then the same for
    `HOPP_BETA_KEYSTORE_PASSWORD` (plus `HOPP_BETA_KEY_PASSWORD` if it differs,
    `HOPP_BETA_KEY_ALIAS` if not `hopp-beta`). The pipeline writes the keystore
-   out for the beta build and deletes it after.
+   out for the beta build — to a temporary file outside the project, readable
+   by the runner's user only, deleted however the build ends.
 3. The next pipeline on a protected branch signs the beta with it (protected
    variables reach protected branches and tags only — protect a release branch
    such as `0.3.0` to get its betas from CI). Testers install that beta once
    by hand after uninstalling the old one (another signature cannot update
-   it); from then on it updates as before.
+   it); from then on it updates as before — each beta's `versionCode` is the
+   minutes since 2026 at its commit, so a later beta always updates an earlier
+   one (the release keeps its own count).
 4. For a beta built on the Mac, the same three environment variables point at
    the keystore there (kept outside the repository, backed up like any key).

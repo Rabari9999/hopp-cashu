@@ -85,8 +85,10 @@ class SyncAuditTest {
 
     // ── H-01 ────────────────────────────────────────────────────────────────
 
-    /** A keyring the relays lost but for one, and that one down: no new keyring over it —
-     *  and a device holding the key gives it back to the relays that lost it. */
+    /** A keyring the relays lost but for one, and that one down, with only one other answering:
+     *  no new keyring over it — and a device holding the key gives it back to the relays that lost it.
+     *  (A majority answering without one may make one since the delta audit, MN-08: a keyring counts
+     *  as out only once a majority took it.) */
     @Test
     fun aKeyringOnTheOneRelayThatIsDownIsNotReplaced() = runBlocking<Unit> {
         val relays = Relays()
@@ -95,13 +97,15 @@ class SyncAuditTest {
         assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(phone.doc, interactive = true))
         val key = phone.syncKey()
 
-        // Two relays lose everything; the one still holding the keyring is down when a new phone starts.
+        // Two relays lose everything; the one still holding the keyring is down when a new phone starts,
+        // and so is one of the others: one relay of three answers.
         relays.byUrl[relays[1]] = FakeRelay(); relays.byUrl[relays[2]] = FakeRelay()
-        relays.down += relays[0]
+        relays.down += relays[0]; relays.down += relays[1]
         val fresh = Device(relays)
         val outcome = fresh.engine.sync(fresh.doc, interactive = true)
         assertIs<SyncOutcome.Failed>(outcome)
-        assertIs<SyncKeyringNotKnown>(outcome.error)
+        val error = assertIs<SyncKeyringNotKnown>(outcome.error)
+        assertEquals(1 to 3, error.answered to error.asked)
         assertEquals(1, relays.all().count { it.d() == SyncKeys.DTAG }, "a second keyring went out")
 
         // The old phone, started again, sends its keyring once more — the relays that lost it have it again.
@@ -111,6 +115,27 @@ class SyncAuditTest {
         relays.down += relays[0]
         assertIs<SyncOutcome.Done>(fresh.engine.sync(fresh.doc, interactive = true))
         assertEquals(key, fresh.syncKey())
+    }
+
+    // ── delta audit 2026-10-22 ──────────────────────────────────────────────
+
+    /** MN-08, the real case: one of three relays answers 503 on the very first sync. Two answering
+     *  to the end without a keyring is enough to make one; it goes to those two, and to the third
+     *  once that is back. */
+    @Test
+    fun aFirstKeyringIsMadeWithOneRelayOfThreeDown() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.down += relays[0]
+        val phone = Device(relays)
+        phone.record("show", "A")
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(phone.doc, interactive = true))
+        assertEquals(2, relays.all().count { it.d() == SyncKeys.DTAG })
+        relays.down.clear()
+        phone.ms += 2.minutes.inWholeMilliseconds
+        // A new run sends the keyring again: now on all three.
+        val again = Device(relays).also { it.ms = phone.ms; it.secrets.put("nostr_sync_key", phone.secrets.get("nostr_sync_key")) }
+        assertIs<SyncOutcome.Done>(again.engine.sync(again.doc))
+        assertEquals(3, relays.all().count { it.d() == SyncKeys.DTAG })
     }
 
     /** No background round makes a first keyring — only the listener turning sync on does. */
@@ -141,6 +166,217 @@ class SyncAuditTest {
         phone.record("show", "B")
         phone.engine.sync(phone.doc)
         assertEquals(renewed, phone.syncKey())
+    }
+
+    /** HN-02: a document in two parts read without its first: never "absent", never sent over. */
+    @Test
+    fun aDocumentWithoutItsFirstPartIsNotSentOver() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(90) { tablet.record("k$it", blob) }
+        tablet.engine.sync(tablet.doc, interactive = true)
+        assertTrue(relays.all().any { it.d() == "hopp/test#2" }, "the test needs two parts")
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        val before = relays.all().size
+
+        relays.byUrl.values.forEach { r -> r.hide = { it.d() == "hopp/test" } }
+        phone.ms += 1_000
+        phone.record("mine", "P")
+        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc))
+        relays.byUrl.values.forEach { r -> r.hide = { false } }
+        assertEquals(before, relays.all().size, "sent over a document read without its first part")
+        phone.engine.sync(phone.doc)
+        val third = Device(relays)
+        third.engine.sync(third.doc, interactive = true)
+        assertEquals((0 until 90).map { "k$it" }.toSet() + "mine", third.doc.applied.keys)
+    }
+
+    /** HN-03: a newer revision on two relays, an older one on the third — and only the third answers.
+     *  Nothing is sent over the newer one. */
+    @Test
+    fun anOldRelayAloneIsNotWrittenOverTheNewerMajority() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("first", "1")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        relays.down += relays[2]
+        tablet.ms += 2.minutes.inWholeMilliseconds
+        tablet.record("second", "2")
+        assertEquals(SyncOutcome.Done(0, true), tablet.engine.sync(tablet.doc))
+        relays.down.clear()
+
+        relays.down += relays[0]; relays.down += relays[1]
+        val phone = Device(relays).also { it.ms = tablet.ms + 1_000 }
+        phone.record("mine", "P")
+        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc, interactive = true))
+        relays.down.clear()
+        phone.engine.sync(phone.doc)
+        val third = Device(relays).also { it.ms = phone.ms }
+        third.engine.sync(third.doc, interactive = true)
+        assertEquals(setOf("first", "second", "mine"), third.doc.applied.keys)
+    }
+
+    /** HN-04: away for months, an entry removed elsewhere — and changed here while the removal is applied.
+     *  The change stays, in the store and in the app. */
+    @Test
+    fun aChangeWhileTheRemovalIsAppliedStays() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("old show", "S")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        tablet.ms += 1_000
+        tablet.record("old show", "S", deleted = true)
+        tablet.engine.sync(tablet.doc)
+        tablet.ms += 100.days.inWholeMilliseconds
+        tablet.record("new show", "N")
+        tablet.engine.sync(tablet.doc)
+
+        phone.ms += 100.days.inWholeMilliseconds
+        var once = true
+        phone.doc.during = { if (once) { once = false; phone.ms += 1_000; phone.record("old show", "changed meanwhile") } }
+        phone.engine.sync(phone.doc)
+        assertEquals("\"changed meanwhile\"", phone.store.entry("test", "old show")!!.d["v"].toString())
+        assertEquals("\"changed meanwhile\"", phone.doc.applied["old show"]!!.d["v"].toString(), "the app holds the change")
+        assertTrue(phone.store.unpublished("test"))
+    }
+
+    /** HN-05: a removal made offline, the device away for 100 days: the marker is not pruned unsent,
+     *  and the show does not come back. */
+    @Test
+    fun aRemovalNeverSentIsNotPruned() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("show", "S")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        relays.byUrl.values.forEach { it.readsFail = true }
+        phone.ms += 1_000
+        phone.record("show", "S", deleted = true)
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc))
+        relays.byUrl.values.forEach { it.readsFail = false }
+        phone.ms += 100.days.inWholeMilliseconds
+        phone.engine.sync(phone.doc)
+        assertEquals(true, phone.store.entry("test", "show")?.del, "the marker is kept")
+        val third = Device(relays).also { it.ms = phone.ms }
+        third.engine.sync(third.doc, interactive = true)
+        assertTrue("show" !in third.doc.applied.filterValues { !it.del }, "the show came back")
+    }
+
+    /** HN-07: a change made exactly while another device's entry is applied: the app ends with the change too. */
+    @Test
+    fun aChangeWhileApplyingEndsInTheAppToo() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("ep", "remote")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.ms += 1_000
+        var once = true
+        phone.doc.during = { if (once) { once = false; phone.ms += 1_000; phone.record("ep", "local-new") } }
+        phone.engine.sync(phone.doc, interactive = true)
+        assertEquals("\"local-new\"", phone.store.entry("test", "ep")!!.d["v"].toString())
+        assertEquals("\"local-new\"", phone.doc.applied["ep"]!!.d["v"].toString())
+    }
+
+    /** MN-02: a device whose clock is days ahead sent an entry; another device's next version keeps it. */
+    @Test
+    fun anEntryDatedFarAheadIsCarriedNotDropped() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays).also { it.ms += 3.days.inWholeMilliseconds }
+        tablet.record("future", "F")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        phone.record("mine", "P")
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(phone.doc, interactive = true))
+        assertTrue("future" !in phone.doc.applied, "not taken here")
+        val later = Device(relays).also { it.ms += 3.days.inWholeMilliseconds }
+        later.engine.sync(later.doc, interactive = true)
+        assertEquals(setOf("future", "mine"), later.doc.applied.keys)
+    }
+
+    /** MN-03: a key copy from before keyring times were kept, and a read that shows only an older keyring
+     *  (one relay down, the others without the newest): the key is not moved. */
+    @Test
+    fun anOldKeyCopyIsNotMovedByAPartialRead() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        phone.ms += 10_000
+        phone.engine.renewKey()
+        val renewed = phone.syncKey()
+        val held = Json.parseToJsonElement(phone.secrets.get("nostr_sync_key")!!) as JsonObject
+        phone.secrets.put("nostr_sync_key", JsonObject(held - "at" - "event").toString())
+        val restarted = Device(relays).also { it.ms = phone.ms + 2.minutes.inWholeMilliseconds; it.secrets.put("nostr_sync_key", phone.secrets.get("nostr_sync_key")) }
+        val newest = relays.all().filter { it.d() == SyncKeys.DTAG }.maxBy { it.created_at }.id
+        relays.byUrl.values.forEach { r -> r.hide = { it.id == newest } }
+        relays.down += relays[2]
+        restarted.engine.sync(restarted.doc)
+        assertEquals(renewed, restarted.syncKey())
+    }
+
+    /** MN-04: the keyring sent again to relays that lost it, the first try refused: tried again later. */
+    @Test
+    fun aRefusedKeyringResendIsTriedAgain() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        phone.engine.sync(phone.doc, interactive = true)
+        relays.byUrl[relays[1]] = FakeRelay(); relays.byUrl[relays[2]] = FakeRelay()
+        val again = Device(relays).also { it.secrets.put("nostr_sync_key", phone.secrets.get("nostr_sync_key")) }
+        relays.byUrl.values.forEach { it.rejectEvents = true }
+        again.engine.sync(again.doc)
+        assertEquals(1, relays.all().count { it.d() == SyncKeys.DTAG })
+        relays.byUrl.values.forEach { it.rejectEvents = false }
+        again.ms += 2.minutes.inWholeMilliseconds
+        again.engine.sync(again.doc)
+        assertEquals(3, relays.all().count { it.d() == SyncKeys.DTAG })
+    }
+
+    /** MN-05: the newest-event read counts only its own answer — another's CLOSED is not an end, its own CLOSED not complete. */
+    @Test
+    fun aLatestReadCountsOnlyItsOwnEnd() = runBlocking<Unit> {
+        val author = KeyPair.generate()
+        val list = Event.sign(author, 10002, "", listOf(listOf("r", "wss://a")), nowSeconds)
+        fun relay(ownEnd: String) = RelayConnector {
+            object : RelaySession {
+                val channel = Channel<String>(Channel.UNLIMITED)
+                override val incoming: Flow<String> = channel.consumeAsFlow()
+                override suspend fun send(message: String) {
+                    val arr = Json.parseToJsonElement(message).jsonArray
+                    if (arr[0].jsonPrimitive.content != "REQ") return
+                    val sub = arr[1].jsonPrimitive.content
+                    channel.send("""["CLOSED","not-$sub","error: test"]""")
+                    channel.send("""["EVENT","$sub",${Json.encodeToString(Event.serializer(), list)}]""")
+                    channel.send("""["$ownEnd","$sub"]""")
+                }
+                override suspend fun close() { channel.close() }
+            }
+        }
+        val whole = RelayPublisher(relay("EOSE")).latestChecked(10002, author.publicKeyHex, listOf("wss://r"))
+        assertEquals(list.id to true, whole.event?.id to whole.complete)
+        val closed = RelayPublisher(relay("CLOSED")).latestChecked(10002, author.publicKeyHex, listOf("wss://r"))
+        assertEquals(false, closed.complete)
+    }
+
+    /** MN-07: a round stopped halfway through applying: the next one applies all of it again. */
+    @Test
+    fun aRoundCancelledWhileApplyingIsTakenUpAgain() = runBlocking<Unit> {
+        val relays = Relays()
+        val tablet = Device(relays)
+        tablet.record("a", "1"); tablet.record("b", "2")
+        tablet.engine.sync(tablet.doc, interactive = true)
+        val phone = Device(relays)
+        var once = true
+        phone.doc.during = { if (once) { once = false; throw kotlinx.coroutines.CancellationException("app closed") } }
+        runCatching { phone.engine.sync(phone.doc, interactive = true) }
+        assertNull(phone.store.entry("test", "a"))
+        phone.engine.sync(phone.doc, interactive = true)
+        assertEquals(setOf("a", "b"), phone.doc.applied.keys)
+        assertEquals(setOf("a", "b"), phone.store.entries("test").keys)
     }
 
     // ── H-02 ────────────────────────────────────────────────────────────────

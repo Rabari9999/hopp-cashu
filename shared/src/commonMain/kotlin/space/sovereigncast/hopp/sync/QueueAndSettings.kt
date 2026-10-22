@@ -42,7 +42,8 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
                 if (e.del) done += key
                 continue
             }
-            queue.applySynced(id, if (e.del) null else e.d.long("sort") ?: 0)
+            // A place within what Hopp itself gives — one at the edge of a Long would wrap with the next "play last" (MN-06).
+            queue.applySynced(id, if (e.del) null else (e.d.long("sort") ?: 0).coerceIn(-QueueRepository.SORT_MAX, QueueRepository.SORT_MAX))
             done += key
         }
         return done

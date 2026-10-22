@@ -14,8 +14,8 @@ import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import kotlin.time.Duration.Companion.seconds
 
-/** No relay took a document: it stays unpublished and goes out on the next sync. */
-class SyncNotPublished : Exception("no relay took the sync document")
+/** Too few relays took a document ([took] of [asked]): it stays unpublished and goes out on the next sync. */
+class SyncNotPublished(val took: Int = 0, val asked: Int = 0) : Exception("$took of $asked relays took the sync event")
 
 /**
  * The relays' side of sync (ADR 0021, 5): a document's parts read back and
@@ -27,9 +27,12 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
 
     /**
      * The document as the relays hold it (audit 2026-10-22, H-02): [Fetched.Complete]
-     * only with every part of one revision opened; [Fetched.Absent] only when a
-     * majority of the relays answered to the end without it — a document goes
-     * out only to a majority too ([publish]), so the two always meet.
+     * only with every part of one revision opened, and [Fetched.Absent] only with
+     * no part at all — each only when a majority of the relays answered to the
+     * end. A document goes out only to a majority too ([publish]), so the two
+     * always meet: the newest revision is among what came (delta audit
+     * 2026-10-22, HN-03 — one old relay alone must not be written over the rest).
+     * Fewer: what came may be applied, never sent over ([Fetched.Incomplete]).
      */
     suspend fun fetch(signer: NostrSigner, doc: String, relays: List<String>): Fetched {
         val filter = buildJsonObject {
@@ -45,7 +48,8 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, events) -> events.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
         val majority = got.answered * 2 > got.asked
-        if (newest[1] == null) return if (majority) Fetched.Absent else Fetched.Unknown
+        // Absent only with no part at all: a later part without the first is a document read in part (HN-02).
+        if (newest.isEmpty()) return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
         val at = newest.values.maxOf { it.created_at }
         // A part that does not open or read makes the read incomplete, never smaller.
         val parts = newest.mapNotNull { (n, e) ->
@@ -53,7 +57,8 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val part = try { SyncCodec.decode(text) } catch (x: SerializationException) { null } catch (x: IllegalArgumentException) { null }
             part?.let { n to it }
         }.toMap()
-        return SyncCodec.join(parts)?.let { Fetched.Complete(it, at) } ?: Fetched.Incomplete(SyncCodec.joinWhatArrived(parts), at)
+        val whole = SyncCodec.join(parts)
+        return if (whole != null && majority) Fetched.Complete(whole, at) else Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at)
     }
 
     /**
@@ -74,7 +79,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val ok = publisher.publish(event, relays)
             took = took?.intersect(ok) ?: ok
         }
-        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished()
+        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size)
         return took
     }
 }

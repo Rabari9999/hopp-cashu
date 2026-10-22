@@ -49,19 +49,20 @@ class SyncTooLarge(val doc: String) : Exception("sync document $doc is larger th
  *  what arrived is taken, but nothing is sent over it — it would drop the rest (audit 2026-10-22, H-02). */
 class SyncIncomplete(val doc: String) : Exception("sync document $doc arrived only in part")
 
-/** Too few relays answered to tell what they hold: nothing is applied or sent. */
-class SyncNotReached : Exception("too few relays answered")
+/** Too few relays answered to tell what they hold ([answered] of [asked]): nothing is applied or sent. */
+class SyncNotReached(val answered: Int = 0, val asked: Int = 0) : Exception("$answered of $asked relays answered")
 
-/** What a read of a document came to (audit 2026-10-22, H-02): only [Complete] and [Absent] may be written over. */
+/** What a read of a document came to (audit 2026-10-22, H-02): only [Complete] and [Absent] may be written over —
+ *  each read from a majority of the relays (delta audit 2026-10-22, HN-02/HN-03). */
 sealed interface Fetched {
     /** Every part of one revision; [newestAt]: the newest event's time, seconds — a new version must be later. */
     data class Complete(val entries: Map<String, SyncEntry>, val newestAt: Long) : Fetched
     /** A majority of the relays answered to the end, and none holds the document. */
     data object Absent : Fetched
-    /** Some of it: [entries] may be applied, never published over. */
+    /** Some of it, or from too few relays: [entries] may be applied, never published over. */
     data class Incomplete(val entries: Map<String, SyncEntry>, val newestAt: Long) : Fetched
-    /** Too few relays answered to tell. */
-    data object Unknown : Fetched
+    /** Too few relays answered to tell: [answered] of [asked]. */
+    data class Unknown(val answered: Int, val asked: Int) : Fetched
 }
 
 /**

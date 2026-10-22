@@ -413,7 +413,7 @@ switches.
      few relays answering is *not known*: nothing happens.
    - **The keyring.** Made only by the listener turning sync on (never by a
      round in the background), and only when *every* write relay answered
-     to the end without one. A device keeps the keyring event with the key
+     to the end without one (a majority since the delta audit, below). A device keeps the keyring event with the key
      and sends it once a run to the relays again, so one that lost it gets
      it back; a keyring older than the one it holds is never taken (NIP-01
      order: later, or the same second and the lower id).
@@ -442,6 +442,36 @@ switches.
    answered is still not proof against relays that lie; a changed relay
    list breaks the overlap of reads and writes until the documents went out
    again. Tests: `SyncAuditTest`, `SyncCoreTest`, `BunkerTest`.
+   *Amended again 2026-10-22 (delta audit of the same day, on 94687cc):*
+   - **Majorities, both ways.** A complete read counts as a base to write
+     over only when a majority answered to the end — one old relay alone is
+     never written over the newer rest; a document with any part but its
+     first is *incomplete*, not absent. The first keyring follows the same
+     rule instead of waiting for every relay (one relay answering 503 had
+     stopped every first device): made when a majority answered without
+     one, and counted as out only once a majority took it. Until then the
+     device keeps it and sends it again — it never makes a second one; a
+     resend counts only once a majority took it. A key copy from before
+     keyring times were kept moves only on a read every relay answered.
+   - **Nothing local is lost in between.** What a device had without a time
+     when sync was turned on (settings, the queue's order) is kept in the
+     store as a seed until the relays hold a value or took it — a failed
+     first round or an app closed meanwhile loses nothing, and a seed always
+     gives way to a value from elsewhere. Removals and rebases delete an
+     entry only as it was and once sent; a change made while another
+     device's entry was applied goes back into the app. A removal marker is
+     pruned only once the relays took it. An entry dated far ahead is
+     carried along in what goes out, not dropped. A round stopped while
+     applying applies again next time — the store moves only after the app.
+   - **Renewing the key** happens in order, each step only after the last
+     went through: a round with nothing waiting or unsent; the new keyring;
+     every document under it; a second round that finds them all there;
+     only then are the old key's documents emptied — by any device that
+     moved off a key, after its own round went through. The page says
+     whether it finished, or that it finishes on the next syncs.
+   - The Nostr page names what the relays did ("2 of 3 relays answered"),
+     not "no relay" for every failure. Tests: `SyncAuditTest`, `SyncKeysTest`,
+     `QueueAndSettingsSyncTest`, `SyncMigrationTest`.
 
 ## Consequences
 

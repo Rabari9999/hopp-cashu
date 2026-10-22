@@ -41,7 +41,12 @@ class SyncKeysTest {
     private class Doc : SyncedDocument {
         override val name = "test"
         val applied = mutableMapOf<String, SyncEntry>()
-        override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> { applied += entries; return entries.keys }
+        /** Entries this device cannot apply yet — a feed out of reach. */
+        var notYet = emptySet<String>()
+        override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
+            val now = entries.filterKeys { it !in notYet }
+            applied += now; return now.keys
+        }
         override suspend fun snapshot(): Map<String, SyncEntry> = emptyMap()
     }
 
@@ -195,7 +200,7 @@ class SyncKeysTest {
         phone.ms += 2 * 60_000
         phone.record("show-b", "B")
         val asked = phoneApp.requests.size
-        assertTrue(phone.sync.renewKey())
+        assertEquals(Renewal.Done, phone.sync.renewKey())
         assertEquals(listOf("nip44_encrypt", "sign_event:${Nip78.KIND}"), phoneApp.requests.drop(asked))
         assertNotEquals(old, phone.keys.signer(interactive = false)!!.pubkey)
 
@@ -231,8 +236,51 @@ class SyncKeysTest {
         phone.sync.enable()
         val ring = keyrings(app.keys.publicKeyHex).single()
         app.reject = true
-        assertEquals(false, phone.sync.renewKey())
+        assertEquals(Renewal.NotRenewed, phone.sync.renewKey())
         assertEquals(listOf(ring.id), keyrings(app.keys.publicKeyHex).map { it.id })
         assertEquals(SyncOutcome.Done(0, false), phone.engine.sync(phone.doc))
+    }
+
+    // ── delta audit 2026-10-22, HN-06 / MN-10 ────────────────────────────────
+
+    /** Something from elsewhere this device cannot apply yet: the old key is not renewed away from it. */
+    @Test
+    fun aRenewalWaitsUntilNothingIsLeftWaiting() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val ring = keyrings(app.keys.publicKeyHex).single()
+        val tablet = Device(FakeSignerApp(app.keys))
+        tablet.doc.notYet = setOf("show-a")
+        tablet.sync.enable()
+        assertEquals(1, tablet.sync.status.value.pending)
+        tablet.ms += 2 * 60_000
+        assertEquals(Renewal.NotRenewed, tablet.sync.renewKey())
+        assertEquals(listOf(ring.id), keyrings(app.keys.publicKeyHex).map { it.id })
+    }
+
+    /** The new keyring goes out, the documents under it do not: the old key's documents stay whole, and
+     *  it is not called done — a later round finishes it, and only then is the old one emptied. */
+    @Test
+    fun aRenewalWhoseDocumentsDoNotGoOutKeepsTheOldOnes() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val old = phone.keys.signer(interactive = false)!!.pubkey
+        phone.ms += 2 * 60_000
+        // Only the listener's own events (the keyring) are taken.
+        relay.refuse = { it.pubkey != app.keys.publicKeyHex }
+        assertEquals(Renewal.Unfinished, phone.sync.renewKey())
+        assertTrue(stored().filter { it.pubkey == old }.all { it.content.isNotEmpty() }, "the old documents were emptied")
+        relay.refuse = { false }
+        phone.ms += 2 * 60_000
+        phone.sync.syncNow()
+        val fresh = Device(FakeSignerApp(app.keys))
+        fresh.sync.enable()
+        assertEquals(setOf("show-a"), fresh.doc.applied.keys)
+        stored().filter { it.pubkey == old }.groupBy { e -> e.tags.first { it[0] == "d" }[1] }.values
+            .forEach { versions -> assertEquals("", versions.maxBy { it.created_at }.content) }
     }
 }

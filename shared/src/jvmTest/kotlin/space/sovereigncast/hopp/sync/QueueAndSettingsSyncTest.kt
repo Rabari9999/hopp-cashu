@@ -11,6 +11,7 @@ import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** "Up next" and listening habits in step over Nostr (package 5 of docs/tasks/nostr-sync.md). */
 class QueueAndSettingsSyncTest {
@@ -82,6 +83,50 @@ class QueueAndSettingsSyncTest {
         phone.sync.syncNow()
         assertEquals(30, phone.settings.current().skipBackSeconds)
         assertEquals(21_000, phone.settings.current().dailyBudgetSats)
+    }
+
+    /**
+     * Delta audit 2026-10-22, HN-01 (seen live: one relay answering 503): the first round fails, the app is
+     * started again, sync goes through later — "Up next" and the settings still arrive on the next device,
+     * and that device's defaults do not come back over them.
+     */
+    @Test
+    fun aFirstSyncThatFailsKeepsUpNextAndSettings() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val e296 = guids(phone)[1]
+        phone.queue.playLast(phone.id(e296))
+        phone.settings.update { it.copy(skipBackSeconds = 5, skipForwardSeconds = 45, defaultSpeed = 1.3f) }
+        relay.readsFail = true
+        assertTrue(phone.sync.enable().problem != null)
+        relay.readsFail = false
+
+        val restarted = SyncDevice(relay, scope, nsec, db = phone.db, secrets = phone.secrets).also { it.ms = phone.ms + 60_000 }
+        assertEquals(null, restarted.sync.syncNow(interactive = true).problem)
+
+        val tablet = SyncDevice(relay, scope, nsec).also { it.ms = restarted.ms + 60_000 }
+        tablet.sync.enable()
+        assertEquals(listOf(e296), tablet.queueGuids())
+        val t = tablet.settings.current()
+        assertEquals(Triple(5, 45, 1.3f), Triple(t.skipBackSeconds, t.skipForwardSeconds, t.defaultSpeed))
+
+        restarted.ms = tablet.ms + 60_000
+        restarted.sync.syncNow()
+        val p = restarted.settings.current()
+        assertEquals(Triple(5, 45, 1.3f), Triple(p.skipBackSeconds, p.skipForwardSeconds, p.defaultSpeed))
+    }
+
+    /** Delta audit 2026-10-22, MN-06: a place at the very end of a Long from elsewhere does not send the next
+     *  "play last" to the front. */
+    @Test
+    fun aPlaceAtTheEndOfALongDoesNotWrap() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (first, second) = guids(phone).take(2)
+        val show = SyncDocs.showKey(phone.row(feed).podcast_guid, feed)
+        QueueDocument(phone.db, phone.queue).apply(mapOf(SyncDocs.queueKey(show, first) to SyncEntry(phone.ms, d = SyncDocs.queued(show, first, Long.MAX_VALUE))))
+        phone.queue.playLast(phone.id(second))
+        assertEquals(listOf(first, second), phone.queueGuids())
     }
 
     /** What was hidden under Home's "Take part" stays hidden on the other device (device feedback 2026-10-22). */

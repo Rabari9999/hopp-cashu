@@ -57,6 +57,32 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
     /** Entries no device needs any more, gone without a marker. */
     fun remove(doc: String, keys: Set<String>) = db.transaction { keys.forEach { q.removeEntry(doc, it) } }
 
+    /**
+     * Of [entries], those still here as they were and taken by the relays — removed; the keys
+     * removed. One changed here meanwhile stays (delta audit 2026-10-22, HN-04).
+     */
+    fun removeIfSent(doc: String, entries: Map<String, SyncEntry>): Set<String> = db.transactionWithResult {
+        entries.filter { (key, e) -> q.removeIfSent(doc, key, e.t); q.entry(doc, key).executeAsOneOrNull() == null }.keys
+    }
+
+    /**
+     * What this device had when sync was turned on, without a time (settings, the queue's
+     * order): kept until the relays have a value for it or took it (delta audit 2026-10-22,
+     * HN-01) — a first round that failed, or an app closed meanwhile, loses nothing.
+     */
+    fun seed(doc: String, entries: Map<String, SyncEntry>) = db.transaction {
+        entries.forEach { (key, e) -> if (q.entry(doc, key).executeAsOneOrNull() == null) put(doc, key, e.copy(t = 0), pending = true) }
+    }
+
+    /** Of [keys], the seeds still waiting here. */
+    fun seeds(doc: String): Set<String> = db.transactionWithResult {
+        val pending = pendingKeys(doc)
+        entries(doc).filter { (k, e) -> e.t == 0L && k in pending }.keys
+    }
+
+    /** Seeds the relays hold a value for: theirs is taken instead. */
+    fun dropSeeds(doc: String, keys: Set<String>) = db.transaction { keys.forEach { q.removeSeed(doc, it) } }
+
     /** Removal markers older than [beforeMs] go: by then every device has seen them. */
     fun pruneRemoved(doc: String, beforeMs: Long) = q.pruneRemoved(doc, beforeMs)
 

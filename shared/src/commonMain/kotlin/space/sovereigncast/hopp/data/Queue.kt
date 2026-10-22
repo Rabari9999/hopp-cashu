@@ -45,12 +45,12 @@ class QueueRepository(
     }
 
     suspend fun playNext(episodeId: Long) = withContext(Dispatchers.IO) {
-        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.minKey().executeAsOne() - 1) }
+        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.minKey().executeAsOne().coerceIn(-SORT_MAX, SORT_MAX) - 1) }
         note(listOf(episodeId))
     }
 
     suspend fun playLast(episodeId: Long) = withContext(Dispatchers.IO) {
-        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.maxKey().executeAsOne() + 1) }
+        db.transaction { qq.remove(episodeId); qq.put(episodeId, qq.maxKey().executeAsOne().coerceIn(-SORT_MAX, SORT_MAX) + 1) }
         note(listOf(episodeId))
     }
 
@@ -68,4 +68,10 @@ class QueueRepository(
     }
 
     suspend fun peek(): Long? = withContext(Dispatchers.IO) { qq.first().executeAsOneOrNull() }
+
+    companion object {
+        /** The farthest place in "Up next" — far beyond any real queue, and never near a Long's end
+         *  (delta audit 2026-10-22, MN-06: a place from sync at Long.MAX_VALUE wrapped to the front). */
+        const val SORT_MAX = 1_000_000_000_000_000L
+    }
 }
