@@ -23,6 +23,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Downloads:** Switch automatic downloads off altogether – then only what you download yourself is fetched.
 
 ### 🐛 Fixes
+- **Sovereigncast:** A Release Boosting round at its goal shows a tick and asks for no more boosts – the episode can’t come out any earlier.
 - **Downloads:** Automatic downloads no longer go on over mobile data once Wi-Fi is gone.
 - **Player:** An episode you leave for another goes back to the top of "Up next" and plays on after it.
 - **Player:** After a restart the episode you listened to last is back in the player, where you left it.

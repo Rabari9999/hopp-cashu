@@ -268,6 +268,8 @@
     <string name="sc_rb_name">Release Boosting</string>
     <string name="sc_b2u_name">Boost2Unlock</string>
     <string name="sc_details">Details</string>
+    <string name="sc_goal_reached">Goal reached</string>
+    <string name="sc_rb_reached_long">Goal reached – the episode can’t come out any earlier.</string>
     <string name="sc_publish_long">Comes out %1$s</string>
     <string name="sc_chain">%1$d of %2$d blocks mined · %3$s sats each</string>
     <string name="sc_clip_at_block">A clip unlocks at block %1$d</string>

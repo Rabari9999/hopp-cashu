@@ -23,6 +23,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Downloads:** Automatisches Herunterladen ganz abschalten – dann lädt nur, was du selbst herunterlädst.
 
 ### 🐛 Fixes
+- **Sovereigncast:** Eine Release-Boosting-Runde am Ziel zeigt einen Haken und bittet um keine weiteren Boosts – früher kann die Folge nicht erscheinen.
 - **Downloads:** Automatische Downloads laufen nicht mehr über mobile Daten weiter, sobald das WLAN weg ist.
 - **Player:** Eine Folge, die du für eine andere verlässt, kommt wieder an die Spitze von „Als Nächstes“ und läuft danach weiter.
 - **Player:** Nach einem Neustart ist die zuletzt gehörte Folge wieder im Player, dort wo du aufgehört hast.

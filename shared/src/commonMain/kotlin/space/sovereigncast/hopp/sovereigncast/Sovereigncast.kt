@@ -70,6 +70,9 @@ data class ShowAction(
     val podcastGuid: String = "",
 ) {
     enum class Kind { ReleaseBoosting, Boost2Unlock, Suggestions }
+
+    /** A Release Boosting round at its goal ([ReleaseBoostingRound.reached]). */
+    val reached: Boolean get() = kind == Kind.ReleaseBoosting && goalSats in 1..raisedSats
 }
 
 class InvoiceMismatch(message: String) : Exception(message)
@@ -305,6 +308,10 @@ class SovereigncastRepository(
             ?.takeIf { it.startsWith("https://") && it.length > "https://".length }
     }
 }
+
+/** The round reached its goal: the episode comes out at the earliest it can, and more sats would not
+ *  bring it any closer — Hopp offers no boost for it then (maintainer, 2026-10-23). */
+val ReleaseBoostingRound.reached: Boolean get() = goalSats in 1..raisedSats
 
 /** An amount that does the whole job at once: [publishesNow] — the episode comes out
  *  with it; otherwise it fills the round to its goal (the earliest release). */

@@ -166,6 +166,8 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
 }
 /** Whether the round's halving clip is unlocked, settable per test. */
 private var clipUnlocked = false
+/** What the round has raised so far, settable per test (its goal is 15 120). */
+private var roundRaised = 210L
 /** A suggestion submitted in this test run, listed once there. */
 private var submitted: String? = null
 private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
@@ -177,7 +179,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
         "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
-        "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
+        "goal_sats":15120,"raised_sats":$roundRaised,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":${if (clipUnlocked) """{"unlocked":true,"at_block":36,"title":"Halving-Clip","duration_seconds":42,"url":"https://pm.test/api/listener/v1/shows/$SC_GUID/release-boosting/clip"}""" else """{"unlocked":false,"at_block":36}"""}},"poll_after_seconds":60}""")
     // A new suggestion: the invoice is its spam filter (phase 2).
     post && path.endsWith("/suggestions") -> { submitted = lastScPost?.let { Regex("\"title\":\"([^\"]*)\"").find(it)?.groupValues?.get(1) }; respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created) }
@@ -1233,6 +1235,28 @@ class AndroidAppFlowTest {
         check(has("🔒 A clip unlocks at block 36")) { screen().toString() }
         tapTop("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
+    }
+
+    /** A round at its goal (maintainer, 2026-10-23): a tick, and no boost or community page offered for it. */
+    @Test
+    fun aRoundAtItsGoalOffersNoMoreBoosts() {
+        roundRaised = 15_120
+        try {
+            rule.setContent { App() }
+            tap("Discover"); subscribe("https://pod.test/sc.xml")
+            waitFor("E297 - BTC++ Berlin")
+            waitFor("✓ Goal reached", substring = true)
+            rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+            waitFor("Goal reached – the episode can’t come out any earlier.")
+            check(!has("Open the community page")) { screen().toString() }
+            check(rule.onAllNodes(hasText("Boost") and hasClickAction()).fetchSemanticsNodes().none { n ->
+                n.boundsInRoot.top > rule.onNode(hasText("Goal reached – the episode can’t come out any earlier.")).fetchSemanticsNode().boundsInRoot.top
+            }) { "a boost is still offered below the tick: ${screen()}" }
+            back()
+            tap("Home")
+            waitFor("RELEASE BOOSTING · Nodesignal")
+            waitFor("Goal reached", substring = true)
+        } finally { roundRaised = 210 }
     }
 
     /** A suggestion opens in full, and can be voted on from there. */

@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenu
@@ -307,11 +308,18 @@ private fun ShowActionRow(a: ShowAction, onHide: (String) -> Unit, modifier: Mod
                 modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
                 color = Hopp.colors.value, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
             )
-            Text(
-                stringResource(Res.string.sc_progress, formatSats(a.raisedSats), formatSats(a.goalSats)) +
-                    (a.publishAt?.let { " · " + stringResource(Res.string.sc_publish_at, formatIsoShort(it)) } ?: ""),
-                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // At its goal: a tick, and nothing more to boost (maintainer, 2026-10-23).
+                if (a.reached) {
+                    Icon(Icons.Rounded.CheckCircle, null, tint = Hopp.colors.ok, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    (if (a.reached) stringResource(Res.string.sc_goal_reached) else stringResource(Res.string.sc_progress, formatSats(a.raisedSats), formatSats(a.goalSats))) +
+                        (a.publishAt?.let { " · " + stringResource(Res.string.sc_publish_at, formatIsoShort(it)) } ?: ""),
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         TakePartMenu(a, menu, { menu = it }, onHide)
     }
