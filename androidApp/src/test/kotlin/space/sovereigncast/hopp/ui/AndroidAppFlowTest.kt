@@ -1615,6 +1615,9 @@ class AndroidAppFlowTest {
         waitFor("RELEASE BOOSTING · Nodesignal")
         // This round only: the suggestions stay.
         rule.onAllNodes(hasText("E297 - BTC++ Berlin") and hasClickAction()).onFirst().performTouchInput { longClick() }
+        waitFor("Hide this round")
+        // Suggestions are offered only on a suggestion (device feedback 2026-10-23).
+        check(!has("Hide suggestions from Nodesignal")) { screen().toString() }
         tap("Hide this round")
         until { !has("RELEASE BOOSTING · Nodesignal") }
         check(has("Topics awaiting your vote: 1")) { screen().toString() }
@@ -1625,7 +1628,7 @@ class AndroidAppFlowTest {
         check(settings().takePartHidden.isEmpty())
         // The whole show: "Take part" is empty and goes; "Your shows" keeps the show.
         rule.onAllNodes(hasText("Topics awaiting your vote: 1") and hasClickAction()).onFirst().performTouchInput { longClick() }
-        tap("Nothing from Nodesignal here")
+        tap("Hide everything from Nodesignal")
         until { !has("Take part") }
         check(has("Your shows")) { screen().toString() }
         // Back from "Customize Home".

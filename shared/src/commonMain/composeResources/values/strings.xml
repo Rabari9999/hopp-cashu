@@ -544,7 +544,7 @@
     <string name="take_part_hide_round">Hide this round</string>
     <string name="take_part_hide_unlock">Hide this episode</string>
     <string name="take_part_hide_suggestions">Hide suggestions from %1$s</string>
-    <string name="take_part_hide_show">Nothing from %1$s here</string>
+    <string name="take_part_hide_show">Hide everything from %1$s</string>
     <string name="take_part_hidden_done">Hidden from “Take part”</string>
     <string name="take_part_undo">Undo</string>
     <string name="take_part_hidden_title">Hidden under “Take part”</string>
@@ -845,7 +845,7 @@
     <string name="sync_renew_text">For a lost device or a browser you no longer use: your library gets a new key, and the old one opens nothing that comes after. Your other devices ask your signer once, then go on. End the old session in your signer app too.</string>
     <string name="sync_renew_confirm">Renew</string>
     <string name="sync_renewed">✓ New sync key. Your other devices ask your signer once.</string>
-    <string name="sync_renew_failed">Not renewed — a sync did not get through first, something still waits to go out, or your signer or the relays said no. Nothing changed.</string>
+    <string name="sync_renew_failed">Not renewed — a sync did not get through first, something still waits to go out, or your signer said no. Nothing changed.</string>
     <string name="onboarding_nostr_sync">your library and progress on every device — encrypted, no Hopp server</string>
     <string name="onboarding_returning">I already use Hopp</string>
     <string name="nostr_restore_hint">Sign in with the Nostr key of your other device — Hopp then brings your library back.</string>
@@ -872,6 +872,7 @@
     <string name="sync_restored">✓ In step with your other devices.</string>
     <string name="home_sync_label">Sync</string>
     <string name="home_sync_done">In sync</string>
+    <string name="home_sync_pending">Waiting to sync</string>
     <string name="home_sync_not_done">Not in sync</string>
     <string name="home_sync_when">%1$s · over Nostr</string>
     <string name="home_sync_last">Last in sync</string>

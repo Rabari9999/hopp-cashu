@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -44,7 +45,7 @@ data class SyncStatus(
 enum class Renewal {
     /** New key, every document out and read back under it, the old one's gone. */
     Done,
-    /** Nothing changed: a round did not get through first, something waits here, or the signer or relays said no. */
+    /** Nothing changed: a round did not get through first, something waits here, or the signer said no. */
     NotRenewed,
     /** The new key is there; its documents are not all out yet, or the old ones not yet gone —
      *  the old ones stay until they are, and later rounds finish it. */
@@ -76,7 +77,11 @@ class SyncManager(
     private var pending: Job? = null
 
     init {
-        journal.onChange = { _, urgent -> schedule(urgent) }
+        journal.onChange = { _, urgent ->
+            schedule(urgent)
+            // A change waits here from now on, not only once the next round says so (delta audit 3 2026-10-22, ND-04).
+            runCatching { engine.toSend() }.getOrNull()?.let { n -> _status.update { it.copy(toSend = n) } }
+        }
         scope.launch { settings.settings.map { it.nostrSync }.distinctUntilChanged().collect { journal.enabled = it } }
     }
 
@@ -161,9 +166,9 @@ class SyncManager(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: SyncNotPublished) {
-            // Out on too few relays: the new key stands here and goes again; nothing retired.
-            if (e.took > 0) return Renewal.Unfinished
-            return Renewal.NotRenewed
+            // Out on too few relays — or none said so, and one may have kept it all the same (delta audit 3,
+            // MN-08/E02): the new key stands here and goes again; nothing retired.
+            return Renewal.Unfinished
         } catch (e: Exception) {
             return Renewal.NotRenewed
         }

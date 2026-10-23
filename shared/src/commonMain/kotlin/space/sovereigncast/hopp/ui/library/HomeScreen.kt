@@ -298,7 +298,7 @@ private fun ShowActionRow(a: ShowAction, onHide: (String) -> Unit, modifier: Mod
         Cover(a.showImage, 44.dp, corner = 10.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                stringResource(if (a.kind == ShowAction.Kind.ReleaseBoosting) Res.string.sc_rb_label else Res.string.sc_b2u_label) + " · " + a.showTitle,
+                stringResource(if (a.kind == ShowAction.Kind.ReleaseBoosting) Res.string.sc_rb_label else Res.string.sc_b2u_label) + " · " + TakePart.shortTitle(a.showTitle),
                 style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(a.episodeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -327,19 +327,17 @@ private fun TakePartMenu(a: ShowAction, open: Boolean, onOpen: (Boolean) -> Unit
         }
         DropdownMenu(expanded = open, onDismissRequest = { onOpen(false) }) {
             fun pick(key: String) { onOpen(false); onHide(key) }
+            val title = TakePart.shortTitle(a.showTitle)
+            // Suggestions are offered only on a suggestion (device feedback 2026-10-23).
             TakePart.itself(a)?.let { key ->
                 val label = when (a.kind) {
                     ShowAction.Kind.ReleaseBoosting -> stringResource(Res.string.take_part_hide_round)
                     ShowAction.Kind.Boost2Unlock -> stringResource(Res.string.take_part_hide_unlock)
-                    ShowAction.Kind.Suggestions -> stringResource(Res.string.take_part_hide_suggestions, a.showTitle)
+                    ShowAction.Kind.Suggestions -> stringResource(Res.string.take_part_hide_suggestions, title)
                 }
                 DropdownMenuItem(text = { Text(label) }, onClick = { pick(key) })
             }
-            if (a.kind != ShowAction.Kind.Suggestions) DropdownMenuItem(
-                text = { Text(stringResource(Res.string.take_part_hide_suggestions, a.showTitle)) },
-                onClick = { pick(TakePart.suggestions(a.podcastGuid)) },
-            )
-            DropdownMenuItem(text = { Text(stringResource(Res.string.take_part_hide_show, a.showTitle)) }, onClick = { pick(TakePart.show(a.podcastGuid)) })
+            DropdownMenuItem(text = { Text(stringResource(Res.string.take_part_hide_show, title)) }, onClick = { pick(TakePart.show(a.podcastGuid)) })
         }
     }
 }
@@ -501,7 +499,7 @@ private fun SuggestionsRow(a: ShowAction, onHide: (String) -> Unit, modifier: Mo
     ) {
         Cover(a.showImage, 44.dp, corner = 10.dp)
         Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.home_suggestions_label) + " · " + a.showTitle, style = MaterialTheme.typography.labelSmall,
+            Text(stringResource(Res.string.home_suggestions_label) + " · " + TakePart.shortTitle(a.showTitle), style = MaterialTheme.typography.labelSmall,
                 color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(stringResource(Res.string.home_suggestions_waiting, a.waiting), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

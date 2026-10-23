@@ -508,6 +508,20 @@ switches.
      numbered afresh before a place at its edge. Tests: `SyncAuditTest`,
      `SyncKeysTest`, `SubscriptionsSyncTest`, `QueueAndSettingsSyncTest`,
      `SyncMigrationTest`.
+   *Amended a fourth time 2026-10-22 (third delta audit, on 309dd16 —
+   approved for a controlled beta):*
+   - **Every keyring is committed by a majority before anything is sealed
+     with it** — one read from the relays (another device's, or the winner
+     of two made at once) too: one relay may be all that has it, so this
+     device sends it on and waits. A renewal keeps its new keyring before it
+     goes out; no relay saying it took it is no proof none did, so it is
+     "unfinished" and finished by later rounds, never "nothing changed".
+   - **The player follows a position from elsewhere when the episode is
+     only shown after a restart,** and plays from what the database has
+     when it is first loaded — it had played from the old place and saved
+     that over the new one.
+   - **Home's tick means nothing waits:** a change made here shows as
+     waiting at once, as does the time before the first round.
 
 ## Consequences
 

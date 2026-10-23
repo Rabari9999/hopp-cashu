@@ -375,7 +375,12 @@ class PlayerController(
         val s = engine.state.value
         // Restored after a restart and not loaded yet: loaded now, from where it was.
         val shown = _current.value?.item
-        if (shown != null && s.itemId != shown.id.toString() && _remoteClip.value == null) { play(shown, expand = _expanded.value); return }
+        if (shown != null && s.itemId != shown.id.toString() && _remoteClip.value == null) {
+            // As the database has it now: a position from another device may have come since it was shown (delta audit 3 2026-10-22, ND-03).
+            val expand = _expanded.value
+            scope.launch { play(episodes.item(shown.id) ?: shown, expand) }
+            return
+        }
         if (s.isPlaying || s.isBuffering) engine.pause() else engine.play()
     }
     /** Whether episode [id] is playing here now — sync leaves its position alone until it pauses. */
@@ -383,16 +388,20 @@ class PlayerController(
 
     /**
      * Progress from another device (sync, ADR 0021 5) for the episode loaded
-     * here and paused: playing on starts where the listener stopped there, not
-     * where the player still stands.
+     * here and paused — or only shown, after a restart (delta audit 3 2026-10-22,
+     * ND-03: it played from the old place and saved that over the new one):
+     * playing on starts where the listener stopped there, not where the player
+     * still stands. One playing here is left alone.
      */
     fun adoptProgress(id: Long, positionMs: Long, played: Boolean) {
         val s = engine.state.value
-        if (s.itemId != id.toString() || s.isPlaying) return
+        val loaded = s.itemId == id.toString()
+        if (loaded && s.isPlaying) return
+        val shown = _current.value?.takeIf { it.item.id == id }
+        if (!loaded && shown == null) return
         val at = if (played) 0 else positionMs
-        engine.seekTo(at)
-        lastSaved = at
-        _current.value?.takeIf { it.item.id == id }?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
+        if (loaded) { engine.seekTo(at); lastSaved = at }
+        shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
     }
 
     fun seekTo(ms: Long) {

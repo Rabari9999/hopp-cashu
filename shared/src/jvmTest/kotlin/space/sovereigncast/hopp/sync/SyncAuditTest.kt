@@ -217,7 +217,10 @@ class SyncAuditTest {
         relays.down += relays[0]; relays.down += relays[1]
         val phone = Device(relays).also { it.ms = tablet.ms + 1_000 }
         phone.record("mine", "P")
-        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc, interactive = true))
+        // Incomplete — or, since delta audit 3 (MN-08/E01), not even started: a new device does not use a
+        // keyring only the one relay answering holds. Either way nothing goes out over the newer one.
+        val outcome = phone.engine.sync(phone.doc, interactive = true)
+        assertTrue(outcome is SyncOutcome.Incomplete || outcome is SyncOutcome.Failed, outcome.toString())
         relays.down.clear()
         phone.engine.sync(phone.doc)
         val third = Device(relays).also { it.ms = phone.ms }
@@ -584,6 +587,33 @@ class SyncAuditTest {
         val fresh = Device(relays).also { it.ms = phone.ms }
         fresh.engine.sync(fresh.doc, interactive = true)
         assertEquals(setOf("show"), fresh.doc.applied.keys)
+    }
+
+    // ── delta audit 3 2026-10-22 ────────────────────────────────────────────
+
+    /** MN-08, E01: a keyring on one relay of three only, read by another device: nothing sealed with it
+     *  there either until a majority has it — the device sends it on itself. */
+    @Test
+    fun aKeyringReadFromOneRelayIsNotUsedUntilAMajorityHasIt() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.byUrl[relays[1]]!!.refuse = { it.d() == SyncKeys.DTAG }; relays.byUrl[relays[2]]!!.refuse = { it.d() == SyncKeys.DTAG }
+        val first = Device(relays)
+        assertIs<SyncOutcome.Failed>(first.engine.sync(first.doc, interactive = true))
+        val ring = relays.all().single { it.d() == SyncKeys.DTAG }
+        val second = Device(relays).also { it.ms = first.ms + 1_000 }
+        second.record("show", "B")
+        assertIs<SyncOutcome.Failed>(second.engine.sync(second.doc, interactive = true))
+        assertTrue(relays.all().none { it.d() == "hopp/test" }, "a document went out under a keyring one relay holds")
+        assertTrue(second.store.unpublished("test"))
+
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        second.ms += 2.minutes.inWholeMilliseconds
+        assertIs<SyncOutcome.Done>(second.engine.sync(second.doc))
+        assertEquals(3, relays.all().count { it.id == ring.id })
+        relays.down += relays[0]
+        val third = Device(relays).also { it.ms = second.ms }
+        third.engine.sync(third.doc, interactive = true)
+        assertEquals(setOf("show"), third.doc.applied.keys)
     }
 
     // ── H-02 ────────────────────────────────────────────────────────────────

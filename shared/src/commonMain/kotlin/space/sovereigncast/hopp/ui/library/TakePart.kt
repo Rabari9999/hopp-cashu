@@ -27,6 +27,21 @@ object TakePart {
     fun hides(hidden: Collection<String>, a: ShowAction): Boolean =
         a.podcastGuid.isNotEmpty() && (show(a.podcastGuid) in hidden || itself(a)?.let { it in hidden } == true)
 
+    /**
+     * A show's name short enough for a label and a menu line (device feedback 2026-10-23: "Nodesignal -
+     * Deine Bitcoin-Frequenz"): a long one up to its first " - ", " – ", " | " or ": " — the name
+     * before the tagline — else cut with "…".
+     */
+    fun shortTitle(title: String, max: Int = SHORT_TITLE): String {
+        val t = title.trim()
+        if (t.length <= max) return t
+        val head = listOf(" - ", " – ", " — ", " | ", ": ").mapNotNull { sep -> t.indexOf(sep).takeIf { it >= 3 } }.minOrNull()?.let { t.take(it).trim() }
+        if (head != null && head.length <= max) return head
+        return t.take(max - 1).trimEnd() + "…"
+    }
+
+    private const val SHORT_TITLE = 24
+
     /** [hidden] with [key] as its newest entry, the oldest dropped beyond the limit. */
     fun add(hidden: List<String>, key: String): List<String> = (hidden - key + key).takeLast(Settings.TAKE_PART_HIDDEN_MAX)
 

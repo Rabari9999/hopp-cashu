@@ -152,6 +152,43 @@ class PlayerControllerTest {
         until("plays from there") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 90_000L } == true }
     }
 
+    /** Delta audit 3 2026-10-22, ND-03: after a restart, a newer position from another device arrives while
+     *  the episode is only shown — played, it starts there, and the database keeps it. */
+    @Test
+    fun aPositionFromElsewhereAfterARestartIsWherePlayStarts() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        // As ProgressDocument does: the database first, then the player.
+        episodes.applyProgress(e1.id, 180_000, false, clockMs / 1000)
+        again.adoptProgress(e1.id, 180_000, false)
+        assertEquals(180_000L, again.current.value?.item?.positionMs)
+        again.togglePlay()
+        until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
+        assertEquals(180_000L, episodes.item(e1.id)!!.positionMs)
+    }
+
+    /** ND-03, the other way: the position arrives in the database only (the player not told) — still played from there. */
+    @Test
+    fun aRestoredEpisodePlaysFromWhatTheDatabaseHasNow() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        episodes.applyProgress(e1.id, 180_000, false, clockMs / 1000)
+        again.togglePlay()
+        until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
+    }
+
     /** A clip (podcast:soundbite) plays to its end, then the listener is back where they were. */
     @Test
     fun aClipPlaysToItsEndAndGoesBack() = test {

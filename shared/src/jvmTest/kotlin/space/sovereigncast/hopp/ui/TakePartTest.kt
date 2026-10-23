@@ -45,4 +45,14 @@ class TakePartTest {
         // Hidden again: once, as the newest.
         assertEquals(listOf("show:g6", "show:g5"), TakePart.add(listOf("show:g5", "show:g6"), "show:g5"))
     }
+
+    /** Device feedback 2026-10-23: "Nodesignal - Deine Bitcoin-Frequenz" filled the label. */
+    @Test
+    fun aLongShowNameIsShortened() {
+        assertEquals("Nodesignal", TakePart.shortTitle("Nodesignal - Deine Bitcoin-Frequenz"))
+        assertEquals("Nodesignal", TakePart.shortTitle("Nodesignal: Deine Bitcoin-Frequenz am Sonntag"))
+        assertEquals("Kurz", TakePart.shortTitle("Kurz"))
+        assertEquals("Ein sehr langer Name oh…", TakePart.shortTitle("Ein sehr langer Name ohne jeden Trenner darin"))
+        assertEquals(24, TakePart.shortTitle("Ein sehr langer Name ohne jeden Trenner darin").length)
+    }
 }

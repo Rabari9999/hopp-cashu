@@ -378,4 +378,42 @@ class SyncKeysTest {
         runCatching { phone.sync.syncNow() }
         assertEquals(false, phone.sync.status.value.running)
     }
+
+    // ── delta audit 3 2026-10-22 ─────────────────────────────────────────────
+
+    /** MN-08, E02: the relay keeps the new keyring but says it refused: not "nothing changed" — the device
+     *  holds the new key, sends it again, and finishes the renewal later. */
+    @Test
+    fun aRenewalNoRelayConfirmedIsFinishedLater() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val old = phone.keys.signer(interactive = false)!!.pubkey
+        phone.ms += 2 * 60_000
+        relay.passOnAndReject = true
+        assertEquals(Renewal.Unfinished, phone.sync.renewKey())
+        assertTrue(oldIntact(old))
+        val restarted = Device(app, secrets = phone.secrets, db = phone.db, signIn = false).also { it.ms = phone.ms + 2 * 60_000 }
+        assertTrue(restarted.engine.movedPending(), "the restart lost the renewal")
+        relay.passOnAndReject = false
+        restarted.sync.syncNow(); restarted.ms += 1_000; restarted.sync.syncNow()
+        assertNotEquals(old, restarted.keys.signer(interactive = false)!!.pubkey)
+        assertTrue(!oldIntact(old) && !restarted.engine.movedPending())
+        val fresh = Device(FakeSignerApp(app.keys))
+        fresh.sync.enable()
+        assertEquals(setOf("show-a"), fresh.doc.applied.keys)
+    }
+
+    /** ND-04: a change made here shows as waiting at once, not only after the next round. */
+    @Test
+    fun aChangeMadeHereShowsAsWaitingAtOnce() = runBlocking<Unit> {
+        val phone = Device(FakeSignerApp())
+        phone.sync.enable()
+        assertEquals(0, phone.sync.status.value.toSend)
+        phone.journal.record("test", "show-b", JsonObject(mapOf("title" to JsonPrimitive("B"))))
+        assertEquals(1, phone.sync.status.value.toSend)
+        phone.sync.syncNow()
+        assertEquals(0, phone.sync.status.value.toSend)
+    }
 }

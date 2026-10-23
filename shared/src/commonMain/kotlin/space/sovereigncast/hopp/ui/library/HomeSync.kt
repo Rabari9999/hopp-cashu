@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,12 +56,24 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 internal fun SyncMark(status: SyncStatus, onOpen: () -> Unit) {
     val label = stringResource(Res.string.home_sync_label)
     Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClickLabel = label, onClick = onOpen), contentAlignment = Alignment.Center) {
-        when {
-            status.running -> CircularProgressIndicator(Modifier.size(13.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            status.problem != null -> Icon(Icons.Rounded.Warning, label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-            else -> Icon(Icons.Rounded.CheckCircle, label, Modifier.size(16.dp), tint = Hopp.colors.ok)
+        when (look(status)) {
+            Look.Running -> CircularProgressIndicator(Modifier.size(13.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Look.Problem -> Icon(Icons.Rounded.Warning, label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+            Look.Waiting -> Icon(Icons.Rounded.Refresh, label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Look.Done -> Icon(Icons.Rounded.CheckCircle, label, Modifier.size(16.dp), tint = Hopp.colors.ok)
         }
     }
+}
+
+private enum class Look { Running, Problem, Waiting, Done }
+
+/** The tick only when the last round went through and nothing made here waits to go out — a change made
+ *  since, or no round yet since the start, is "waiting" (delta audit 3 2026-10-22, ND-04). */
+private fun look(status: SyncStatus): Look = when {
+    status.running -> Look.Running
+    status.problem != null -> Look.Problem
+    status.toSend > 0 || status.lastSyncedMs == null -> Look.Waiting
+    else -> Look.Done
 }
 
 /** What the last round came to — only what matters, no explanations. */
@@ -72,17 +85,19 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                when {
-                    status.running -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
-                    problem != null -> Icon(Icons.Rounded.Warning, null, Modifier.size(26.dp), tint = colors.error)
-                    else -> Icon(Icons.Rounded.CheckCircle, null, Modifier.size(26.dp), tint = Hopp.colors.ok)
+                when (look(status)) {
+                    Look.Running -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                    Look.Problem -> Icon(Icons.Rounded.Warning, null, Modifier.size(26.dp), tint = colors.error)
+                    Look.Waiting -> Icon(Icons.Rounded.Refresh, null, Modifier.size(26.dp), tint = colors.onSurfaceVariant)
+                    Look.Done -> Icon(Icons.Rounded.CheckCircle, null, Modifier.size(26.dp), tint = Hopp.colors.ok)
                 }
                 Column {
                     Text(
-                        stringResource(when {
-                            status.running -> Res.string.sync_running
-                            problem != null -> Res.string.home_sync_not_done
-                            else -> Res.string.home_sync_done
+                        stringResource(when (look(status)) {
+                            Look.Running -> Res.string.sync_running
+                            Look.Problem -> Res.string.home_sync_not_done
+                            Look.Waiting -> Res.string.home_sync_pending
+                            Look.Done -> Res.string.home_sync_done
                         }),
                         style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
                     )
