@@ -404,7 +404,7 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
  * the largest size from [style]'s down to [min] that fits, then an ellipsis.
  */
 @Composable
-private fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
+internal fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
     val measurer = rememberTextMeasurer()
     BoxWithConstraints {
         val width = constraints.maxWidth

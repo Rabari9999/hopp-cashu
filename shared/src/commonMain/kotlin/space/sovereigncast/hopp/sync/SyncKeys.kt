@@ -82,9 +82,16 @@ class SyncKeys(
      * majority has it (delta audit 2 2026-10-22, MN-08): a relay that kept it
      * without saying so must not lead to a second key, and a key on one relay
      * alone must not hold the library.
+     * [majority]: [committed] was set under that rule. A copy from before it may
+     * say committed of a keyring read from one relay alone (delta audit 4
+     * 2026-10-23, MN-08): its keyring goes to a majority once more before
+     * anything is sealed with it. One without its event cannot be sent; it
+     * stays as it was (MN-03).
      */
     @Serializable
-    private data class Held(val owner: String, val key: String, val keyring: String, val at: Long = 0, val event: String? = null, val committed: Boolean = true)
+    private data class Held(val owner: String, val key: String, val keyring: String, val at: Long = 0, val event: String? = null, val committed: Boolean = true, val majority: Boolean = false) {
+        val trusted get() = committed && (majority || event == null)
+    }
 
     @Serializable
     private data class Keyring(val v: Int = VERSION, val key: String)
@@ -99,15 +106,16 @@ class SyncKeys(
         val me = identity.identity.value ?: return null
         val held = held(me.pubkey)
         val now = nowMs()
-        if (held != null && held.committed && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
+        if (held != null && held.trusted && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
         val urls = identity.writeRelays()
         val found = publisher.queryChecked(listOf(filter(me.pubkey)), urls)
         val newest = found.events.filter { it.pubkey == me.pubkey && it.kind == Nip78.KIND && it.dTag() == DTAG }
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
         val key = when {
             newest != null && held != null && newest.id == held.keyring -> {
-                if (held.event == null) keep(me.pubkey, held.key, newest, held.committed)
-                confirm(me.pubkey, held, held.event?.let(::parse) ?: newest, urls)
+                // A copy from before keyring events were kept: the relays' one taken in, and sent on like any not confirmed.
+                if (held.event == null) keep(me.pubkey, held.key, newest, committed = false)
+                confirm(me.pubkey, held(me.pubkey)!!, held.event?.let(::parse) ?: newest, urls)
                 held.key
             }
             // A copy from before keyring times were kept, and another keyring on the relays: which is newer
@@ -239,7 +247,7 @@ class SyncKeys(
 
     private fun keep(owner: String, key: String, keyring: Event, committed: Boolean) {
         val before = secrets.get(SECRET)?.let { runCatching { json.decodeFromString(Held.serializer(), it) }.getOrNull() }
-        secrets.put(SECRET, json.encodeToString(Held.serializer(), Held(owner, key, keyring.id, keyring.created_at, json.encodeToString(Event.serializer(), keyring), committed)))
+        secrets.put(SECRET, json.encodeToString(Held.serializer(), Held(owner, key, keyring.id, keyring.created_at, json.encodeToString(Event.serializer(), keyring), committed, majority = true)))
         if (before?.key != key) generation++
     }
 
@@ -249,7 +257,7 @@ class SyncKeys(
      * stops here ([SyncNotPublished]) and nothing is sealed with it (MN-08).
      */
     private suspend fun confirm(owner: String, held: Held, keyring: Event?, urls: List<String>) {
-        if (held.committed) { keyring?.let { resend(it, urls) }; return }
+        if (held.trusted) { keyring?.let { resend(it, urls) }; return }
         val event = keyring ?: throw SyncKeyringUnreadable()
         val took = publisher.publish(event, urls)
         if (took.size * 2 <= urls.distinct().size) throw SyncNotPublished(took.size, urls.distinct().size)

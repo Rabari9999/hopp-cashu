@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import space.sovereigncast.hopp.data.SubscribeResult
 import space.sovereigncast.hopp.db.HoppDatabase
@@ -614,6 +615,42 @@ class SyncAuditTest {
         val third = Device(relays).also { it.ms = second.ms }
         third.engine.sync(third.doc, interactive = true)
         assertEquals(setOf("show"), third.doc.applied.keys)
+    }
+
+    // ── delta audit 4 2026-10-23 ────────────────────────────────────────────
+
+    /** MN-08, the upgrade: a keyring read from one relay of three and kept as committed by an earlier
+     *  beta (309dd16 — no [majority] mark, committed by default). After the update nothing is sealed with
+     *  it until a majority has it; the key stays the same, and a fresh device later finds the library. */
+    @Test
+    fun aKeyringAnEarlierBetaTookFromOneRelayIsConfirmedFirst() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.byUrl[relays[1]]!!.refuse = { it.d() == SyncKeys.DTAG }; relays.byUrl[relays[2]]!!.refuse = { it.d() == SyncKeys.DTAG }
+        val first = Device(relays)
+        assertIs<SyncOutcome.Failed>(first.engine.sync(first.doc, interactive = true))
+        val ring = relays.all().single { it.d() == SyncKeys.DTAG }
+        val second = Device(relays).also { it.ms = first.ms + 1_000 }
+        assertIs<SyncOutcome.Failed>(second.engine.sync(second.doc, interactive = true))
+        // As 309dd16 kept it: no "committed" (true by default), no "majority".
+        val held = Json.parseToJsonElement(second.secrets.get("nostr_sync_key")!!).jsonObject
+        assertEquals(ring.id, held["keyring"]!!.jsonPrimitive.content)
+        second.secrets.put("nostr_sync_key", JsonObject(held - "committed" - "majority").toString())
+
+        val upgraded = Device(relays, second.secrets).also { it.ms = second.ms + 2.minutes.inWholeMilliseconds }
+        upgraded.record("show", "B")
+        assertIs<SyncOutcome.Failed>(upgraded.engine.sync(upgraded.doc, interactive = true))
+        assertTrue(relays.all().none { it.d() == "hopp/test" }, "a document went out under a keyring one relay holds")
+        assertTrue(upgraded.store.unpublished("test"))
+
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        upgraded.ms += 2.minutes.inWholeMilliseconds
+        assertIs<SyncOutcome.Done>(upgraded.engine.sync(upgraded.doc))
+        assertEquals(3, relays.all().count { it.id == ring.id })
+        assertEquals(setOf(ring.id), relays.all().filter { it.d() == SyncKeys.DTAG }.map { it.id }.toSet())
+        relays.down += relays[0]
+        val fresh = Device(relays).also { it.ms = upgraded.ms }
+        fresh.engine.sync(fresh.doc, interactive = true)
+        assertEquals(setOf("show"), fresh.doc.applied.keys)
     }
 
     // ── H-02 ────────────────────────────────────────────────────────────────

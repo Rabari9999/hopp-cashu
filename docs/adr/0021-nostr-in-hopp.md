@@ -522,6 +522,21 @@ switches.
      that over the new one.
    - **Home's tick means nothing waits:** a change made here shows as
      waiting at once, as does the time before the first round.
+   *Amended a fifth time 2026-10-23 (fourth delta audit, on 45b136e —
+   approved for a controlled beta):*
+   - **A keyring an earlier beta called committed is confirmed once more.**
+     Before the third delta audit a keyring read from the relays was kept as
+     committed at once, even from one relay alone. A copy now carries a mark
+     that it was committed under the majority rule; one without it sends its
+     own keyring to a majority before anything is sealed with it — the key
+     stays the same. One from before keyring events were kept takes the
+     relays' event and does the same; with another keyring on the relays it
+     stays as it was (MN-03).
+   - **The sync sheet fits a small phone and larger text:** it opens whole,
+     and its buttons keep one line, smaller where they must. Its labels were
+     whole before; the audit's "overflow" was Compose's measure — a label's
+     layout is as wide as the row it may take — not what is seen. Test:
+     `HomeLayoutTest` (320 dp and 360 dp at 1.3× text, German and English).
 
 ## Consequences
 

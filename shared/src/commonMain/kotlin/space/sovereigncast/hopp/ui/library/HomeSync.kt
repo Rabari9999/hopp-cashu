@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -28,12 +31,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
@@ -82,8 +88,10 @@ private fun look(status: SyncStatus): Look = when {
 internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: () -> Unit, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val problem = status.problem
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    // Open whole, and scrolling where the screen is too short: on a small phone with larger text the half-open
+    // sheet hid its buttons (delta audit 4 2026-10-23).
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (look(status)) {
                     Look.Running -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
@@ -118,18 +126,25 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                 lines.forEachIndexed { i, (label, value) ->
                     if (i > 0) HorizontalDivider(color = colors.surfaceVariant)
                     // The label keeps its line; a long value wraps on the right, one item per line (device feedback 2026-10-22).
+                    // A label too long for a small screen ends in "…" instead of being cut at the edge (delta audit 4 2026-10-23).
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
-                        Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, softWrap = false)
+                        Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.size(12.dp))
                         Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
                     }
                 }
             }
+            // One line each, smaller where it must: on 320 dp "Jetzt abgleichen" took two lines and "Einstellungen"
+            // broke in the word (delta audit 4 2026-10-23).
+            val label = MaterialTheme.typography.labelLarge
+            val inside = PaddingValues(horizontal = 12.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onSyncNow, enabled = !status.running, modifier = Modifier.weight(1f).height(48.dp)) {
-                    Text(stringResource(if (problem != null) Res.string.home_sync_retry else Res.string.sync_now))
+                Button(onClick = onSyncNow, enabled = !status.running, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
+                    FittingLine(stringResource(if (problem != null) Res.string.home_sync_retry else Res.string.sync_now), label, min = 11.sp)
                 }
-                OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp)) { Text(stringResource(Res.string.settings)) }
+                OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
+                    FittingLine(stringResource(Res.string.settings), label, min = 11.sp)
+                }
             }
         }
     }
