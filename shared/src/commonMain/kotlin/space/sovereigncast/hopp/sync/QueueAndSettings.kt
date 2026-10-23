@@ -50,8 +50,12 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
     }
 }
 
-/** Listening habits in step ([space.sovereigncast.hopp.data.Settings.SYNCED]). */
-class SettingsDocument(private val settings: SettingsRepository) : SyncedDocument {
+/** Listening habits in step ([space.sovereigncast.hopp.data.Settings.SYNCED]). [autoDownloadsOff]: what
+ *  turning automatic downloads off does here as well — what waits for Wi-Fi unasked is dropped. */
+class SettingsDocument(
+    private val settings: SettingsRepository,
+    private val autoDownloadsOff: suspend () -> Unit = {},
+) : SyncedDocument {
     override val name = SyncDocs.SETTINGS
 
     /** This device's settings join only where the relays have nothing: on a second device
@@ -63,11 +67,12 @@ class SettingsDocument(private val settings: SettingsRepository) : SyncedDocumen
      *  here — device feedback 2026-10-21: a restore wiped the name just read from the Nostr
      *  profile, and Home greeted no one. A name cleared on purpose has a time and is taken. */
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        settings.applySynced(
-            entries.filterValues { !it.del }
-                .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.takeIf { valid(k, it) }?.let { k to it } }
-                .toMap(),
-        )
+        val values = entries.filterValues { !it.del }
+            .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.takeIf { valid(k, it) }?.let { k to it } }
+            .toMap()
+        val wasOn = settings.current().autoDownloads
+        settings.applySynced(values)
+        if (wasOn && values["auto_downloads"] == "false") autoDownloadsOff()
         return entries.keys
     }
 
@@ -79,7 +84,10 @@ class SettingsDocument(private val settings: SettingsRepository) : SyncedDocumen
         fun valid(key: String, v: String): Boolean = when (key) {
             "skip_back" -> v.toIntOrNull() in Settings.skipBackChoices
             "skip_forward" -> v.toIntOrNull() in Settings.skipForwardChoices
-            "skip_silence", "volume_boost", "library_as_list" -> v == "true" || v == "false"
+            "skip_silence", "volume_boost", "library_as_list", "auto_downloads", "downloads_to_queue", "refresh_wifi_only" ->
+                v == "true" || v == "false"
+            "refresh_hours" -> v.toIntOrNull() in Settings.refreshChoicesHours
+            "boost_feedback", "quick_boost_feedback", "zap_feedback" -> v in Settings.feedbackChoices
             "default_speed" -> v.toFloatOrNull()?.let { it.isFinite() && it in SPEEDS } == true
             "sender_name" -> v.length <= 60
             "quick_boost_sats" -> v.toIntOrNull()?.let { it in 0..1_000_000 } == true

@@ -100,7 +100,7 @@ fun sharedModule(platform: Platform) = module {
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
                 },
                 space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
-                space.sovereigncast.hopp.sync.SettingsDocument(koin.get()),
+                space.sovereigncast.hopp.sync.SettingsDocument(koin.get()) { koin.get<DownloadRepository>().dropAutomatic() },
             )
         }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
     }

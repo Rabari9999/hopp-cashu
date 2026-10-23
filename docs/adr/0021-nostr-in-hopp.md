@@ -172,7 +172,9 @@ Hopp shows what Fountain's listeners say about the same episode.
   app is open and never blocks playback. *Superseded 2026-10-21 by the sync
   key, below.*
 - *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
-  (`hopp/queue`); of the settings only the listening habits. The `d` tags
+  (`hopp/queue`); of the settings only the listening habits — since
+  2026-10-23 with downloads, the background refresh and what boosts and zaps
+  report (`docs/tasks/nostr-sync.md` lists them). The `d` tags
   stay readable; Hopp fetches on start and on coming to the foreground, with
   no standing relay connection. A new device, or Hopp installed again,
   offers right after sign-in to restore from the documents it finds.

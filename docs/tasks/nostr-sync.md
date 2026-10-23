@@ -18,10 +18,15 @@ listener's relays that only their key opens.
   and **"Up next"**, and the **listening habits** among the settings: skip
   back and forward, the default speed, skip silence, the volume boost (2026-10-21), the boost name, the
   quick-boost amount, Home's order, hidden and folded sections, the
-  library's order and view.
+  library's order and view, the entries hidden under "Take part"; since
+  2026-10-23 (maintainer) also automatic downloads on or off, finished
+  downloads into "Up next", the background refresh (how often, Wi-Fi only)
+  and what boosts, quick boosts and zaps report. A setting added to the
+  list later joins on devices already in step at their next round, where
+  the relays hold nothing for it yet.
 - **Never:** the NWC connection, keys, the daily budget, streaming and its
-  rate, "Support Hopp", storage and refresh rules, downloads, the voter id,
-  local mutes and hidden comments.
+  rate, "Support Hopp", the storage limit, the downloads themselves, the
+  voter id and votes, local mutes and hidden comments.
 - **Readable `d` tags** as the ADR has them. Relays see that someone uses
   Hopp and when a document changes — not what is in it. The privacy page
   says so.

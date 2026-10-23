@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.value.FakeRelay
@@ -188,5 +189,69 @@ class QueueAndSettingsSyncTest {
         tablet.ms += 120_000
         tablet.sync.syncNow()
         assertEquals("", tablet.settings.current().senderName)
+    }
+
+    /** Maintainer 2026-10-23: downloads, the background refresh and what boosts and zaps report travel too;
+     *  automatic downloads turned off elsewhere drop what waits here for Wi-Fi unasked, as by hand. */
+    @Test
+    fun downloadsRefreshAndReportsFollow() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.settings.update {
+            it.copy(downloadsToQueue = false, refreshHours = 6, refreshWifiOnly = true,
+                boostFeedback = Settings.FEEDBACK_ALWAYS, quickBoostFeedback = Settings.FEEDBACK_OFF, zapFeedback = Settings.FEEDBACK_ALWAYS)
+        }
+        phone.sync.enable()
+
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        val t = tablet.settings.current()
+        assertEquals(false, t.downloadsToQueue)
+        assertEquals(6, t.refreshHours)
+        assertEquals(true, t.refreshWifiOnly)
+        assertEquals(Settings.FEEDBACK_ALWAYS, t.boostFeedback)
+        assertEquals(Settings.FEEDBACK_OFF, t.quickBoostFeedback)
+        assertEquals(Settings.FEEDBACK_ALWAYS, t.zapFeedback)
+        assertEquals(true, t.autoDownloads)
+        assertEquals(0, tablet.autoDownloadsDropped)
+
+        phone.ms += 60_000
+        phone.settings.update { it.copy(autoDownloads = false) }
+        phone.sync.syncNow()
+        tablet.ms += 120_000
+        tablet.sync.syncNow()
+        assertEquals(false, tablet.settings.current().autoDownloads)
+        assertEquals(1, tablet.autoDownloadsDropped)
+
+        // Only what this Hopp could set: an hour not offered, a report it does not know.
+        SettingsDocument(tablet.settings).apply(mapOf(
+            "refresh_hours" to SyncEntry(1, d = SyncDocs.setting("5")),
+            "zap_feedback" to SyncEntry(1, d = SyncDocs.setting("loud")),
+        ))
+        assertEquals(6, tablet.settings.current().refreshHours)
+        assertEquals(Settings.FEEDBACK_ALWAYS, tablet.settings.current().zapFeedback)
+    }
+
+    /** A setting synced only since an update, on two devices that synced before it: the first one's goes out
+     *  at its next round, and the other takes it — its own default does not win over it. */
+    @Test
+    fun aSettingSyncedSinceAnUpdateJoinsOnDevicesAlreadyInStep() = runBlocking<Unit> {
+        // Both in step under a build that did not sync the background refresh: each keeps its own.
+        val phone = SyncDevice(relay, scope, nsec).apply { notSyncedYet = setOf("refresh_hours") }
+        phone.settings.update { it.copy(refreshHours = 12) }
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec).apply { notSyncedYet = setOf("refresh_hours") }
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertEquals(1, tablet.settings.current().refreshHours)
+
+        // Updated: the phone's goes out at its next round, the tablet takes it.
+        phone.notSyncedYet = emptySet(); tablet.notSyncedYet = emptySet()
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        tablet.ms += 120_000
+        tablet.sync.syncNow()
+        assertEquals(12, tablet.settings.current().refreshHours)
+        assertEquals(12, phone.settings.current().refreshHours)
     }
 }

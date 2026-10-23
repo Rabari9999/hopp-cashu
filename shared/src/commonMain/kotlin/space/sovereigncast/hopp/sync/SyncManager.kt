@@ -189,6 +189,8 @@ class SyncManager(
             var sent = 0
             val generation = engine.keyGeneration()
             for (doc in documents()) {
+                // A setting synced only since an update joins as at turning sync on: where the relays have nothing.
+                if (doc.name == SyncDocs.SETTINGS) store.entries(doc.name).let { known -> store.seed(doc.name, doc.snapshot().filterKeys { it !in known }) }
                 when (val outcome = engine.sync(doc, interactive)) {
                     is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
                     is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }

@@ -36,6 +36,10 @@ internal class SyncDevice(
     /** The episode playing here, as the player would say. */
     var playingId: Long? = null
     val adopted = mutableListOf<Triple<Long, Long, Boolean>>()
+    /** How often automatic downloads were turned off here by sync — the waiting ones dropped. */
+    var autoDownloadsDropped = 0
+    /** Settings this device does not sync yet — as a build from before they were added. */
+    var notSyncedYet: Set<String> = emptySet()
     val http = HttpClient(MockEngine { req ->
         val file = testFeeds[req.url.toString()]
         if (offline || file == null) respondError(HttpStatusCode.ServiceUnavailable)
@@ -55,7 +59,9 @@ internal class SyncDevice(
             SubscriptionsDocument(db, podcasts),
             ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
             QueueDocument(db, queue),
-            SettingsDocument(settings),
+            SettingsDocument(settings) { autoDownloadsDropped++ }.let { doc ->
+                object : SyncedDocument by doc { override suspend fun snapshot() = doc.snapshot().filterKeys { it !in notSyncedYet } }
+            },
         )
     }, { ms }, publishDelay = 1.hours)
 

@@ -141,6 +141,9 @@ data class Settings(
         val SYNCED = setOf(
             "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
             "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
+            // Downloads, background refresh and what boosts and zaps report (maintainer 2026-10-23).
+            "auto_downloads", "downloads_to_queue", "refresh_hours", "refresh_wifi_only",
+            "boost_feedback", "quick_boost_feedback", "zap_feedback",
         )
 
         internal fun from(values: Map<String, String>): Settings {
