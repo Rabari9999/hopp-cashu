@@ -539,6 +539,19 @@ switches.
      whole before; the audit's "overflow" was Compose's measure — a label's
      layout is as wide as the row it may take — not what is seen. Test:
      `HomeLayoutTest` (320 dp and 360 dp at 1.3× text, German and English).
+   *Amended a sixth time 2026-10-23 (device check):*
+   - **One connection per relay for a round.** Hopp opened a connection for
+     every read and every event: a first round with a library came to 13 a
+     relay in under four seconds, and relays turn that away by address —
+     relay.damus.io answered 503 from the third, nos.lol 429 from the
+     twelfth; one relay of three took the round, and the next went through.
+     A round, turning sync on, the restore offer and publishing a profile
+     now share one connection to each relay (`withRelayPool`); one that drops
+     is opened again by the next request, and a relay that cannot be reached
+     fails only its own requests.
+   - **"Too many" is asked again:** a connection refused with 429 or 503 is
+     tried again after 0.8 s and 1.6 s, within the relay's ten seconds.
+     Test: `RelayPoolTest`.
 
 ## Consequences
 

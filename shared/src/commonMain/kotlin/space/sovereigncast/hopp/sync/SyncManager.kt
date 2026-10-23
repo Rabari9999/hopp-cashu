@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import space.sovereigncast.hopp.data.SettingsRepository
+import space.sovereigncast.hopp.nostr.withRelayPool
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -90,7 +91,9 @@ class SyncManager(
      * nothing is overwritten; on a new device it is a restore. The signer may
      * ask the listener here, once.
      */
-    suspend fun enable(): SyncStatus {
+    suspend fun enable(): SyncStatus = withRelayPool { enableInPool() }
+
+    private suspend fun enableInPool(): SyncStatus {
         for (doc in documents()) {
             val known = store.entries(doc.name)
             val (timed, untimed) = doc.snapshot().filterKeys { it !in known }.entries.partition { it.value.t > 0 }
@@ -118,7 +121,9 @@ class SyncManager(
      * this one could take — after signing in with an existing identity, while
      * sync is off here. Null: nothing to restore.
      */
-    suspend fun restoreOffer(): RestoreOffer? {
+    suspend fun restoreOffer(): RestoreOffer? = withRelayPool { restoreOfferInPool() }
+
+    private suspend fun restoreOfferInPool(): RestoreOffer? {
         if (settings.current().nostrSync) return null
         return when (val subs = engine.peek(SyncDocs.SUBSCRIPTIONS)) {
             null -> null
@@ -179,7 +184,10 @@ class SyncManager(
     }
 
     /** One round over every document; [interactive]: the signer app may be opened. */
-    suspend fun syncNow(interactive: Boolean = false): SyncStatus = round.withLock {
+    /** A round, every relay on one connection ([withRelayPool]): many short ones were turned away (device check 2026-10-23). */
+    suspend fun syncNow(interactive: Boolean = false): SyncStatus = withRelayPool { syncNowInPool(interactive) }
+
+    private suspend fun syncNowInPool(interactive: Boolean = false): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
         try {

@@ -28,7 +28,7 @@ internal val testFeeds = mapOf(
 /** A device with the listener's key ([nsec]): its own database, feeds from the test's web, the shared [relay]. */
 /** [db] and [secrets] from another: the same device started again. */
 internal class SyncDevice(
-    relay: FakeRelay, scope: CoroutineScope, nsec: String, var offline: Boolean = false,
+    relay: space.sovereigncast.hopp.nostr.RelayConnector, scope: CoroutineScope, nsec: String, var offline: Boolean = false,
     val db: HoppDatabase = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }),
     val secrets: MemorySecretStore = MemorySecretStore(),
 ) {

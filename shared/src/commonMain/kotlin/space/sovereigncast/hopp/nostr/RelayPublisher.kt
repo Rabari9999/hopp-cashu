@@ -27,6 +27,11 @@ import kotlin.time.TimeSource
 class RelayPublisher(val connector: RelayConnector, private val timeout: Duration = 10.seconds) {
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** The relay's connection: the pool's within [withRelayPool], else one of its own — tried
+     *  again when the relay says "too many" ([connectRetrying]). */
+    private suspend fun open(url: String): RelaySession =
+        kotlin.coroutines.coroutineContext[RelayPool]?.session(connector, url) ?: connectRetrying(connector, url)
+
     /** The relays that answered `OK true`; one that fails or stays silent is left out. */
     suspend fun publish(event: Event, relays: List<String>): Set<String> = coroutineScope {
         relays.distinct().map { url -> async { url.takeIf { publishTo(event, url) } } }.awaitAll().filterNotNull().toSet()
@@ -117,7 +122,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         var reached = false
         var ended = false
         withTimeoutOrNull(timeout) {
-            val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull
+            val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull
             reached = true
             try {
                 coroutineScope {
@@ -178,7 +183,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * only events it asked for, and only so much.
      */
     private suspend fun latestOn(kind: Int, author: String, url: String): LatestAnswer? = withTimeoutOrNull(timeout) {
-        val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull null
+        val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull null
         try {
             coroutineScope {
                 val sub = "hopp-" + secureRandomBytes(6).toHex()
@@ -214,7 +219,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     }
 
     private suspend fun publishTo(event: Event, url: String): Boolean = withTimeoutOrNull(timeout) {
-        val session = runCatching { connector.connect(url) }.getOrNull() ?: return@withTimeoutOrNull false
+        val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull false
         try {
             coroutineScope {
                 // Listen before sending, so a fast OK is not missed.

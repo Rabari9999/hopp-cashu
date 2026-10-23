@@ -236,7 +236,9 @@ class IdentityRepository(
     }
 
     /** The profile and the relay list, to Hopp's relays — only for a key Hopp made. */
-    suspend fun publishProfile(): Set<String> {
+    suspend fun publishProfile(): Set<String> = space.sovereigncast.hopp.nostr.withRelayPool { publishProfileInPool() }
+
+    private suspend fun publishProfileInPool(): Set<String> {
         val me = _identity.value?.takeIf { it.holdsKey } ?: return emptySet()
         val signer = signer() ?: return emptySet()
         val now = clock.now()
