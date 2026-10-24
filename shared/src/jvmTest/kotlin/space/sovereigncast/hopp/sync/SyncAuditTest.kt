@@ -825,6 +825,27 @@ class SyncAuditTest {
         assertEquals(10, tablet.settings.current().skipBackSeconds)
     }
 
+    // ── delta audit 5 2026-10-24 ────────────────────────────────────────────
+
+    /** SS-01: "automatic downloads off" from another device, cut off between the setting and dropping
+     *  what waits here. The setting already reads "off" when the same entry is applied again — the
+     *  clean-up comes then all the same, not only when it was on before. */
+    @Test
+    fun automaticDownloadsTurnedOffCleanUpAfterAnInterruptedApply() = runBlocking<Unit> {
+        val tablet = SyncDevice(FakeRelay(), scope, nsec)
+        var drops = 0
+        val doc = SettingsDocument(tablet.settings) { if (++drops == 1) throw IllegalStateException("cut off") }
+        val off = mapOf("auto_downloads" to SyncEntry(tablet.ms, d = SyncDocs.setting("false")))
+        assertTrue(runCatching { doc.apply(off) }.isFailure)
+        assertEquals(false, tablet.settings.current().autoDownloads)
+        doc.apply(off)
+        assertEquals(2, drops)
+        // Something else, or "on": nothing to drop.
+        doc.apply(mapOf("skip_back" to SyncEntry(tablet.ms, d = SyncDocs.setting("30"))))
+        doc.apply(mapOf("auto_downloads" to SyncEntry(tablet.ms, d = SyncDocs.setting("true"))))
+        assertEquals(2, drops)
+    }
+
     // ── M-05 ────────────────────────────────────────────────────────────────
 
     /** Two episodes with one sort key, put in in another order on each device: the same order on both. */

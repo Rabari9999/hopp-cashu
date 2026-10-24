@@ -70,9 +70,10 @@ class SettingsDocument(
         val values = entries.filterValues { !it.del }
             .mapNotNull { (k, e) -> e.d.text("v")?.takeUnless { k == NAME && e.t == 0L && it.isBlank() }?.takeIf { valid(k, it) }?.let { k to it } }
             .toMap()
-        val wasOn = settings.current().autoDownloads
         settings.applySynced(values)
-        if (wasOn && values["auto_downloads"] == "false") autoDownloadsOff()
+        // Asked whatever it was before: cut off between the setting and the clean-up, the next
+        // apply of the same "off" cleans up still (delta audit 5 2026-10-24, SS-01).
+        if (values["auto_downloads"] == "false") autoDownloadsOff()
         return entries.keys
     }
 
