@@ -182,4 +182,26 @@ class RelayPoolTest {
             assertTrue(took < 5_000, "after a burst of $burst: waited $took ms for a closed connection")
         }
     }
+
+    /** RP-03: a request that times out, or is cancelled, on a shared connection: the relay is told to
+     *  stop answering it — not only when the round ends and the connection closes. */
+    @Test
+    fun aRequestThatTimesOutOrIsCancelledIsClosed() = runBlocking<Unit> {
+        val relay = Scripted()
+        val publisher = RelayPublisher(relay, timeout = 1.seconds)
+        withRelayPool {
+            assertEquals(0, publisher.queryChecked(listOf(buildJsonObject { }), listOf(url)).answered)
+            assertEquals(RelayPublisher.Latest(null, false), publisher.latestChecked(1, "a".repeat(64), listOf(url)))
+            coroutineScope {
+                val cancelled = launch { publisher.query(listOf(buildJsonObject { }), listOf(url)) }
+                delay(200)
+                cancelled.cancelAndJoin()
+            }
+            val bySub = relay.sent.map { Json.parseToJsonElement(it).jsonArray }
+                .groupBy({ it[1].jsonPrimitive.content }, { it[0].jsonPrimitive.content })
+            assertEquals(3, bySub.size)
+            bySub.forEach { (sub, sent) -> assertEquals(listOf("REQ", "CLOSE"), sent, sub) }
+        }
+        assertEquals(1, relay.opened)
+    }
 }

@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.nostr
 
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
@@ -8,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -148,9 +150,10 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                             }.getOrNull()
                         }.first()
                     }
-                    session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
-                    ended = done.await()
-                    runCatching { session.send("""["CLOSE","$sub"]""") }
+                    try {
+                        session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
+                        ended = done.await()
+                    } finally { session.closeSubscription(sub) }
                 }
             } catch (e: Exception) {
                 // What arrived before the failure still counts.
@@ -161,6 +164,15 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         return found.toList().takeIf { reached && (ended || !toTheEnd) }
     }
 
+    /**
+     * The request's end sent however it ended — answered, timed out or cancelled: on a shared
+     * connection ([withRelayPool]) the relay would go on answering it until the round is over
+     * otherwise (delta audit 5 2026-10-24, RP-03). Briefly — a relay that does not take it is not waited for.
+     */
+    private suspend fun RelaySession.closeSubscription(sub: String) = withContext(NonCancellable) {
+        withTimeoutOrNull(CLOSE_WAIT) { runCatching { send("""["CLOSE","$sub"]""") } }
+    }
+
     companion object {
         /** At most this many events from one relay for one request. */
         const val MAX_EVENTS = 5_000
@@ -168,6 +180,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         const val MAX_BYTES = 16L * 1024 * 1024
         /** A single message larger than this is passed over (an event holds 64 KiB of content). */
         const val MAX_MESSAGE = 512 * 1024
+        private val CLOSE_WAIT = 1.seconds
     }
 
     /** Whether [url] takes a connection and answers a request at all. */
@@ -206,9 +219,10 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                         }.getOrNull()
                     }.first()
                 }
-                session.send("""["REQ","$sub",{"kinds":[$kind],"authors":["$author"],"limit":1}]""")
-                val ended = done.await()
-                runCatching { session.send("""["CLOSE","$sub"]""") }
+                val ended = try {
+                    session.send("""["REQ","$sub",{"kinds":[$kind],"authors":["$author"],"limit":1}]""")
+                    done.await()
+                } finally { session.closeSubscription(sub) }
                 LatestAnswer(listOfNotNull(found.maxByOrNull { it.created_at }), ended)
             }
         } catch (e: Exception) {
