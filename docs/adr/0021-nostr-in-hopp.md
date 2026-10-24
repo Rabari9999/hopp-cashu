@@ -570,6 +570,20 @@ switches.
    - Downloads, background refresh and what boosts and zaps report travel
      too (maintainer 2026-10-23); the texts on sync and restore say so.
      Tests: `RelayPoolTest`, `SyncAuditTest` (delta audit 5).
+   *Amended an eighth time 2026-10-24 (sixth delta audit, on 0591ee5 — fix
+   before a general beta):*
+   - **A request knows its answers by what JSON reads in them,** not by its
+     subscription somewhere in the first 100 characters: an answer padded
+     with spaces or with the subscription escaped was passed over, the EOSE
+     after it made the read complete and empty, and a new device made a
+     second keyring. Type and subscription are read as JSON reads them
+     (`RelayFrame`); one of its own too large to read makes the read
+     incomplete instead of being passed over (RP-02).
+   - **Shows wait for the settings on a new device:** until the settings
+     were read to the end once, a round leaves the shows for later. Taken
+     first is not enough when their read fails — the shows came under the
+     fresh default and downloaded although automatic downloads were off.
+     Tests: `RelayFrameTest`, `RelayPoolTest`, `SyncAuditTest` (delta audit 6).
 
 ## Consequences
 

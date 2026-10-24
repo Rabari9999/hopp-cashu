@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -844,6 +845,61 @@ class SyncAuditTest {
         doc.apply(mapOf("skip_back" to SyncEntry(tablet.ms, d = SyncDocs.setting("30"))))
         doc.apply(mapOf("auto_downloads" to SyncEntry(tablet.ms, d = SyncDocs.setting("true"))))
         assertEquals(2, drops)
+    }
+
+    // ── delta audit 6 2026-10-24 ────────────────────────────────────────────
+
+    /** RP-02, the keyring: a new device whose relays write their answers with spaces in front and the
+     *  subscription escaped — valid JSON. Passed over, the keyring looked absent, and the device made a
+     *  second key; it takes the listener's one now. */
+    @Test
+    fun aNewDeviceTakesTheKeyringHoweverTheRelaysWriteIt() = runBlocking<Unit> {
+        val relay = FakeRelay()
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe("https://pod.test/nodesignal.xml")
+        assertNull(phone.sync.enable().problem)
+        val padded = RelayConnector { url ->
+            val inner = relay.connect(url)
+            object : RelaySession by inner {
+                override val incoming = inner.incoming.map { text ->
+                    if (text.startsWith("[\"EVENT\",\"hopp-")) " ".repeat(100) + text.replaceFirst("\"hopp-", "\"\\u0068opp-") else text
+                }
+            }
+        }
+        val tablet = SyncDevice(padded, scope, nsec)
+        tablet.ms += 1_000
+        assertNull(tablet.sync.enable().problem)
+        fun ring(d: SyncDevice) = Json.parseToJsonElement(d.secrets.get("nostr_sync_key")!!).jsonObject["keyring"]!!.jsonPrimitive.content
+        assertEquals(ring(phone), ring(tablet))
+        assertEquals(setOf("https://pod.test/nodesignal.xml"), tablet.urls())
+    }
+
+    /** SS-01, the restore: settings first is not enough when their read fails. The shows waited for
+     *  nothing then, came under the fresh default and queued their newest episode although automatic
+     *  downloads are off elsewhere. They wait for the settings now — read once, both come. */
+    @Test
+    fun aRestoreWhoseSettingsCannotBeReadWaitsWithTheShows() = runBlocking<Unit> {
+        val relay = FakeRelay()
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.settings.update { it.copy(autoDownloads = false) }
+        phone.podcasts.subscribe("https://pod.test/nodesignal.xml")
+        assertNull(phone.sync.enable().problem)
+
+        val settingsTag = SyncCodec.dTag(SyncDocs.SETTINGS)
+        relay.failReads = { f -> f["#d"]?.toString()?.contains(settingsTag) == true }
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        assertTrue(tablet.sync.enable().problem != null)
+        assertEquals(true, tablet.settings.current().autoDownloads)
+        assertEquals(emptySet(), tablet.urls())
+
+        relay.failReads = { false }
+        tablet.ms += 60_000
+        assertNull(tablet.sync.syncNow().problem)
+        assertEquals(false, tablet.settings.current().autoDownloads)
+        assertEquals(setOf("https://pod.test/nodesignal.xml"), tablet.urls())
+        val row = tablet.row("https://pod.test/nodesignal.xml")
+        assertEquals(0, tablet.db.episodeQueries.selectByPodcast(row.id).executeAsList().count { it.download_state != 0L })
     }
 
     // ── M-05 ────────────────────────────────────────────────────────────────

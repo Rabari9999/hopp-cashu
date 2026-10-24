@@ -198,7 +198,15 @@ class SyncManager(
             var pending = 0
             var sent = 0
             val generation = engine.keyGeneration()
-            for (doc in documents()) {
+            val docs = documents()
+            for (doc in docs) {
+                // Shows wait until this device has read the listener's settings to the end once: restored
+                // under the fresh default, a show would download although downloads are off elsewhere
+                // (delta audit 6 2026-10-24 — settings first is not enough when their read fails).
+                if (doc.name == SyncDocs.SUBSCRIPTIONS && docs.any { it.name == SyncDocs.SETTINGS } && store.fetchedAt(SyncDocs.SETTINGS) == null) {
+                    if (problem == null) problem = SyncOutcome.Incomplete(0)
+                    continue
+                }
                 // A setting synced only since an update joins as at turning sync on: where the relays have nothing.
                 if (doc.name == SyncDocs.SETTINGS) store.entries(doc.name).let { known -> store.seed(doc.name, doc.snapshot().filterKeys { it !in known }) }
                 when (val outcome = engine.sync(doc, interactive)) {
