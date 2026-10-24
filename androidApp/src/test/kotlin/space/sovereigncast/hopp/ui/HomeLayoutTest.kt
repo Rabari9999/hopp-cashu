@@ -209,6 +209,14 @@ class HomeLayoutTest {
     /** Device feedback 2026-10-17: a long greeting shrinks to one line instead of running off. */
     @Test @Config(qualifiers = "en-w360dp-h800dp")
     fun aLongGreetingFitsOneLine() {
+        // In the morning here, whenever it runs: at night "Still up, Thorsten?" fits as it is (CI 2026-10-24, 4 am).
+        val zone = java.util.TimeZone.getDefault()
+        val utcHour = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).hour
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(java.time.ZoneOffset.ofHours(((8 - utcHour + 36) % 24) - 12)))
+        try { longGreeting() } finally { java.util.TimeZone.setDefault(zone) }
+    }
+
+    private fun longGreeting() {
         runBlocking { settings.update { it.copy(senderName = "Thorsten") } }
         home()
         rule.waitUntil(10_000) { screen().any { "Thorsten" in it } }
