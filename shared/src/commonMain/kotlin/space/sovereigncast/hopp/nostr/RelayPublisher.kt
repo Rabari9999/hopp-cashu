@@ -134,8 +134,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                         session.incoming.mapNotNull { text ->
                             if (!text.answers(sub)) return@mapNotNull null
                             bytes += text.length
-                            if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
-                            if (text.length > MAX_MESSAGE) return@mapNotNull null
+                            if (bytes > MAX_BYTES || found.size >= MAX_EVENTS || text.length > MAX_MESSAGE) return@mapNotNull false
                             runCatching {
                                 val arr = json.parseToJsonElement(text).jsonArray
                                 if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
@@ -175,11 +174,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     }
 
     /**
-     * Whether this message answers subscription [sub] — told by its head, before it is read. Only
-     * those count against a request's limits; on a shared connection the others' answers are theirs
-     * (delta audit 5 2026-10-24, RP-02: two large reads at once cut each other off).
+     * Whether this message answers subscription [sub] — told by its head ([RelayFrame]), before it is
+     * read. Only those count against a request's limits; on a shared connection the others' answers
+     * are theirs (delta audit 5 2026-10-24, RP-02: two large reads at once cut each other off). One of
+     * its own too large to read ends the read as not to the end: passed over, the EOSE after it would
+     * make the read look complete without it (delta audit 6 2026-10-24).
      */
-    private fun String.answers(sub: String): Boolean = take(HEAD).contains("\"$sub\"")
+    private fun String.answers(sub: String): Boolean =
+        RelayFrame.head(this)?.let { (type, id) -> id == sub && type in ANSWERS } == true
 
     companion object {
         /** At most this many events from one relay for one request. */
@@ -188,8 +190,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         const val MAX_BYTES = 16L * 1024 * 1024
         /** A single message larger than this is passed over (an event holds 64 KiB of content). */
         const val MAX_MESSAGE = 512 * 1024
-        /** How far into a message its subscription is looked for: `["EVENT","hopp-…",` with room for spaces. */
-        private const val HEAD = 100
+        /** What answers a subscription. */
+        private val ANSWERS = setOf("EVENT", "EOSE", "CLOSED")
         private val CLOSE_WAIT = 1.seconds
     }
 
@@ -216,8 +218,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                     session.incoming.mapNotNull { text ->
                         if (!text.answers(sub)) return@mapNotNull null
                         bytes += text.length
-                        if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
-                        if (text.length > MAX_MESSAGE) return@mapNotNull null
+                        if (bytes > MAX_BYTES || found.size >= MAX_EVENTS || text.length > MAX_MESSAGE) return@mapNotNull false
                         runCatching {
                             val arr = json.parseToJsonElement(text).jsonArray
                             if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
@@ -250,6 +251,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 // Listen before sending, so a fast OK is not missed.
                 val ok = async(start = CoroutineStart.UNDISPATCHED) {
                     session.incoming.mapNotNull { text ->
+                        // Only this event's OK is read; the rest passed over by its head.
+                        if (RelayFrame.head(text) != ("OK" to event.id)) return@mapNotNull null
                         runCatching {
                             val arr = json.parseToJsonElement(text).jsonArray
                             if (arr[0].jsonPrimitive.content == "OK" && arr[1].jsonPrimitive.content == event.id) arr[2].jsonPrimitive.content == "true" else null

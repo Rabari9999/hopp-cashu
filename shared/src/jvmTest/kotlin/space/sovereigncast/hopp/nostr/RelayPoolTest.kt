@@ -226,4 +226,42 @@ class RelayPoolTest {
         }
         assertEquals(1, relay.opened)
     }
+
+    // ── delta audit 6 2026-10-24 ────────────────────────────────────────────
+
+    /** RP-02 again: the subscription was looked for in a message's first 100 characters. An answer of
+     *  its own, padded with spaces or with the subscription escaped, was passed over, and the EOSE after
+     *  it made the read look complete and empty; a stranger's message naming it in its content counted
+     *  against its limit. Read as JSON reads them now — and one of its own too large to read is no
+     *  longer passed over: the read is not complete. */
+    @Test
+    fun ownAnswersAreKnownHoweverTheyAreWritten() = runBlocking<Unit> {
+        val e = event("hello")
+        val body = Json.encodeToString(Event.serializer(), e)
+        fun read(answer: (sub: String) -> List<String>) = runBlocking {
+            val relay = Scripted { sub, _, out -> answer(sub).forEach { out.trySend(it) }; out.trySend("""["EOSE","$sub"]""") }
+            withRelayPool { RelayPublisher(relay, timeout = 5.seconds).queryChecked(listOf(buildJsonObject { }), listOf(url)) }
+        }
+        for (frame in listOf<(String) -> String>(
+            { sub -> """["EVENT","$sub",$body]""" },
+            { sub -> " ".repeat(100) + """["EVENT","$sub",$body]""" },
+            { sub -> """[ "EVENT" ,${" ".repeat(100)}"\u0068${sub.drop(1)}" , $body ]""" },
+        )) {
+            val got = read { sub -> listOf(frame(sub)) }
+            assertEquals(1, got.answered, frame("hopp-x").take(40))
+            assertEquals(listOf(e.id), got.events.map { it.id })
+        }
+        // Strangers naming it, more than its limit in all: not counted.
+        val stranger = event("x")
+        val got = read { sub ->
+            val padding = "x".repeat(RelayPublisher.MAX_MESSAGE - 200)
+            List(33) { """["EVENT","foreign",{"content":"\"$sub\"","pad":"$padding"}]""" } + """["NOTICE","$sub"]""" +
+                """["EVENT","$sub",${Json.encodeToString(Event.serializer(), stranger)}]"""
+        }
+        assertEquals(1, got.answered)
+        assertEquals(listOf(stranger.id), got.events.map { it.id })
+        // Its own, too large to read: not complete.
+        val tooLarge = read { sub -> listOf("""["EVENT","$sub",{"pad":"${"x".repeat(RelayPublisher.MAX_MESSAGE)}"}]""") }
+        assertEquals(0, tooLarge.answered)
+    }
 }
