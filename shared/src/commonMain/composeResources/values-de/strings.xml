@@ -823,11 +823,11 @@
     <string name="onboarding_nostr_restore">Wiederherstellen</string>
     <string name="sync_restore_title">Von deinen anderen Geräten wiederherstellen</string>
     <string name="sync_restore_counts">Shows: %1$d · angefangen: %2$d</string>
-    <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“ und deine Hörgewohnheiten liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
+    <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“, deine Hörgewohnheiten und Download-Einstellungen liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
     <string name="sync_restore_button">Wiederherstellen</string>
     <string name="sync_restore_later">Nicht jetzt</string>
     <string name="sync_title">Zwischen Geräten abgleichen</string>
-    <string name="sync_note">Abos, Hörstand, „Als Nächstes“ und Hörgewohnheiten, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
+    <string name="sync_note">Abos, Hörstand, „Als Nächstes“, Hörgewohnheiten und Download-Einstellungen, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
     <string name="sync_running">Gleiche ab …</string>
     <string name="sync_last_now">Gerade abgeglichen</string>
     <string name="sync_last_minutes">Vor %1$d Min. abgeglichen</string>

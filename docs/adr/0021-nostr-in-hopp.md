@@ -550,8 +550,26 @@ switches.
      is opened again by the next request, and a relay that cannot be reached
      fails only its own requests.
    - **"Too many" is asked again:** a connection refused with 429 or 503 is
-     tried again after 0.8 s and 1.6 s, within the relay's ten seconds.
+     tried again after 0.8 s and 1.6 s. A request waits for it no longer
+     than its own ten seconds; the opening itself, shared by the round, may
+     go on a little past that and is ended with the round.
      Test: `RelayPoolTest`.
+   *Amended a seventh time 2026-10-24 (fifth delta audit, on 9799fcb —
+   approved for a controlled beta):*
+   - **A shared connection's end reaches every request on it.** Each request
+     listens on a channel of its own, closed when the connection closes —
+     after what it still holds, however full (RP-01).
+   - **A request's subscription ends with it,** answered, timed out or
+     cancelled: `CLOSE` goes out briefly in any case, so a relay stops
+     answering it on the round's connection (RP-03).
+   - **Each request counts only its own answers** against its limits; the
+     others' are passed over unread (RP-02).
+   - **"Automatic downloads off" from another device cleans up here
+     whenever it is applied,** not only when it was on before — an apply cut
+     off halfway does it the next time (SS-01).
+   - Downloads, background refresh and what boosts and zaps report travel
+     too (maintainer 2026-10-23); the texts on sync and restore say so.
+     Tests: `RelayPoolTest`, `SyncAuditTest` (delta audit 5).
 
 ## Consequences
 

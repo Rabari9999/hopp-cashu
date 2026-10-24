@@ -7,7 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Nostr:** Sync subscriptions, progress, favourites, "Up next" and listening habits between your devices – encrypted, no Hopp server.
+- **Nostr:** Sync subscriptions, progress, favourites, "Up next", listening habits and download settings between your devices – encrypted, no Hopp server.
 - **Nostr:** On a new device, restore your library from Nostr after signing in; Hopp then opens Home and says what came back.
 - **Tour:** "I already use Hopp" on the first page, and "Restore" beside "Set up" on the Nostr page, lead straight to restoring from Nostr.
 - **Tour:** "I’m coming from another podcast app" leads to moving your subscriptions over, with where each app keeps its export.

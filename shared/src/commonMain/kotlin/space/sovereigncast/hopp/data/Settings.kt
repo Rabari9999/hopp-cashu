@@ -133,11 +133,12 @@ data class Settings(
         const val ZAP_ANONYMOUS = "anonymous"
         val zapPrivacyChoices = listOf(ZAP_PUBLIC, ZAP_PRIVATE, ZAP_ANONYMOUS)
 
-        /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
-         *  2026-10-20) — not the wallet, budgets, storage, refresh rules or anything of this device. */
         /** The newest this many entries hidden under "Take part" are kept — ended rounds pile up otherwise. */
         const val TAKE_PART_HIDDEN_MAX = 200
 
+        /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
+         *  2026-10-20), with downloads and background refresh since 2026-10-23 — not the wallet,
+         *  budgets, storage or anything else of this device. */
         val SYNCED = setOf(
             "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
             "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
