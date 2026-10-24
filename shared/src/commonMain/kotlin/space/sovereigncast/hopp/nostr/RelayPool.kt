@@ -10,11 +10,15 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onSubscription
-import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.getAndUpdate
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -75,23 +79,39 @@ internal class RelayPool(private val scope: CoroutineScope) : AbstractCoroutineC
         all.forEach { d -> if (d.isCompleted && !d.isCancelled) runCatching { d.getCompleted().close() } else d.cancel() }
     }
 
-    /** One connection, its messages handed to everyone listening; null after the last: it closed. */
+    /**
+     * One connection, its messages handed to everyone listening — each into a channel of its own, which
+     * is closed after the last: a closed channel says so behind what it still holds, however full it
+     * is (delta audit 5 2026-10-24, RP-01: one end signal in a shared buffer got lost when the buffer
+     * was full, and requests waiting on a closed connection waited for their timeout).
+     */
     private class Shared(private val inner: RelaySession, scope: CoroutineScope) {
-        private val messages = MutableSharedFlow<String?>(extraBufferCapacity = 256)
+        /** Who listens; null once the connection closed. */
+        private val listening = MutableStateFlow<List<Channel<String>>?>(emptyList())
         private val sending = Mutex()
-        @kotlin.concurrent.Volatile
-        var closed = false
-            private set
+        val closed: Boolean get() = listening.value == null
         private val reader: Job = scope.launch {
-            try { inner.incoming.collect { messages.emit(it) } } catch (e: Exception) { if (e is CancellationException) throw e }
-            finally { closed = true; messages.tryEmit(null) }
+            try {
+                inner.incoming.collect { text ->
+                    listening.value?.forEach { listener ->
+                        // One that stopped listening meanwhile is passed over; the others still hear.
+                        try { listener.send(text) } catch (e: CancellationException) { currentCoroutineContext().ensureActive() }
+                    }
+                }
+            } catch (e: Exception) { if (e is CancellationException) throw e }
+            finally { end() }
         }
+
+        private fun end() { listening.getAndUpdate { null }?.forEach { it.close() } }
 
         /** What a request sees: the connection's messages from now on; closing it leaves the connection open. */
         fun view(): RelaySession = object : RelaySession {
-            // Closed before this one listened: it hears so at once, not only at its timeout.
-            override val incoming: Flow<String> =
-                messages.onSubscription { if (closed) emit(null) }.takeWhile { it != null }.map { it!! }
+            override val incoming: Flow<String> = flow {
+                val heard = Channel<String>(BUFFER)
+                // Closed before this one listened: it hears so at once, not only at its timeout.
+                if (listening.updateAndGet { it?.plus(heard) } == null) return@flow
+                try { for (text in heard) emit(text) } finally { listening.update { it?.minus(heard) }; heard.cancel() }
+            }
             override suspend fun send(message: String) {
                 if (closed) throw IllegalStateException("relay connection closed")
                 sending.withLock { inner.send(message) }
@@ -101,7 +121,13 @@ internal class RelayPool(private val scope: CoroutineScope) : AbstractCoroutineC
 
         suspend fun close() {
             reader.cancel()
+            end()
             runCatching { inner.close() }
+        }
+
+        private companion object {
+            /** Messages one request may have waiting before the connection waits for it. */
+            const val BUFFER = 256
         }
     }
 }

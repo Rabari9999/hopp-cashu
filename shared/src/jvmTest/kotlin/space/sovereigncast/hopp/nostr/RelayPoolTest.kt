@@ -3,12 +3,28 @@ package space.sovereigncast.hopp.nostr
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import space.sovereigncast.hopp.sync.SyncDevice
 import space.sovereigncast.hopp.sync.SyncOutcome
 import space.sovereigncast.hopp.value.FakeRelay
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -127,5 +143,43 @@ class RelayPoolTest {
             first to read.answered
         }
         assertEquals(setOf(url) to 1, took)
+    }
+
+    // ── delta audit 5 2026-10-24 ────────────────────────────────────────────
+
+    /** A connection whose relay answers what [answer] says to each request, and keeps what it was sent. */
+    private class Scripted(private val answer: (sub: String, all: List<String>, out: Channel<String>) -> Unit = { _, _, _ -> }) : RelayConnector {
+        val sent = CopyOnWriteArrayList<String>()
+        @Volatile var opened = 0
+        override suspend fun connect(url: String): RelaySession = object : RelaySession {
+            init { opened++ }
+            val out = Channel<String>(Channel.UNLIMITED)
+            val subs = mutableListOf<String>()
+            override val incoming: Flow<String> = out.consumeAsFlow()
+            override suspend fun send(message: String) {
+                sent += message
+                val arr = Json.parseToJsonElement(message).jsonArray
+                if (arr[0].jsonPrimitive.content != "REQ") return
+                val all = synchronized(subs) { subs += arr[1].jsonPrimitive.content; subs.toList() }
+                answer(arr[1].jsonPrimitive.content, all, out)
+            }
+            override suspend fun close() { out.close() }
+        }
+    }
+
+    /** RP-01: a relay that drops the connection right after a burst — as many messages as a request
+     *  may have waiting, or one more or less. The end reached the requests waiting on it only while the
+     *  shared buffer had room for it; with 256 waiting they waited for their timeout. */
+    @Test
+    fun aConnectionDroppedAfterABurstEndsWhatWaitsOnIt() = runBlocking<Unit> {
+        for (burst in listOf(0, 255, 256, 257, 1_000)) {
+            val relay = Scripted { _, _, out -> repeat(burst) { out.trySend("""["NOTICE","busy $it"]""") }; out.close() }
+            val publisher = RelayPublisher(relay, timeout = 20.seconds)
+            val started = System.nanoTime()
+            val read = withRelayPool { publisher.queryChecked(listOf(buildJsonObject { }), listOf(url)) }
+            val took = (System.nanoTime() - started) / 1_000_000
+            assertEquals(0, read.answered)
+            assertTrue(took < 5_000, "after a burst of $burst: waited $took ms for a closed connection")
+        }
     }
 }
