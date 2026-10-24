@@ -183,6 +183,28 @@ class RelayPoolTest {
         }
     }
 
+    /** RP-02: two large reads at once on one connection, each well within its limit — together above
+     *  it. Each counted the other's answers too, and neither was answered to its end. */
+    @Test
+    fun twoLargeReadsAtOnceEachKeepTheirOwnLimit() = runBlocking<Unit> {
+        val big = event("x".repeat(64_000))
+        val frame = { sub: String -> buildJsonArray { add("EVENT"); add(sub); add(Json.encodeToJsonElement(Event.serializer(), big)) }.toString() }
+        // Once both asked: 132 copies to each, in turn — 8.5 million characters each, 17 million on the connection.
+        val relay = Scripted { _, all, out ->
+            if (all.size == 2) {
+                repeat(132) { all.forEach { out.trySend(frame(it)) } }
+                all.forEach { out.trySend("""["EOSE","$it"]""") }
+            }
+        }
+        val publisher = RelayPublisher(relay, timeout = 20.seconds)
+        // Started in the pool's own scope: an outer scope's async runs without the pool.
+        val reads = withRelayPool {
+            coroutineScope { List(2) { async { publisher.queryChecked(listOf(buildJsonObject { }), listOf(url)) } }.awaitAll() }
+        }
+        assertEquals(1, relay.opened)
+        reads.forEach { assertEquals(1, it.answered); assertEquals(listOf(big.id), it.events.map { e -> e.id }) }
+    }
+
     /** RP-03: a request that times out, or is cancelled, on a shared connection: the relay is told to
      *  stop answering it — not only when the round ends and the connection closes. */
     @Test

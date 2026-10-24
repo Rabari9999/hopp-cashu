@@ -132,6 +132,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                     var bytes = 0L
                     val done = async(start = CoroutineStart.UNDISPATCHED) {
                         session.incoming.mapNotNull { text ->
+                            if (!text.answers(sub)) return@mapNotNull null
                             bytes += text.length
                             if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
                             if (text.length > MAX_MESSAGE) return@mapNotNull null
@@ -173,6 +174,13 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         withTimeoutOrNull(CLOSE_WAIT) { runCatching { send("""["CLOSE","$sub"]""") } }
     }
 
+    /**
+     * Whether this message answers subscription [sub] — told by its head, before it is read. Only
+     * those count against a request's limits; on a shared connection the others' answers are theirs
+     * (delta audit 5 2026-10-24, RP-02: two large reads at once cut each other off).
+     */
+    private fun String.answers(sub: String): Boolean = take(HEAD).contains("\"$sub\"")
+
     companion object {
         /** At most this many events from one relay for one request. */
         const val MAX_EVENTS = 5_000
@@ -180,6 +188,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         const val MAX_BYTES = 16L * 1024 * 1024
         /** A single message larger than this is passed over (an event holds 64 KiB of content). */
         const val MAX_MESSAGE = 512 * 1024
+        /** How far into a message its subscription is looked for: `["EVENT","hopp-…",` with room for spaces. */
+        private const val HEAD = 100
         private val CLOSE_WAIT = 1.seconds
     }
 
@@ -204,6 +214,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 var bytes = 0L
                 val done = async(start = CoroutineStart.UNDISPATCHED) {
                     session.incoming.mapNotNull { text ->
+                        if (!text.answers(sub)) return@mapNotNull null
                         bytes += text.length
                         if (bytes > MAX_BYTES || found.size >= MAX_EVENTS) return@mapNotNull false
                         if (text.length > MAX_MESSAGE) return@mapNotNull null
