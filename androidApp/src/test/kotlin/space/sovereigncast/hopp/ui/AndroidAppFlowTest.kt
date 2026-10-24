@@ -1151,6 +1151,55 @@ class AndroidAppFlowTest {
         check(!has("Write a comment…")) { "the field at the top stays while answering" }
     }
 
+    /** Maintainer 2026-10-24: the show's post on the episode above its comments, as Fountain shows it —
+     *  marked as the show's, folded to five lines, liked and zapped like a comment; a new comment answers
+     *  it, so it has no Reply of its own. */
+    @Test
+    fun theShowsPostIsPinnedAboveTheComments() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        val show = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val alice = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val item = "podcast:item:guid:ep-2"
+        val text = "Ep 2 is out. In this episode Karsten explains why the main part starts at 12:34.\n\n" +
+            (1..8).joinToString("\n\n") { "Topic $it: what we talked about, and what it means for you." } + "\n\nhttps://show.test/ep-2"
+        val post = space.sovereigncast.hopp.nostr.Event.sign(show, 1, text, listOf(listOf("i", item)), 1_790_000_000)
+        val comment = space.sovereigncast.hopp.nostr.Event.sign(alice, 1, "Great one", listOf(listOf("i", item)), 1_790_000_100)
+        kotlinx.coroutines.runBlocking {
+            val store = koin.get<space.sovereigncast.hopp.comments.CommentStore>()
+            store.save(item, space.sovereigncast.hopp.comments.CommentStore.Seen(listOf(post, comment), emptyList(), emptySet(), 1_790_000_200, roots = setOf(post.id)))
+            store.saveAuthors(mapOf(show.publicKeyHex to space.sovereigncast.hopp.comments.CommentAuthor("Test Show", null),
+                alice.publicKeyHex to space.sovereigncast.hopp.comments.CommentAuthor("Alice", null)), 1_790_000_200)
+        }
+        tap("Ep 2"); waitFor("Play")
+        // Kept from before: shown at once, no need to load.
+        tap("Comments")
+        waitFor("The show’s post")
+        waitFor("Great one")
+        check(has("Ep 2 is out", substring = true)) { screen().toString() }
+        check(rule.onAllNodes(hasText("Reply")).fetchSemanticsNodes().size == 1) { "only the comment takes a Reply" }
+        waitFor("more")
+        snapshot("comments-pinned")
+        tap("more")
+        waitFor("less")
+        snapshot("comments-pinned-open")
+    }
+
+    /** Each window as drawn, into build/screens — a look at a layout no assertion describes. */
+    private fun snapshot(name: String) {
+        java.io.File("build/screens").mkdirs()
+        val global = Class.forName("android.view.WindowManagerGlobal").getMethod("getInstance").invoke(null)
+        @Suppress("UNCHECKED_CAST")
+        val views = global.javaClass.getDeclaredField("mViews").apply { isAccessible = true }.get(global) as List<android.view.View>
+        rule.runOnIdle {
+            views.forEachIndexed { i, v ->
+                val bitmap = android.graphics.Bitmap.createBitmap(v.width.coerceAtLeast(1), v.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+                v.draw(android.graphics.Canvas(bitmap))
+                java.io.FileOutputStream("build/screens/$name-$i.png").use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        }
+    }
+
     /** Device feedback 2026-10-16: the show's latest boosts, cycling under the
      *  player's controls, confused more than they told — they are gone. */
     @Test

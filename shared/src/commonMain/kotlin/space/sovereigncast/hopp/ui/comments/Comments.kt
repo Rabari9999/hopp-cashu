@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.ui.comments
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,10 @@ import kotlinx.coroutines.flow.stateIn
 import space.sovereigncast.hopp.nostr.npub
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.comments_zap
+import space.sovereigncast.hopp.resources.comments_show_post
+import space.sovereigncast.hopp.resources.comments_show_badge
+import space.sovereigncast.hopp.resources.comments_text_more
+import space.sovereigncast.hopp.resources.comments_text_less
 import space.sovereigncast.hopp.resources.zap_title
 import space.sovereigncast.hopp.resources.zap_done
 import space.sovereigncast.hopp.resources.zap_close
@@ -434,6 +439,17 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                 // A new comment at the top; an answer right under what it answers
                 // (device feedback 2026-10-16: far down, the field at the top went unseen).
                 if (to == null) Composer(vm, me != null, authors)
+                // The show's post above the comments, as Fountain shows it (maintainer 2026-10-24); a new
+                // comment answers it, so it takes no answer of its own here.
+                s.thread.pinned?.takeIf { it.id !in hidden && it.pubkey !in mutedHere }?.let { p ->
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerHigh).padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(stringResource(Res.string.comments_show_post), color = colors.onSurfaceVariant, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                        CommentRow(p, authors, null, me?.pubkey, p.id in liking, vm, onTimestamp, zapped = p.zapped + (zappedHere[p.id] ?: 0), pinned = true)
+                    }
+                }
                 // Nothing to read and no sats behind it (a Fountain boost before its
                 // amount is in, or a bare link): not shown. Nor what the listener
                 // hid, reported or muted here.
@@ -466,6 +482,9 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
     BackupReminder(vm)
     ZapSheet(vm)
 }
+
+/** How many lines of the show's post show before "more". */
+private const val PINNED_LINES = 5
 
 /** Opens the wallet page, to connect one before zapping — from the player it closes first. */
 val LocalOpenWallet = staticCompositionLocalOf<() -> Unit> { {} }
@@ -561,6 +580,8 @@ private fun nameOf(key: String, authors: Map<String, CommentAuthor>): String =
 private fun CommentRow(
     c: Comment, authors: Map<String, CommentAuthor>, sats: Long?, me: String?, liking: Boolean, vm: CommentsViewModel,
     onTimestamp: (Long) -> Unit, modifier: Modifier = Modifier, zapped: Long = 0,
+    /** The show's post above the comments: marked as the show's, its text folded to a few lines. */
+    pinned: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val author = authors[c.pubkey]
@@ -585,6 +606,14 @@ private fun CommentRow(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(Res.string.comments_boost, formatSats(sats)), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                 }
+                if (pinned) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(Res.string.comments_show_badge),
+                        Modifier.border(1.dp, Hopp.colors.value, RoundedCornerShape(10.dp)).padding(horizontal = 7.dp),
+                        color = Hopp.colors.valueText, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelSmall,
+                    )
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(formatDate(c.createdAt), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
@@ -595,7 +624,20 @@ private fun CommentRow(
             val mark = SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
             val mention = SpanStyle(fontWeight = FontWeight.SemiBold)
             val text = remember(c.content, authors, link, mark, sats) { commentText(c.content.trim(), { nameOf(it, authors) }, mention, link, mark, sats, onTimestamp) }
-            if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
+            if (text.isNotEmpty() && pinned) {
+                // An announcement runs long: five lines, the rest on a tap.
+                var open by remember(c.id) { mutableStateOf(false) }
+                var cut by remember(c.id) { mutableStateOf(false) }
+                SelectionContainer {
+                    Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = if (open) Int.MAX_VALUE else PINNED_LINES, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (!open) cut = it.lineCount > 0 && it.isLineEllipsized(it.lineCount - 1) })
+                }
+                if (cut || open) Text(
+                    stringResource(if (open) Res.string.comments_text_less else Res.string.comments_text_more),
+                    Modifier.clip(RoundedCornerShape(6.dp)).clickable { open = !open }.padding(vertical = 4.dp, horizontal = 2.dp),
+                    fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge,
+                )
+            } else if (text.isNotEmpty()) SelectionContainer { Text(text, style = MaterialTheme.typography.bodyMedium) }
             // Like, answer, more — small, under the text. A zap is no note: nothing to like or answer.
             val zap = c.kind == space.sovereigncast.hopp.comments.CommentReader.ZAP_RECEIPT
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -609,7 +651,7 @@ private fun CommentRow(
                         .padding(vertical = 6.dp, horizontal = 2.dp).semantics { contentDescription = likeLabel },
                     color = if (liked) Hopp.colors.valueText else colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                 )
-                Text(
+                if (!pinned) Text(
                     stringResource(Res.string.comments_reply),
                     Modifier.clip(RoundedCornerShape(6.dp)).clickable { if (me == null) openIdentity() else vm.replyTo.value = c }.padding(vertical = 6.dp, horizontal = 2.dp),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,

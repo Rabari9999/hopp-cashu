@@ -86,6 +86,17 @@ What exists already:
   embeds already (Fountain's boosts) is not shown twice; a zap takes no
   answers or likes. Live: Einundzwanzig #336 in 2.7 s with the website
   asked, Nodesignal E298 in 4.3 s.
+- **Amended 2026-10-24 (maintainer): the show's post above the comments.**
+  Fountain shows the show's post on an episode among its comments; Hopp
+  showed only what answers it, and the post itself seemed missing (E299).
+  The announcement new comments answer (`post_release`, else the feed's
+  newest note; before the release the Release Boosting note) — or, without
+  one, the newest show note found about the episode — now sits above the
+  comments, marked as the show's: its text folded to five lines, its likes
+  and zaps as on a comment. It takes no Reply of its own: a new comment
+  answers it already. It is asked for by id too, since a note without
+  NIP-73 tags is found by nothing else, and its likes come with the second
+  request.
 
 **Reading** is the union, de-duplicated by event id: replies to the show's
 notes (`#e`), and kinds 1 and 1111 with `#i podcast:item:guid:<guid>`. So

@@ -19,6 +19,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
 - **Home:** Release Boosting und Boost2Unlock unter „Mitmachen“ öffnen direkt ihre Details in der Show.
 - **Home:** Einzelne Einträge unter „Mitmachen“ ausblenden – eine Runde, die Vorschläge einer Show oder eine ganze Show – und unter „Home anpassen“ wieder einblenden.
+- **Kommentare:** Der Post der Show zur Folge steht über den Kommentaren, wie in Fountain.
 - **Home:** Ein kleines Zeichen neben „aktualisiert“ zeigt, wie der Abgleich lief; ein Tipp zeigt Relays, was kam und was noch gesendet wird.
 - **Downloads:** Automatisches Herunterladen ganz abschalten – dann lädt nur, was du selbst herunterlädst.
 

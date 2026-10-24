@@ -631,6 +631,10 @@
     <string name="comments_need_identity">Set up a Nostr identity to comment</string>
     <string name="comments_like">Like</string>
     <string name="comments_more">More</string>
+    <string name="comments_show_post">The show’s post</string>
+    <string name="comments_show_badge">Show</string>
+    <string name="comments_text_more">more</string>
+    <string name="comments_text_less">less</string>
     <string name="comments_mute">Mute %1$s</string>
     <string name="comments_report">Report</string>
     <string name="comments_open_profile">Open profile in Nostr app</string>
