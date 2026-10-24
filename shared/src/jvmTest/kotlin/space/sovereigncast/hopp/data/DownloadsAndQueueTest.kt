@@ -187,6 +187,10 @@ class DownloadsAndQueueTest {
         settings.update { it.copy(autoDownloads = false) }
         downloads.dropAutomatic()
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 3").downloadState)
+        // One already running stops too (device feedback 2026-10-24).
+        db.episodeQueries.setDownloadState(DownloadState.DOWNLOADING.toLong(), byTitle(id, "Ep 2").id)
+        downloads.dropAutomatic()
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 2").downloadState)
         items = 4
         podcasts.refresh(id)
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)

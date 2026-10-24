@@ -47,21 +47,21 @@ internal class SyncDevice(
     })
     val store = SyncStore(db) { ms }
     val journal = SyncJournal(store)
-    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal)
-    val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val settings = SettingsRepository(db, journal)
+    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal) { settings.current().autoDownloads }
+    val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val queue = QueueRepository(db, journal)
     val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
     val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {
         listOf(
-            SubscriptionsDocument(db, podcasts),
-            ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
-            QueueDocument(db, queue),
             SettingsDocument(settings) { autoDownloadsDropped++ }.let { doc ->
                 object : SyncedDocument by doc { override suspend fun snapshot() = doc.snapshot().filterKeys { it !in notSyncedYet } }
             },
+            SubscriptionsDocument(db, podcasts),
+            ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
+            QueueDocument(db, queue),
         )
     }, { ms }, publishDelay = 1.hours)
 

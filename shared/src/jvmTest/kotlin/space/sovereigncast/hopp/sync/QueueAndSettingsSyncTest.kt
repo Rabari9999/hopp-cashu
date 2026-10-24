@@ -232,6 +232,24 @@ class QueueAndSettingsSyncTest {
         assertEquals(Settings.FEEDBACK_ALWAYS, tablet.settings.current().zapFeedback)
     }
 
+    /** Device feedback 2026-10-24: restored on a new device, a show's newest episode was downloaded although
+     *  automatic downloads were off — the shows came before the settings that said so. */
+    @Test
+    fun aRestoreWithAutomaticDownloadsOffQueuesNone() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.settings.update { it.copy(autoDownloads = false) }
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertEquals(setOf(feed), tablet.urls())
+        assertEquals(false, tablet.settings.current().autoDownloads)
+        val queued = tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).executeAsList().filter { it.download_state != 0L }
+        assertEquals(emptyList(), queued.map { it.guid })
+    }
+
     /** A setting synced only since an update, on two devices that synced before it: the first one's goes out
      *  at its next round, and the other takes it — its own default does not win over it. */
     @Test

@@ -154,6 +154,9 @@ SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
 dropAutoQueue:
 UPDATE episode SET download_state = 0, download_failures = 0 WHERE download_state = 1 AND download_manual = 0;
 
+runningAutoIds:
+SELECT id FROM episode WHERE download_state = 2 AND download_manual = 0;
+
 setDownloadState:
 UPDATE episode SET download_state = ? WHERE id = ?;
 

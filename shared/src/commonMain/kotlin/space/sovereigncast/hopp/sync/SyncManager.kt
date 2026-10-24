@@ -60,7 +60,9 @@ data class Restored(val shows: Int, val entries: Int)
  * Runs sync (ADR 0021, 5; docs/tasks/nostr-sync.md): on start, on coming to
  * the foreground at most every [FOREGROUND_EVERY], on pull-to-refresh, and a
  * little after the listener changed something. The documents in order —
- * subscriptions first, so the episodes whose progress follows are there.
+ * settings first, so shows that follow download only if the listener has that
+ * on (device feedback 2026-10-24); then subscriptions, so the episodes whose
+ * progress follows are there.
  */
 class SyncManager(
     private val engine: SyncEngine,
