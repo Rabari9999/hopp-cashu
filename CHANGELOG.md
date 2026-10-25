@@ -6,6 +6,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
 ### 🆕 New Features
 - **Nostr:** Sync subscriptions, progress, favourites, "Up next", listening habits and download settings between your devices – encrypted, no Hopp server.
 - **Nostr:** On a new device, restore your library from Nostr after signing in; Hopp then opens Home and says what came back.
@@ -19,8 +21,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
 - **Home:** A Release Boosting or Boost2Unlock under "Take part" opens straight to its details on the show.
 - **Home:** Hide single entries under "Take part" – a round, a show's suggestions or a whole show – and bring them back under "Customize Home".
-- **Comments:** The show's post on an episode sits above its comments, as in Fountain.
 - **Home:** A small mark beside "updated" shows how sync went; a tap shows relays, what came and what is still to send.
+- **Comments:** The show's post on an episode sits above its comments, as in Fountain.
 - **Downloads:** Switch automatic downloads off altogether – then only what you download yourself is fetched.
 
 ### 🐛 Fixes

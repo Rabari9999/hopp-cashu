@@ -89,7 +89,7 @@ android {
         applicationId = "space.sovereigncast.hopp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 5
+        versionCode = 6
         versionName = appVersion
     }
     buildFeatures {
