@@ -215,6 +215,36 @@ class DownloadsAndQueueTest {
         assertEquals(emptyList(), queue.items.first(), "switched off")
     }
 
+    /** Device feedback 2026-10-25: queued by its download, then marked heard and its download
+     *  removed, an episode still started after the one before it — streamed. Heard, it leaves. */
+    @Test
+    fun aHeardEpisodeLeavesTheQueue() = test {
+        items = 4
+        val id = subscribe()
+        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
+        listOf(e1, e2, e3, e4).forEach { downloads.request(it) }
+        assertTrue(downloads.runPending(includeAuto = true))
+        val order = queue.items.first().map { it.id }
+        assertEquals(setOf(e1, e2, e3, e4), order.toSet())
+        val heard = order.first()
+        episodes.setPlayed(heard, true)
+        downloads.remove(heard)
+        assertEquals(order.drop(1), queue.items.first().map { it.id })
+        assertEquals(order[1], queue.peek(), "not the one heard")
+        order.forEach { queue.remove(it) }
+        episodes.setPlayed(heard, false)
+        listOf(e4, e3, e2, e1).forEach { queue.playLast(it) }
+        // This one and the older ones; then the whole show.
+        episodes.setPlayedUpTo(byTitle(id, "Ep 3"))
+        assertEquals(listOf(e4), queue.items.first().map { it.id }, "Ep 3 and the older ones")
+        episodes.setShowPlayed(id)
+        assertEquals(emptyList(), queue.items.first())
+        // Unheard again, it does not come back by itself; put in again, it stays until heard.
+        episodes.setPlayed(e2, false)
+        queue.playLast(e2)
+        assertEquals(listOf(e2), queue.items.first().map { it.id })
+    }
+
     /** Device feedback 2026-10-15: one waiting for Wi-Fi goes now on request,
      *  over mobile data too. */
     @Test

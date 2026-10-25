@@ -400,29 +400,64 @@ class EpisodeRepository(
         noteProgress(id, urgent = paused)
     }
 
+    /** Heard, an episode leaves "Up next" too ([leaveQueue]). */
     suspend fun setPlayed(id: Long, played: Boolean) = withContext(Dispatchers.IO) {
-        if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+        val left = db.transactionWithResult {
+            if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+            if (played) leaveQueue(listOf(id)) else emptyList()
+        }
         noteProgress(id)
+        noteLeft(left)
     }
 
     /** Every episode of a show heard. */
     suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) {
-        val ids = if (journal.enabled) eq.unplayedOfShow(podcastId).executeAsList() else emptyList()
-        eq.markShowPlayed(clock.now(), podcastId)
+        val (ids, left) = db.transactionWithResult {
+            val ids = eq.unplayedOfShow(podcastId).executeAsList()
+            eq.markShowPlayed(clock.now(), podcastId)
+            ids to leaveQueue(ids)
+        }
         ids.forEach { noteProgress(it) }
+        noteLeft(left)
     }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(Dispatchers.IO) {
-        val ids = if (journal.enabled) eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList() else emptyList()
-        eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+        val (ids, left) = db.transactionWithResult {
+            val ids = eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList()
+            eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+            ids to leaveQueue(ids)
+        }
         ids.forEach { noteProgress(it) }
+        noteLeft(left)
     }
 
-    /** Progress from another device (sync): as it was there, and not noted again. */
+    /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
+     *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
+     *  a finished download put it in, which only this device knows. */
     suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(Dispatchers.IO) {
         db.transaction {
-            if (played) eq.markPlayed(atSeconds, id) else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+            if (played) { eq.markPlayed(atSeconds, id); leaveQueue(listOf(id)) } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+        }
+    }
+
+    /**
+     * Heard episodes out of "Up next" (device feedback 2026-10-25: one a finished download had put
+     * there, marked heard and its download removed, still started after the episode before it —
+     * streamed). Returns those that were in it.
+     */
+    private fun leaveQueue(ids: Collection<Long>): List<Long> {
+        val queued = db.queueQueries.selectAll().executeAsList().toSet()
+        return ids.filter { it in queued }.onEach { db.queueQueries.remove(it) }
+    }
+
+    /** Those out of "Up next", noted for sync as [QueueRepository] notes a removal. */
+    private fun noteLeft(ids: List<Long>) {
+        if (!journal.enabled) return
+        for (id in ids) {
+            val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: continue
+            val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+            journal.record(SyncDocs.QUEUE, SyncDocs.queueKey(show, r.guid), SyncDocs.queued(show, r.guid, 0), deleted = true)
         }
     }
 

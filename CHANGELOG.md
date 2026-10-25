@@ -6,6 +6,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.
+
 ## [0.3.0] - 2026-10-25
 
 ### 🆕 New Features

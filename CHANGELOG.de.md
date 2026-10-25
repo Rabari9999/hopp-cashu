@@ -6,6 +6,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.
+
 ## [0.3.0] - 2026-10-25
 
 ### 🆕 New Features
