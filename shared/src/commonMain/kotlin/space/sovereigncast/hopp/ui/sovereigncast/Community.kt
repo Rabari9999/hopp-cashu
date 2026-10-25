@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.ui.sovereigncast
 
+import space.sovereigncast.hopp.sovereigncast.reached
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
@@ -102,6 +105,8 @@ import space.sovereigncast.hopp.resources.sc_pay_title_b2u
 import space.sovereigncast.hopp.resources.sc_pay_title_rb
 import space.sovereigncast.hopp.resources.sc_per_minute
 import space.sovereigncast.hopp.resources.sc_progress
+import space.sovereigncast.hopp.resources.sc_goal_reached
+import space.sovereigncast.hopp.resources.sc_rb_reached_long
 import space.sovereigncast.hopp.resources.sc_publish_at
 import space.sovereigncast.hopp.resources.sc_rb_label
 import space.sovereigncast.hopp.resources.sc_requesting
@@ -251,9 +256,11 @@ fun ReleaseBoostingCard(round: ReleaseBoostingRound, onOpen: () -> Unit, onBoost
     label = stringResource(Res.string.sc_rb_label),
     title = round.episode.title,
     raised = round.raisedSats, goal = round.goalSats,
-    line = stringResource(Res.string.sc_progress, formatSats(round.raisedSats), formatSats(round.goalSats)) + " · " +
+    line = (if (round.reached) "✓ " + stringResource(Res.string.sc_goal_reached)
+        else stringResource(Res.string.sc_progress, formatSats(round.raisedSats), formatSats(round.goalSats))) + " · " +
         stringResource(Res.string.sc_publish_at, formatIsoShort(round.publishAt)),
-    action = if (storePaysForContent()) stringResource(Res.string.np_boost) else null, onAction = onBoost, onOpen = onOpen,
+    // At its goal nothing more brings the episode closer: no boost offered (maintainer, 2026-10-23).
+    action = if (storePaysForContent() && !round.reached) stringResource(Res.string.np_boost) else null, onAction = onBoost, onOpen = onOpen,
 )
 
 /** One episode waiting to be unlocked by boosts. */
@@ -366,13 +373,22 @@ private fun ChainView(chain: Chain) {
 @Composable
 fun ReleaseBoostingSheet(round: ReleaseBoostingRound, show: ScShow?, onBoost: () -> Unit, onDismiss: () -> Unit) = ActionSheet(
     label = stringResource(Res.string.sc_rb_label), episode = round.episode, raised = round.raisedSats, goal = round.goalSats,
-    action = if (storePaysForContent()) stringResource(Res.string.np_boost) else null,
-    communityUrl = if (storePaysForContent()) show?.communityPageUrl else null, onAction = onBoost, onDismiss = onDismiss,
+    action = if (storePaysForContent() && !round.reached) stringResource(Res.string.np_boost) else null,
+    communityUrl = if (storePaysForContent() && !round.reached) show?.communityPageUrl else null, onAction = onBoost, onDismiss = onDismiss,
 ) {
+    if (round.reached) GoalReached()
     Text(stringResource(Res.string.sc_publish_long, formatIsoShort(round.publishAt)), style = MaterialTheme.typography.titleSmall)
     Text(stringResource(Res.string.sc_per_minute, round.satsPerMinute), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     round.chain?.let { ChainView(it) }
     round.clip?.let { c -> ClipLine(c, stringResource(Res.string.sc_clip_at_block, c.atBlock ?: round.chain?.halvingBlock ?: 0), show) }
+}
+
+/** A tick and why there is nothing left to boost: the episode comes out at the earliest it can. */
+@Composable
+private fun GoalReached() = Row(verticalAlignment = Alignment.CenterVertically) {
+    Icon(Icons.Rounded.CheckCircle, null, tint = Hopp.colors.ok, modifier = Modifier.size(22.dp))
+    Spacer(Modifier.size(8.dp))
+    Text(stringResource(Res.string.sc_rb_reached_long), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 }
 
 @Composable

@@ -45,8 +45,26 @@ CI runner is Linux in Docker, without an emulator.
 | `05-settings` | The settings pages reachable without a wallet or an identity. |
 
 They build on each other in that order (`flows/config.yaml`); `03` starts
-clean through `common/fresh.yaml`. Nothing is ever published: the flows make
-no Nostr identity and connect no wallet.
+clean through `common/fresh.yaml`. Nothing is published by them: they make no
+Nostr identity and connect no wallet.
+
+### Sync between two devices (`sync/`)
+
+When the phone and the iPhone are both in the run, the script goes on with
+sync (ADR 0021 stage 5) on what the phone's runs left — Nodesignal
+subscribed, E297 streamed for a while, the show at 1.1×:
+
+| Flow | Device | What it does |
+| --- | --- | --- |
+| `1-source` | phone | Default speed 1.3×, skip back 5 s and forward 45 s; E296 a favourite and in "Up next"; a Nostr key made for the test ("Hopp device check"), sync on until "Synced just now"; the key's backup (NIP-49, a password per run) left on screen. |
+| — | script | Reads the backup from the phone's view hierarchy (`maestro hierarchy`), keeps it beside the run (`sync/test-key.txt`), installs Hopp anew on the iPhone. |
+| `2-restore` | iPhone | The welcome page's "I already use Hopp", the key and password, the offer ("Shows: 1 · in progress: 1"), the restore, which lands on Home with "Your library is back"; then checks the show, "Up next", the favourite, E297's place, the three habits (in the settings and on the player's skip buttons). Changes skip back to 15 s and takes the favourite back, syncs. |
+| `3-back` | phone | Syncs and finds both changes. |
+
+This is the one part of the device check that publishes: the throwaway key's
+profile and relay list, and its sync documents (sealed to it), on Hopp's
+default relays — a new key each run. `SYNC=0` leaves it out. The screenshots
+appear in order under "sync" on the result page.
 
 Labels are matched as the English UI shows them (the emulators run in
 English). The flows take the app's id from `APP_ID` (the Android beta is

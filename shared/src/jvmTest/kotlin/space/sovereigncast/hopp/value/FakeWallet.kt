@@ -25,6 +25,8 @@ class FakeWallet(
     var failMethod: String? = null
     /** Pays this method but never answers — the answer lost on the relay. */
     var silentMethod: String? = null
+    /** What get_balance answers, in msat. */
+    var balanceMsat = 21_000_000L
     /** What get_info names as the wallet's node. */
     var nodePubkey: String? = null
     /** Changes an answer before it is signed — a wallet that answers wrongly but authentically. */
@@ -51,7 +53,7 @@ class FakeWallet(
             val fail = failWith ?: ("PAYMENT_FAILED" to "no route").takeIf { failMethod == method }
             if (fail != null) put("error", buildJsonObject { put("code", fail.first); put("message", fail.second) })
             else put("result", when (method) {
-                "get_balance" -> buildJsonObject { put("balance", 21_000_000) }
+                "get_balance" -> buildJsonObject { put("balance", balanceMsat) }
                 "get_info" -> buildJsonObject { put("alias", "Fake Hub"); nodePubkey?.let { put("pubkey", it) } }
                 else -> buildJsonObject { put("preimage", "00".repeat(32)); put("fees_paid", 1000) }
             })

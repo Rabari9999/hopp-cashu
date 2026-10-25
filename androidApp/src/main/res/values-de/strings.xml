@@ -10,6 +10,7 @@
     <string name="quick_boost_sent">%1$s sats an %2$s geboostet</string>
     <string name="quick_boost_partial">%1$s von %2$s sats an %3$s geboostet – Details im Zahlungsverlauf</string>
     <string name="quick_boost_budget">Boost nicht gesendet: Das Tagesbudget ist aufgebraucht</string>
+    <string name="quick_boost_low_balance">Boost nicht gesendet: In der Wallet sind nur noch %1$s sats</string>
     <string name="quick_boost_no_value">Boost nicht gesendet: Diese Show kann keine Boosts empfangen</string>
     <string name="quick_boost_no_wallet">Boost nicht gesendet: Keine Wallet verbunden</string>
     <string name="quick_boost_failed">Boost fehlgeschlagen: %1$s</string>
@@ -24,4 +25,7 @@
     <string name="scan_close">Schließen</string>
     <string name="scan_no_camera">Hopp braucht die Kamera nur, um den QR-Code zu lesen.</string>
     <string name="files_summary">Heruntergeladene Folgen</string>
+    <string name="skip_back">%1$d Sekunden zurück</string>
+    <string name="skip_forward">%1$d Sekunden vor</string>
+    <string name="next_chapter">Nächstes Kapitel</string>
 </resources>

@@ -6,6 +6,8 @@ import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
+import space.sovereigncast.hopp.resources.settings_auto_downloads
+import space.sovereigncast.hopp.resources.settings_auto_downloads_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue_note
 import space.sovereigncast.hopp.resources.nostr_title
 import space.sovereigncast.hopp.resources.nostr_entry_none
@@ -16,6 +18,10 @@ import space.sovereigncast.hopp.resources.settings_downloads_used
 import space.sovereigncast.hopp.resources.cancel
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +56,8 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -170,7 +178,11 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
     val colors = MaterialTheme.colorScheme
     val s = settings ?: return
     // Home's sections are dragged, which wants a lazy list of its own rather than this column.
-    if (page == SettingsPage.Home) { HomeSectionsEditor(s) { change -> vm.update(change) }; return }
+    if (page == SettingsPage.Home) {
+        val titles by vm.showTitles.collectAsState()
+        HomeSectionsEditor(s, titles) { change -> vm.update(change) }
+        return
+    }
     if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
@@ -188,6 +200,9 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 if (engine.supportsSkipSilence) Toggle(stringResource(Res.string.skip_silence), stringResource(Res.string.settings_skip_silence_note), s.skipSilence) { on ->
                     vm.update { it.copy(skipSilence = on) }
                 }
+                if (engine.supportsVolumeBoost) Toggle(stringResource(Res.string.volume_boost), stringResource(Res.string.settings_volume_boost_note), s.volumeBoost) { on ->
+                    vm.update { it.copy(volumeBoost = on) }
+                }
             }
             SettingsPage.Downloads -> {
                 Section(stringResource(Res.string.settings_downloads))
@@ -196,6 +211,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                     if (mb == 0) stringResource(Res.string.settings_unlimited) else formatBytes(mb * 1024L * 1024L)
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
+                // One switch for all shows (device feedback 2026-10-22); a show's own in its menu comes on top.
+                Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
+                    vm.setAutoDownloads(on)
+                }
                 Toggle(stringResource(Res.string.settings_downloads_queue), stringResource(Res.string.settings_downloads_queue_note), s.downloadsToQueue) { on ->
                     vm.update { it.copy(downloadsToQueue = on) }
                 }
@@ -259,15 +278,49 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
                 Toggle(stringResource(Res.string.settings_fyyd), stringResource(Res.string.settings_sees_searches), s.fyydSearch) { on -> vm.update { it.copy(fyydSearch = on) } }
                 Toggle(stringResource(Res.string.settings_apple), stringResource(Res.string.settings_sees_searches), s.appleSearch) { on -> vm.update { it.copy(appleSearch = on) } }
             }
+            // Moving over from another podcast app (maintainer, 2026-10-21): where its export is,
+            // then one button; taking the subscriptions along below.
             SettingsPage.Subscriptions -> {
-                Note(stringResource(Res.string.settings_opml_note))
-                val importState by vm.import.collectAsState()
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) { Text(stringResource(Res.string.opml_import)) }
-                    OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
+                // A file handed over from another app: asked first, at the top.
+                var incoming by remember { mutableStateOf<SettingsViewModel.OpmlFile?>(null) }
+                LaunchedEffect(Unit) { space.sovereigncast.hopp.ui.IncomingLinks.takeOpmlDraft()?.let { incoming = vm.opmlFile(it) } }
+                incoming?.let { file ->
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.secondaryContainer).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stringResource(Res.string.opml_incoming_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(when {
+                            file.shows == 0 -> stringResource(Res.string.opml_incoming_none)
+                            file.already > 0 -> stringResource(Res.string.opml_incoming_some_here, file.shows, file.already)
+                            else -> stringResource(Res.string.opml_incoming_count, file.shows)
+                        })
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (file.shows > file.already) Button(onClick = { vm.importOpml(file.text); incoming = null }) { Text(stringResource(Res.string.opml_incoming_import)) }
+                            TextButton(onClick = { incoming = null }) { Text(stringResource(if (file.shows > file.already) Res.string.cancel else Res.string.opml_incoming_close)) }
+                        }
+                    }
                 }
+                Section(stringResource(Res.string.opml_section))
+                Note(stringResource(Res.string.move_text))
+                listOf(
+                    "AntennaPod" to Res.string.move_antennapod, "Pocket Casts" to Res.string.move_pocketcasts,
+                    "Podcast Addict" to Res.string.move_podcastaddict, "Overcast" to Res.string.move_overcast,
+                ).forEach { (app, path) ->
+                    Column {
+                        Text(app, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(path), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    }
+                }
+                Note(stringResource(Res.string.move_other))
+                val importState by vm.import.collectAsState()
+                Button(onClick = { actions.pickOpml { vm.importOpml(it) } }, enabled = importState != AddState.Working) { Text(stringResource(Res.string.move_import)) }
                 if (importState == AddState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
                 (importState as? AddState.Imported)?.let { Text(stringResource(Res.string.result_imported, it.subscribed, it.already, it.failed)) }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Section(stringResource(Res.string.move_export_title))
+                Note(stringResource(Res.string.move_export_text))
+                OutlinedButton(onClick = { scope.launch { actions.exportOpml(vm.exportOpml()) } }) { Text(stringResource(Res.string.opml_export)) }
             }
             SettingsPage.About -> {
                 SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

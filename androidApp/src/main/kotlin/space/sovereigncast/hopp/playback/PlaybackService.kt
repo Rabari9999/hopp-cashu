@@ -70,13 +70,26 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             koin.get<SettingsRepository>().settings.collect {
                 exo.skipSilenceEnabled = it.skipSilence
+                louder.on = it.volumeBoost
+                val changed = skipBackMs != it.skipBackSeconds * 1000L || skipForwardMs != it.skipForwardSeconds * 1000L
                 skipBackMs = it.skipBackSeconds * 1000L
                 skipForwardMs = it.skipForwardSeconds * 1000L
+                // The lock screen's skip buttons show the seconds.
+                if (changed) session?.setMediaButtonPreferences(buttons())
             }
         }
 
+        // The volume boost works on the player's audio session — a new one, and it moves along.
+        louder.attach(exo.audioSessionId)
+        exo.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) = louder.attach(audioSessionId)
+        })
+
         val tree = MediaTree(this, koin.get(), koin.get(), koin.get(), koin.get())
-        session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree).also { callback = it }).build()
+        // The skip buttons from the start; the boost joins once the wallet is known (below).
+        session = MediaLibrarySession.Builder(this, ChapterPlayer(exo), Callback(tree).also { callback = it })
+            .setMediaButtonPreferences(buttons())
+            .build()
         // The boost button on the lock screen and in the notification — only
         // with a wallet and a quick-boost amount set.
         scope.launch {
@@ -94,18 +107,58 @@ class PlaybackService : MediaLibraryService() {
         private set
 
     private var boostShown = false
+    private val louder = Louder()
     private var skipBackMs = Settings().skipBackSeconds * 1000L
     private var skipForwardMs = Settings().skipForwardSeconds * 1000L
     private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
 
-    private fun buttons(): List<CommandButton> = if (!boostShown) emptyList() else listOf(
-        CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setCustomIconResId(R.drawable.ic_boost)
-            .setDisplayName(getString(R.string.quick_boost))
-            .setSessionCommand(boostCommand)
-            .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
-            .build(),
-    )
+    /**
+     * The lock screen and the notification (maintainer, 2026-10-21): skip back
+     * and forward by the listener's seconds where previous and next were, the
+     * boost beside them — with a wallet — and the next chapter after it.
+     * Headsets and the car keep next and previous for chapters ([ChapterPlayer]).
+     */
+    private fun buttons(withBoost: Boolean = boostShown): List<CommandButton> = buildList {
+        val back = (skipBackMs / 1000).toInt()
+        val forward = (skipForwardMs / 1000).toInt()
+        add(
+            CommandButton.Builder(when (back) {
+                5 -> CommandButton.ICON_SKIP_BACK_5; 10 -> CommandButton.ICON_SKIP_BACK_10
+                15 -> CommandButton.ICON_SKIP_BACK_15; 30 -> CommandButton.ICON_SKIP_BACK_30
+                else -> CommandButton.ICON_SKIP_BACK
+            })
+                .setDisplayName(getString(R.string.skip_back, back))
+                .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                .setSlots(CommandButton.SLOT_BACK)
+                .build(),
+        )
+        add(
+            CommandButton.Builder(when (forward) {
+                5 -> CommandButton.ICON_SKIP_FORWARD_5; 10 -> CommandButton.ICON_SKIP_FORWARD_10
+                15 -> CommandButton.ICON_SKIP_FORWARD_15; 30 -> CommandButton.ICON_SKIP_FORWARD_30
+                else -> CommandButton.ICON_SKIP_FORWARD
+            })
+                .setDisplayName(getString(R.string.skip_forward, forward))
+                .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                .setSlots(CommandButton.SLOT_FORWARD)
+                .build(),
+        )
+        if (withBoost) add(
+            CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setCustomIconResId(R.drawable.ic_boost)
+                .setDisplayName(getString(R.string.quick_boost))
+                .setSessionCommand(boostCommand)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build(),
+        )
+        add(
+            CommandButton.Builder(CommandButton.ICON_NEXT)
+                .setDisplayName(getString(R.string.next_chapter))
+                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                .build(),
+        )
+    }
 
     /** One tap, the set amount, no dialog (device feedback 2026-10-08) — and
      *  a notification that says what happened, as the listener chose
@@ -160,14 +213,14 @@ class PlaybackService : MediaLibraryService() {
     }
 
     internal inner class Callback(private val tree: MediaTree) : MediaLibrarySession.Callback {
-        /** The notification, the lock screen and the car get the boost; other apps playback only ([mayBoost]). */
+        /** The notification, the lock screen and the car get the boost; other apps the skip buttons only ([mayBoost]). */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             val allowed = mayBoost(session, controller)
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             if (allowed) commands.add(boostCommand)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands.build())
-                .setMediaButtonPreferences(if (allowed) buttons() else emptyList())
+                .setMediaButtonPreferences(buttons(withBoost = allowed && boostShown))
                 .build()
         }
 
@@ -233,9 +286,39 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        louder.release()
         session?.run { player.release(); release() }
         session = null
         scope.cancel()
         super.onDestroy()
+    }
+}
+
+/**
+ * The volume boost (maintainer 2026-10-21: some shows and episodes are quiet):
+ * Android's LoudnessEnhancer on the player's audio session, [GAIN_MB] louder
+ * while [on]. A device without the effect plays as it was.
+ */
+internal class Louder {
+    private var effect: android.media.audiofx.LoudnessEnhancer? = null
+    var on = false
+        set(value) { field = value; runCatching { effect?.enabled = value } }
+
+    fun attach(audioSessionId: Int) {
+        release()
+        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) return
+        effect = runCatching {
+            android.media.audiofx.LoudnessEnhancer(audioSessionId).apply { setTargetGain(GAIN_MB); enabled = on }
+        }.getOrNull()
+    }
+
+    fun release() {
+        runCatching { effect?.release() }
+        effect = null
+    }
+
+    companion object {
+        /** In millibels: +8 dB — clearly louder, not yet distorted on speech. */
+        const val GAIN_MB = 800
     }
 }

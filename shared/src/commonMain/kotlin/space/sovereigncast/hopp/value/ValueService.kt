@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
@@ -46,6 +47,7 @@ import space.sovereigncast.hopp.net.FetchResult
 import space.sovereigncast.hopp.platform.AppInfo
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlin.time.Duration.Companion.seconds
 
 /** One recipient's line in the payment log. */
 @Serializable
@@ -89,6 +91,8 @@ sealed interface QuickBoost {
     data object NoWallet : QuickBoost
     data object NoValue : QuickBoost
     data object OverBudget : QuickBoost
+    /** The wallet holds less than the boost and its fees (maintainer 2026-10-21). */
+    data class LowBalance(val balanceSats: Long) : QuickBoost
     data class Failed(val reason: String) : QuickBoost
 }
 
@@ -304,6 +308,20 @@ class ValueService(
         pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, counted, message, fees, unknown, json.encodeToString(lineList, listOf(line)))
     }
 
+    /**
+     * What the connected wallet holds, in msat — null when it does not tell (no
+     * `get_balance`, or no answer in [BALANCE_WAIT]): then a boost is not held
+     * back, the wallet decides.
+     */
+    suspend fun walletBalanceMsat(): Long? {
+        val w = wallet.wallet.value ?: return null
+        if (w.methods.isNotEmpty() && "get_balance" !in w.methods) return null
+        return withTimeoutOrNull(BALANCE_WAIT) { wallet.balanceMsat() }
+    }
+
+    /** Whether [amountMsat] and its fee reserve fit what the wallet holds; true when that is unknown. */
+    fun covers(balanceMsat: Long?, amountMsat: Long): Boolean = balanceMsat == null || amountMsat + feeReserve(amountMsat) <= balanceMsat
+
     /** Whether [amountMsat] and its fee reserve fit today's budget now — a look ahead; [payInvoice] decides. */
     suspend fun budgetAllows(amountMsat: Long): Boolean = amountMsat + feeReserve(amountMsat) <= budgetLeftMsat.first()
 
@@ -400,6 +418,8 @@ class ValueService(
         val amount = s.quickBoostSats * 1000L
         if (amount + feeReserve(amount) > budgetLeftMsat.first()) return@withLock QuickBoost.OverBudget
         if (blockFor(item) == null) return@withLock QuickBoost.NoValue
+        // Not half a boost from a wallet that cannot carry it (maintainer 2026-10-21).
+        walletBalanceMsat()?.let { if (!covers(it, amount)) return@withLock QuickBoost.LowBalance(it / 1000) }
         try {
             outcome(item.podcastId, s.quickBoostSats.toLong(), boostLocked(item, positionSeconds, amount, null), item.podcastTitle)
         } catch (e: Exception) {
@@ -665,6 +685,8 @@ class ValueService(
          * budget on the connection is that.
          */
         internal fun feeReserve(msat: Long): Long = maxOf(1_000L, msat / 100)
+        /** How long a boost waits for the wallet's balance before it goes without. */
+        val BALANCE_WAIT = 8.seconds
         /** Not heard for this long, an episode's parts of a sat are rounded up and paid. */
         const val ROUND_UP_AFTER_SECONDS = 24 * 3600L
         const val SUPPORT_NAME = "Hopp"

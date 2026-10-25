@@ -15,6 +15,19 @@ import platform.Foundation.dateByAddingTimeInterval
 import platform.UIKit.UIViewController
 import platform.UIKit.popoverPresentationController
 import space.sovereigncast.hopp.ui.PlatformActions
+import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.create
+import platform.Foundation.dataWithContentsOfURL
+import platform.Foundation.writeToFile
+import platform.UIKit.UIDocumentPickerDelegateProtocol
+import platform.UIKit.UIDocumentPickerViewController
+import platform.UniformTypeIdentifiers.UTType
+import platform.UniformTypeIdentifiers.UTTypeData
+import platform.UniformTypeIdentifiers.UTTypeXML
+import platform.darwin.NSObject
 
 /**
  * What the app asks of iOS (device feedback 2026-10-13: on the iPhone and the
@@ -22,13 +35,49 @@ import space.sovereigncast.hopp.ui.PlatformActions
  * any of these, so copying and sharing did nothing either).
  *
  * Not here, because iOS has no public way: VPN and network settings (the
- * privacy page shows no button for them on iOS), a per-app language (iOS sets
- * it in Hopp's own page of the Settings app), OPML files (with the iOS work
- * after phase 2, ADR 0018).
+ * privacy page shows no button for them on iOS) and a per-app language (iOS
+ * sets it in Hopp's own page of the Settings app).
  */
 class IosPlatformActions : PlatformActions {
-    override fun pickOpml(onText: (String) -> Unit) = Unit
-    override fun exportOpml(text: String) = Unit
+    /** The picker holds its delegate weakly: kept here while it is open. */
+    private var pickerDelegate: NSObject? = null
+
+    /** The Files picker, for an OPML export another app saved (maintainer, 2026-10-21: the
+     *  moving-over page's button did nothing on iOS). Read whole only up to Limits.OPML. */
+    override fun pickOpml(onText: (String) -> Unit) {
+        val top = topController() ?: return
+        val types = listOfNotNull(UTType.typeWithIdentifier("org.opml.opml"), UTTypeXML, UTTypeData)
+        val picker = UIDocumentPickerViewController(forOpeningContentTypes = types, asCopy = true)
+        val delegate = object : NSObject(), UIDocumentPickerDelegateProtocol {
+            override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
+                pickerDelegate = null
+                val url = didPickDocumentsAtURLs.firstOrNull() as? NSURL ?: return
+                val data = NSData.dataWithContentsOfURL(url) ?: return
+                if (data.length.toLong() > space.sovereigncast.hopp.net.Limits.OPML) { onText(""); return }
+                onText(NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString().orEmpty())
+            }
+            override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) { pickerDelegate = null }
+        }
+        pickerDelegate = delegate
+        picker.delegate = delegate
+        top.presentViewController(picker, animated = true, completion = null)
+    }
+
+    /** As a file in the share sheet: "Save to Files", or straight to another podcast app. */
+    @OptIn(ExperimentalForeignApi::class)
+    override fun exportOpml(text: String) {
+        val top = topController() ?: return
+        val path = NSTemporaryDirectory() + "hopp-subscriptions.opml"
+        @Suppress("CAST_NEVER_SUCCEEDS")
+        if (!(text as NSString).writeToFile(path, atomically = true, encoding = NSUTF8StringEncoding, error = null)) return
+        val sheet = UIActivityViewController(listOf(NSURL.fileURLWithPath(path)), null)
+        sheet.popoverPresentationController?.let { pop ->
+            pop.sourceView = top.view
+            top.view.bounds.useContents { pop.sourceRect = CGRectMake(size.width / 2, size.height / 2, 0.0, 0.0) }
+            pop.permittedArrowDirections = 0u
+        }
+        top.presentViewController(sheet, animated = true, completion = null)
+    }
 
     /**
      * Hopp's notification settings, as on Android (device feedback 2026-10-14: Hopp's

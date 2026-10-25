@@ -113,6 +113,82 @@ class PlayerControllerTest {
         assertTrue(episodes.item(e1.id)!!.played)
     }
 
+    /** Device feedback 2026-10-22: an episode begun and left for another goes back to the top of
+     *  "Up next" and plays on after it; one barely begun does not. */
+    @Test
+    fun anEpisodeLeftForAnotherWaitsAtTheTopOfUpNext() = test {
+        val (e1, e2, e3) = episodes()
+        queue.playLast(e3.id)
+        start(e1)
+        at(120_000)
+        start(e2)
+        until("Ep 1 back on top") { queue.items.first().map { it.id } == listOf(e1.id, e3.id) }
+        assertEquals(120_000L, episodes.item(e1.id)!!.positionMs)
+        at(3_000)
+        step { end() }
+        until("Ep 1 follows, where it was") { engine.loaded.last().let { it.id == e1.id.toString() && it.startPositionMs == 120_000L } }
+        // Barely begun: not put back.
+        at(2_000)
+        start(e3)
+        until("Ep 3 playing") { player.current.value?.item?.id == e3.id }
+        assertEquals(emptyList(), queue.items.first().map { it.id })
+    }
+
+    /** Device feedback 2026-10-22 (a phone restarted): the episode last listened to is back in the
+     *  player, paused where it was, and plays from there. */
+    @Test
+    fun theLastEpisodeIsBackAfterARestart() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        until("where it was") { again.state.value.positionMs == 90_000L }
+        assertTrue(fresh.loaded.isEmpty(), "nothing loaded before the listener asks")
+        again.togglePlay()
+        until("plays from there") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 90_000L } == true }
+    }
+
+    /** Delta audit 3 2026-10-22, ND-03: after a restart, a newer position from another device arrives while
+     *  the episode is only shown — played, it starts there, and the database keeps it. */
+    @Test
+    fun aPositionFromElsewhereAfterARestartIsWherePlayStarts() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        // As ProgressDocument does: the database first, then the player.
+        episodes.applyProgress(e1.id, 180_000, false, clockMs / 1000)
+        again.adoptProgress(e1.id, 180_000, false)
+        assertEquals(180_000L, again.current.value?.item?.positionMs)
+        again.togglePlay()
+        until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
+        assertEquals(180_000L, episodes.item(e1.id)!!.positionMs)
+    }
+
+    /** ND-03, the other way: the position arrives in the database only (the player not told) — still played from there. */
+    @Test
+    fun aRestoredEpisodePlaysFromWhatTheDatabaseHasNow() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        episodes.applyProgress(e1.id, 180_000, false, clockMs / 1000)
+        again.togglePlay()
+        until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
+    }
+
     /** A clip (podcast:soundbite) plays to its end, then the listener is back where they were. */
     @Test
     fun aClipPlaysToItsEndAndGoesBack() = test {

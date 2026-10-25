@@ -31,6 +31,12 @@ class FakeRelay : RelayConnector {
     var passOnAndReject = false
     /** Reads fail — the connection drops on every REQ — while publishing still works (security audit 2026-10-20, M-04/M-08). */
     var readsFail = false
+    /** Events a read leaves out — a relay that lost them, or holds back (security audit 2026-10-22). */
+    var hide: (Event) -> Boolean = { false }
+    /** Reads whose filter this says yes to fail — the connection drops (delta audit 2 2026-10-22). */
+    var failReads: (JsonObject) -> Boolean = { false }
+    /** Events it answers "refused" to and does not keep (delta audit 2026-10-22). */
+    var refuse: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
 
     inner class Session : RelaySession {
@@ -58,15 +64,16 @@ class FakeRelay : RelayConnector {
                 if (readsFail) { session.channel.close(); return }
                 val id = arr[1].jsonPrimitive.content
                 val filters = arr.drop(2).map { it.jsonObject }
+                if (filters.any(failReads)) { session.channel.close(); return }
                 session.subs[id] = filters.first()
                 synchronized(this) {
-                    filters.flatMap { filter -> stored.filter { matches(filter, it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }
+                    filters.flatMap { filter -> stored.filter { matches(filter, it) && !hide(it) }.takeLast(filter["limit"]?.jsonPrimitive?.int ?: Int.MAX_VALUE) }.distinctBy { it.id }
                 }.forEach { session.channel.trySend(eventMessage(id, it)) }
                 session.channel.trySend("""["EOSE","$id"]""")
             }
             "EVENT" -> {
                 val event = json.decodeFromJsonElement(Event.serializer(), arr[1])
-                val ok = event.isValid() && !rejectEvents && !passOnAndReject
+                val ok = event.isValid() && !rejectEvents && !passOnAndReject && !refuse(event)
                 session.channel.trySend("""["OK","${event.id}",$ok,"${if (ok) "" else "blocked: test"}"]""")
                 if (ok || (passOnAndReject && event.isValid())) publish(event)
             }

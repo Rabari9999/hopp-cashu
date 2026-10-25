@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +29,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -44,6 +47,14 @@ import space.sovereigncast.hopp.resources.home_take_part
 import space.sovereigncast.hopp.resources.home_your_shows
 import space.sovereigncast.hopp.resources.library_continue
 import space.sovereigncast.hopp.resources.nav_new
+import space.sovereigncast.hopp.resources.take_part_hidden_title
+import space.sovereigncast.hopp.resources.take_part_hidden_note
+import space.sovereigncast.hopp.resources.take_part_hidden_unknown_show
+import space.sovereigncast.hopp.resources.take_part_hidden_all
+import space.sovereigncast.hopp.resources.take_part_hidden_suggestions
+import space.sovereigncast.hopp.resources.take_part_hidden_round
+import space.sovereigncast.hopp.resources.take_part_hidden_unlock
+import space.sovereigncast.hopp.resources.take_part_show_again
 import space.sovereigncast.hopp.ui.components.HoppIcons
 
 /**
@@ -94,9 +105,10 @@ object HomeSections {
     }
 }
 
-/** The settings page: drag to arrange, switch to hide, and back to Hopp's order. */
+/** The settings page: drag to arrange, switch to hide, and back to Hopp's order; below,
+ *  what was hidden under "Take part", each to show again ([showTitles] by podcast:guid). */
 @Composable
-fun HomeSectionsEditor(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
+fun HomeSectionsEditor(settings: Settings, showTitles: Map<String, String> = emptyMap(), onChange: ((Settings) -> Settings) -> Unit) {
     val saved = HomeSections.order(settings.homeOrder)
     var order by remember { mutableStateOf(saved) }
     LaunchedEffect(settings.homeOrder) { order = HomeSections.order(settings.homeOrder) }
@@ -144,6 +156,33 @@ fun HomeSectionsEditor(settings: Settings, onChange: ((Settings) -> Settings) ->
                 onClick = { onChange { it.copy(homeOrder = emptyList(), homeHidden = emptySet()) } },
                 modifier = Modifier.padding(16.dp),
             ) { Text(stringResource(Res.string.home_sections_reset)) }
+        }
+        // Newest first: the one just hidden by mistake is at the top.
+        val hiddenHere = settings.takePartHidden.reversed().mapNotNull { k -> TakePart.parse(k)?.let { k to it } }
+        if (hiddenHere.isNotEmpty()) {
+            item(key = "tp-title") {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+                    Text(stringResource(Res.string.take_part_hidden_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.take_part_hidden_note), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            items(hiddenHere, key = { "tp-${it.first}" }) { (key, entry) ->
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(showTitles[entry.podcastGuid] ?: stringResource(Res.string.take_part_hidden_unknown_show), style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(when (entry.scope) {
+                            TakePart.Scope.Show -> Res.string.take_part_hidden_all
+                            TakePart.Scope.Suggestions -> Res.string.take_part_hidden_suggestions
+                            TakePart.Scope.Round -> Res.string.take_part_hidden_round
+                            TakePart.Scope.Unlock -> Res.string.take_part_hidden_unlock
+                        }), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { onChange { it.copy(takePartHidden = it.takePartHidden - key) } }) {
+                        Text(stringResource(Res.string.take_part_show_again))
+                    }
+                }
+            }
         }
     }
 }

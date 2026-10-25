@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavBackStackEntry
+import space.sovereigncast.hopp.sovereigncast.ShowAction
 import space.sovereigncast.hopp.ui.library.EpisodeNav
 import space.sovereigncast.hopp.ui.library.EpisodeScreen
 import space.sovereigncast.hopp.ui.library.LocalEpisodeNav
@@ -65,6 +66,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
 import space.sovereigncast.hopp.resources.nav_discover
 import space.sovereigncast.hopp.resources.nav_library
@@ -73,9 +75,12 @@ import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.getPluralString
+import space.sovereigncast.hopp.resources.sync_restored_shows
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
 import space.sovereigncast.hopp.resources.wallet_history
@@ -144,9 +149,12 @@ private val SETTINGS_ROUTES = listOf(
 )
 
 @Serializable object SettingsRoute
-@Serializable data class SettingsPageRoute(val page: String)
+/** [fromTour]: opened from the tour at that page — back returns to it (maintainer, 2026-10-21). */
+@Serializable data class SettingsPageRoute(val page: String, val fromTour: Int? = null)
 /** A show's page; [community] opens its Community tab (Home's "vote", device feedback 2026-10-12). */
-@Serializable data class ShowRoute(val id: Long, val community: Boolean = false, val boosts: Boolean = false)
+/** [round] / [unlock] (an episode guid): open that action's sheet once the show knows it. */
+@Serializable data class ShowRoute(val id: Long, val community: Boolean = false, val boosts: Boolean = false,
+                                   val round: Boolean = false, val unlock: String? = null)
 /** An episode's page; [startSeconds] from a shared link offers playing from there. */
 @Serializable data class EpisodeRoute(val id: Long, val startSeconds: Long? = null)
 /** What the directory already knows rides along, so the page shows it at once. */
@@ -176,7 +184,7 @@ private val tabs = listOf(
  * mini player above the tab bar and now playing over everything. Settings
  * sit behind the profile button.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun App(platformActions: PlatformActions = NoPlatformActions) {
     val http: HttpClient = koinInject()
@@ -246,8 +254,14 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) { scDirectory.shows() }
     // The first start's tour (device feedback 2026-10-10), or again from "About".
     val settingsRepo: SettingsRepository = koinInject()
+    // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
+    val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground() }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
+    /** Where the tour was left for one of its pages, to come back to. */
+    var tourPage by rememberSaveable { mutableStateOf(0) }
     val connectedWallet by koinInject<space.sovereigncast.hopp.value.WalletRepository>().wallet.collectAsState()
     val tourScope = rememberCoroutineScope()
     // A crash last time: offer the report, once per start (ADR 0015).
@@ -269,6 +283,37 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                 if (uri == null) return@collect
                 IncomingLinks.walletUri.value = null
                 player.minimize(); IncomingLinks.handOverWallet(uri); nav.navigate(WalletRoute)
+            }
+        }
+        launch {
+            // An OPML file from another app: the subscriptions page, which asks first. Over the
+            // tour too — whoever shares a file knows what they came for.
+            IncomingLinks.opml.collect { text ->
+                if (text == null) return@collect
+                IncomingLinks.opml.value = null
+                IncomingLinks.handOverOpml(text)
+                if (tour || appSettings?.onboardingDone == false) {
+                    tour = false
+                    settingsRepo.update { it.copy(onboardingDone = true) }
+                }
+                withContext(Dispatchers.Main) {
+                    player.minimize()
+                    nav.navigate(SettingsPageRoute(SettingsPage.Subscriptions.name))
+                }
+            }
+        }
+        launch {
+            // Sync turned on brought the listener's library: Home, where it now is, and a line
+            // that says so — the Nostr page's status alone went unseen (maintainer, 2026-10-21).
+            sync.restored.collect { r ->
+                withContext(Dispatchers.Main) {
+                    player.minimize()
+                    selectTabNow(tabs[0])
+                }
+                snackbar.showSnackbar(
+                    if (r.shows > 0) getPluralString(Res.plurals.sync_restored_shows, r.shows, r.shows) else getString(Res.string.sync_restored),
+                    withDismissAction = true,
+                )
             }
         }
         // "Open in Hopp" (ADR 0002 §4): the show's preview on Discover, or —
@@ -386,9 +431,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         ) {
                             composable<HomeRoute> { Readable(LIST_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
-                                    onCommunity = { nav.navigate(ShowRoute(it, community = true)) },
+                                    onCommunity = { nav.navigate(ShowRoute(it, community = true)) }, snackbar = snackbar,
+                                    onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
+                                        unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
-                                    onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) })
+                                    onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) },
+                                    onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> {
@@ -444,8 +492,19 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 )
                             } }
                             composable<SettingsPageRoute> { e ->
-                                val page = SettingsPage.entries.firstOrNull { it.name == e.toRoute<SettingsPageRoute>().page } ?: SettingsPage.About
-                                Readable { SettingsPageScreen(page, onTour = { tour = true }) }
+                                val route = e.toRoute<SettingsPageRoute>()
+                                val page = SettingsPage.entries.firstOrNull { it.name == route.page } ?: SettingsPage.About
+                                // Opened from the tour: back — the system's or the arrow — goes on with the
+                                // tour where it was left, not to an empty Home (maintainer, 2026-10-21).
+                                route.fromTour?.let { at ->
+                                    val back = remember(e.id) { { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack(); tourPage = at; tour = true } }
+                                    androidx.compose.ui.backhandler.BackHandler { back() }
+                                    DisposableEffect(pageBack, back) {
+                                        pageBack.step = back
+                                        onDispose { if (pageBack.step === back) pageBack.step = null }
+                                    }
+                                }
+                                Readable { SettingsPageScreen(page, onTour = { tourPage = 0; tour = true }) }
                             }
                             composable<PrivacyRoute> { Readable { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) } }
                             composable<CrashRoute> { Readable {
@@ -465,7 +524,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     route.id,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
-                                            openCommunity = route.community, openBoosts = route.boosts,
+                                            openCommunity = route.community, openBoosts = route.boosts, openRound = route.round, openUnlock = route.unlock,
                                             onBoostableAlternative = { alt -> nav.navigate(ShowPreviewRoute(alt.feedUrl, alt.title, alt.imageUrl, alt.author)) })
                                     },
                                     episode = { id, onGone ->
@@ -498,15 +557,26 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) {
                         NowPlayingScreen(player, onOpenWallet = { player.minimize(); nav.navigate(WalletRoute) })
                     }
+                    // Leaves the tour for a page; back on that page comes back to the tour at [at].
+                    fun leaveTour(page: SettingsPage, at: Int) {
+                        tour = false
+                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        nav.navigate(SettingsPageRoute(page.name, fromTour = at))
+                    }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(
                         hasWallet = connectedWallet != null,
-                        // Set up Nostr from the tour: it ends there, on the Nostr page (a wallet can follow any time).
-                        onNostr = {
-                            tour = false
-                            tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
-                            nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name))
+                        initialPage = tourPage,
+                        // Set up Nostr from the tour (a wallet can follow any time).
+                        onNostr = { at -> leaveTour(SettingsPage.Nostr, at) },
+                        // Used Hopp before: the Nostr page with the ways in for an existing account open.
+                        onRestore = { at ->
+                            space.sovereigncast.hopp.ui.identity.NostrSignInRequest.request()
+                            leaveTour(SettingsPage.Nostr, at)
                         },
+                        // From another podcast app: their shows over, by OPML (maintainer, 2026-10-21).
+                        onMove = { at -> leaveTour(SettingsPage.Subscriptions, at) },
                     ) { connectWallet ->
+                        tourPage = 0
                         tour = false
                         tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
                         if (connectWallet) nav.navigate(WalletRoute)

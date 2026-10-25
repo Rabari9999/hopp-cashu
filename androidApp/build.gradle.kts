@@ -36,6 +36,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Sync tests build entries and documents as the shared code does.
+    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.ktor.client.mock)
     // secp256k1 for the host JVM: Robolectric runs on it, not on Android (Nostr identity tests).
     testImplementation(libs.secp256k1.jni.jvm)
@@ -61,8 +63,17 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         }
         listOfNotNull(stamp, sha).joinToString("-")
     }
-val appVersion = "0.2.2"
+val appVersion = "0.3.0"
+// A beta's versionCode: minutes since 2026 at its commit, so every beta handed on updates the one
+// before (delta audit 2026-10-22). Its own app id, so it never meets the release's codes.
+val betaVersionCode: Int? = (git("log", "-1", "--format=%ct")?.toLongOrNull()
+    ?: System.getenv("CI_COMMIT_TIMESTAMP")?.let { OffsetDateTime.parse(it).toEpochSecond() })
+    ?.let { ((it - 1_767_225_600L) / 60).coerceAtLeast(1).toInt() }
 val betaKeystore: File? = System.getenv("HOPP_BETA_KEYSTORE")?.let(::File)?.takeIf { it.isFile && System.getenv("HOPP_BETA_KEYSTORE_PASSWORD") != null }
+// The device check's emulators only (scripts/device-check.sh): a beta with the debug key, marked
+// "-local" — never one to hand on (security audit 2026-10-22, H-04).
+val betaForDeviceCheck = providers.gradleProperty("hopp.beta.deviceCheck").orNull == "true"
+
 
 // hopp-0.0.1-20261008-1012-fd61d90-foss-debug.apk; on a release tag the
 // version alone says it: hopp-0.1.0-foss-release-unsigned.apk.
@@ -78,7 +89,7 @@ android {
         applicationId = "space.sovereigncast.hopp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 5
+        versionCode = 6
         versionName = appVersion
     }
     buildFeatures {
@@ -110,11 +121,11 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        // A beta key of its own (security review 2026-10-10, M-07): the debug key
-        // above is public, so anyone can sign an APK that installs over a beta
-        // signed with it. Given HOPP_BETA_KEYSTORE (a CI file variable, protected)
-        // and its password, betas are signed with that key; without, with the
-        // debug key as before (docs/signing.md).
+        // A beta key of its own (security review 2026-10-10, M-07; audit 2026-10-22,
+        // H-04): the debug key above is public, so anyone can sign an APK that
+        // installs over a beta signed with it and reads its data. Betas are signed
+        // with HOPP_BETA_KEYSTORE (a CI file variable, protected) and its password
+        // only; without them no beta is built (docs/signing.md).
         betaKeystore?.let { store ->
             create("beta") {
                 storeFile = store
@@ -149,7 +160,7 @@ android {
             applicationIdSuffix = ".beta"
             signingConfig = signingConfigs.findByName("beta") ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
-            revision?.let { versionNameSuffix = "-beta.$it" }
+            revision?.let { versionNameSuffix = "-beta.$it" + if (betaKeystore == null) "-local" else "" }
         }
     }
     compileOptions {
@@ -190,4 +201,19 @@ tasks.named("preBuild") { dependsOn(syncIosVersion) }
 // Android before 14, in the Play build only.
 dependencies {
     "playImplementation"(libs.androidx.credentials.playServices)
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("beta")) { variant ->
+        betaVersionCode?.let { code -> variant.outputs.forEach { it.versionCode.set(code) } }
+    }
+}
+
+// No beta with the public debug key (security audit 2026-10-22, H-04): packaging one stops here,
+// unless the device check asks for its own (-Phopp.beta.deviceCheck=true).
+val noBetaKey = betaKeystore == null && !betaForDeviceCheck
+tasks.configureEach {
+    if (noBetaKey && name.startsWith("package") && name.endsWith("Beta")) doFirst {
+        throw GradleException("A beta is signed with the beta key only: set HOPP_BETA_KEYSTORE and HOPP_BETA_KEYSTORE_PASSWORD (docs/signing.md).")
+    }
 }

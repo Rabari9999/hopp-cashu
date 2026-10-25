@@ -96,6 +96,21 @@ class Nip46Client(
     suspend fun getPublicKey(): String =
         request("get_public_key", emptyList()).trim().lowercase().takeIf(::isHexKey) ?: throw Nip46Exception("not a public key")
 
+    /**
+     * [getPublicKey] right after `connect`: a signer still saving the new connection
+     * (Amber writes it after a short pause) answers "no permission" for a moment —
+     * asked again then, a few times.
+     */
+    suspend fun getPublicKeyPatiently(tries: Int = 4, pause: Duration = 1.5.seconds): String {
+        repeat(tries - 1) {
+            try { return getPublicKey() } catch (e: Nip46Exception) {
+                if (e.message?.contains("permission", ignoreCase = true) != true) throw e
+            }
+            kotlinx.coroutines.delay(pause)
+        }
+        return getPublicKey()
+    }
+
     /** The signer's own relays, if it wants others (NIP-46 "switching relays"). */
     suspend fun switchRelays() {
         val answer = runCatching { request("switch_relays", emptyList(), 20.seconds) }.getOrNull() ?: return
@@ -109,6 +124,10 @@ class Nip46Client(
         put("kind", event.kind); put("content", event.content); put("created_at", event.createdAt)
         put("tags", JsonArray(event.tags.map { tag -> JsonArray(tag.map(::JsonPrimitive)) }))
     }.toString()))
+
+    /** `nip44_encrypt` / `nip44_decrypt` with the listener's key for [peer]. */
+    suspend fun nip44(encrypt: Boolean, peer: String, text: String): String =
+        request(if (encrypt) "nip44_encrypt" else "nip44_decrypt", listOf(peer, text))
 
     /** A courtesy: the signer may forget this session (NIP-46 "ending a session"). */
     suspend fun logout() { runCatching { request("logout", emptyList(), 10.seconds) } }
@@ -217,14 +236,33 @@ class Nip46Client(
  * external signer on iOS (ADR 0006). What comes back is checked as from
  * Amber: the listener's key, the event asked for, a valid signature.
  */
-class BunkerSigner(override val pubkey: String, private val client: Nip46Client) : NostrSigner {
+class BunkerSigner(
+    override val pubkey: String,
+    private val client: Nip46Client,
+    /** False: in the background, where the listener cannot answer the signer — it is not
+     *  asked at all ([SignerNeedsListener]), as Amber is not opened (security audit 2026-10-22, M-08). */
+    private val interactive: Boolean = true,
+    /** After each request — the confirmation page it may have shown is done with. */
+    private val onDone: () -> Unit = {},
+) : NostrSigner {
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun sign(event: UnsignedEvent): Event {
+    private suspend fun <T> asking(block: suspend () -> T): T {
+        if (!interactive) throw SignerNeedsListener()
+        try { return block() } finally { onDone() }
+    }
+
+    override suspend fun sign(event: UnsignedEvent): Event = asking {
         val signed = runCatching { json.decodeFromString(Event.serializer(), client.signEvent(event)) }
             .getOrElse { if (it is Nip46Exception) throw it else throw Nip46Exception("the signer returned no event") }
         val expected = Event.computeId(pubkey, event.createdAt, event.kind, event.tags, event.content)
         if (signed.id != expected || signed.pubkey != pubkey || !signed.isValid()) throw Nip46Exception("the signer returned another event")
-        return signed
+        signed
     }
+
+    override suspend fun encryptToSelf(plaintext: String): String = asking {
+        client.nip44(true, pubkey, plaintext).takeIf { it.isNotBlank() } ?: throw Nip46Exception("the signer returned nothing")
+    }
+
+    override suspend fun decryptFromSelf(payload: String): String = asking { client.nip44(false, pubkey, payload) }
 }

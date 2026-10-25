@@ -63,6 +63,7 @@ episode is always available. Streaming works without downloading.
 |---|---|---|
 | **Android Auto** | 1 | Falls out of the Media3 `MediaLibraryService` the lock-screen integration needs anyway. |
 | **Skip silence** | 1 on Android | Built into ExoPlayer; on iOS it needs custom audio processing — later, if asked for. |
+| **Volume boost** | 3 on Android (2026-10-21) | Android's `LoudnessEnhancer` on the player's audio session, +8 dB; AVPlayer cannot go above a file's own volume, so iOS needs the same custom audio processing as skip silence. |
 | **CarPlay** | 3 | Needs Apple's CarPlay audio entitlement and its own template UI. |
 | **Chromecast** | 3 | Needs Google Play Services — `play` flavor only. |
 

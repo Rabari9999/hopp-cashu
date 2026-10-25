@@ -72,6 +72,8 @@ import space.sovereigncast.hopp.resources.donate_title
 import space.sovereigncast.hopp.resources.donate_to
 import space.sovereigncast.hopp.resources.boost_unreachable
 import space.sovereigncast.hopp.resources.boost_via
+import space.sovereigncast.hopp.resources.boost_via_balance
+import space.sovereigncast.hopp.resources.boost_low_balance
 import space.sovereigncast.hopp.resources.boost_where
 import space.sovereigncast.hopp.resources.boost_whole_show
 import space.sovereigncast.hopp.resources.cancel
@@ -304,6 +306,8 @@ fun BoostSheet(
     val plan by vm.plan.collectAsState()
     val state by vm.boost.collectAsState()
     val left by vm.budgetLeft.collectAsState()
+    val balance by vm.walletBalance.collectAsState()
+    LaunchedEffect(wallet != null) { if (wallet != null) vm.checkWalletBalance() }
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHapticFeedback.current
     val position = remember { positionMs / 1000 }
@@ -379,6 +383,8 @@ fun BoostSheet(
             if (nonePayable && wallet != null) Text(stringResource(Res.string.boost_none_payable), color = colors.error)
             val canBoost = ready != null && amount > 0 && !nonePayable
             val over = amount * 1000 > left
+            // More than the wallet holds: not at all, unlike the budget (maintainer 2026-10-21).
+            val short = !vm.covers(balance, amount)
             val w = wallet
             if (w == null) {
                 // Why a connection, not just any wallet app (device feedback 2026-10-12).
@@ -386,9 +392,10 @@ fun BoostSheet(
                 space.sovereigncast.hopp.ui.components.NwcExplainerLink()
                 BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
             } else {
+                if (short) Text(stringResource(Res.string.boost_low_balance, formatSats((balance ?: 0) / 1000)), color = colors.error)
                 BigButton(
                     if (over && !overConfirmed) stringResource(Res.string.boost_send_over, formatSats(amount)) else stringResource(Res.string.boost_send, formatSats(amount)),
-                    enabled = canBoost && state != BoostState.Sending,
+                    enabled = canBoost && !short && state != BoostState.Sending,
                     busy = state == BoostState.Sending,
                 ) {
                     if (over && !overConfirmed) overConfirmed = true
@@ -402,7 +409,8 @@ fun BoostSheet(
                     }
                 }
                 Text(
-                    stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),
+                    balance?.let { stringResource(Res.string.boost_via_balance, w.label, formatSats(it / 1000), formatSats(left / 1000)) }
+                        ?: stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 )

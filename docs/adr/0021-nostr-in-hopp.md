@@ -86,6 +86,17 @@ What exists already:
   embeds already (Fountain's boosts) is not shown twice; a zap takes no
   answers or likes. Live: Einundzwanzig #336 in 2.7 s with the website
   asked, Nodesignal E298 in 4.3 s.
+- **Amended 2026-10-24 (maintainer): the show's post above the comments.**
+  Fountain shows the show's post on an episode among its comments; Hopp
+  showed only what answers it, and the post itself seemed missing (E299).
+  The announcement new comments answer (`post_release`, else the feed's
+  newest note; before the release the Release Boosting note) — or, without
+  one, the newest show note found about the episode — now sits above the
+  comments, marked as the show's: its text folded to five lines, its likes
+  and zaps as on a comment. It takes no Reply of its own: a new comment
+  answers it already. It is asked for by id too, since a note without
+  NIP-73 tags is found by nothing else, and its likes come with the second
+  request.
 
 **Reading** is the union, de-duplicated by event id: replies to the show's
 notes (`#e`), and kinds 1 and 1111 with `#i podcast:item:guid:<guid>`. So
@@ -169,7 +180,16 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **Never synced:** the NWC connection, keys, the wallet's budget and history.
 - **External signers:** a sync needs encrypt and sign each time. With Amber,
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
-  app is open and never blocks playback.
+  app is open and never blocks playback. *Superseded 2026-10-21 by the sync
+  key, below.*
+- *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
+  (`hopp/queue`); of the settings only the listening habits — since
+  2026-10-23 with downloads, the background refresh and what boosts and zaps
+  report (`docs/tasks/nostr-sync.md` lists them). The `d` tags
+  stay readable; Hopp fetches on start and on coming to the foreground, with
+  no standing relay connection. A new device, or Hopp installed again,
+  offers right after sign-in to restore from the documents it finds.
+  Plan: `docs/tasks/nostr-sync.md`.
 
 ### 6. Boosts and the npub
 
@@ -339,7 +359,242 @@ switches.
    shows; readers cannot check the amount, as with Fountain's own notes. The
    boost dialog says whether it went out; a failed post leaves the boost as
    it is. Boosts to a whole show and donations stay private.
-5. **Sync.**
+5. **Sync.** *Planned 2026-10-20, next after stage 4 and before push
+   (ADR 0007):* `docs/tasks/nostr-sync.md`.
+   *Built 2026-10-20:* a switch on the Nostr page, off by default. Four
+   documents (`hopp/subscriptions`, `hopp/progress`, `hopp/queue`,
+   `hopp/settings`), each a JSON of entries with a time in milliseconds and a
+   removal mark, NIP-44-sealed to the listener's key in kind-30078 parts
+   under 60 KB that share a revision. Every round reads and merges per entry
+   before it sends; a change made here is always later than what it
+   replaces, so a clock behind does not lose it. A position and a favourite
+   of one episode are separate entries; positions older than 90 days are
+   dropped everywhere alike, favourites stay; a place in "Up next" is the
+   sort key it was given, so a reorder and an addition elsewhere both
+   survive. A device's settings and queue order carry no time and join only
+   where the relays have nothing. From another device: applied without being
+   noted again; an entry whose show or episode is not here yet, or whose
+   episode is playing, waits for the next round. Rounds on start, back in the
+   foreground (at most every five minutes), on pull-to-refresh, ten seconds
+   after a change — a position while playing at most every five minutes,
+   a pause sooner — and what is left on leaving. In the background the signer
+   app is never opened; sync waits and the page says so. Signers are asked
+   at login for kind 30078 and NIP-44 encryption besides the rest. After a
+   sign-in with an existing identity the page offers the library found on
+   the relays, with what it holds; turning sync on merges, on a new device
+   a restore. Turning it off forgets this device's notes; the relays keep
+   theirs (8). A document of a newer format is left alone.
+   *Amended 2026-10-21 (maintainer), before any release carried sync — the
+   sync key:* a standing `nip44_decrypt` permission opens everything ever
+   encrypted to the listener, NIP-17 messages included, to whoever holds
+   Hopp's signer session; for a web client (planned) that session lives in a
+   browser. So the documents are no longer sealed to the listener's key. A
+   key pair of its own, the **sync key**, signs and seals them (NIP-44 to
+   itself); it travels once as the **keyring**, a kind-30078 event by the
+   listener with `d` = `hopp/keyring`, NIP-44-sealed to the listener's key
+   (`{"v":1,"key":"<hex>"}`). A device opens the keyring once — the only time
+   sync asks the signer — and keeps the key in its secret store; turning sync
+   off forgets it. The first device makes the keyring, and only when at least
+   half of the write relays answer the read to its end with none: a keyring
+   out of reach is never replaced by a new one (the library of a lost phone
+   would stay under a key nobody has), nor is one that does not open. A
+   device looks at most once a minute whether the keyring changed — two
+   devices that made one at the same moment both end with the one the
+   relays keep, and the loser's entries follow, since every device keeps its
+   own. Signers are no longer asked for standing encryption or kind-30078
+   permissions (`ExternalSigner.PERMISSIONS`, `BUNKER_PERMS`); Amber or a
+   bunker asks the listener at that one moment, and in the background
+   nothing waits for a signer any more. Relays see the keyring under the
+   listener's npub, the documents under the sync key; they can still link
+   the two by IP and time. *Built the same day:* "Renew sync key" on the
+   Nostr page (identities in a signer only — a lost phone that held the key
+   itself has it anyway): a round, a new keyring, the documents out under
+   the new key, then everything the old key signed replaced by an empty
+   event and deleted (NIP-09), signed with the old key itself. A device that
+   moves off a key — renewed elsewhere, or two made at once — retires it the
+   same way, so a device that sent its copy once more before it noticed
+   cleans up after itself. Other devices ask their signer once; a session
+   that keeps the old key gets nothing new without the listener.
+   Tests: `SyncKeysTest`.
+   *Amended 2026-10-22 (external sync audit, before any release carried
+   sync):* what the relays answer is never taken for more than it is.
+   - **Reads and writes meet.** A document goes out only when a majority
+     of the write relays took every part; it counts as absent only when a
+     majority answered to the end without it. A read with a part missing,
+     of another revision, under another part's address or not opening is
+     *incomplete*: what arrived is applied, nothing is sent over it. Too
+     few relays answering is *not known*: nothing happens.
+   - **The keyring.** Made only by the listener turning sync on (never by a
+     round in the background), and only when *every* write relay answered
+     to the end without one (a majority since the delta audit, below). A device keeps the keyring event with the key
+     and sends it once a run to the relays again, so one that lost it gets
+     it back; a keyring older than the one it holds is never taken (NIP-01
+     order: later, or the same second and the lower id).
+   - **Local changes.** Entries from the relays are written only where they
+     win over what is here at that moment (compare and set), and checked
+     again right before they are applied: a change the listener makes while
+     a round is on its way survives it. What is still to send is kept per
+     entry, not by the newest time.
+   - **Time.** A version goes out later than the newest one read; an entry
+     dated more than a day ahead of this device is not taken. A device away
+     longer than removal markers are kept (90 days) removes what it holds
+     unchanged and no longer finds in a complete document, instead of
+     bringing it back.
+   - **Size and values.** A document that does not fit its 16 parts is not
+     sent at all (it was cut before); a show's title and image are kept
+     short; speeds, positions and settings from elsewhere are taken only
+     within what Hopp itself could set. "Up next" breaks a tie in sort keys
+     by the show and episode as sync names them, so every device shows one
+     order. A show restored without downloads fetches nothing.
+   - **Relays and signers.** Only answers to Hopp's own subscription count,
+     only events its filters ask for, at most 5,000 events or 16 MiB a
+     relay. A bunker is not asked in the background, as Amber is not opened;
+     its confirmation page reaches the Nostr page from any request.
+   What stays: relays can hold back or show a stale view — signatures prove
+   who wrote, not that it is the newest; "none found" from relays that all
+   answered is still not proof against relays that lie; a changed relay
+   list breaks the overlap of reads and writes until the documents went out
+   again. Tests: `SyncAuditTest`, `SyncCoreTest`, `BunkerTest`.
+   *Amended again 2026-10-22 (delta audit of the same day, on 94687cc):*
+   - **Majorities, both ways.** A complete read counts as a base to write
+     over only when a majority answered to the end — one old relay alone is
+     never written over the newer rest; a document with any part but its
+     first is *incomplete*, not absent. The first keyring follows the same
+     rule instead of waiting for every relay (one relay answering 503 had
+     stopped every first device): made when a majority answered without
+     one, and counted as out only once a majority took it. Until then the
+     device keeps it and sends it again — it never makes a second one; a
+     resend counts only once a majority took it. A key copy from before
+     keyring times were kept moves only on a read every relay answered.
+   - **Nothing local is lost in between.** What a device had without a time
+     when sync was turned on (settings, the queue's order) is kept in the
+     store as a seed until the relays hold a value or took it — a failed
+     first round or an app closed meanwhile loses nothing, and a seed always
+     gives way to a value from elsewhere. Removals and rebases delete an
+     entry only as it was and once sent; a change made while another
+     device's entry was applied goes back into the app. A removal marker is
+     pruned only once the relays took it. An entry dated far ahead is
+     carried along in what goes out, not dropped. A round stopped while
+     applying applies again next time — the store moves only after the app.
+   - **Renewing the key** happens in order, each step only after the last
+     went through: a round with nothing waiting or unsent; the new keyring;
+     every document under it; a second round that finds them all there;
+     only then are the old key's documents emptied — by any device that
+     moved off a key, after its own round went through. The page says
+     whether it finished, or that it finishes on the next syncs.
+   - The Nostr page names what the relays did ("2 of 3 relays answered"),
+     not "no relay" for every failure. Tests: `SyncAuditTest`, `SyncKeysTest`,
+     `QueueAndSettingsSyncTest`, `SyncMigrationTest`.
+   *Amended a third time 2026-10-22 (second delta audit, on 346f002):*
+   - **The newest revision, not the newest complete one.** A later part as
+     new as the first, or newer, that is not of its revision makes the read
+     incomplete: a larger revision whose first part is missing must not hide
+     behind an older, smaller one still there. Parts a document left behind
+     when it became smaller are always older than its new first part.
+   - **A removal counts from when it went out.** Each removal carries the
+     time it first went out (`out`) besides the time it was made; it is
+     kept 90 days from then. One made offline and sent months later is not
+     too old the moment it arrives.
+   - **The app and the store agree, or the store says so.** Before another
+     device's entries are applied, their keys are noted (`sync_unapplied`);
+     the note goes once the app holds what the store does. A round cut off
+     halfway, or a change the listener kept making under it, is put right
+     by the next round. A show is given up — its episodes, progress and
+     place in "Up next" with it — only while the removal still wins, asked
+     in the same transaction; a show's settings change with their note for
+     sync in one transaction. An entry dated far ahead is kept in the store
+     and goes into the app once its time has come, so it goes along to a
+     new key too.
+   - **Retiring an old key needs the new documents read back.** It happens
+     only after a round under the new key, all of it, read every document
+     complete with nothing to send — not after a round that only sent them.
+     A failed read of the old key's documents is not an empty one. The keys
+     still to retire are kept with the key, so a restart finishes the job.
+   - **A first keyring is kept before it goes out and used once a majority
+     holds it.** A relay may keep it without saying so; a later round sends
+     the same one again instead of making another, and nothing is sealed
+     with it before a majority took it. A key copy from before keyring times
+     were kept is not moved at all — which keyring is newer cannot be told;
+     turning sync off and on takes the relays' one.
+   - Migration 13 → 14 marks again as unsent what the old mark said was not
+     out, on devices that ran the first version-13 migration. "Up next" is
+     numbered afresh before a place at its edge. Tests: `SyncAuditTest`,
+     `SyncKeysTest`, `SubscriptionsSyncTest`, `QueueAndSettingsSyncTest`,
+     `SyncMigrationTest`.
+   *Amended a fourth time 2026-10-22 (third delta audit, on 309dd16 —
+   approved for a controlled beta):*
+   - **Every keyring is committed by a majority before anything is sealed
+     with it** — one read from the relays (another device's, or the winner
+     of two made at once) too: one relay may be all that has it, so this
+     device sends it on and waits. A renewal keeps its new keyring before it
+     goes out; no relay saying it took it is no proof none did, so it is
+     "unfinished" and finished by later rounds, never "nothing changed".
+   - **The player follows a position from elsewhere when the episode is
+     only shown after a restart,** and plays from what the database has
+     when it is first loaded — it had played from the old place and saved
+     that over the new one.
+   - **Home's tick means nothing waits:** a change made here shows as
+     waiting at once, as does the time before the first round.
+   *Amended a fifth time 2026-10-23 (fourth delta audit, on 45b136e —
+   approved for a controlled beta):*
+   - **A keyring an earlier beta called committed is confirmed once more.**
+     Before the third delta audit a keyring read from the relays was kept as
+     committed at once, even from one relay alone. A copy now carries a mark
+     that it was committed under the majority rule; one without it sends its
+     own keyring to a majority before anything is sealed with it — the key
+     stays the same. One from before keyring events were kept takes the
+     relays' event and does the same; with another keyring on the relays it
+     stays as it was (MN-03).
+   - **The sync sheet fits a small phone and larger text:** it opens whole,
+     and its buttons keep one line, smaller where they must. Its labels were
+     whole before; the audit's "overflow" was Compose's measure — a label's
+     layout is as wide as the row it may take — not what is seen. Test:
+     `HomeLayoutTest` (320 dp and 360 dp at 1.3× text, German and English).
+   *Amended a sixth time 2026-10-23 (device check):*
+   - **One connection per relay for a round.** Hopp opened a connection for
+     every read and every event: a first round with a library came to 13 a
+     relay in under four seconds, and relays turn that away by address —
+     relay.damus.io answered 503 from the third, nos.lol 429 from the
+     twelfth; one relay of three took the round, and the next went through.
+     A round, turning sync on, the restore offer and publishing a profile
+     now share one connection to each relay (`withRelayPool`); one that drops
+     is opened again by the next request, and a relay that cannot be reached
+     fails only its own requests.
+   - **"Too many" is asked again:** a connection refused with 429 or 503 is
+     tried again after 0.8 s and 1.6 s. A request waits for it no longer
+     than its own ten seconds; the opening itself, shared by the round, may
+     go on a little past that and is ended with the round.
+     Test: `RelayPoolTest`.
+   *Amended a seventh time 2026-10-24 (fifth delta audit, on 9799fcb —
+   approved for a controlled beta):*
+   - **A shared connection's end reaches every request on it.** Each request
+     listens on a channel of its own, closed when the connection closes —
+     after what it still holds, however full (RP-01).
+   - **A request's subscription ends with it,** answered, timed out or
+     cancelled: `CLOSE` goes out briefly in any case, so a relay stops
+     answering it on the round's connection (RP-03).
+   - **Each request counts only its own answers** against its limits; the
+     others' are passed over unread (RP-02).
+   - **"Automatic downloads off" from another device cleans up here
+     whenever it is applied,** not only when it was on before — an apply cut
+     off halfway does it the next time (SS-01).
+   - Downloads, background refresh and what boosts and zaps report travel
+     too (maintainer 2026-10-23); the texts on sync and restore say so.
+     Tests: `RelayPoolTest`, `SyncAuditTest` (delta audit 5).
+   *Amended an eighth time 2026-10-24 (sixth delta audit, on 0591ee5 — fix
+   before a general beta):*
+   - **A request knows its answers by what JSON reads in them,** not by its
+     subscription somewhere in the first 100 characters: an answer padded
+     with spaces or with the subscription escaped was passed over, the EOSE
+     after it made the read complete and empty, and a new device made a
+     second keyring. Type and subscription are read as JSON reads them
+     (`RelayFrame`); one of its own too large to read makes the read
+     incomplete instead of being passed over (RP-02).
+   - **Shows wait for the settings on a new device:** until the settings
+     were read to the end once, a round leaves the shows for later. Taken
+     first is not enough when their read fails — the shows came under the
+     fresh default and downloaded although automatic downloads were off.
+     Tests: `RelayFrameTest`, `RelayPoolTest`, `SyncAuditTest` (delta audit 6).
 
 ## Consequences
 

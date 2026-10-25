@@ -49,19 +49,25 @@ private fun <T> ViewModel.state(flow: kotlinx.coroutines.flow.Flow<T>, initial: 
     flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
 /** Pull-to-refresh over all subscriptions, shared by New and Library. */
-abstract class RefreshingViewModel(private val podcasts: PodcastRepository) : ViewModel() {
+abstract class RefreshingViewModel(
+    private val podcasts: PodcastRepository,
+    /** With sync on, a pull brings the other devices' changes first (ADR 0021, 5). */
+    private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+) : ViewModel() {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     fun refresh() {
         if (_refreshing.value) return
         _refreshing.value = true
-        viewModelScope.launch { try { podcasts.refreshAll(); afterRefresh() } finally { _refreshing.value = false } }
+        viewModelScope.launch {
+            try { runCatching { sync?.syncNow() }; podcasts.refreshAll(); afterRefresh() } finally { _refreshing.value = false }
+        }
     }
     /** Whatever else a pull to refresh should bring up to date. */
     protected open suspend fun afterRefresh() = Unit
 }
 
-class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository) : RefreshingViewModel(podcasts) {
+class InboxViewModel(private val episodes: EpisodeRepository, podcasts: PodcastRepository, sync: space.sovereigncast.hopp.sync.SyncManager? = null) : RefreshingViewModel(podcasts, sync) {
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(kotlinx.coroutines.flow.flow { podcasts.shows.collect { emit(it.isNotEmpty()) } }, null)
     fun dismiss(item: EpisodeItem) = viewModelScope.launch { episodes.dismiss(item.id) }
@@ -76,7 +82,9 @@ class HomeViewModel(
     value: space.sovereigncast.hopp.value.ValueService,
     private val settings: SettingsRepository,
     private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository,
-) : RefreshingViewModel(podcasts) {
+    sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+    identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
+) : RefreshingViewModel(podcasts, sync) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
 
@@ -93,15 +101,40 @@ class HomeViewModel(
 
     override suspend fun afterRefresh() { sc.refresh() }
 
+    /** "Take part" without what the listener hid there (device feedback 2026-10-22);
+     *  [actions] stays whole — "Your shows" still counts down to a release. */
+    val takePart: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(
+        combine(sc.actions.map { it.orEmpty() }, settings.settings.map { it.takePartHidden.toSet() }) { all, hidden ->
+            all.filterNot { TakePart.hides(hidden, it) }
+        },
+        emptyList(),
+    )
+    fun hideTakePart(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = TakePart.add(it.takePartHidden, key)) } }
+    fun showTakePartAgain(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = it.takePartHidden - key) } }
+
+    /** Sync's state for Home's greeting line — null while sync is off (maintainer 2026-10-22). */
+    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus?> = state(
+        sync?.let { s -> combine(settings.settings.map { it.nostrSync }, s.status) { on, st -> st.takeIf { on } } } ?: kotlinx.coroutines.flow.flowOf(null),
+        null,
+    )
+    private val syncer = sync
+    /** A round now, from the sync window; the signer may ask. */
+    fun syncNow() { val s = syncer ?: return; viewModelScope.launch { s.syncNow(interactive = true) } }
+
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
     /** The listener's order of Home's sections (empty: Hopp's own) and what they hid. */
     val savedOrder: StateFlow<List<String>> = state(settings.settings.map { it.homeOrder }, emptyList())
     val hidden: StateFlow<Set<String>> = state(settings.settings.map { it.homeHidden }, emptySet())
     /** Who Home greets: the name the listener boosts with, if they gave one (device feedback
-     *  2026-10-13). A Nostr profile's name is to take its place once Hopp signs in with Nostr
-     *  (phase 2) — this is the one place to change. */
-    val greetName: StateFlow<String?> = state(settings.settings.map { it.senderName.trim().takeIf { n -> n.isNotEmpty() } }, null)
+     *  2026-10-13), else their Nostr profile's name (device feedback 2026-10-21: after a
+     *  restore from Nostr the boost name was empty, and Home greeted no one). */
+    val greetName: StateFlow<String?> = state(
+        combine(settings.settings, identities?.identity ?: kotlinx.coroutines.flow.flowOf(null)) { s, me ->
+            s.senderName.trim().takeIf { it.isNotEmpty() } ?: me?.name?.trim()?.takeIf { it.isNotEmpty() }
+        },
+        null,
+    )
     fun toggle(section: String) = viewModelScope.launch {
         settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
     }
@@ -146,7 +179,8 @@ class LibraryViewModel(
     queue: QueueRepository,
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
-) : RefreshingViewModel(podcasts) {
+    sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+) : RefreshingViewModel(podcasts, sync) {
     /** The listener's order (device feedback 2026-10-19): the show with the newest episode first by default. */
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }
@@ -248,12 +282,33 @@ class SettingsViewModel(
     val downloadBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
     val downloadCount: StateFlow<Long> = state(downloads.downloadedCount, 0L)
     fun deleteAllDownloads() = viewModelScope.launch { downloads.removeAll() }
+    /** Off: what waits for Wi-Fi unasked is dropped too. */
+    fun setAutoDownloads(on: Boolean) = viewModelScope.launch {
+        settings.update { it.copy(autoDownloads = on) }
+        if (!on) downloads.dropAutomatic()
+    }
 
     val current: StateFlow<Settings?> = state(settings.settings, null)
+    /** Show titles by podcast:guid — for what was hidden under Home's "Take part". */
+    val showTitles: StateFlow<Map<String, String>> = state(
+        podcasts.shows.map { l -> l.mapNotNull { s -> s.podcastGuid?.takeIf { it.isNotEmpty() }?.let { it to s.title } }.toMap() },
+        emptyMap(),
+    )
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
+
+    /** An OPML file another app handed over: how many shows it names, and how many of them are here already. */
+    data class OpmlFile(val text: String, val shows: Int, val already: Int)
+
+    suspend fun opmlFile(text: String): OpmlFile {
+        val entries = space.sovereigncast.hopp.data.Opml.parse(text)
+        val here = podcasts.shows.first().map { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) }.toSet()
+        val keys = entries.map { space.sovereigncast.hopp.directory.feedKey(it.feedUrl) }.toSet()
+        return OpmlFile(text, keys.size, keys.count { it in here })
+    }
+
     private val _import = MutableStateFlow<AddState>(AddState.Idle)
     val import: StateFlow<AddState> = _import.asStateFlow()
     fun importOpml(text: String) {

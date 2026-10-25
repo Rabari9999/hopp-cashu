@@ -1,0 +1,7 @@
+-- Version 12 → 13: a sync entry changed here and not yet taken by the relays
+-- (security audit 2026-10-22, M-02) — per entry, not by the newest time.
+ALTER TABLE sync_entry ADD COLUMN pending INTEGER NOT NULL DEFAULT 0;
+-- What the old mark said was not out yet stays so (delta audit 2026-10-22, MN-01): newer than
+-- the newest time the relays took from here, or all of a document never published.
+UPDATE sync_entry SET pending = 1 WHERE updated_at > coalesce(
+    (SELECT published_up_to FROM sync_doc WHERE sync_doc.doc = sync_entry.doc), -9223372036854775808);

@@ -64,8 +64,15 @@ data class ShowAction(
     val publishAt: String?,
     /** Suggestions only: how many the listener has not voted for yet. */
     val waiting: Int = 0,
+    /** Release Boosting and Boost2Unlock: which episode, so a tap on Home opens its sheet. */
+    val episodeGuid: String? = null,
+    /** The show's podcast:guid — what the listener hides under "Take part" is kept by it. */
+    val podcastGuid: String = "",
 ) {
     enum class Kind { ReleaseBoosting, Boost2Unlock, Suggestions }
+
+    /** A Release Boosting round at its goal ([ReleaseBoostingRound.reached]). */
+    val reached: Boolean get() = kind == Kind.ReleaseBoosting && goalSats in 1..raisedSats
 }
 
 class InvoiceMismatch(message: String) : Exception(message)
@@ -183,9 +190,12 @@ class SovereigncastRepository(
                 val votes = settings.current().votes
                 val waiting = if (c.suggestions) runCatching { suggestions(layer).suggestions }.getOrDefault(emptyList())
                     .count { "${show.podcastGuid}/${it.id}" !in votes } else 0
-                listOfNotNull(rb?.let { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.ReleaseBoosting, it.episode.title, it.raisedSats, it.goalSats, it.publishAt) }) +
-                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null) } +
-                    listOfNotNull(ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Suggestions, "", 0, 0, null, waiting).takeIf { waiting > 0 })
+                val guid = show.podcastGuid
+                listOfNotNull(rb?.let { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.ReleaseBoosting, it.episode.title, it.raisedSats, it.goalSats, it.publishAt,
+                    episodeGuid = it.episode.episodeGuid, podcastGuid = guid) }) +
+                    b2u.filterNot { it.unlocked }.map { ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Boost2Unlock, it.episode.title, it.raisedSats, it.goalSats, null,
+                        episodeGuid = it.episode.episodeGuid, podcastGuid = guid) } +
+                    listOfNotNull(ShowAction(r.id, r.title, r.image_url, ShowAction.Kind.Suggestions, "", 0, 0, null, waiting, podcastGuid = guid).takeIf { waiting > 0 })
             }
         }.awaitAll().flatten()
     }
@@ -298,6 +308,10 @@ class SovereigncastRepository(
             ?.takeIf { it.startsWith("https://") && it.length > "https://".length }
     }
 }
+
+/** The round reached its goal: the episode comes out at the earliest it can, and more sats would not
+ *  bring it any closer — Hopp offers no boost for it then (maintainer, 2026-10-23). */
+val ReleaseBoostingRound.reached: Boolean get() = goalSats in 1..raisedSats
 
 /** An amount that does the whole job at once: [publishesNow] — the episode comes out
  *  with it; otherwise it fills the round to its goal (the earliest release). */

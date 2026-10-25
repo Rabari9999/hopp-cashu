@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.nostr.ExternalSigner
 import space.sovereigncast.hopp.nostr.SignerPermission
+import space.sovereigncast.hopp.nostr.SignerNeedsListener
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.nostr.SignerResult
 import space.sovereigncast.hopp.nostr.SignerUnavailable
@@ -42,8 +43,9 @@ class AndroidExternalSigner(private val context: Context) : ExternalSigner {
         return pubkey to signerPackage
     }
 
-    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): SignerResult {
+    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean): SignerResult {
         quietly(signerPackage, eventJson, currentUser)?.let { return it }
+        if (!interactive) throw SignerNeedsListener()
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("nostrsigner:$eventJson")).apply {
             `package` = signerPackage
             putExtra("type", "sign_event")
@@ -54,17 +56,36 @@ class AndroidExternalSigner(private val context: Context) : ExternalSigner {
         return SignerResult(data.getStringExtra("event"), data.getStringExtra("result"))
     }
 
+    override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
+        val type = if (encrypt) "nip44_encrypt" else "nip44_decrypt"
+        ask(signerPackage, type.uppercase(), arrayOf(text, peer, currentUser))?.get("result")?.let { return it }
+        if (!interactive) throw SignerNeedsListener()
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("nostrsigner:$text")).apply {
+            `package` = signerPackage
+            putExtra("type", type)
+            putExtra("pubkey", peer)
+            putExtra("current_user", currentUser)
+        }
+        return SignerBridgeActivity.request(context, intent).getStringExtra("result") ?: throw SignerUnavailable("the signer answered nothing")
+    }
+
     /** The background answer, or null when the signer wants to ask the listener. */
-    private suspend fun quietly(signerPackage: String, eventJson: String, currentUser: String): SignerResult? = withContext(Dispatchers.IO) {
+    private suspend fun quietly(signerPackage: String, eventJson: String, currentUser: String): SignerResult? =
+        ask(signerPackage, "SIGN_EVENT", arrayOf(eventJson, "", currentUser))?.let { c ->
+            SignerResult(c["event"], c["result"]).takeIf { it.eventJson != null || it.signature != null }
+        }
+
+    /** The first row the signer's content provider gives for [method], or null when it
+     *  would rather ask the listener (or is not there). */
+    private suspend fun ask(signerPackage: String, method: String, args: Array<String>): Map<String, String?>? = withContext(Dispatchers.IO) {
         val cursor = runCatching {
-            context.contentResolver.query(Uri.parse("content://$signerPackage.SIGN_EVENT"), arrayOf(eventJson, "", currentUser), null, null, null)
+            context.contentResolver.query(Uri.parse("content://$signerPackage.$method"), args, null, null, null)
         }.getOrNull() ?: return@withContext null
         cursor.use { c ->
             // Always refused there: no point opening the signer to be refused again (NIP-55).
             if (c.getColumnIndex("rejected") >= 0) throw SignerRejected()
             if (!c.moveToFirst()) return@withContext null
-            fun column(name: String) = c.getColumnIndex(name).takeIf { it >= 0 }?.let { c.getString(it) }
-            SignerResult(column("event"), column("result")).takeIf { it.eventJson != null || it.signature != null }
+            c.columnNames.associateWith { name -> c.getString(c.getColumnIndex(name)) }
         }
     }
 }

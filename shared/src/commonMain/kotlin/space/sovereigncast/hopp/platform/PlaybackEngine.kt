@@ -39,6 +39,9 @@ interface PlaybackEngine {
     /** ExoPlayer has it built in; on iOS it needs own audio processing
      *  (ADR 0012) — the setting is hidden there. */
     val supportsSkipSilence: Boolean get() = false
+    /** Louder than the file (maintainer 2026-10-21): Android's LoudnessEnhancer; AVPlayer
+     *  stops at the file's own volume — hidden on iOS, like skipping silence. */
+    val supportsVolumeBoost: Boolean get() = false
     /** The listener's skip intervals, for skip buttons outside the app (the
      *  lock screen, headphones) — Android's session reads them itself. */
     fun setSkipIntervals(backSeconds: Int, forwardSeconds: Int) = Unit

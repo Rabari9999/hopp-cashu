@@ -124,6 +124,7 @@ private enum class ShowTab { Episodes, Top, Community, Boosts }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {}, openCommunity: Boolean = false, openBoosts: Boolean = false,
+               openRound: Boolean = false, openUnlock: String? = null,
                onBoostableAlternative: (space.sovereigncast.hopp.directory.DirectoryShow) -> Unit = {}) {
     val nav = LocalEpisodeNav.current
     val vm: ShowViewModel = koinViewModel(key = "show-$podcastId") { parametersOf(podcastId) }
@@ -175,6 +176,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     LaunchedEffect(tabs) {
         val at = opening?.let(tabs::indexOf) ?: -1
         if (!openingDone && at >= 0) { pager.scrollToPage(at); openingDone = true }
+    }
+    // Opened from Home's "Take part": that round's or that episode's sheet, once
+    // the instance has answered, and only the first time (device feedback 2026-10-22).
+    var sheetDone by rememberSaveable { mutableStateOf(!openRound && openUnlock == null) }
+    LaunchedEffect(round, unlocks) {
+        if (sheetDone) return@LaunchedEffect
+        val wanted: Any? = if (openRound) round else unlocks.firstOrNull { it.episode.episodeGuid == openUnlock && !it.unlocked }
+        if (wanted != null) { details = wanted; sheetDone = true }
     }
     val labels = tabs.map {
         when (it) {

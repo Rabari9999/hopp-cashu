@@ -128,6 +128,13 @@ class DownloadRepository(
         scheduler.schedule(manual = true)
     }
 
+    /** Automatic downloads turned off: those waiting for Wi-Fi are not fetched, one running stops;
+     *  asked-for ones stay (device feedback 2026-10-24: a restore turned them off while the newest ran). */
+    suspend fun dropAutomatic() = withContext(Dispatchers.IO) {
+        eq.dropAutoQueue()
+        eq.runningAutoIds().executeAsList().forEach { remove(it) }
+    }
+
     /** Automatic downloads still waiting for Wi-Fi. */
     val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(Dispatchers.IO)
 
@@ -144,11 +151,15 @@ class DownloadRepository(
      * platform says the network is metered. Returns false when something is
      * worth trying again later (the network went away).
      */
-    suspend fun runPending(includeAuto: Boolean): Boolean = running.withLock {
+    suspend fun runPending(includeAuto: Boolean): Boolean = runPending { includeAuto }
+
+    /** As above, [includeAuto] asked again before each episode: a run started on Wi-Fi that goes on
+     *  over mobile data takes no automatic one more (device feedback 2026-10-22). */
+    suspend fun runPending(includeAuto: suspend () -> Boolean): Boolean = running.withLock {
         withContext(Dispatchers.IO) { files.ensureDir(); eq.resetInterrupted() }
         var ok = true
         while (true) {
-            val next = withContext(Dispatchers.IO) { eq.nextDownload(if (includeAuto) 1L else 0L).executeAsOneOrNull() } ?: break
+            val next = withContext(Dispatchers.IO) { eq.nextDownload(if (includeAuto()) 1L else 0L).executeAsOneOrNull() } ?: break
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
