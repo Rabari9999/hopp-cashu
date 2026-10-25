@@ -6,6 +6,41 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
+### 🆕 New Features
+- **Nostr:** Abos, Hörstand, Favoriten, „Als Nächstes“, Hörgewohnheiten und Download-Einstellungen zwischen deinen Geräten abgleichen – verschlüsselt, ohne Hopp-Server.
+- **Nostr:** Auf einem neuen Gerät nach der Anmeldung die Bibliothek aus Nostr wiederherstellen; danach öffnet Hopp die Startseite und sagt, was zurückgekommen ist.
+- **Tour:** „Ich nutze Hopp schon“ auf der ersten Seite und „Wiederherstellen“ neben „Einrichten“ auf der Nostr-Seite führen direkt zur Wiederherstellung aus Nostr.
+- **Tour:** „Ich komme von einer anderen Podcast-App“ führt zum Umzug deiner Abos, mit dem Weg zum Export der bekannten Apps.
+- **Bibliothek:** Den OPML-Export einer anderen App an Hopp teilen oder mit Hopp öffnen: Hopp fragt kurz und abonniert.
+- **Bibliothek:** OPML-Dateien auch auf iPhone und iPad wählen und exportieren.
+- **Player:** Leise Shows lauter stellen (Android), in den Wiedergabe-Einstellungen und neben den Geschwindigkeiten.
+- **Boosts:** Hopp zeigt, was in deiner Wallet ist, und sendet keinen Boost, den sie nicht deckt.
+- **Player:** Beim Ziehen der Position zeigt eine Blase, wo du landest, mit dem Kapitel.
+- **Player:** Zurück- und Vorspulen auf dem Sperrbildschirm und in der Benachrichtigung (Android), mit deinen Sekunden; daneben das nächste Kapitel.
+- **Home:** Release Boosting und Boost2Unlock unter „Mitmachen“ öffnen direkt ihre Details in der Show.
+- **Home:** Einzelne Einträge unter „Mitmachen“ ausblenden – eine Runde, die Vorschläge einer Show oder eine ganze Show – und unter „Home anpassen“ wieder einblenden.
+- **Home:** Ein kleines Zeichen neben „aktualisiert“ zeigt, wie der Abgleich lief; ein Tipp zeigt Relays, was kam und was noch gesendet wird.
+- **Kommentare:** Der Post der Show zur Folge steht über den Kommentaren, wie in Fountain.
+- **Downloads:** Automatisches Herunterladen ganz abschalten – dann lädt nur, was du selbst herunterlädst.
+
+### 🐛 Fixes
+- **Sovereigncast:** Eine Release-Boosting-Runde am Ziel zeigt einen Haken und bittet um keine weiteren Boosts – früher kann die Folge nicht erscheinen.
+- **Downloads:** Automatische Downloads laufen nicht mehr über mobile Daten weiter, sobald das WLAN weg ist.
+- **Player:** Eine Folge, die du für eine andere verlässt, kommt wieder an die Spitze von „Als Nächstes“ und läuft danach weiter.
+- **Player:** Nach einem Neustart ist die zuletzt gehörte Folge wieder im Player, dort wo du aufgehört hast.
+- **Tour:** Zurück von einer Seite, die die Tour geöffnet hat, führt wieder in die Tour.
+- **Nostr:** Amber als Bunker verbinden scheitert nicht mehr an „no permission“; eine schon verbrauchte Bunker-Adresse wird als solche benannt.
+- **Home:** Begrüßt dich mit deinem Nostr-Namen, wenn kein Boost-Name gesetzt ist, auch nach der Wiederherstellung aus Nostr.
+- **Boosts:** Ein Anteil, zu dem die Wallet keine klare Antwort gab, wird nicht mehr ein zweites Mal bezahlt.
+- **Sovereigncast:** Release Boosting, Boost2Unlock und Vorschläge zählen jetzt auch gegen das Tagesbudget.
+- **Wallet:** Eine Wallet, die Hopps Verschlüsselung nicht spricht, wird beim Verbinden mit Begründung abgelehnt.
+- **Datenschutz:** Ist der Schlüsselspeicher des Geräts kurz nicht lesbar, sagt Hopp das, statt Schlüssel oder Wallet zu verlieren.
+- **Kommentare:** Stummschalten und Relays ändern überschreiben deine Listen nicht mehr, wenn die Relays nicht lesbar waren.
+- **Nostr:** Der Import eines verschlüsselten Schlüssels mit extremer Sicherheitsstufe bringt die App nicht mehr zum Absturz.
+
+
 ## [0.2.2] - 2026-10-20
 
 ### 🆕 New Features

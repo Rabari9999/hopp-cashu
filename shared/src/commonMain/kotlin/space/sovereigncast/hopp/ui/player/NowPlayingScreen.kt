@@ -11,6 +11,7 @@ import space.sovereigncast.hopp.player.SleepTimer
 import space.sovereigncast.hopp.resources.queue_empty_text
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.resources.skip_silence
+import space.sovereigncast.hopp.resources.volume_boost
 import space.sovereigncast.hopp.resources.sleep_active_chapter
 import space.sovereigncast.hopp.resources.sleep_active_episode
 import space.sovereigncast.hopp.resources.sleep_end_chapter
@@ -83,6 +84,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -252,16 +254,25 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             )
 
             Spacer(Modifier.height(10.dp))
+            // Where a drag would land, before the finger lets go (device feedback 2026-10-21).
+            var dragTo by remember { mutableStateOf<Float?>(null) }
             ChapterProgressBar(
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.seekTo((f * duration).toLong()) },
                 trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
+                preview = { f ->
+                    val at = (f * duration).toLong()
+                    listOfNotNull(formatTime(at), chapters.current(at)?.title?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                },
+                onPreview = { dragTo = it },
             )
+            val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
+            val timeStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = if (dragTo != null) FontWeight.Bold else null)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatTime(position), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                Text("−" + formatTime((duration - position).coerceAtLeast(0)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(formatTime(shownAt), style = timeStyle, color = colors.onSurfaceVariant)
+                Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = timeStyle, color = colors.onSurfaceVariant)
             }
 
             // Controls: speed, −15 (hold: previous chapter), play, +30 (hold: next chapter), sleep.
@@ -421,12 +432,18 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     }
                 }
                 Text(stringResource(Res.string.speed_note, formatSpeed(settings.defaultSpeed)), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                if (model.engine.supportsSkipSilence) {
+                if (model.engine.supportsSkipSilence || model.engine.supportsVolumeBoost) {
                     val settingsVm: SettingsViewModel = koinViewModel()
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(Res.string.skip_silence), Modifier.weight(1f))
-                        Switch(checked = settings.skipSilence, onCheckedChange = { on -> settingsVm.update { it.copy(skipSilence = on) } })
+                    @Composable fun SwitchLine(label: String, on: Boolean, change: (Boolean) -> Unit) = Row(
+                        Modifier.fillMaxWidth().toggleable(on, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = change),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label, Modifier.weight(1f))
+                        Switch(checked = on, onCheckedChange = null)
                     }
+                    if (model.engine.supportsSkipSilence) SwitchLine(stringResource(Res.string.skip_silence), settings.skipSilence) { on -> settingsVm.update { it.copy(skipSilence = on) } }
+                    // Quiet shows louder (maintainer 2026-10-21), beside skipping silence.
+                    if (model.engine.supportsVolumeBoost) SwitchLine(stringResource(Res.string.volume_boost), settings.volumeBoost) { on -> settingsVm.update { it.copy(volumeBoost = on) } }
                 }
                 Spacer(Modifier.height(24.dp))
             }

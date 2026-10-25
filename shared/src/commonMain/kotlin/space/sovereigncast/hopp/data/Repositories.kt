@@ -30,6 +30,8 @@ import space.sovereigncast.hopp.model.Feed
 import space.sovereigncast.hopp.model.Podcast
 import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.FetchResult
+import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncJournal
 
 /** Seconds since the epoch, injectable for tests. */
 fun interface Clock { fun now(): Long }
@@ -113,9 +115,22 @@ class PodcastRepository(
     private val clock: Clock,
     private val files: DownloadFiles? = null,
     private val downloads: DownloadScheduler = DownloadScheduler.None,
+    /** Subscribing, unsubscribing and a show's own settings, noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
+    /** Whether automatic downloads are on at all (Settings.autoDownloads); a show's own switch comes on top. */
+    private val autoDownloads: suspend () -> Boolean = { true },
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
+
+    /** The show [id] as sync keeps it — after a change made here; not for one from sync. */
+    private fun noteShow(id: Long, sync: Boolean) {
+        if (!sync) return
+        q.selectById(id).executeAsOneOrNull()?.let { r ->
+            journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L))
+        }
+    }
 
     /** When any show was last refreshed, epoch seconds; null before the first. */
     val lastChecked: Flow<Long?> = q.lastChecked().asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.last }
@@ -134,7 +149,9 @@ class PodcastRepository(
 
     /** Fetch, parse, store. The newest episode lands in "New"; the back
      *  catalogue does not flood it. */
-    suspend fun subscribe(input: String): SubscribeResult {
+    /** [autoDownload]: the show's setting from the start — a restore brings it along, and nothing
+     *  is fetched for a show that takes no downloads (security audit 2026-10-22, M-09). */
+    suspend fun subscribe(input: String, sync: Boolean = true, autoDownload: Boolean = true): SubscribeResult {
         val url = FeedFetcher.normalize(input) ?: return SubscribeResult.Failed("not a feed address")
         withContext(Dispatchers.IO) { q.selectByFeedUrl(url).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
@@ -151,29 +168,33 @@ class PodcastRepository(
             return SubscribeResult.Failed(e.message ?: "not a podcast feed")
         }
         if (feed.episodes.isEmpty() && feed.podcast.title == null) return SubscribeResult.Failed("not a podcast feed")
-        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified)
+        return subscribe(feedUrl, feed, fetched.etag, fetched.lastModified, sync, autoDownload)
     }
 
     /** Subscribes to a feed that is already fetched and parsed — the show page
      *  before subscribing has done both, and doing them twice was the slow
      *  part of subscribing (device feedback 2026-10-08). */
-    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?): SubscribeResult {
+    suspend fun subscribe(feedUrl: String, feed: Feed, etag: String?, lastModified: String?, sync: Boolean = true, autoDownload: Boolean = true): SubscribeResult {
         withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOneOrNull() }?.let {
             return SubscribeResult.AlreadySubscribed(it.id)
         }
         val now = clock.now()
+        val fetch = autoDownload && autoDownloads()
         val id = withContext(Dispatchers.IO) {
-            db.transactionWithResult {
+            db.transactionWithResult<Long?> {
+                // Subscribed meanwhile — another tap, or the same feed fetched in parallel: that one stands.
+                if (q.selectByFeedUrl(feedUrl).executeAsOneOrNull() != null) return@transactionWithResult null
                 val p = feed.podcast
                 q.insert(feedUrl, p.podcastGuid, p.title ?: feedUrl, p.author, p.imageUrl,
                     json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"))
                 val id = q.lastInsertId().executeAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
-                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, autoDownload = true)
+                if (!autoDownload) q.setAutoDownload(0, id)
+                for (e in feed.episodes) insertEpisode(id, e, inInbox = e.guid == newest, now, fetch)
                 id
-            }
-        }
-        downloads.schedule(manual = false)
+            }?.also { noteShow(it, sync) }
+        } ?: return SubscribeResult.AlreadySubscribed(withContext(Dispatchers.IO) { q.selectByFeedUrl(feedUrl).executeAsOne().id })
+        if (fetch) downloads.schedule(manual = false)
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
 
@@ -193,6 +214,7 @@ class PodcastRepository(
             return 0
         }
         val feed: Feed = withContext(Dispatchers.Default) { FeedParser.parse(result.bytes) }
+        val fetch = row.auto_download == 1L && autoDownloads()
         val added = withContext(Dispatchers.IO) {
             db.transactionWithResult {
                 result.movedTo?.let { moved -> if (q.selectByFeedUrl(moved).executeAsOneOrNull() == null) q.updateFeedUrl(moved, id) }
@@ -206,13 +228,13 @@ class PodcastRepository(
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
                             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
                     } else {
-                        insertEpisode(id, e, inInbox = true, now, autoDownload = row.auto_download == 1L); added++
+                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added++
                     }
                 }
                 added
             }
         }
-        if (added > 0 && row.auto_download == 1L) downloads.schedule(manual = false)
+        if (added > 0 && fetch) downloads.schedule(manual = false)
         return added
     }
 
@@ -231,16 +253,29 @@ class PodcastRepository(
         )
     }
 
-    suspend fun unsubscribe(id: Long) = withContext(Dispatchers.IO) {
-        eq.downloadPathsOfPodcast(id).executeAsList().forEach { path -> path?.let { files?.delete(it) } }
-        db.transaction {
+    /**
+     * The show goes, with its episodes, progress, place in "Up next" and downloads. [onlyIf] is
+     * asked in the same transaction, right before (sync: the removal from another device still
+     * wins — delta audit 2 2026-10-22, HN-07); false leaves everything as it is. Whether it went.
+     */
+    suspend fun unsubscribe(id: Long, sync: Boolean = true, onlyIf: () -> Boolean = { true }): Boolean = withContext(Dispatchers.IO) {
+        val paths = db.transactionWithResult<List<String>?> {
+            if (!onlyIf()) return@transactionWithResult null
+            if (sync) q.selectById(id).executeAsOneOrNull()?.let { r ->
+                journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true)
+            }
+            val paths = eq.downloadPathsOfPodcast(id).executeAsList().filterNotNull()
             db.chapterCacheQueries.deleteByPodcast(id)
             db.commentQueries.deleteEventsByPodcast(id)
             db.commentQueries.deleteFetchesByPodcast(id)
             db.queueQueries.deleteByPodcast(id)
             eq.deleteByPodcast(id)
             q.delete(id)
-        }
+            paths
+        } ?: return@withContext false
+        // The files only once the show is gone.
+        paths.forEach { files?.delete(it) }
+        true
     }
 
     suspend fun exportOpml(): String = withContext(Dispatchers.IO) {
@@ -250,14 +285,17 @@ class PodcastRepository(
     /** Subscribes to every feed of an OPML file that is not subscribed yet. */
     suspend fun importOpml(text: String, parallel: Int = 4): List<Pair<String, SubscribeResult>> = coroutineScope {
         val gate = Semaphore(parallel)
-        Opml.parse(text).map { entry ->
+        // One subscription per address: the same feed twice in a file, subscribed at once, made the
+        // second one fail on the database (CI 2026-10-22).
+        Opml.parse(text).distinctBy { it.feedUrl }.map { entry ->
             async { gate.withPermit { entry.feedUrl to subscribe(entry.feedUrl) } }
         }.awaitAll()
     }
 
     /** [speed] null: the show follows the default speed again. */
-    suspend fun setSpeed(id: Long, speed: Float?) = withContext(Dispatchers.IO) { q.setSpeed(speed?.toDouble(), id) }
-    suspend fun setAutoDownload(id: Long, on: Boolean) = withContext(Dispatchers.IO) { q.setAutoDownload(if (on) 1 else 0, id) }
+    /** The change and its note for sync in one transaction: sync never sees one without the other (HN-07). */
+    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) } }
+    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) } }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */
     private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long, autoDownload: Boolean) {
@@ -272,8 +310,25 @@ class EpisodeRepository(
     private val db: HoppDatabase,
     private val http: HttpClient,
     private val clock: Clock,
+    /** Progress and favourites, noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
 ) {
     private val eq = db.episodeQueries
+
+    /** Episode [id]'s progress as it stands now, for sync; [urgent]: see [SyncJournal.record]. */
+    private fun noteProgress(id: Long, urgent: Boolean = true) {
+        if (!journal.enabled) return
+        val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: return
+        val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now()), urgent = urgent)
+    }
+
+    private fun noteFavorite(id: Long) {
+        if (!journal.enabled) return
+        val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: return
+        val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.favoriteKey(show, r.guid), SyncDocs.favorite(show, r.guid, r.favorite_at))
+    }
 
     val inbox: Flow<List<EpisodeItem>> = eq.selectInbox().asFlow().mapToList(Dispatchers.IO).map { rows ->
         rows.map { r ->
@@ -339,19 +394,40 @@ class EpisodeRepository(
         eq.selectById(id).executeAsOneOrNull()?.let { json.decodeFromString(Episode.serializer(), it.meta_json) }
     }
 
-    suspend fun savePosition(id: Long, positionMs: Long) = withContext(Dispatchers.IO) { eq.savePosition(positionMs, clock.now(), id) }
+    /** [paused]: the listener stopped here — sync sends it soon, not with the next round. */
+    suspend fun savePosition(id: Long, positionMs: Long, paused: Boolean = false) = withContext(Dispatchers.IO) {
+        eq.savePosition(positionMs, clock.now(), id)
+        noteProgress(id, urgent = paused)
+    }
 
     suspend fun setPlayed(id: Long, played: Boolean) = withContext(Dispatchers.IO) {
         if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+        noteProgress(id)
     }
 
     /** Every episode of a show heard. */
-    suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) { eq.markShowPlayed(clock.now(), podcastId) }
+    suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) {
+        val ids = if (journal.enabled) eq.unplayedOfShow(podcastId).executeAsList() else emptyList()
+        eq.markShowPlayed(clock.now(), podcastId)
+        ids.forEach { noteProgress(it) }
+    }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(Dispatchers.IO) {
+        val ids = if (journal.enabled) eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList() else emptyList()
         eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+        ids.forEach { noteProgress(it) }
     }
+
+    /** Progress from another device (sync): as it was there, and not noted again. */
+    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(Dispatchers.IO) {
+        db.transaction {
+            if (played) eq.markPlayed(atSeconds, id) else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+        }
+    }
+
+    /** A favourite from another device (sync); [atSeconds] null: taken back. */
+    suspend fun applyFavorite(id: Long, atSeconds: Long?) = withContext(Dispatchers.IO) { eq.setFavorite(atSeconds, id) }
 
     suspend fun dismiss(id: Long) = withContext(Dispatchers.IO) { eq.setInbox(0, id) }
     suspend fun clearInbox() = withContext(Dispatchers.IO) { eq.clearInbox() }
@@ -383,7 +459,7 @@ class EpisodeRepository(
         }
     }
 
-    suspend fun setFavorite(id: Long, on: Boolean) = withContext(Dispatchers.IO) { eq.setFavorite(if (on) clock.now() else null, id) }
+    suspend fun setFavorite(id: Long, on: Boolean) = withContext(Dispatchers.IO) { eq.setFavorite(if (on) clock.now() else null, id); noteFavorite(id) }
 
     /**
      * Episodes of a show whose title or description has every word of [query]

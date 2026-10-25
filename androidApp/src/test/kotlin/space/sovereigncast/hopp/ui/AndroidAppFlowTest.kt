@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
@@ -68,15 +69,21 @@ private const val FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:podcas
 <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" length="48000000" type="audio/mpeg"/><podcast:chapters url="https://cdn.test/1.json" type="application/json+chapters"/></item>
 </channel></rss>"""
 
+/** Every episode plays an hour long here. */
+private const val HOUR = 3_600_000L
+
 private class FakeEngine : PlaybackEngine {
     private val s = MutableStateFlow(PlaybackState())
     override val state: StateFlow<PlaybackState> = s
-    override fun load(item: PlaybackItem, playWhenReady: Boolean) { s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs) }
+    override fun load(item: PlaybackItem, playWhenReady: Boolean) { s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = HOUR) }
     override fun play() { s.value = s.value.copy(isPlaying = true) }
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { s.value = s.value.copy(speed = speed) }
     override fun release() = Unit
+    // As Android's engine: the switches for both show (ExoPlayer, LoudnessEnhancer).
+    override val supportsSkipSilence = true
+    override val supportsVolumeBoost = true
 }
 
 /** A show in Nodesignal's podcast:podroll (the test feed nodesignal-podhome.xml). */
@@ -129,7 +136,11 @@ internal object FakeAmber : space.sovereigncast.hopp.nostr.ExternalSigner {
         if (reject) throw space.sovereigncast.hopp.nostr.SignerRejected()
         return keys.publicKeyHex to "com.greenart7c3.nostrsigner"
     }
-    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String): space.sovereigncast.hopp.nostr.SignerResult {
+    override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
+        val key = space.sovereigncast.hopp.nostr.Nip44.conversationKey(keys.secretKey, keys.publicKey)
+        return if (encrypt) space.sovereigncast.hopp.nostr.Nip44.encrypt(text, key) else space.sovereigncast.hopp.nostr.Nip44.decrypt(text, key)
+    }
+    override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean): space.sovereigncast.hopp.nostr.SignerResult {
         val o = org.json.JSONObject(eventJson)
         fun str(k: String) = o.get(k).toString()
         val arr = o.getJSONArray("tags")
@@ -155,6 +166,8 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
 }
 /** Whether the round's halving clip is unlocked, settable per test. */
 private var clipUnlocked = false
+/** What the round has raised so far, settable per test (its goal is 15 120). */
+private var roundRaised = 210L
 /** A suggestion submitted in this test run, listed once there. */
 private var submitted: String? = null
 private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
@@ -166,7 +179,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
         "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
     path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
-        "goal_sats":15120,"raised_sats":210,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
+        "goal_sats":15120,"raised_sats":$roundRaised,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":${if (clipUnlocked) """{"unlocked":true,"at_block":36,"title":"Halving-Clip","duration_seconds":42,"url":"https://pm.test/api/listener/v1/shows/$SC_GUID/release-boosting/clip"}""" else """{"unlocked":false,"at_block":36}"""}},"poll_after_seconds":60}""")
     // A new suggestion: the invoice is its spam filter (phase 2).
     post && path.endsWith("/suggestions") -> { submitted = lastScPost?.let { Regex("\"title\":\"([^\"]*)\"").find(it)?.groupValues?.get(1) }; respond(INVOICE_21, io.ktor.http.HttpStatusCode.Created) }
@@ -276,6 +289,10 @@ class AndroidAppFlowTest {
     /** The top-most of several — now playing lies over the page it came from. */
     private fun tapTop(text: String) = rule.onAllNodes(hasText(text) and hasClickAction()).onLast().performClick()
     private fun back() = rule.onNode(hasContentDescription("Back")).performClick()
+    /** The system's back — gesture or key —, not the app bar's arrow. */
+    private fun systemBack() = rule.runOnUiThread {
+        ((rule as androidx.compose.ui.test.junit4.AndroidComposeTestRule<*, *>).activity as androidx.activity.ComponentActivity).onBackPressedDispatcher.onBackPressed()
+    }
 
     /** The back catalogue never lands in New (device feedback 2026-10-12) — nor, since
      *  "From your shows" left (2026-10-13), anywhere on Home. */
@@ -1134,6 +1151,55 @@ class AndroidAppFlowTest {
         check(!has("Write a comment…")) { "the field at the top stays while answering" }
     }
 
+    /** Maintainer 2026-10-24: the show's post on the episode above its comments, as Fountain shows it —
+     *  marked as the show's, folded to five lines, liked and zapped like a comment; a new comment answers
+     *  it, so it has no Reply of its own. */
+    @Test
+    fun theShowsPostIsPinnedAboveTheComments() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        val show = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val alice = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        val item = "podcast:item:guid:ep-2"
+        val text = "Ep 2 is out. In this episode Karsten explains why the main part starts at 12:34.\n\n" +
+            (1..8).joinToString("\n\n") { "Topic $it: what we talked about, and what it means for you." } + "\n\nhttps://show.test/ep-2"
+        val post = space.sovereigncast.hopp.nostr.Event.sign(show, 1, text, listOf(listOf("i", item)), 1_790_000_000)
+        val comment = space.sovereigncast.hopp.nostr.Event.sign(alice, 1, "Great one", listOf(listOf("i", item)), 1_790_000_100)
+        kotlinx.coroutines.runBlocking {
+            val store = koin.get<space.sovereigncast.hopp.comments.CommentStore>()
+            store.save(item, space.sovereigncast.hopp.comments.CommentStore.Seen(listOf(post, comment), emptyList(), emptySet(), 1_790_000_200, roots = setOf(post.id)))
+            store.saveAuthors(mapOf(show.publicKeyHex to space.sovereigncast.hopp.comments.CommentAuthor("Test Show", null),
+                alice.publicKeyHex to space.sovereigncast.hopp.comments.CommentAuthor("Alice", null)), 1_790_000_200)
+        }
+        tap("Ep 2"); waitFor("Play")
+        // Kept from before: shown at once, no need to load.
+        tap("Comments")
+        waitFor("The show’s post")
+        waitFor("Great one")
+        check(has("Ep 2 is out", substring = true)) { screen().toString() }
+        check(rule.onAllNodes(hasText("Reply")).fetchSemanticsNodes().size == 1) { "only the comment takes a Reply" }
+        waitFor("more")
+        snapshot("comments-pinned")
+        tap("more")
+        waitFor("less")
+        snapshot("comments-pinned-open")
+    }
+
+    /** Each window as drawn, into build/screens — a look at a layout no assertion describes. */
+    private fun snapshot(name: String) {
+        java.io.File("build/screens").mkdirs()
+        val global = Class.forName("android.view.WindowManagerGlobal").getMethod("getInstance").invoke(null)
+        @Suppress("UNCHECKED_CAST")
+        val views = global.javaClass.getDeclaredField("mViews").apply { isAccessible = true }.get(global) as List<android.view.View>
+        rule.runOnIdle {
+            views.forEachIndexed { i, v ->
+                val bitmap = android.graphics.Bitmap.createBitmap(v.width.coerceAtLeast(1), v.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+                v.draw(android.graphics.Canvas(bitmap))
+                java.io.FileOutputStream("build/screens/$name-$i.png").use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        }
+    }
+
     /** Device feedback 2026-10-16: the show's latest boosts, cycling under the
      *  player's controls, confused more than they told — they are gone. */
     @Test
@@ -1218,6 +1284,28 @@ class AndroidAppFlowTest {
         check(has("🔒 A clip unlocks at block 36")) { screen().toString() }
         tapTop("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
+    }
+
+    /** A round at its goal (maintainer, 2026-10-23): a tick, and no boost or community page offered for it. */
+    @Test
+    fun aRoundAtItsGoalOffersNoMoreBoosts() {
+        roundRaised = 15_120
+        try {
+            rule.setContent { App() }
+            tap("Discover"); subscribe("https://pod.test/sc.xml")
+            waitFor("E297 - BTC++ Berlin")
+            waitFor("✓ Goal reached", substring = true)
+            rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+            waitFor("Goal reached – the episode can’t come out any earlier.")
+            check(!has("Open the community page")) { screen().toString() }
+            check(rule.onAllNodes(hasText("Boost") and hasClickAction()).fetchSemanticsNodes().none { n ->
+                n.boundsInRoot.top > rule.onNode(hasText("Goal reached – the episode can’t come out any earlier.")).fetchSemanticsNode().boundsInRoot.top
+            }) { "a boost is still offered below the tick: ${screen()}" }
+            back()
+            tap("Home")
+            waitFor("RELEASE BOOSTING · Nodesignal")
+            waitFor("Goal reached", substring = true)
+        } finally { roundRaised = 210 }
     }
 
     /** A suggestion opens in full, and can be voted on from there. */
@@ -1332,7 +1420,9 @@ class AndroidAppFlowTest {
         rule.setContent { App(actions) }
         rule.onNode(hasContentDescription("Settings")).performClick()
         rule.onNode(hasText("Subscriptions") and hasClickAction()).performScrollTo().performClick()
-        tap("Import OPML")
+        // Where other apps keep their export, then one button (maintainer, 2026-10-21).
+        waitFor("AntennaPod")
+        tap("Choose OPML file")
         waitFor("1 subscribed, 0 already there, 0 failed")
         back(); back()
         tap("Library"); waitFor("Test Show")
@@ -1522,7 +1612,7 @@ class AndroidAppFlowTest {
         tap("Next")
         // Nostr, optional (2026-10-16): what it is and what Hopp does with it.
         waitFor("Nostr, if you like")
-        check(has("Set up Nostr now")) { "the tour offers to set up Nostr right away" }
+        check(has("Set up") && has("Restore")) { "the tour offers to set up Nostr, or restore from it, right away" }
         tap("Next")
         waitFor("Connect your wallet")
         check(has("Zeus", substring = true) && !has("Primal, Coinos", substring = true)) { "Primal's NWC does not do what Hopp needs" }
@@ -1564,7 +1654,7 @@ class AndroidAppFlowTest {
         check(settings().boostFeedback == "errors" && settings().quickBoostFeedback == "errors") { settings().toString() }
     }
 
-    /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show. */
+    /** Release Boosting at a subscribed show shows on Home, quietly; a tap opens the show at the round. */
     @Test
     fun homeShowsWhatRunsAtYourShows() {
         rule.setContent { App() }
@@ -1583,6 +1673,44 @@ class AndroidAppFlowTest {
         waitFor("Take part")
         rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
         waitFor("✓ Sovereigncast")
+        // Straight to the round's sheet, not only the show (device feedback 2026-10-22).
+        waitFor("21 sats bring it out a minute earlier")
+    }
+
+    /** Single entries under "Take part" hide on their own, come back with Undo or from
+     *  "Customize Home", and the show's page still shows them (device feedback 2026-10-22). */
+    @Test
+    fun takePartHidesOneEntryAtATime() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("✓ Sovereigncast")
+        tap("Home")
+        waitFor("RELEASE BOOSTING · Nodesignal")
+        // This round only: the suggestions stay.
+        rule.onAllNodes(hasText("E297 - BTC++ Berlin") and hasClickAction()).onFirst().performTouchInput { longClick() }
+        waitFor("Hide this round")
+        // Suggestions are offered only on a suggestion (device feedback 2026-10-23).
+        check(!has("Hide suggestions from Nodesignal")) { screen().toString() }
+        tap("Hide this round")
+        until { !has("RELEASE BOOSTING · Nodesignal") }
+        check(has("Topics awaiting your vote: 1")) { screen().toString() }
+        check(settings().takePartHidden == listOf("rb:$SC_GUID/e297")) { settings().takePartHidden.toString() }
+        // Undo brings it back at once.
+        tap("Undo")
+        waitFor("RELEASE BOOSTING · Nodesignal")
+        check(settings().takePartHidden.isEmpty())
+        // The whole show: "Take part" is empty and goes; "Your shows" keeps the show.
+        rule.onAllNodes(hasText("Topics awaiting your vote: 1") and hasClickAction()).onFirst().performTouchInput { longClick() }
+        tap("Hide everything from Nodesignal")
+        until { !has("Take part") }
+        check(has("Your shows")) { screen().toString() }
+        // Back from "Customize Home".
+        rule.onNode(hasContentDescription("Customize Home")).performClick()
+        rule.onNode(hasScrollAction()).performScrollToNode(hasText("Show again"))
+        waitFor("Hidden under “Take part”")
+        check(has("Everything"))
+        tap("Show again")
+        until { settings().takePartHidden.isEmpty() }
     }
 
     // ── device feedback 2026-10-10 (later) ─────────────────────────────────
@@ -1596,8 +1724,58 @@ class AndroidAppFlowTest {
         waitFor("Welcome to Hopp")
         repeat(4) { tap("Next") }
         waitFor("Nostr, if you like")
-        tap("Set up Nostr now")
+        tap("Set up")
         waitFor("Join the conversation on Nostr")
+        until { settings().onboardingDone }
+    }
+
+    /** Sync came (2026-10-20): no longer announced as coming, and who had Hopp before finds the way back. */
+    @Test
+    fun theTourLeadsBackToALibraryOnNostr() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        repeat(4) { tap("Next") }
+        waitFor("Nostr, if you like")
+        check(!has("Soon")) { "sync is no longer to come" }
+        check(has("your library and progress on every device", substring = true))
+        tap("Restore")
+        // The ways in with an existing account, open at once, saying what the key is for.
+        waitFor("nsec1… or ncryptsec1…")
+        waitFor("Hopp then brings your library back", substring = true)
+        until { settings().onboardingDone }
+    }
+
+    /** Left for a page from the tour, back comes back to the tour where it was (maintainer, 2026-10-21). */
+    @Test
+    fun backFromAPageTheTourOpenedReturnsToTheTour() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        tap("I already use Hopp")
+        waitFor("nsec1… or ncryptsec1…")
+        // Back — on a device the sign-in sheet takes the first one — leads to the tour, not Home.
+        repeat(2) { if (!has("Welcome to Hopp")) { systemBack(); rule.waitForIdle() } }
+        waitFor("Welcome to Hopp")
+        check(!has("Join the conversation on Nostr")) { "the Nostr page stayed on top of the tour" }
+        // From the second page, by the arrow: back on the second page.
+        tap("Next")
+        tap("I’m coming from another podcast app")
+        waitFor("AntennaPod")
+        rule.onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        waitFor("Subscribe to shows")
+        tap("Skip")
+        until { settings().onboardingDone }
+    }
+
+    /** Who uses Hopp already need not page through the tour (maintainer, 2026-10-21). */
+    @Test
+    fun theWelcomePageLeadsBackToALibraryOnNostr() {
+        tourNotDone()
+        rule.setContent { App() }
+        waitFor("Welcome to Hopp")
+        tap("I already use Hopp")
+        waitFor("nsec1… or ncryptsec1…")
         until { settings().onboardingDone }
     }
 

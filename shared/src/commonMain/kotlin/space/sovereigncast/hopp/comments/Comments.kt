@@ -122,11 +122,12 @@ internal fun boostSats(content: String): Long? = BOOST_LINE.find(withoutTails(co
 /** The notes a comment embeds — Fountain embeds the zap receipt of its boost. */
 internal fun embeddedNotes(content: String): List<NoteRef> = EMBED.findAll(content).mapNotNull { noteRef(it.value) }.toList()
 
-/** An episode's comments, newest thread first, and the relays they came from. */
-data class CommentThread(val comments: List<Comment>, val relays: List<String>) {
+/** An episode's comments, newest thread first, and the relays they came from; [pinned]: the show's post
+ *  on the episode, shown above them ([pinned] the function). */
+data class CommentThread(val comments: List<Comment>, val relays: List<String>, val pinned: Comment? = null) {
     val count: Int get() = comments.sumOf { 1 + it.replies.size }
     /** Everyone who wrote, and everyone mentioned as `nostr:npub…` — the names to look up. */
-    val people: Set<String> get() = comments.flatMap { c -> listOf(c) + c.replies }.flatMap { c ->
+    val people: Set<String> get() = (comments.flatMap { c -> listOf(c) + c.replies } + listOfNotNull(pinned)).flatMap { c ->
         listOf(c.pubkey) + MENTION.findAll(c.content).mapNotNull { profileKey(it.value) }
     }.toSet()
 
@@ -216,7 +217,7 @@ class CommentReader(
 
     /** The comments as last loaded, to show at once while [load] asks for what is new; null before the first load. */
     suspend fun cached(anchor: CommentAnchor): CommentThread? =
-        store.seen(anchor.itemTag)?.let { CommentThread(thread(it.events, anchor, it.muted, it.roots), it.relays) }
+        store.seen(anchor.itemTag)?.let { CommentThread(thread(it.events, anchor, it.muted, it.roots), it.relays, pinned(it.events, anchor, it.muted, it.roots)) }
 
     /**
      * The comments on [anchor]; muted people (the listener's and the show's
@@ -254,6 +255,8 @@ class CommentReader(
             add(filter(KINDS) { putJsonArray("#i") { add(JsonPrimitive(anchor.itemTag)) } })
             add(filter(listOf(COMMENT)) { putJsonArray("#I") { add(JsonPrimitive(anchor.itemTag)) } })
             if (roots.isNotEmpty()) add(filter(KINDS) { putJsonArray("#e") { roots.forEach { add(JsonPrimitive(it)) } } })
+            // The announcement itself, shown above the comments — one without NIP-73 tags is found by nothing else.
+            anchor.answerTo?.let { note -> add(buildJsonObject { putJsonArray("ids") { add(JsonPrimitive(note.id)) } }) }
             announcements(anchor, anchor.showKeys)?.let(::add)
         }
         // No key for the show: its website's, looked up while the relays are asked.
@@ -267,20 +270,20 @@ class CommentReader(
         // Of the show's notes from around the release, the one about this episode is a root; the others go.
         val authors = anchor.showKeys + siteNotes.await().map { it.pubkey }
         val announced = found.filter { it.kind == 1 && it.pubkey in authors && parentOf(it) == null && !quotes(it) && announces(it, anchor) }.map { it.id }.toSet()
-        val first = found.filter { e -> e.id in announced || !(e.kind == 1 && e.pubkey in authors && parentOf(e) == null && !names(e, anchor)) }
+        val first = found.filter { e -> e.id in announced || e.id == anchor.answerTo?.id || !(e.kind == 1 && e.pubkey in authors && parentOf(e) == null && !names(e, anchor)) }
         val relays = base + extra
         val allRoots = roots.toSet() + announced + before?.roots.orEmpty()
         // Replies to the comments found: a Fountain listener answering another names only that comment.
         // Replies to the comments known before too: new answers to an old comment.
         val more = (before?.events.orEmpty() + first).filter { it.kind == 1 || it.kind == COMMENT }.map { it.id }.distinct().filter { it !in roots }.take(MAX_EVENTS)
-        // Their likes (NIP-25) and zaps (NIP-57) in the same request, and zaps on the show's notes.
+        // Their likes (NIP-25) and zaps (NIP-57) in the same request, and the likes and zaps of the show's notes.
         val secondFilters = more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION + ZAP_RECEIPT) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } } +
-            listOfNotNull(allRoots.takeIf { it.isNotEmpty() }?.let { ids -> filter(listOf(ZAP_RECEIPT)) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } })
+            listOfNotNull(allRoots.takeIf { it.isNotEmpty() }?.let { ids -> filter(listOf(REACTION, ZAP_RECEIPT)) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } })
         val second = if (secondFilters.isEmpty()) emptyList() else publisher.query(secondFilters, relays, SETTLE)
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
         val mutedNow = muted.await()
         store.save(anchor.itemTag, CommentStore.Seen(first + second, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt, before?.roots.orEmpty() + announced))
-        CommentThread(thread(events, anchor, mutedNow, before?.roots.orEmpty() + announced), relays)
+        CommentThread(thread(events, anchor, mutedNow, before?.roots.orEmpty() + announced), relays, pinned(events, anchor, mutedNow, before?.roots.orEmpty() + announced))
     }
 
     /**
@@ -494,6 +497,24 @@ internal fun thread(events: List<Event>, anchor: CommentAnchor, muted: Set<Strin
         .mapNotNull { r -> zap(r)?.let { (request, sats) -> Comment(r.id, request.pubkey, request.created_at, request.content, kind = CommentReader.ZAP_RECEIPT, sats = sats) } }
         .filter { it.content.isNotBlank() && it.pubkey !in muted }
     return (threads + zaps).sortedByDescending { it.createdAt }
+}
+
+/**
+ * The show's post on the episode, shown above the comments (maintainer 2026-10-24: Fountain shows it,
+ * Hopp showed only its answers): the announcement new comments answer ([CommentAnchor.answerTo]), else
+ * the newest of the show's notes found about the episode ([found], or naming it by NIP-73). With its
+ * likes and what was zapped on it; null when none came, or its author is muted.
+ */
+internal fun pinned(events: List<Event>, anchor: CommentAnchor, muted: Set<String>, found: Set<String> = emptySet()): Comment? {
+    val notes = events.filter { it.kind == 1 && it.pubkey !in muted }.distinctBy { it.id }
+    val post = notes.firstOrNull { it.id == anchor.answerTo?.id }
+        ?: notes.filter { e -> e.id in found || e.pubkey in anchor.showKeys && parentOf(e) == null && !quotes(e) && names(e, anchor) }.maxByOrNull { it.created_at }
+        ?: return null
+    fun target(e: Event) = e.tags.lastOrNull { it.size >= 2 && it[0] == "e" }?.get(1)
+    val likes = events.filter { it.kind == CommentReader.REACTION && it.content != "-" && it.pubkey !in muted && target(it) == post.id }.map { it.pubkey }.toSet()
+    val zapped = events.filter { it.kind == CommentReader.ZAP_RECEIPT && it.tags.any { t -> t.size >= 2 && t[0] == "e" && t[1] == post.id } }
+        .distinctBy { it.id }.mapNotNull { zap(it) }.filter { (request, _) -> request.pubkey !in muted }.sumOf { it.second }
+    return Comment(post.id, post.pubkey, post.created_at, post.content, likes = likes, zapped = zapped)
 }
 
 /** Where loaded comments, names and boost amounts are kept between loads. */

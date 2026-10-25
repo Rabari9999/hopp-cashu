@@ -22,6 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import space.sovereigncast.hopp.nostr.ExternalSigner
+import space.sovereigncast.hopp.nostr.SignerNeedsListener
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.nostr.npub
 import space.sovereigncast.hopp.ui.TestApp
@@ -108,12 +109,42 @@ class AndroidExternalSignerTest {
     }
 
     @Test
+    fun aRememberedPermissionEncryptsWithoutOpeningTheSigner() = runBlocking {
+        Robolectric.setupContentProvider(FakeSignerProvider::class.java, "$pkg.NIP44_ENCRYPT")
+        providerAnswer = MatrixCursor(arrayOf("result")).apply { addRow(arrayOf("sealed")) }
+        assertEquals("sealed", signer.nip44(pkg, true, "plain", me, me, interactive = false))
+        assertEquals(listOf("plain", me, me), providerAsked!!.toList())
+        assertEquals(null, shadowOf(app).nextStartedActivity)
+    }
+
+    @Test(expected = SignerNeedsListener::class)
+    fun inTheBackgroundTheSignerIsNeverOpened() {
+        providerAnswer = null
+        runBlocking { signer.nip44(pkg, false, "sealed", me, me, interactive = false) }
+    }
+
+    @Test
+    fun withoutAPermissionTheSignerAsksToDecrypt() {
+        providerAnswer = null
+        val result = withSignerScreen({ signer.nip44(pkg, false, "sealed", me, me) }) { intent ->
+            assertEquals("nostrsigner:sealed", intent.dataString)
+            assertEquals(pkg, intent.`package`)
+            assertEquals("nip44_decrypt", intent.getStringExtra("type"))
+            assertEquals(me, intent.getStringExtra("pubkey"))
+            assertEquals(me, intent.getStringExtra("current_user"))
+            Activity.RESULT_OK to Intent().putExtra("result", "plain")
+        }
+        assertEquals("plain", result)
+    }
+
+    @Test
     fun loggingInGivesTheKeyAndThePackage() {
         val (pubkey, signerPackage) = withSignerScreen({ signer.login(ExternalSigner.PERMISSIONS) }) { intent ->
             assertEquals("nostrsigner:", intent.dataString)
             assertEquals("get_public_key", intent.getStringExtra("type"))
-            // NIP-98, and since stage 3 comments, likes, the mute list and reports.
-            assertEquals(ExternalSigner.SIGNED_KINDS.joinToString(",", "[", "]") { """{"type":"sign_event","kind":$it}""" }, intent.getStringExtra("permissions"))
+            // NIP-98, since stage 3 comments, likes, the mute list and reports; never encryption (ADR 0021, 5).
+            val signing = ExternalSigner.SIGNED_KINDS.map { """{"type":"sign_event","kind":$it}""" }
+            assertEquals(signing.joinToString(",", "[", "]"), intent.getStringExtra("permissions"))
             // An npub, as some signers answer: taken as the hex key.
             Activity.RESULT_OK to Intent().putExtra("result", npub(me)).putExtra("package", pkg)
         }

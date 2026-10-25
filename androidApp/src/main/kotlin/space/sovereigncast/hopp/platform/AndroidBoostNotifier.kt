@@ -20,6 +20,7 @@ class AndroidBoostNotifier(private val context: Context) : BoostNotifier {
             is QuickBoost.Sent -> if (result.ok) context.getString(R.string.quick_boost_sent, result.paidSats.toString(), result.show)
                 else context.getString(R.string.quick_boost_partial, result.paidSats.toString(), result.amountSats.toString(), result.show)
             QuickBoost.OverBudget -> context.getString(R.string.quick_boost_budget)
+            is QuickBoost.LowBalance -> context.getString(R.string.quick_boost_low_balance, result.balanceSats.toString())
             QuickBoost.NoValue -> context.getString(R.string.quick_boost_no_value)
             QuickBoost.NoWallet -> context.getString(R.string.quick_boost_no_wallet)
             is QuickBoost.Failed -> context.getString(R.string.quick_boost_failed, result.reason)

@@ -1,0 +1,107 @@
+-- Sync across devices over Nostr (ADR 0021, stage 5). Per entry of a document
+-- (subscriptions, progress, queue, settings) what this device knows last — its
+-- own changes and what came from the relays, newest wins. A removal stays as a
+-- marker (deleted = 1), so another device does not bring it back.
+CREATE TABLE sync_entry (
+    doc TEXT NOT NULL,
+    key TEXT NOT NULL,
+    json TEXT NOT NULL,
+    -- Milliseconds; a change made here is always later than what it replaces.
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    -- Changed here, not yet taken by the relays (security audit 2026-10-22, M-02).
+    pending INTEGER NOT NULL DEFAULT 0,
+    -- A removal: when it first went out, milliseconds — it is kept that long from then, not from
+    -- when it was made (delta audit 2 2026-10-22, HN-05). Null for others, and before it went out.
+    kept_from INTEGER,
+    PRIMARY KEY (doc, key)
+);
+
+-- Entries the app may not hold as the store does (delta audit 2 2026-10-22, HN-07/MN-02/MN-07):
+-- noted before another device's are applied and cleared once the app holds the store's again —
+-- a round cut off halfway, or changed under it, is put right by the next. One dated far ahead
+-- waits here until its time.
+CREATE TABLE sync_unapplied (
+    doc TEXT NOT NULL,
+    key TEXT NOT NULL,
+    PRIMARY KEY (doc, key)
+);
+
+-- Per document: when it was last fetched, and the newest entry the relays took from here.
+CREATE TABLE sync_doc (
+    doc TEXT PRIMARY KEY NOT NULL,
+    fetched_at INTEGER,
+    published_up_to INTEGER
+);
+
+entries:
+SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ?;
+
+entry:
+SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ? AND key = ?;
+
+putEntry:
+INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted, pending, kept_from) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- The relays took this version of the entry; a newer one made meanwhile stays pending. A removal
+-- keeps the time it first went out.
+markSent:
+UPDATE sync_entry SET pending = 0, kept_from = coalesce(kept_from, ?) WHERE doc = ? AND key = ? AND updated_at = ?;
+
+pendingKeys:
+SELECT key FROM sync_entry WHERE doc = ? AND pending = 1;
+
+pendingCount:
+SELECT count(*) FROM sync_entry WHERE pending = 1;
+
+anyPending:
+SELECT count(*) FROM sync_entry WHERE doc = ? AND pending = 1;
+
+removeEntry:
+DELETE FROM sync_entry WHERE doc = ? AND key = ?;
+
+-- Only the version known, and only once the relays have it: a change made meanwhile stays
+-- (delta audit 2026-10-22, HN-04).
+removeIfSent:
+DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = ? AND pending = 0;
+
+-- A local seed (time 0, never sent) the relays already hold a value for (HN-01).
+removeSeed:
+DELETE FROM sync_entry WHERE doc = ? AND key = ? AND updated_at = 0 AND pending = 1;
+
+-- Only markers the relays took: one never sent still has to go out (HN-05) — and kept from when it went out.
+pruneRemoved:
+DELETE FROM sync_entry WHERE doc = ? AND deleted = 1 AND coalesce(kept_from, updated_at) < ? AND pending = 0;
+
+markUnapplied:
+INSERT OR IGNORE INTO sync_unapplied (doc, key) VALUES (?, ?);
+
+clearUnapplied:
+DELETE FROM sync_unapplied WHERE doc = ? AND key = ?;
+
+unappliedKeys:
+SELECT key FROM sync_unapplied WHERE doc = ?;
+
+newest:
+SELECT MAX(updated_at) FROM sync_entry WHERE doc = ?;
+
+docState:
+SELECT fetched_at, published_up_to FROM sync_doc WHERE doc = ?;
+
+ensureDoc:
+INSERT OR IGNORE INTO sync_doc (doc) VALUES (?);
+
+setFetched:
+UPDATE sync_doc SET fetched_at = ? WHERE doc = ?;
+
+setPublished:
+UPDATE sync_doc SET published_up_to = ? WHERE doc = ?;
+
+clearEntries:
+DELETE FROM sync_entry;
+
+clearUnappliedAll:
+DELETE FROM sync_unapplied;
+
+clearDocs:
+DELETE FROM sync_doc;

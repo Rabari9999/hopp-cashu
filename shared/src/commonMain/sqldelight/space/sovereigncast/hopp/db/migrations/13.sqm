@@ -1,0 +1,14 @@
+-- Version 13 → 14 (delta audit 2 2026-10-22).
+-- A removal is kept from when it first went out (HN-05).
+ALTER TABLE sync_entry ADD COLUMN kept_from INTEGER;
+-- Entries the app may not hold as the store does (HN-07, MN-02, MN-07).
+CREATE TABLE sync_unapplied (
+    doc TEXT NOT NULL,
+    key TEXT NOT NULL,
+    PRIMARY KEY (doc, key)
+);
+-- A device that took version 13 before its migration kept the old "not out yet" lost it (MN-01):
+-- what the old mark said was not out is pending again. One the relays did hold is sent once more
+-- at worst, and the next round marks it sent.
+UPDATE sync_entry SET pending = 1 WHERE pending = 0 AND updated_at > coalesce(
+    (SELECT published_up_to FROM sync_doc WHERE sync_doc.doc = sync_entry.doc), -9223372036854775808);

@@ -85,14 +85,34 @@ fun sharedModule(platform: Platform) = module {
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
     single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner()) }
+    single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
+    single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
+    single {
+        val koin = getKoin()
+        space.sovereigncast.hopp.sync.SyncManager(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), {
+            val player = koin.get<PlayerController>()
+            listOf(
+                // Settings first: shows that follow download only as they say (device feedback 2026-10-24).
+                space.sovereigncast.hopp.sync.SettingsDocument(koin.get()) { koin.get<DownloadRepository>().dropAutomatic() },
+                space.sovereigncast.hopp.sync.SubscriptionsDocument(koin.get(), koin.get()),
+                space.sovereigncast.hopp.sync.ProgressDocument(koin.get(), koin.get(), koin.get<Clock>()::now, player::isPlaying) { id, pos, played ->
+                    kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
+                },
+                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
+            )
+        }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
+    }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
-    single { SettingsRepository(get()) }
-    single { QueueRepository(get()) }
+    single { SettingsRepository(get(), get()) }
+    single { QueueRepository(get(), get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
-    single { PodcastRepository(get(), get(), get(), get(), get()) }
-    single { EpisodeRepository(get(), get(), get()) }
+    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { get<SettingsRepository>().current().autoDownloads } }
+    single { EpisodeRepository(get(), get(), get(), get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
@@ -116,9 +136,9 @@ fun sharedModule(platform: Platform) = module {
         PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
-    viewModel { InboxViewModel(get(), get()) }
-    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
-    viewModel { LibraryViewModel(get(), get(), get(), get(), get()) }
+    viewModel { InboxViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
@@ -136,7 +156,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
-    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get()) }
+    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
     single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     viewModel { ValueBarViewModel(get(), get(), get(), get(), get(), get(), get()) }

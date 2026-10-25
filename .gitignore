@@ -23,3 +23,6 @@ docs/design/Figtree.ttf
 
 # Signed release APKs that scripts/release.sh leaves behind for zsp
 /hopp-*-foss.apk
+
+# Claude Code agent worktrees
+.claude/worktrees/

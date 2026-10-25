@@ -42,13 +42,16 @@ class WorkDownloadScheduler(private val context: Context) : DownloadScheduler {
 class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val downloads = KoinPlatform.getKoin().get<DownloadRepository>()
-        // Whichever chain started it: automatic downloads only off mobile data.
-        val metered = applicationContext.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered
+        val settings = KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>()
+        val network = applicationContext.getSystemService(ConnectivityManager::class.java)
         // Long episodes outlast WorkManager's ten minutes without a foreground
         // notification. Android 12+ may refuse that from the background — the
         // .part file then resumes on the next run.
         runCatching { setForeground(foregroundInfo()) }
-        return if (downloads.runPending(includeAuto = !metered)) Result.success() else Result.retry()
+        // Whichever chain started it: automatic downloads only while they are on and off mobile data —
+        // looked at before each episode, so a run that left Wi-Fi, or saw them turned off, takes none more
+        // (device feedback 2026-10-22 and 2026-10-24).
+        return if (downloads.runPending { settings.current().autoDownloads && !network.isActiveNetworkMetered }) Result.success() else Result.retry()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo()

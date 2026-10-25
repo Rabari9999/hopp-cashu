@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -69,6 +71,31 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.nostr_restore_hint
+import space.sovereigncast.hopp.resources.sync_failed
+import space.sovereigncast.hopp.resources.sync_last_hours
+import space.sovereigncast.hopp.resources.sync_last_minutes
+import space.sovereigncast.hopp.resources.sync_last_now
+import space.sovereigncast.hopp.resources.sync_newer
+import space.sovereigncast.hopp.resources.sync_note
+import space.sovereigncast.hopp.resources.sync_now
+import space.sovereigncast.hopp.resources.sync_renew
+import space.sovereigncast.hopp.resources.sync_renew_confirm
+import space.sovereigncast.hopp.resources.sync_renew_failed
+import space.sovereigncast.hopp.resources.sync_renew_text
+import space.sovereigncast.hopp.resources.sync_renewed
+import space.sovereigncast.hopp.resources.sync_no_relay
+import space.sovereigncast.hopp.resources.sync_too_few
+import space.sovereigncast.hopp.resources.sync_not_taken
+import space.sovereigncast.hopp.resources.sync_renew_unfinished
+import space.sovereigncast.hopp.resources.sync_running
+import space.sovereigncast.hopp.resources.sync_title
+import space.sovereigncast.hopp.resources.sync_waits
+import space.sovereigncast.hopp.resources.sync_restore_button
+import space.sovereigncast.hopp.resources.sync_restore_counts
+import space.sovereigncast.hopp.resources.sync_restore_later
+import space.sovereigncast.hopp.resources.sync_restore_text
+import space.sovereigncast.hopp.resources.sync_restore_title
 import space.sovereigncast.hopp.resources.nostr_anonymous
 import space.sovereigncast.hopp.resources.nostr_bunker_failed
 import space.sovereigncast.hopp.resources.nostr_bunker_auth_open
@@ -113,13 +140,73 @@ import space.sovereigncast.hopp.resources.nostr_sign_out_confirm
 import space.sovereigncast.hopp.resources.nostr_sign_out_text
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 
+/** Asks the Nostr page to open the ways in with an existing account at once —
+ *  from the tour's "Restore from Nostr". Taken once. */
+object NostrSignInRequest {
+    private var pending = false
+    fun request() { pending = true }
+    fun take(): Boolean = pending.also { pending = false }
+}
+
 class NostrIdentityViewModel(
     private val identities: IdentityRepository,
     private val settings: SettingsRepository,
+    private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
 ) : ViewModel() {
     val identity: StateFlow<NostrIdentity?> = identities.identity
     /** A stored identity the key store could not give up — shown, never made anew (security review 2026-10-20). */
     val unreadable: StateFlow<Boolean> = identities.unreadable
+
+    /** A library the listener's other devices left on the relays, while sync is off here. */
+    private val _restore = MutableStateFlow<space.sovereigncast.hopp.sync.RestoreOffer?>(null)
+    val restore: StateFlow<space.sovereigncast.hopp.sync.RestoreOffer?> = _restore.asStateFlow()
+    private val _restoring = MutableStateFlow(false)
+    val restoring: StateFlow<Boolean> = _restoring.asStateFlow()
+
+    /** Looked for on opening the page and after each sign-in with an existing identity. */
+    private fun lookForRestore() {
+        val sync = sync ?: return
+        if (identities.identity.value == null) return
+        viewModelScope.launch { _restore.value = runCatching { sync.restoreOffer() }.getOrNull() }
+    }
+
+    /** Sync on: what this device has and the relays' merged — on a new device, a restore.
+     *  It runs on in the app, not in this page: leaving the page does not stop it. */
+    fun restore() {
+        val sync = sync ?: return
+        if (_restoring.value) return
+        _restoring.value = true
+        viewModelScope.launch {
+            try { sync.enableAndWait() } finally { _restoring.value = false; _restore.value = null }
+        }
+    }
+
+    fun dismissRestore() { _restore.value = null }
+
+    /** How sync stands, for the line under its switch. */
+    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus> = sync?.status ?: MutableStateFlow(space.sovereigncast.hopp.sync.SyncStatus())
+
+    /** The switch: on merges and may restore (the signer may ask once); off forgets this device's notes. */
+    fun setSync(on: Boolean) {
+        val sync = sync ?: return
+        if (on) restore() else viewModelScope.launch { sync.disable(); lookForRestore() }
+    }
+
+    /** A new sync key (ADR 0022, 3): null not asked. */
+    private val _renewed = MutableStateFlow<space.sovereigncast.hopp.sync.Renewal?>(null)
+    val renewed: StateFlow<space.sovereigncast.hopp.sync.Renewal?> = _renewed.asStateFlow()
+    private val _renewing = MutableStateFlow(false)
+    val renewing: StateFlow<Boolean> = _renewing.asStateFlow()
+
+    fun renewSyncKey() {
+        val sync = sync ?: return
+        if (_renewing.value) return
+        _renewing.value = true; _renewed.value = null
+        viewModelScope.launch { try { _renewed.value = sync.renewKey() } finally { _renewing.value = false } }
+    }
+
+    /** A round now, the signer app allowed to ask — after it said it needs the listener. */
+    fun syncNow() { val sync = sync ?: return; viewModelScope.launch { sync.syncNow(interactive = true) } }
 
     /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
     private val _loadingProfile = MutableStateFlow(false)
@@ -131,6 +218,7 @@ class NostrIdentityViewModel(
             _loadingProfile.value = true
             try { runCatching { identities.refreshProfile() } } finally { _loadingProfile.value = false }
         }
+        lookForRestore()
     }
     val current: StateFlow<Settings?> = settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -148,6 +236,11 @@ class NostrIdentityViewModel(
     val signerError: StateFlow<SignerError?> = _signerError.asStateFlow()
     enum class SignerError { Rejected, Failed }
 
+    private companion object {
+        /** A bunker address the signer will not take (again): Amber's and nsec.app's answers to `connect`. */
+        val USED_UP = listOf("already connected", "invalid secret", "secret not in use", "no secret")
+    }
+
     /** Signs in with the signer app; its profile name becomes the boost name when none is set. */
     fun signInWithSigner() = work {
         _signerError.value = null
@@ -156,6 +249,7 @@ class NostrIdentityViewModel(
             val me = identities.signInWithSigner()
             val name = me.name
             if (name != null && settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) }
+            lookForRestore()
         } catch (e: SignerRejected) {
             _signerError.value = SignerError.Rejected
         } catch (e: Exception) {
@@ -176,13 +270,16 @@ class NostrIdentityViewModel(
         data object Idle : Bunker
         data object Connecting : Bunker
         data class Offer(val uri: String) : Bunker
-        data class Failed(val reason: String) : Bunker
+        /** [usedUp]: the signer refused the address itself — taken before, or not its own. */
+        data class Failed(val reason: String, val usedUp: Boolean = false) : Bunker
     }
     private val _bunker = MutableStateFlow<Bunker>(Bunker.Idle)
     val bunker: StateFlow<Bunker> = _bunker.asStateFlow()
     /** The signer wants the listener to confirm on one of its pages first. */
     private val _authUrl = MutableStateFlow<String?>(null)
     val authUrl: StateFlow<String?> = _authUrl.asStateFlow()
+    /** The same, asked while signed in — opening the sync key, say. */
+    val signerAuthUrl: StateFlow<String?> = identities.signerAuthUrl
     private var waiting: kotlinx.coroutines.Job? = null
 
     fun connectBunker(address: String) {
@@ -206,10 +303,14 @@ class NostrIdentityViewModel(
             val me = signIn()
             me.name?.let { name -> if (settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) } }
             _bunker.value = Bunker.Idle
+            lookForRestore()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            _bunker.value = Bunker.Failed(e.message ?: e::class.simpleName.orEmpty())
+            val reason = e.message ?: e::class.simpleName.orEmpty()
+            // Amber's words for an address it will not take again (device feedback 2026-10-21).
+            val usedUp = e is space.sovereigncast.hopp.nostr.Nip46Exception && USED_UP.any { reason.contains(it, ignoreCase = true) }
+            _bunker.value = Bunker.Failed(reason, usedUp)
         } finally {
             _authUrl.value = null
             _loadingProfile.value = false
@@ -268,6 +369,7 @@ class NostrIdentityViewModel(
         try {
             val me = identities.importKey(text, password)
             me.name?.let { name -> if (settings.current().senderName.isBlank()) settings.update { it.copy(senderName = name) } }
+            lookForRestore()
         } catch (e: space.sovereigncast.hopp.identity.KeyImportException) {
             _importError.value = e.reason
         } finally {
@@ -325,7 +427,9 @@ class NostrIdentityViewModel(
     }
     fun setNostrBoosts(on: Boolean) = viewModelScope.launch { settings.update { it.copy(nostrBoosts = on) } }
     fun signOut() {
-        _exported.value = null; _published.value = null
+        _exported.value = null; _published.value = null; _restore.value = null
+        // Without a key there is nothing to sync with; the relays keep what they have.
+        sync?.let { viewModelScope.launch { it.disable() } }
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
@@ -372,7 +476,8 @@ private fun Unreadable(vm: NostrIdentityViewModel) {
 @Composable
 private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel) {
     var name by rememberSaveable(boostName) { mutableStateOf(boostName) }
-    var signIn by rememberSaveable { mutableStateOf(false) }
+    val toRestore = rememberSaveable { NostrSignInRequest.take() }
+    var signIn by rememberSaveable { mutableStateOf(toRestore) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
@@ -390,6 +495,8 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
     if (signIn) ModalBottomSheet(onDismissRequest = { signIn = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.nostr_have_account), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            // From the tour's "Restore": what the key is for here.
+            if (toRestore) Text(stringResource(Res.string.nostr_restore_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
             SignIn(busy, vm)
         }
     }
@@ -476,7 +583,10 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
                 label = { Text(stringResource(Res.string.nostr_bunker_hint)) },
             )
             (state as? NostrIdentityViewModel.Bunker.Failed)?.let {
-                Text(stringResource(Res.string.nostr_bunker_failed, it.reason), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    if (it.usedUp) stringResource(Res.string.nostr_bunker_used_up) else stringResource(Res.string.nostr_bunker_failed, it.reason),
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                )
             }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { vm.connectBunker(address) }, enabled = address.trim().startsWith("bunker://")) { Text(stringResource(Res.string.nostr_bunker_connect)) }
@@ -532,10 +642,18 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         TextButton(onClick = vm::publishAgain, enabled = !busy) { Text(stringResource(Res.string.nostr_publish_again)) }
     }
 
+    val offer by vm.restore.collectAsState()
+    offer?.let { RestoreCard(it, vm) }
+
     // A key Hopp holds lives only on this device and in no backup (ADR 0015).
     if (me.holdsKey) Backup(me, busy, vm)
 
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    val restoring by vm.restoring.collectAsState()
+    SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
+    if (settings?.nostrSync == true) SyncStatusLine(vm)
+    // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
+    if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -558,6 +676,106 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/** Under the sync switch: when it last got through, or why not — and a way on where there is one. */
+@Composable
+private fun SyncStatusLine(vm: NostrIdentityViewModel) {
+    val status by vm.syncStatus.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // Ticks once a minute, so "min ago" stays true while the page is open.
+    val now by produceState(kotlin.time.Clock.System.now().toEpochMilliseconds()) {
+        while (true) { kotlinx.coroutines.delay(60_000); value = kotlin.time.Clock.System.now().toEpochMilliseconds() }
+    }
+    val problem = status.problem
+    val text = when {
+        status.running -> stringResource(Res.string.sync_running)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.WaitsForSigner -> stringResource(Res.string.sync_waits)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.NeedsUpdate -> stringResource(Res.string.sync_newer)
+        // Security audit 2026-10-22: a document only in part, or too large, is said as such (H-02, M-04).
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Incomplete -> stringResource(Res.string.sync_incomplete)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.sync.SyncTooLarge -> stringResource(Res.string.sync_too_large)
+        // What the relays did, said as it was (delta audit 2026-10-22, LN-01): not "no relay" when two of three answered.
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> when (val e = problem.error) {
+            is space.sovereigncast.hopp.sync.SyncNotReached -> relayLine(e.answered, e.asked)
+            is space.sovereigncast.hopp.sync.SyncKeyringNotKnown -> relayLine(e.answered, e.asked)
+            is space.sovereigncast.hopp.sync.SyncNotPublished ->
+                if (e.asked > 0) stringResource(Res.string.sync_not_taken, e.took, e.asked) else stringResource(Res.string.sync_failed)
+            else -> stringResource(Res.string.sync_failed)
+        }
+        else -> status.lastSyncedMs?.let { last ->
+            val minutes = ((now - last) / 60_000).coerceAtLeast(0)
+            when {
+                minutes < 1 -> stringResource(Res.string.sync_last_now)
+                minutes < 60 -> stringResource(Res.string.sync_last_minutes, minutes.toInt())
+                else -> stringResource(Res.string.sync_last_hours, (minutes / 60).toInt())
+            }
+        }?.let { line -> if (status.pending > 0) line + " · " + stringResource(Res.string.sync_pending, status.pending) else line }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text.orEmpty(), Modifier.weight(1f), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
+        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+    }
+    val authUrl by vm.signerAuthUrl.collectAsState()
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    authUrl?.let { url ->
+        Text(stringResource(Res.string.nostr_bunker_auth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        OutlinedButton(onClick = { runCatching { uri.openUri(url) } }) { Text(stringResource(Res.string.nostr_bunker_auth_open)) }
+    }
+}
+
+/** Too few relays answered: none at all, or how many of how many. */
+@Composable
+private fun relayLine(answered: Int, asked: Int): String =
+    if (answered == 0 || asked == 0) stringResource(Res.string.sync_no_relay) else stringResource(Res.string.sync_too_few, answered, asked)
+
+/** A new sync key, for a lost device or a browser no longer used (ADR 0022, 3) — asked first. */
+@Composable
+private fun RenewSyncKey(vm: NostrIdentityViewModel) {
+    val renewing by vm.renewing.collectAsState()
+    val renewed by vm.renewed.collectAsState()
+    var confirm by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            when (renewed) {
+                space.sovereigncast.hopp.sync.Renewal.Done -> stringResource(Res.string.sync_renewed)
+                space.sovereigncast.hopp.sync.Renewal.Unfinished -> stringResource(Res.string.sync_renew_unfinished)
+                space.sovereigncast.hopp.sync.Renewal.NotRenewed -> stringResource(Res.string.sync_renew_failed)
+                null -> ""
+            },
+            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            color = if (renewed == space.sovereigncast.hopp.sync.Renewal.NotRenewed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (renewing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+        else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew)) }
+    }
+    if (confirm) AlertDialog(
+        onDismissRequest = { confirm = false },
+        title = { Text(stringResource(Res.string.sync_renew)) },
+        text = { Text(stringResource(Res.string.sync_renew_text)) },
+        confirmButton = { TextButton(onClick = { confirm = false; vm.renewSyncKey() }) { Text(stringResource(Res.string.sync_renew_confirm)) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
+}
+
+/** The listener's other devices left a library on the relays (ADR 0021, 5): one button takes it. */
+@Composable
+private fun RestoreCard(offer: space.sovereigncast.hopp.sync.RestoreOffer, vm: NostrIdentityViewModel) {
+    val restoring by vm.restoring.collectAsState()
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(Res.string.sync_restore_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (offer.shows != null && offer.inProgress != null) Text(stringResource(Res.string.sync_restore_counts, offer.shows, offer.inProgress), fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.sync_restore_text), style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = vm::restore, enabled = !restoring) {
+                if (restoring) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.sync_restore_button))
+            }
+            TextButton(onClick = vm::dismissRestore, enabled = !restoring) { Text(stringResource(Res.string.sync_restore_later)) }
+        }
+    }
 }
 
 /**
@@ -624,12 +842,17 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
 
 @Composable
 private fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // The whole row switches, read out as one switch with its title.
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

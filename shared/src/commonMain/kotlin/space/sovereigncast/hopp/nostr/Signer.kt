@@ -18,13 +18,28 @@ interface NostrSigner {
     /** x-only public key, hex. */
     val pubkey: String
     suspend fun sign(event: UnsignedEvent): Event
+
+    /** NIP-44 to the listener's own key — what only they can open again: the
+     *  sync documents (ADR 0021, 5). */
+    suspend fun encryptToSelf(plaintext: String): String
+
+    /** Opens what [encryptToSelf] made, on this device or another. */
+    suspend fun decryptFromSelf(payload: String): String
 }
+
+/** The signer would have to ask the listener, and this request may not open it
+ *  (sync in the background, ADR 0021 5: it waits instead). */
+class SignerNeedsListener : Exception("the signer wants to ask the listener")
 
 /** A key Hopp holds itself (in the platform's secret store). */
 class LocalSigner(private val keys: KeyPair) : NostrSigner {
     override val pubkey: String = keys.publicKeyHex
     override suspend fun sign(event: UnsignedEvent): Event =
         Event.sign(keys, event.kind, event.content, event.tags, event.createdAt)
+
+    private val selfKey by lazy { Nip44.conversationKey(keys.secretKey, keys.publicKey) }
+    override suspend fun encryptToSelf(plaintext: String): String = Nip44.encrypt(plaintext, selfKey)
+    override suspend fun decryptFromSelf(payload: String): String = Nip44.decrypt(payload, selfKey)
 
     /** The key a private zap on [id] at [createdAt] is sent with, as Amethyst derives it —
      *  so the listener's key, in Amethyst too, can open it again. */

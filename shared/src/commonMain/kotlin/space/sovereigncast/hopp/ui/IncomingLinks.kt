@@ -18,6 +18,18 @@ object IncomingLinks {
     private var walletDraft: String? = null
     fun handOverWallet(uri: String) { walletDraft = uri }
     fun takeWalletDraft(): String? = walletDraft.also { walletDraft = null }
+    /** An OPML file handed to Hopp — "Open with" or "Share" from another podcast app's
+     *  export (maintainer, 2026-10-21): the subscriptions page asks before importing. */
+    val opml = MutableStateFlow<String?>(null)
+
+    /** The file's text on its way to the subscriptions page — in memory only, taken once. */
+    private var opmlDraft: String? = null
+    fun handOverOpml(text: String) { opmlDraft = text }
+    fun takeOpmlDraft(): String? = opmlDraft.also { opmlDraft = null }
+
+    /** Whether [text] looks like OPML at all — any XML can be shared to Hopp. */
+    fun isOpml(text: String): Boolean = "<opml" in text.take(4096).lowercase()
+
     /** A show from "Open in Hopp" or a shared link: its preview opens, or its page — and
      *  the episode's, when the link names one — when subscribed. */
     val show = MutableStateFlow<ShowLink?>(null)

@@ -76,7 +76,9 @@ fun TabbedPage(
     Layout(
         contents = listOf(
             { Box(Modifier.draggable(drag, Orientation.Vertical)) { header() } },
-            {
+            // The tab row moves the header like the header itself: a drag that started on it did nothing (device check
+            // 2026-10-23 — with a shorter header the row lay where a thumb or Maestro's swipe starts).
+            { Box(Modifier.draggable(drag, Orientation.Vertical)) {
                 when {
                     // Up to three share the width; more scroll, so no label is cut.
                     tabs.size > 3 -> SecondaryScrollableTabRow(
@@ -89,7 +91,7 @@ fun TabbedPage(
                     singleLabel && tabs.size == 1 -> Text(tabs[0], Modifier.padding(start = 16.dp, top = 12.dp), style = MaterialTheme.typography.titleMedium)
                     else -> Box(Modifier)
                 }
-            },
+            } },
             { HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = tabs.size > 1, key = { tabs.getOrElse(it) { "$it" } }) { page(it) } },
         ),
         modifier = modifier.fillMaxSize().clipToBounds().nestedScroll(connection),

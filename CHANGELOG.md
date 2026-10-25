@@ -6,6 +6,41 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
+### 🆕 New Features
+- **Nostr:** Sync subscriptions, progress, favourites, "Up next", listening habits and download settings between your devices – encrypted, no Hopp server.
+- **Nostr:** On a new device, restore your library from Nostr after signing in; Hopp then opens Home and says what came back.
+- **Tour:** "I already use Hopp" on the first page, and "Restore" beside "Set up" on the Nostr page, lead straight to restoring from Nostr.
+- **Tour:** "I’m coming from another podcast app" leads to moving your subscriptions over, with where each app keeps its export.
+- **Library:** Share another app's OPML export to Hopp, or open it with Hopp: it asks, then subscribes.
+- **Library:** Choose and export OPML files on the iPhone and iPad too.
+- **Player:** Raise the volume of quiet shows (Android), in the playback settings and beside the speeds.
+- **Boosts:** Hopp shows what your wallet holds and sends no boost it cannot cover.
+- **Player:** While you drag the position, a bubble shows where you would land, with the chapter.
+- **Player:** Skip back and forward on the lock screen and in the notification (Android), with your seconds; the next chapter beside them.
+- **Home:** A Release Boosting or Boost2Unlock under "Take part" opens straight to its details on the show.
+- **Home:** Hide single entries under "Take part" – a round, a show's suggestions or a whole show – and bring them back under "Customize Home".
+- **Home:** A small mark beside "updated" shows how sync went; a tap shows relays, what came and what is still to send.
+- **Comments:** The show's post on an episode sits above its comments, as in Fountain.
+- **Downloads:** Switch automatic downloads off altogether – then only what you download yourself is fetched.
+
+### 🐛 Fixes
+- **Sovereigncast:** A Release Boosting round at its goal shows a tick and asks for no more boosts – the episode can’t come out any earlier.
+- **Downloads:** Automatic downloads no longer go on over mobile data once Wi-Fi is gone.
+- **Player:** An episode you leave for another goes back to the top of "Up next" and plays on after it.
+- **Player:** After a restart the episode you listened to last is back in the player, where you left it.
+- **Tour:** Back from a page the tour opened returns to the tour.
+- **Nostr:** Connecting Amber as a bunker no longer fails with "no permission"; a used-up bunker address is named as such.
+- **Home:** Greets you by your Nostr name when no boost name is set, also after restoring from Nostr.
+- **Boosts:** A share whose payment had no clear answer from the wallet is no longer paid a second time.
+- **Sovereigncast:** Release Boosting, Boost2Unlock and suggestions count against the daily budget too.
+- **Wallet:** A wallet that cannot speak Hopp's encryption is refused when connecting, with the reason.
+- **Privacy:** If the device's key store cannot be read for a moment, Hopp says so instead of losing your key or wallet.
+- **Comments:** Muting and changing relays no longer overwrite your lists when the relays could not be read.
+- **Nostr:** Importing an encrypted key with an extreme security setting no longer crashes the app.
+
+
 ## [0.2.2] - 2026-10-20
 
 ### 🆕 New Features

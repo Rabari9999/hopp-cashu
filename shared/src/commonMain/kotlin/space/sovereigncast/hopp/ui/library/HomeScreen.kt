@@ -1,5 +1,22 @@
 package space.sovereigncast.hopp.ui.library
 
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import space.sovereigncast.hopp.resources.menu_more
+import space.sovereigncast.hopp.resources.take_part_hidden_done
+import space.sovereigncast.hopp.resources.take_part_undo
+import space.sovereigncast.hopp.resources.take_part_hide_round
+import space.sovereigncast.hopp.resources.take_part_hide_unlock
+import space.sovereigncast.hopp.resources.take_part_hide_suggestions
+import space.sovereigncast.hopp.resources.take_part_hide_show
 import space.sovereigncast.hopp.resources.home_hello_night_name
 import space.sovereigncast.hopp.resources.home_hello_evening_name
 import space.sovereigncast.hopp.resources.home_hello_day_name
@@ -98,6 +115,9 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
     onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
+    onAction: (ShowAction) -> Unit = { onShow(it.podcastId) },
+    snackbar: SnackbarHostState? = null,
+    onSyncSettings: () -> Unit = {},
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
@@ -107,6 +127,19 @@ fun HomeScreen(
     val played by vm.recentlyPlayed.collectAsState()
     val boosted by vm.recentlyBoosted.collectAsState()
     val actions by vm.actions.collectAsState()
+    val takePart by vm.takePart.collectAsState()
+    val hiddenText = stringResource(Res.string.take_part_hidden_done)
+    val undoText = stringResource(Res.string.take_part_undo)
+    val scope = rememberCoroutineScope()
+    // Hidden under "Take part", with the way back at once (device feedback 2026-10-22).
+    val hide = { key: String ->
+        vm.hideTakePart(key)
+        scope.launch {
+            if (snackbar?.showSnackbar(hiddenText, actionLabel = undoText, duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed)
+                vm.showTakePartAgain(key)
+        }
+        Unit
+    }
     val favorites by vm.favorites.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val shows by vm.shows.collectAsState()
@@ -129,11 +162,16 @@ fun HomeScreen(
         val savedOrder by vm.savedOrder.collectAsState()
         val hidden by vm.hidden.collectAsState()
         val greetName by vm.greetName.collectAsState()
+        val syncStatus by vm.syncStatus.collectAsState()
+        var syncOpen by remember { mutableStateOf(false) }
+        syncStatus?.takeIf { syncOpen }?.let { st ->
+            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }) { syncOpen = false }
+        }
         var allActions by remember { mutableStateOf(false) }
         LazyColumn {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12):
             // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize) }
+            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize, syncStatus) { syncOpen = true } }
             // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
             HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
                 when (key) {
@@ -165,20 +203,21 @@ fun HomeScreen(
                     HomeSections.TAKE_PART -> {
                     // Taking part at Sovereigncast shows: Release Boosting, Boost2Unlock and open
                     // suggestions — only when there is something to do, two lines unless asked.
-                    if (actions.isNotEmpty()) {
+                    if (takePart.isNotEmpty()) {
                         val open = "shows" !in collapsed
-                        item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, actions.size, { vm.toggle("shows") }) }
+                        item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, takePart.size, { vm.toggle("shows") }) }
                         if (open) {
-                            val shown = if (allActions) actions else actions.take(HomeViewModel.TAKE_PART_ROWS)
+                            val shown = if (allActions) takePart else takePart.take(HomeViewModel.TAKE_PART_ROWS)
                             // By index: two episodes of a show can share a title, and a repeated key crashes (code review 2026-10-17, H7).
                             itemsIndexed(shown, key = { i, _ -> "a$i" }) { _, a ->
-                                // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12).
-                                if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, Modifier.animateItem()) { onCommunity(a.podcastId) }
-                                else ShowActionRow(a, Modifier.animateItem()) { onShow(a.podcastId) }
+                                // "Vote" leads to the votes, not to the episodes (device feedback 2026-10-12);
+                                // a round or an unlock straight to its sheet on the show (device feedback 2026-10-22).
+                                if (a.kind == ShowAction.Kind.Suggestions) SuggestionsRow(a, hide, Modifier.animateItem()) { onCommunity(a.podcastId) }
+                                else ShowActionRow(a, hide, Modifier.animateItem()) { onAction(a) }
                             }
-                            if (actions.size > shown.size) item(key = "a-more") {
+                            if (takePart.size > shown.size) item(key = "a-more") {
                                 TextButton(onClick = { allActions = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                                    Text(stringResource(Res.string.home_show_all, actions.size))
+                                    Text(stringResource(Res.string.home_show_all, takePart.size))
                                 }
                             }
                         }
@@ -247,18 +286,20 @@ private fun SectionHeader(title: String, open: Boolean, count: Int, onToggle: ()
     }
 }
 
-/** One running action at a show: its cover, what and where, how far — a tap opens the show. */
+/** One running action at a show: its cover, what and where, how far — a tap opens its sheet on the show;
+ *  ⋮ or a long press hides it, its show's suggestions or the whole show from "Take part". */
 @Composable
-private fun ShowActionRow(a: ShowAction, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ShowActionRow(a: ShowAction, onHide: (String) -> Unit, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    var menu by remember { mutableStateOf(false) }
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Cover(a.showImage, 44.dp, corner = 10.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                stringResource(if (a.kind == ShowAction.Kind.ReleaseBoosting) Res.string.sc_rb_label else Res.string.sc_b2u_label) + " · " + a.showTitle,
+                stringResource(if (a.kind == ShowAction.Kind.ReleaseBoosting) Res.string.sc_rb_label else Res.string.sc_b2u_label) + " · " + TakePart.shortTitle(a.showTitle),
                 style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(a.episodeTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -267,11 +308,44 @@ private fun ShowActionRow(a: ShowAction, modifier: Modifier = Modifier, onClick:
                 modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
                 color = Hopp.colors.value, trackColor = Hopp.colors.progressTrack, drawStopIndicator = {},
             )
-            Text(
-                stringResource(Res.string.sc_progress, formatSats(a.raisedSats), formatSats(a.goalSats)) +
-                    (a.publishAt?.let { " · " + stringResource(Res.string.sc_publish_at, formatIsoShort(it)) } ?: ""),
-                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // At its goal: a tick, and nothing more to boost (maintainer, 2026-10-23).
+                if (a.reached) {
+                    Icon(Icons.Rounded.CheckCircle, null, tint = Hopp.colors.ok, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    (if (a.reached) stringResource(Res.string.sc_goal_reached) else stringResource(Res.string.sc_progress, formatSats(a.raisedSats), formatSats(a.goalSats))) +
+                        (a.publishAt?.let { " · " + stringResource(Res.string.sc_publish_at, formatIsoShort(it)) } ?: ""),
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        TakePartMenu(a, menu, { menu = it }, onHide)
+    }
+}
+
+/** ⋮ under "Take part": this round or episode, the show's suggestions, or the whole show. */
+@Composable
+private fun TakePartMenu(a: ShowAction, open: Boolean, onOpen: (Boolean) -> Unit, onHide: (String) -> Unit) {
+    if (a.podcastGuid.isEmpty()) { Spacer(Modifier.width(8.dp)); return }
+    Box {
+        IconButton(onClick = { onOpen(true) }) {
+            Icon(Icons.Rounded.MoreVert, stringResource(Res.string.menu_more), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { onOpen(false) }) {
+            fun pick(key: String) { onOpen(false); onHide(key) }
+            val title = TakePart.shortTitle(a.showTitle)
+            // Suggestions are offered only on a suggestion (device feedback 2026-10-23).
+            TakePart.itself(a)?.let { key ->
+                val label = when (a.kind) {
+                    ShowAction.Kind.ReleaseBoosting -> stringResource(Res.string.take_part_hide_round)
+                    ShowAction.Kind.Boost2Unlock -> stringResource(Res.string.take_part_hide_unlock)
+                    ShowAction.Kind.Suggestions -> stringResource(Res.string.take_part_hide_suggestions, title)
+                }
+                DropdownMenuItem(text = { Text(label) }, onClick = { pick(key) })
+            }
+            DropdownMenuItem(text = { Text(stringResource(Res.string.take_part_hide_show, title)) }, onClick = { pick(TakePart.show(a.podcastGuid)) })
         }
     }
 }
@@ -284,7 +358,8 @@ private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
  *  alone it was out of sight below six sections). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null,
+                     sync: space.sovereigncast.hopp.sync.SyncStatus? = null, onSync: () -> Unit = {}) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     // By name when the listener gave one for their boosts (device feedback 2026-10-13).
@@ -309,7 +384,12 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
             FittingLine(hello, MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-            Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            // One line, the sync mark at its end, always seen (maintainer 2026-10-22: a wrap looked poor).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(listOfNotNull(news, updated).joinToString(" · "), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (sync != null && (sync.running || sync.lastSyncedMs != null || sync.problem != null)) SyncMark(sync, onSync)
+            }
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
             Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)
@@ -324,7 +404,7 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
  * the largest size from [style]'s down to [min] that fits, then an ellipsis.
  */
 @Composable
-private fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
+internal fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
     val measurer = rememberTextMeasurer()
     BoxWithConstraints {
         val width = constraints.maxWidth
@@ -338,7 +418,7 @@ private fun FittingLine(text: String, style: TextStyle, min: TextUnit = 16.sp) {
 }
 
 @Composable
-private fun ago(seconds: Long): String = when {
+internal fun ago(seconds: Long): String = when {
     seconds < 60 -> stringResource(Res.string.home_just_now)
     seconds < 3_600 -> stringResource(Res.string.home_minutes_ago, (seconds / 60).toInt())
     seconds < 86_400 -> stringResource(Res.string.home_hours_ago, (seconds / 3_600).toInt())
@@ -419,18 +499,20 @@ private fun ShowsStrip(
 
 /** Open suggestions at a show, waiting for this listener's vote — one slim line. */
 @Composable
-private fun SuggestionsRow(a: ShowAction, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SuggestionsRow(a: ShowAction, onHide: (String) -> Unit, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Cover(a.showImage, 44.dp, corner = 10.dp)
         Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.home_suggestions_label) + " · " + a.showTitle, style = MaterialTheme.typography.labelSmall,
+            Text(stringResource(Res.string.home_suggestions_label) + " · " + TakePart.shortTitle(a.showTitle), style = MaterialTheme.typography.labelSmall,
                 color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(stringResource(Res.string.home_suggestions_waiting, a.waiting), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(stringResource(Res.string.home_vote) + " ›", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        TakePartMenu(a, menu, { menu = it }, onHide)
     }
 }
 

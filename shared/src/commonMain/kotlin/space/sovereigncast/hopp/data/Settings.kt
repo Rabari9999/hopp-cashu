@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncJournal
 
 /** The listener's settings, with the defaults of ADR 0012. */
 data class Settings(
@@ -16,6 +18,8 @@ data class Settings(
     val skipForwardSeconds: Int = 30,
     /** Android only (ADR 0012); iOS ignores it. */
     val skipSilence: Boolean = false,
+    /** Quiet shows louder (maintainer 2026-10-21) — where the player can ([PlaybackEngine.supportsVolumeBoost]). */
+    val volumeBoost: Boolean = false,
     /** The speed of every show whose speed the listener has not set on its own
      *  (device feedback 2026-10-19). */
     val defaultSpeed: Float = 1f,
@@ -72,6 +76,9 @@ data class Settings(
     val homeOrder: List<String> = emptyList(),
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
+    /** Single entries under Home's "Take part" the listener hid, oldest first ([space.sovereigncast.hopp.ui.library.TakePart],
+     *  device feedback 2026-10-22). */
+    val takePartHidden: List<String> = emptyList(),
     /** With a Nostr identity, still vote and suggest without it (ADR 0021, 7). */
     val scAnonymous: Boolean = false,
     /** The listener was told, once, that what Hopp publishes stays public (ADR 0021, 8). */
@@ -88,9 +95,15 @@ data class Settings(
     /** A finished download goes to the end of "Up next", as in AntennaPod
      *  (device feedback 2026-10-19). */
     val downloadsToQueue: Boolean = true,
+    /** New episodes of shows that allow it download by themselves, on Wi-Fi only; off: only what the
+     *  listener asks for (device feedback 2026-10-22: too much came that was never heard). */
+    val autoDownloads: Boolean = true,
     /** Who a zap on a comment names, as in Amethyst (device feedback 2026-10-19): "public",
      *  "private" (only the author sees who sent it) or "anonymous". */
     val zapPrivacy: String = ZAP_PUBLIC,
+    /** Subscriptions, progress, "Up next" and listening habits kept in step over Nostr —
+     *  off until the listener turns it on (ADR 0021, 5). */
+    val nostrSync: Boolean = false,
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -120,12 +133,27 @@ data class Settings(
         const val ZAP_ANONYMOUS = "anonymous"
         val zapPrivacyChoices = listOf(ZAP_PUBLIC, ZAP_PRIVATE, ZAP_ANONYMOUS)
 
+        /** The newest this many entries hidden under "Take part" are kept — ended rounds pile up otherwise. */
+        const val TAKE_PART_HIDDEN_MAX = 200
+
+        /** The listening habits that go to the listener's other devices (ADR 0021, 5; maintainer
+         *  2026-10-20), with downloads and background refresh since 2026-10-23 — not the wallet,
+         *  budgets, storage or anything else of this device. */
+        val SYNCED = setOf(
+            "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
+            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
+            // Downloads, background refresh and what boosts and zaps report (maintainer 2026-10-23).
+            "auto_downloads", "downloads_to_queue", "refresh_hours", "refresh_wifi_only",
+            "boost_feedback", "quick_boost_feedback", "zap_feedback",
+        )
+
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
             return Settings(
                 skipBackSeconds = values["skip_back"]?.toIntOrNull() ?: d.skipBackSeconds,
                 skipForwardSeconds = values["skip_forward"]?.toIntOrNull() ?: d.skipForwardSeconds,
                 skipSilence = values["skip_silence"]?.toBooleanStrictOrNull() ?: d.skipSilence,
+                volumeBoost = values["volume_boost"]?.toBooleanStrictOrNull() ?: d.volumeBoost,
                 defaultSpeed = values["default_speed"]?.toFloatOrNull()?.takeIf { it > 0f } ?: d.defaultSpeed,
                 storageLimitMb = values["storage_limit_mb"]?.toIntOrNull() ?: d.storageLimitMb,
                 fyydSearch = values["fyyd_search"]?.toBooleanStrictOrNull() ?: d.fyydSearch,
@@ -152,6 +180,7 @@ data class Settings(
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
+                takePartHidden = values["take_part_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.distinct()?.takeLast(TAKE_PART_HIDDEN_MAX) ?: d.takePartHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
                 nostrPublicNoted = values["nostr_public_noted"]?.toBooleanStrictOrNull() ?: d.nostrPublicNoted,
                 nostrBackupReminded = values["nostr_backup_reminded"]?.toBooleanStrictOrNull() ?: d.nostrBackupReminded,
@@ -159,7 +188,9 @@ data class Settings(
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
                 zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
                 downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
+                autoDownloads = values["auto_downloads"]?.toBooleanStrictOrNull() ?: d.autoDownloads,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
+                nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
             )
         }
     }
@@ -180,6 +211,7 @@ data class Settings(
         "skip_back" to skipBackSeconds.toString(),
         "skip_forward" to skipForwardSeconds.toString(),
         "skip_silence" to skipSilence.toString(),
+        "volume_boost" to volumeBoost.toString(),
         "default_speed" to defaultSpeed.toString(),
         "storage_limit_mb" to storageLimitMb.toString(),
         "fyyd_search" to fyydSearch.toString(),
@@ -205,6 +237,7 @@ data class Settings(
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
+        "take_part_hidden" to takePartHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),
         "nostr_public_noted" to nostrPublicNoted.toString(),
         "nostr_backup_reminded" to nostrBackupReminded.toString(),
@@ -212,11 +245,17 @@ data class Settings(
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
         "downloads_to_queue" to downloadsToQueue.toString(),
+        "auto_downloads" to autoDownloads.toString(),
         "zap_privacy" to zapPrivacy,
+        "nostr_sync" to nostrSync.toString(),
     )
 }
 
-class SettingsRepository(private val db: HoppDatabase) {
+class SettingsRepository(
+    private val db: HoppDatabase,
+    /** Listening habits ([Settings.SYNCED]), noted for sync (ADR 0021, 5). */
+    private val journal: SyncJournal = SyncJournal.Off,
+) {
     val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(Dispatchers.IO)
         .map { rows -> Settings.from(rows.associate { it.key to it.value_ }) }
 
@@ -225,6 +264,16 @@ class SettingsRepository(private val db: HoppDatabase) {
     suspend fun update(change: (Settings) -> Settings) = withContext(Dispatchers.IO) {
         val before = Settings.from(db.settingQueries.selectAll().executeAsList().associate { it.key to it.value_ })
         val after = change(before)
-        db.transaction { after.toMap().forEach { (k, v) -> if (before.toMap()[k] != v) db.settingQueries.put(k, v) } }
+        val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
+        db.transaction { changed.forEach { (k, v) -> db.settingQueries.put(k, v) } }
+        changed.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> journal.record(SyncDocs.SETTINGS, k, SyncDocs.setting(v)) }
     }
+
+    /** Listening habits from another device (sync): taken as they are, not noted again. */
+    suspend fun applySynced(values: Map<String, String>) = withContext(Dispatchers.IO) {
+        db.transaction { values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) } }
+    }
+
+    /** The listening habits as they stand here. */
+    suspend fun synced(): Map<String, String> = current().toMap().filterKeys { it in Settings.SYNCED }
 }

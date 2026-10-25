@@ -62,7 +62,11 @@ and a simulated iPhone and iPad, upright and on its side, through the Maestro fl
 puts every screenshot side by side (`build/device-check/<time>/index.html`).
 Local only, on the Mac; see `devicetests/README.md`. Its first run
 (2026-10-20) found what no other test could: the tour cut off on a phone
-held sideways, "1,1×" on an English phone, a "Pause" label cut to "Pa…".
+held sideways, "1,1×" on an English phone, a "Pause" label cut to "Pa…". With the phone and the iPhone both in a run it ends with sync between
+them (`devicetests/sync/`): the one part that makes a Nostr key, a
+throwaway one per run. Its first run (2026-10-21) found that the
+simulator app was built unsigned — no Keychain, so a key lasted only
+while the app ran — and that the Keychain outlives deleting the app.
 
 The Sovereigncast layer (`sovereigncast/`, ADR 0002/0010/0018) speaks the
 Listener API whose contract is `podcast_manager/api_specs/listener-v1.yaml` in

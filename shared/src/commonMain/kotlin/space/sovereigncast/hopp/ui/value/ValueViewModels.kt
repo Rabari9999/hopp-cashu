@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.Settings
@@ -122,6 +123,19 @@ class ValueBarViewModel(
     }
     val budgetLeft: StateFlow<Long> = state(value.budgetLeftMsat, 0L)
     val overBudget: StateFlow<Boolean> = value.overBudget
+    private val _walletBalance = MutableStateFlow<Long?>(null)
+    /** What the wallet holds, in msat, for the boost sheet — null while it is asked, or when it does not tell. */
+    val walletBalance: StateFlow<Long?> = _walletBalance.asStateFlow()
+    private var balanceAsked: kotlinx.coroutines.Deferred<Long?>? = null
+
+    /** Asks the wallet what it holds — when the boost sheet opens and after a boost (maintainer
+     *  2026-10-21: 1,000 sats with 500 in the wallet should not be possible at all). */
+    fun checkWalletBalance() {
+        balanceAsked = viewModelScope.async { value.walletBalanceMsat().also { _walletBalance.value = it } }
+    }
+
+    /** Whether [amountSats] and its fees fit [balanceMsat]; true when that is unknown. */
+    fun covers(balanceMsat: Long?, amountSats: Long): Boolean = value.covers(balanceMsat, amountSats * 1000)
     private val _plan = MutableStateFlow<BoostPlan?>(null)
     val plan: StateFlow<BoostPlan?> = _plan.asStateFlow()
     private val _boost = MutableStateFlow<BoostState>(BoostState.Editing)
@@ -181,6 +195,10 @@ class ValueBarViewModel(
     ) {
         _boost.value = BoostState.Sending
         reports.scope.launch {
+            // Sent before the wallet answered: once it has, a boost it cannot carry goes back
+            // to the sheet, which then says why.
+            val balance = runCatching { balanceAsked?.await() }.getOrNull()
+            if (!covers(balance, amountSats)) { _boost.value = BoostState.Editing; return@launch }
             settings.update { it.copy(senderName = name.trim()) }
             val outcome = try {
                 val results = pay()
@@ -197,6 +215,7 @@ class ValueBarViewModel(
                 space.sovereigncast.hopp.value.QuickBoost.Failed(reason)
             }
             reports.report(outcome)
+            checkWalletBalance()
         }
     }
 

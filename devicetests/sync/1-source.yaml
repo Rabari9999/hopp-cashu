@@ -1,0 +1,95 @@
+# Sync, part 1 (ADR 0021 stage 5): the first device. Runs on what the device
+# check left — Nodesignal subscribed, E297 streamed for a while and its show
+# given 1.1× in the player — and adds what else sync carries: listening
+# habits, a favourite, an episode in "Up next". Then a Nostr key made here
+# for the test, sync turned on, and the key's backup (NIP-49, ${PASSWORD})
+# left on screen for the script to read and hand to the second device.
+appId: ${APP_ID}
+name: Sync source
+---
+- launchApp:
+    stopApp: true
+# Home refreshes its feeds right after the start and lays itself out again: a tap then
+# can land on nothing (device check 2026-10-22). Settled first, and tapped again if nothing changed.
+- waitForAnimationToEnd
+# Listening habits: speed, skip back and forward.
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Playback"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "Playback"
+- tapOn: "Playback"
+- tapOn: "1.3×"
+- tapOn:
+    text: "5 s"
+    below: "Skip back"
+- tapOn:
+    text: "45 s"
+    below: "Skip forward"
+- waitForAnimationToEnd
+- takeScreenshot: sync-1-playback
+- tapOn: "Back"
+- tapOn: "Back"
+# E296 a favourite, and last in "Up next".
+- tapOn: "Library"
+# The tab keeps its last page; a second tap is its start.
+- runFlow:
+    when:
+      notVisible: "Up next"
+    commands:
+      - tapOn: "Library"
+- tapOn: "Nodesignal.*"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E296.*"
+- tapOn: "Nodesignal-Talk - E296.*"
+- extendedWaitUntil:
+    visible: "Add to favourites"
+    timeout: 15000
+- tapOn: "Add to favourites"
+- tapOn: "More"
+- tapOn: "Play last"
+- assertVisible: "Remove from favourites"
+- tapOn: "Back"
+- tapOn: "Back"
+# A Nostr key for the test, made here.
+- tapOn: "Home"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Nostr identity"
+- tapOn: "Nostr identity"
+- tapOn: "Your name"
+- eraseText
+- inputText: "Hopp device check"
+- hideKeyboard
+- tapOn: "Get started"
+- extendedWaitUntil:
+    visible: "npub1.*"
+    timeout: 30000
+# Sync on: everything goes out; the line under the switch says when it got through.
+- scrollUntilVisible:
+    element: "Sync across devices"
+- tapOn: "Sync across devices"
+- extendedWaitUntil:
+    visible: "Synced just now"
+    timeout: 120000
+- waitForAnimationToEnd
+- takeScreenshot: sync-1-nostr
+# The key's backup, with a password — the script reads it from the screen.
+- scrollUntilVisible:
+    element: "Other ways"
+    direction: UP
+- tapOn: "Other ways"
+- scrollUntilVisible:
+    element: "Create backup"
+- tapOn: "Password \\(8 characters or more\\)"
+- inputText: ${PASSWORD}
+- tapOn: "Password again"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn: "Create backup"
+- extendedWaitUntil:
+    visible: "ncryptsec1.*"
+    timeout: 30000

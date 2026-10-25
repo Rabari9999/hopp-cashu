@@ -172,7 +172,8 @@ class CommentsTest {
         post(bob, 0, """{"name":"bob","picture":"http://img.test/b.png"}""", emptyList(), now - 100)
         post(alice, 1, "Hi nostr:${npub(bob.publicKeyHex)}", listOf(listOf("i", item)), now - 50)
         val thread = reader.load(comments.anchor(episode())!!)
-        assertEquals(setOf(alice.publicKeyHex, bob.publicKeyHex), thread.people)
+        // The show's too: its note naming the episode is pinned above the comments.
+        assertEquals(setOf(alice.publicKeyHex, bob.publicKeyHex, show.publicKeyHex), thread.people)
         val names = reader.authors(thread.people, thread.relays)
         assertEquals(CommentAuthor("Alice", "https://img.test/a.png"), names[alice.publicKeyHex])
         assertEquals(CommentAuthor("bob", null), names[bob.publicKeyHex], "http pictures are not loaded")
@@ -289,6 +290,37 @@ class CommentsTest {
         zapOn("cd".repeat(32), bob, 5_000, now - 70)
         val thread = reader.load(comments.anchor(episode())!!)
         assertEquals(121L, thread.comments.single().zapped)
+    }
+
+    /** Maintainer 2026-10-24: Fountain shows the show's post on the episode, Hopp showed only what
+     *  answers it. The announcement — not the Release Boosting note — is pinned above the comments,
+     *  with its likes and zaps, even without NIP-73 tags; it stays no comment. */
+    @Test
+    fun theShowsAnnouncementIsPinnedAboveTheComments() = test {
+        relay.publish(feedNote); relay.publish(preNote); relay.publish(postNote)
+        val comment = post(bob, 1, "Listening in Fountain", listOf(listOf("i", item), listOf("k", "podcast:item:guid")), now - 700)
+        post(alice, 7, "+", listOf(listOf("e", postNote.id), listOf("p", show.publicKeyHex)), now - 600)
+        post(troll, 7, "-", listOf(listOf("e", postNote.id), listOf("p", show.publicKeyHex)), now - 600)
+        val server = KeyPair.generate()
+        val request = Event.sign(alice, 9734, "", listOf(listOf("amount", "21000"), listOf("e", postNote.id), listOf("p", show.publicKeyHex)), now - 500)
+        val description = kotlinx.serialization.json.Json.encodeToString(Event.serializer(), request)
+        val bolt11 = space.sovereigncast.hopp.value.TestInvoices.make(21_000, space.sovereigncast.hopp.crypto.Sha256.digest(description.encodeToByteArray()))
+        post(server, 9735, "", listOf(listOf("bolt11", bolt11), listOf("description", description), listOf("e", postNote.id), listOf("p", show.publicKeyHex)), now - 499)
+
+        val anchor = comments.anchor(episode())!!
+        val thread = reader.load(anchor)
+        val pinned = thread.pinned!!
+        assertEquals(postNote.id, pinned.id)
+        assertEquals("E297 is out, listen", pinned.content)
+        assertEquals(setOf(alice.publicKeyHex), pinned.likes)
+        assertEquals(21L, pinned.zapped)
+        assertEquals(listOf(comment.id), thread.comments.map { it.id }, "the show's notes are no comments")
+        assertTrue(show.publicKeyHex in thread.people)
+        // Kept: shown again at once, before the relays are asked.
+        assertEquals(postNote.id, reader.cached(anchor)?.pinned?.id)
+        // A muted show, or no note found: nothing pinned.
+        assertNull(pinned(listOf(postNote), anchor, muted = setOf(show.publicKeyHex)))
+        assertNull(pinned(emptyList(), anchor, muted = emptySet()))
     }
 
     /** Device feedback 2026-10-16: loaded once, the comments are kept and show at once.

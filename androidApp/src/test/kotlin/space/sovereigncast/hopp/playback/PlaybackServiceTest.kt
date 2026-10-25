@@ -21,12 +21,17 @@ class PlaybackServiceTest {
     fun theServiceStartsAndOffersChapterJumps() {
         val controller = Robolectric.buildService(PlaybackService::class.java).create()
         val service = controller.get()
-        ShadowLooper.idleMainLooper()
+        repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(50) }
         val session = service.onGetSession(androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
             "test", 0, 0, 0, 0, false, android.os.Bundle.EMPTY, false))!!
         assertTrue(session.player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT))
         assertTrue(session.player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
-        assertTrue("no boost button without a wallet", session.mediaButtonPreferences.isEmpty())
+        // The lock screen: skip back and forward by the listener's seconds (10 and 30 by default),
+        // the next chapter — and no boost without a wallet.
+        assertEquals(listOf("Back 10 seconds", "Forward 30 seconds", "Next chapter"), session.mediaButtonPreferences.map { it.displayName.toString() })
+        assertEquals(androidx.media3.session.CommandButton.ICON_SKIP_BACK_10, session.mediaButtonPreferences[0].icon)
+        assertEquals(Player.COMMAND_SEEK_BACK, session.mediaButtonPreferences[0].playerCommand)
+        assertEquals(Player.COMMAND_SEEK_FORWARD, session.mediaButtonPreferences[1].playerCommand)
         controller.destroy()
     }
 
@@ -41,7 +46,7 @@ class PlaybackServiceTest {
         repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(50) }
         val session = controller.get().onGetSession(androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
             "test", 0, 0, 0, 0, false, android.os.Bundle.EMPTY, false))!!
-        assertEquals(listOf("Boost"), session.mediaButtonPreferences.map { it.displayName.toString() })
+        assertEquals(listOf("Back 10 seconds", "Forward 30 seconds", "Boost", "Next chapter"), session.mediaButtonPreferences.map { it.displayName.toString() })
         controller.destroy()
     }
 
@@ -69,7 +74,7 @@ class PlaybackServiceTest {
         val stranger = info("com.example.stranger", trusted = false)
         val offered = callback.onConnect(session, stranger)
         assertTrue("a stranger is offered the boost", boost !in offered.availableSessionCommands.commands)
-        assertTrue("a stranger sees the boost button", offered.mediaButtonPreferences.isNullOrEmpty())
+        assertTrue("a stranger sees the boost button", offered.mediaButtonPreferences.orEmpty().none { it.sessionCommand == boost })
         // Sent anyway: refused, and nothing paid.
         val result = callback.onCustomCommand(session, stranger, boost, android.os.Bundle.EMPTY).get()
         assertEquals(androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED, result.resultCode)

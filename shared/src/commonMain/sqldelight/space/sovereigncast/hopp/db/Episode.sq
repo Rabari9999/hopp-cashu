@@ -150,6 +150,13 @@ UPDATE episode SET download_manual = 1 WHERE download_state IN (1, 2);
 waitingCount:
 SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
 
+-- Automatic downloads turned off: what waits for Wi-Fi without being asked for goes (device feedback 2026-10-22).
+dropAutoQueue:
+UPDATE episode SET download_state = 0, download_failures = 0 WHERE download_state = 1 AND download_manual = 0;
+
+runningAutoIds:
+SELECT id FROM episode WHERE download_state = 2 AND download_manual = 0;
+
 setDownloadState:
 UPDATE episode SET download_state = ? WHERE id = ?;
 
@@ -225,3 +232,21 @@ SELECT id, title, meta_json FROM episode WHERE podcast_id = ?;
 -- When each show published, newest first — for its rhythm.
 selectPublished:
 SELECT podcast_id, published_at FROM episode WHERE published_at IS NOT NULL ORDER BY podcast_id, published_at DESC;
+
+-- Sync over Nostr (ADR 0021, 5): an episode with its show's keys, and what this
+-- device has heard lately — in progress, heard in the last 90 days — and its favourites.
+syncKeysOf:
+SELECT e.guid, e.position_ms, e.played, e.favorite_at, p.podcast_guid, p.feed_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id WHERE e.id = ?;
+
+progressForSync:
+SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.played_at, e.favorite_at, p.podcast_guid, p.feed_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.favorite_at IS NOT NULL OR e.position_ms > 0
+   OR COALESCE(e.last_played_at, 0) >= :since OR COALESCE(e.played_at, 0) >= :since;
+
+unplayedOfShow:
+SELECT id FROM episode WHERE podcast_id = ? AND played = 0;
+
+unplayedUpTo:
+SELECT id FROM episode WHERE podcast_id = :podcastId AND played = 0 AND (id = :id OR published_at <= :publishedAt);

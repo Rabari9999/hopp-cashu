@@ -1,19 +1,32 @@
 # Every settings page the listener reaches without a wallet or an identity.
+# A row in the middle of the list is centred before the tap: at the bottom edge it lies under the mini player
+# once something plays, and the tap opened the player (device check 2026-10-23, on its side).
 appId: ${APP_ID}
 name: Settings
 ---
 - launchApp
-- tapOn: "Settings"
+# Home lays itself out again while its feeds load: settled first, tapped again if nothing changed
+# (device check 2026-10-22).
+- waitForAnimationToEnd
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+# Settings open: its first row. "Playback" may lie below the edge on a phone on its side.
+- extendedWaitUntil:
+    visible: "Wallet & payments"
+    timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: 05-settings
 - scrollUntilVisible:
     element: "Playback"
+    centerElement: true
 - tapOn: "Playback"
 - waitForAnimationToEnd
 - takeScreenshot: 05-playback
 - tapOn: "Back"
 - scrollUntilVisible:
     element: "Notifications"
+    centerElement: true
 - tapOn: "Notifications"
 - waitForAnimationToEnd
 - takeScreenshot: 05-notifications
@@ -27,6 +40,7 @@ name: Settings
 - tapOn: "Back"
 - scrollUntilVisible:
     element: "Nostr identity"
+    centerElement: true
 - tapOn: "Nostr identity"
 - waitForAnimationToEnd
 - takeScreenshot: 05-nostr
