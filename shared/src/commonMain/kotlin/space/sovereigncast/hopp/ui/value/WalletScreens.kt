@@ -383,7 +383,7 @@ private fun feeText(msat: Long) = stringResource(Res.string.history_fee, space.s
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChoicesOrOwn(
+internal fun ChoicesOrOwn(
     options: List<Int>, value: Int, range: IntRange, title: String, unit: String,
     label: @Composable (Int) -> String, onPick: (Int) -> Unit,
 ) {

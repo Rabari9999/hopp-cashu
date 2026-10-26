@@ -1,9 +1,28 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.show_playback
+import space.sovereigncast.hopp.resources.show_playback_note
+import space.sovereigncast.hopp.resources.show_speed_default
+import space.sovereigncast.hopp.resources.show_skip_intro
+import space.sovereigncast.hopp.resources.show_skip_intro_hint
+import space.sovereigncast.hopp.resources.show_skip_outro
+import space.sovereigncast.hopp.resources.show_skip_outro_hint
+import space.sovereigncast.hopp.resources.show_skip_off
+import space.sovereigncast.hopp.resources.show_skip_rule
+import space.sovereigncast.hopp.resources.speed_title
 import space.sovereigncast.hopp.resources.mark_played
 import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import space.sovereigncast.hopp.data.Show
+import space.sovereigncast.hopp.data.MAX_SKIP_SECONDS
+import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
@@ -140,6 +159,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var confirmAllPlayed by remember { mutableStateOf(false) }
+    var playback by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     var donating by remember { mutableStateOf<String?>(null) }
     val hasWallet = koinViewModel<ValueBarViewModel>().connected.collectAsState().value != null
@@ -224,7 +244,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
                         show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
-                            onAllPlayed = { confirmAllPlayed = true }) }
+                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true }) }
                     }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
@@ -373,6 +393,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     }
 
     // A whole show heard at once (device feedback 2026-10-14).
+    val shown = show
+    if (playback && shown != null) ShowPlaybackSheet(shown, onSpeed = vm::setSpeed, onIntro = vm::setSkipIntro, onOutro = vm::setSkipOutro) { playback = false }
+
     if (confirmAllPlayed) AlertDialog(
         onDismissRequest = { confirmAllPlayed = false },
         text = { Text(stringResource(Res.string.show_all_played_confirm, show?.title ?: "")) },
@@ -390,9 +413,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     }
 }
 
-/** The show's settings, out of the way: auto-download and unsubscribe. */
+/** The show's settings, out of the way: auto-download, its playback, unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit) {
+private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -404,12 +427,66 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },
             )
+            DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })
         }
     }
 }
+
+/**
+ * The show's own playback (maintainer 2026-10-26): its speed, and the seconds skipped at the
+ * start and the end of each episode — AntennaPod's "skip intro / ending". On every device (sync).
+ */
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ShowPlaybackSheet(show: Show, onSpeed: (Float?) -> Unit, onIntro: (Int) -> Unit, onOutro: (Int) -> Unit, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    // Open in full: half open, the end's choices lay below the fold.
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(Res.string.show_playback), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.show_playback_note, show.title), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(Res.string.speed_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = show.playbackSpeed == null, onClick = { onSpeed(null) }, label = { Text(stringResource(Res.string.show_speed_default)) })
+                    PlayerController.SPEED_CHOICES.forEach { v ->
+                        val own = show.playbackSpeed
+                        FilterChip(selected = own != null && kotlin.math.abs(own - v) < 0.01f, onClick = { onSpeed(v) }, label = { Text("${formatSpeed(v)}×") })
+                    }
+                }
+            }
+            SkipChoice(stringResource(Res.string.show_skip_intro), stringResource(Res.string.show_skip_intro_hint), show.skipIntroSeconds, onIntro)
+            SkipChoice(stringResource(Res.string.show_skip_outro), stringResource(Res.string.show_skip_outro_hint), show.skipOutroSeconds, onOutro)
+            Text(
+                stringResource(Res.string.show_skip_rule), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceContainerHigh).padding(12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SkipChoice(title: String, hint: String, seconds: Int, onPick: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val off = stringResource(Res.string.show_skip_off)
+        space.sovereigncast.hopp.ui.value.ChoicesOrOwn(SKIP_CHOICES, seconds, 0..MAX_SKIP_SECONDS, title, "s", { if (it == 0) off else "$it s" }, onPick)
+    }
+}
+
+/** What a show skips most often: nothing, a jingle, an intro with an ad. */
+private val SKIP_CHOICES = listOf(0, 10, 20, 30, 45, 60, 90)
 
 /** A show description of a few lines that opens on a tap. */
 @Composable

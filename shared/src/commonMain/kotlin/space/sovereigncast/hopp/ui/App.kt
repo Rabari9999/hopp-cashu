@@ -244,6 +244,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
     val value: ValueService = koinInject()
     val snackbar = remember { SnackbarHostState() }
+    space.sovereigncast.hopp.ui.player.SkipNotices(player, snackbar, expanded = false)
     // Streaming paid after time offline: say so (ADR 0014).
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }

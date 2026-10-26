@@ -950,4 +950,18 @@
     <string name="history_sum_failed">%1$s failed</string>
     <string name="history_all_paid">all sent</string>
     <string name="history_unknown_note">Unknown means the wallet did not say whether it paid. Check its history. Hopp does not send these sats again and counts them against today’s budget.</string>
+
+    <!-- A show's own playback: speed, skipped start and end (maintainer 2026-10-26) -->
+    <string name="show_playback">Playback for this show</string>
+    <string name="show_playback_note">For every episode of %1$s, on all your devices.</string>
+    <string name="show_speed_default">Default</string>
+    <string name="show_skip_intro">Skip the start</string>
+    <string name="show_skip_intro_hint">intro, ads, jingle</string>
+    <string name="show_skip_outro">Skip the end</string>
+    <string name="show_skip_outro_hint">outro, credits</string>
+    <string name="show_skip_off">Off</string>
+    <string name="show_skip_rule">Skipped only when an episode starts from its beginning and when you listen up to its end – not when you go there yourself or start from a chapter or a time mark. Short episodes are left whole.</string>
+    <string name="skipped_start">Start skipped (%1$d s)</string>
+    <string name="skipped_end">End skipped (%1$d s)</string>
+    <string name="skipped_back">Back</string>
 </resources>

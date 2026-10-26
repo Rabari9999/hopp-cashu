@@ -950,4 +950,18 @@
     <string name="history_sum_failed">%1$s fehlgeschlagen</string>
     <string name="history_all_paid">alle gesendet</string>
     <string name="history_unknown_note">Unklar heißt: Die Wallet hat nicht gesagt, ob sie bezahlt hat. Schau in ihren Verlauf. Hopp sendet diese Sats nicht noch einmal und rechnet sie aufs Tagesbudget an.</string>
+
+    <!-- A show's own playback: speed, skipped start and end (maintainer 2026-10-26) -->
+    <string name="show_playback">Wiedergabe für diese Show</string>
+    <string name="show_playback_note">Gilt für jede Folge von %1$s, auf all deinen Geräten.</string>
+    <string name="show_speed_default">Standard</string>
+    <string name="show_skip_intro">Anfang überspringen</string>
+    <string name="show_skip_intro_hint">Intro, Werbung, Jingle</string>
+    <string name="show_skip_outro">Ende überspringen</string>
+    <string name="show_skip_outro_hint">Outro, Abspann</string>
+    <string name="show_skip_off">Aus</string>
+    <string name="show_skip_rule">Übersprungen wird nur, wenn eine Folge von vorn beginnt und wenn du bis zum Ende hörst – nicht, wenn du selbst dorthin springst oder über ein Kapitel oder eine Zeitmarke einsteigst. Kurze Folgen bleiben ganz.</string>
+    <string name="skipped_start">Anfang übersprungen (%1$d s)</string>
+    <string name="skipped_end">Ende übersprungen (%1$d s)</string>
+    <string name="skipped_back">Zurück</string>
 </resources>

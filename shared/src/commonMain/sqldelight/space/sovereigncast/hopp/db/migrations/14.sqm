@@ -1,0 +1,4 @@
+-- Version 14 → 15 (maintainer 2026-10-26): each show skips the first and the last seconds of
+-- its episodes, as AntennaPod's "skip intro / ending" — 0 for none.
+ALTER TABLE podcast ADD COLUMN skip_intro_seconds INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE podcast ADD COLUMN skip_outro_seconds INTEGER NOT NULL DEFAULT 0;

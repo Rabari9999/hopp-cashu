@@ -7,6 +7,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Shows:** Anfang und Ende jeder Folge einer Show überspringen, einzustellen mit ihrem Tempo unter „Wiedergabe für diese Show“.
 - **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht.
 - **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
 

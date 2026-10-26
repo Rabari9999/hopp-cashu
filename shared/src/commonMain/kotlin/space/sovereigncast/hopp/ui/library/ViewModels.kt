@@ -433,6 +433,10 @@ class ShowViewModel(
         }
     }
     fun setAutoDownload(on: Boolean) = viewModelScope.launch { podcasts.setAutoDownload(podcastId, on) }
+    /** [speed] null: the show follows the default speed. */
+    fun setSpeed(speed: Float?) = viewModelScope.launch { podcasts.setSpeed(podcastId, speed) }
+    fun setSkipIntro(seconds: Int) = viewModelScope.launch { podcasts.setSkip(podcastId, introSeconds = seconds) }
+    fun setSkipOutro(seconds: Int) = viewModelScope.launch { podcasts.setSkip(podcastId, outroSeconds = seconds) }
     fun markAllPlayed() = viewModelScope.launch { episodes.setShowPlayed(podcastId) }
     fun unsubscribe() = viewModelScope.launch { podcasts.unsubscribe(podcastId) }
 }

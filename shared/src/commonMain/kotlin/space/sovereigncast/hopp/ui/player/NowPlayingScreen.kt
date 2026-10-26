@@ -8,6 +8,9 @@ import androidx.compose.material3.IconButton
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.player.SleepTimer
+import space.sovereigncast.hopp.resources.skipped_back
+import space.sovereigncast.hopp.resources.skipped_end
+import space.sovereigncast.hopp.resources.skipped_start
 import space.sovereigncast.hopp.resources.queue_empty_text
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.resources.skip_silence
@@ -153,6 +156,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val current = chapters.current(position)
     val snackbar = remember { SnackbarHostState() }
+    SkipNotices(model, snackbar, expanded = true)
     val scope = rememberCoroutineScope()
     var showChapters by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
@@ -510,6 +514,23 @@ private fun SheetChip(label: String, onClick: () -> Unit) {
 
 /** 1.5f → "1,5" — the speed as the listener reads it. */
 /** 1.1 → "1.1", in German "1,1" (device check 2026-10-20: an English phone showed "1,1×"). */
+/**
+ * "Start skipped (30 s) · Back" (maintainer 2026-10-26): where the listener is — in now playing
+ * when it is open ([expanded]), else at the bottom of the app.
+ */
+@Composable
+internal fun SkipNotices(player: PlayerController, snackbar: SnackbarHostState, expanded: Boolean) {
+    androidx.compose.runtime.LaunchedEffect(player) {
+        player.skipped.collect { s ->
+            if (player.expanded.value != expanded) return@collect
+            val text = org.jetbrains.compose.resources.getString(if (s.atStart) Res.string.skipped_start else Res.string.skipped_end, s.seconds)
+            val back = if (s.atStart) org.jetbrains.compose.resources.getString(Res.string.skipped_back) else null
+            val result = snackbar.showSnackbar(text, actionLabel = back, duration = androidx.compose.material3.SnackbarDuration.Short)
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) player.undoSkip(s)
+        }
+    }
+}
+
 internal fun formatSpeed(s: Float): String =
     space.sovereigncast.hopp.ui.components.formatTenths(kotlin.math.round(s * 10).toLong())
 

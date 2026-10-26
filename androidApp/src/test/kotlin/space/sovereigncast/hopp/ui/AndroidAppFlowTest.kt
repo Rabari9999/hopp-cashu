@@ -751,6 +751,24 @@ class AndroidAppFlowTest {
         until { playedTitles() == setOf("Ep 1", "Ep 2") }
     }
 
+    /** Maintainer 2026-10-26: a show's own playback — its speed, its skipped start and end — from its menu. */
+    @Test
+    fun aShowSetsItsOwnPlayback() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasContentDescription("Show options")).performClick()
+        tap("Playback for this show")
+        waitFor("Skip the start")
+        snapshot("show-playback")
+        rule.onAllNodes(hasText("30 s") and hasClickAction())[0].performScrollTo().performClick()
+        until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }.skipIntroSeconds == 30 }
+        fun show() = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }
+        rule.onAllNodes(hasText("20 s") and hasClickAction())[1].performScrollTo().performClick()
+        until { show().skipOutroSeconds == 20 }
+        rule.onNode(hasText("1.5×") and hasClickAction()).performScrollTo().performClick()
+        until { show().let { it.skipIntroSeconds == 30 && it.skipOutroSeconds == 20 && it.playbackSpeed == 1.5f } }
+    }
+
     /** An episode's menu marks it and the older ones heard, as Castamatic does. */
     @Test
     fun anEpisodeAndTheOlderOnesAreMarkedPlayed() {

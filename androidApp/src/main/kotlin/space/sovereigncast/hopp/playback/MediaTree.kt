@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import kotlinx.coroutines.flow.first
+import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.R
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.data.DownloadState
@@ -60,7 +61,11 @@ class MediaTree(
             .setUri(url)
             .setMediaMetadata(metadata(e, playable = true))
             .build()
-        return item to if (e.played) 0L else e.positionMs
+        val start = if (e.played) 0L else e.positionMs
+        // The show's skipped start, as PlayerController.open has it — the car starts here, not there.
+        val show = podcasts.show(e.podcastId).first()
+        val intro = (show?.skipIntroSeconds ?: 0) * 1000L
+        return item to if (show != null && start < intro && PlayerController.longEnough(show, (e.durationSeconds ?: 0) * 1000L)) intro else start
     }
 
     /** What a "resume" button on a headset or in the car continues. */

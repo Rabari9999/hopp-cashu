@@ -64,6 +64,7 @@ episode is always available. Streaming works without downloading.
 | **Android Auto** | 1 | Falls out of the Media3 `MediaLibraryService` the lock-screen integration needs anyway. |
 | **Skip silence** | 1 on Android | Built into ExoPlayer; on iOS it needs custom audio processing — later, if asked for. |
 | **Volume boost** | 3 on Android (2026-10-21) | Android's `LoudnessEnhancer` on the player's audio session, +8 dB; AVPlayer cannot go above a file's own volume, so iOS needs the same custom audio processing as skip silence. |
+| **Skip start and end per show** | 0.3.1 (2026-10-26) | AntennaPod's "skip intro / ending", much liked there. Seconds per show (0–600), with its speed in "Playback for this show" on the show's menu, synced with the subscription. The start only when an episode starts from the beginning (not from a chapter, time mark or clip; Android Auto too), the end only when listening crosses into it, not a jump; episodes too short for both plus two minutes stay whole. The player says what it skipped, the start with a way back. |
 | **CarPlay** | 3 | Needs Apple's CarPlay audio entitlement and its own template UI. |
 | **Chromecast** | 3 | Needs Google Play Services — `play` flavor only. |
 
