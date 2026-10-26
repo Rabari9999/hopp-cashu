@@ -1,10 +1,42 @@
 package space.sovereigncast.hopp.ui.value
 
+import space.sovereigncast.hopp.resources.wallet_silent
+import space.sovereigncast.hopp.resources.wallet_yes
+import space.sovereigncast.hopp.resources.wallet_no
+import space.sovereigncast.hopp.resources.wallet_retry
+import space.sovereigncast.hopp.resources.wallet_reach_title
+import space.sovereigncast.hopp.resources.wallet_reach_address
+import space.sovereigncast.hopp.resources.wallet_reach_address_note
+import space.sovereigncast.hopp.resources.wallet_reach_address_keysend
+import space.sovereigncast.hopp.resources.wallet_reach_node
+import space.sovereigncast.hopp.resources.wallet_reach_node_note
+import space.sovereigncast.hopp.resources.wallet_reach_node_off
+import space.sovereigncast.hopp.resources.wallet_reach_shows
+import space.sovereigncast.hopp.resources.wallet_reach_shows_some
+import space.sovereigncast.hopp.resources.wallet_reach_which
+import space.sovereigncast.hopp.resources.wallet_reach_hide
+import space.sovereigncast.hopp.resources.wallet_reach_show_percent
+import space.sovereigncast.hopp.resources.wallet_reach_keysend_wallets
+import space.sovereigncast.hopp.resources.history_unknown_note
+import space.sovereigncast.hopp.resources.history_all_paid
+import space.sovereigncast.hopp.resources.history_sum_paid
+import space.sovereigncast.hopp.resources.history_sum_unknown
+import space.sovereigncast.hopp.resources.history_sum_skipped
+import space.sovereigncast.hopp.resources.history_sum_failed
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.wallet_own_set
 import space.sovereigncast.hopp.resources.wallet_own_range
 import space.sovereigncast.hopp.resources.wallet_own_value
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import space.sovereigncast.hopp.value.ConnectedWallet
+import space.sovereigncast.hopp.value.PaymentLine
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,12 +103,7 @@ import space.sovereigncast.hopp.resources.wallet_disconnect
 import space.sovereigncast.hopp.resources.wallet_failed
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.wallet_intro
-import space.sovereigncast.hopp.resources.wallet_can_invoice
-import space.sovereigncast.hopp.resources.wallet_can_keysend
 import space.sovereigncast.hopp.resources.wallet_cannot_pay
-import space.sovereigncast.hopp.resources.wallet_no
-import space.sovereigncast.hopp.resources.wallet_no_keysend_note
-import space.sovereigncast.hopp.resources.wallet_yes
 import space.sovereigncast.hopp.resources.wallet_limit_tip
 import space.sovereigncast.hopp.resources.wallet_name
 import space.sovereigncast.hopp.resources.wallet_quick_boost
@@ -159,17 +186,17 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
             Text(stringResource(Res.string.wallet_connected, w.label), style = MaterialTheme.typography.titleMedium)
-            Text(
+            val silent by vm.silent.collectAsState()
+            if (silent) {
+                // No answer at all (device feedback 2026-10-26: coinos with its app closed).
+                Text(stringResource(Res.string.wallet_silent), color = colors.error)
+                TextButton(onClick = vm::refreshBalance, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_retry), fontWeight = FontWeight.Bold) }
+            } else Text(
                 balance?.let { stringResource(Res.string.wallet_balance, formatSats(it / 1000)) } ?: stringResource(Res.string.wallet_balance_unknown),
                 color = colors.onSurfaceVariant,
             )
-            // What the connection may do — the wallet decides, per connection.
-            Capability(stringResource(Res.string.wallet_can_invoice), w.canPayInvoice)
-            Capability(stringResource(Res.string.wallet_can_keysend), w.canKeysend)
-            when {
-                !w.canPayInvoice && !w.canKeysend -> Text(stringResource(Res.string.wallet_cannot_pay), color = colors.error)
-                !w.canKeysend -> Text(stringResource(Res.string.wallet_no_keysend_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
+            val reach by vm.reach.collectAsState()
+            WalletReach(w, reach)
             OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
         }
 
@@ -250,8 +277,15 @@ private fun PaymentRow(p: Payment) {
                     style = MaterialTheme.typography.titleSmall)
                 p.message?.takeIf { it.isNotBlank() }?.let { Text("„$it“", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
             }
-            Text(formatSats(p.amountMsat / 1000) + " sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+            // What was to go out, not only what is sure to have gone (device feedback 2026-10-26: a
+            // round to coinos read "0 sats" — two shares unknown, one skipped).
+            Text(formatSats((if (p.lines.isEmpty()) p.amountMsat else p.lines.sumOf { it.msat }) / 1000) + " sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
         }
+        if (p.lines.isNotEmpty()) Outcome(p.lines)
+        if (open && p.lines.any { it.status == "unknown" }) Text(
+            stringResource(Res.string.history_unknown_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(colors.surfaceContainerHigh).padding(10.dp),
+        )
         if (open) p.lines.forEach { l ->
             val status = when (l.status) {
                 "paid" -> stringResource(Res.string.history_paid)
@@ -269,14 +303,90 @@ private fun PaymentRow(p: Payment) {
     }
 }
 
+/**
+ * What the connection reaches, in plain words (device feedback 2026-10-26: "keysend: no" said
+ * nothing about what that means for a boost or for streaming) — and the subscribed shows it does
+ * not reach in full. The wallet decides what a connection may do.
+ */
 @Composable
-private fun Capability(label: String, yes: Boolean) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Text(
-            (if (yes) "✓ " else "✗ ") + stringResource(if (yes) Res.string.wallet_yes else Res.string.wallet_no),
-            color = if (yes) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold,
+private fun WalletReach(w: ConnectedWallet, reach: ShowsReach?) {
+    val colors = MaterialTheme.colorScheme
+    var showList by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerHigh).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(stringResource(Res.string.wallet_reach_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Capability(
+            stringResource(Res.string.wallet_reach_address), w.canPayInvoice || w.canKeysend,
+            stringResource(if (w.canPayInvoice) Res.string.wallet_reach_address_note else Res.string.wallet_reach_address_keysend),
         )
+        Capability(
+            stringResource(Res.string.wallet_reach_node), w.canKeysend,
+            stringResource(if (w.canKeysend) Res.string.wallet_reach_node_note else Res.string.wallet_reach_node_off),
+        )
+        if (!w.canPayInvoice && !w.canKeysend) Text(stringResource(Res.string.wallet_cannot_pay), color = colors.error)
+        reach?.takeIf { it.shows.isNotEmpty() }?.let { r ->
+            val none = r.shows.count { it.percent == 0 }
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Hopp.colors.value.copy(alpha = 0.12f)).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    if (none > 0) stringResource(Res.string.wallet_reach_shows, r.shows.size, r.withValue, none)
+                    else stringResource(Res.string.wallet_reach_shows_some, r.shows.size, r.withValue),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (showList) r.shows.forEach { s ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(Res.string.wallet_reach_show_percent, s.percent), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    }
+                }
+                TextButton(onClick = { showList = !showList }, contentPadding = PaddingValues(0.dp)) {
+                    Text(stringResource(if (showList) Res.string.wallet_reach_hide else Res.string.wallet_reach_which), fontWeight = FontWeight.Bold, color = Hopp.colors.valueText)
+                }
+            }
+        }
+        if (!w.canKeysend) Text(stringResource(Res.string.wallet_reach_keysend_wallets), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun Capability(label: String, yes: Boolean, note: String) {
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        val tint = if (yes) Hopp.colors.ok else colors.error
+        Box(Modifier.size(28.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            Text(if (yes) "✓" else "✗", color = tint, fontWeight = FontWeight.Bold)
+        }
+        val state = stringResource(if (yes) Res.string.wallet_yes else Res.string.wallet_no)
+        Column(Modifier.weight(1f).semantics(mergeDescendants = true) { stateDescription = state }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(note, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+/** A payment's outcome at a glance: how many sats went, are unknown, were skipped or failed. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Outcome(lines: List<PaymentLine>) {
+    val colors = MaterialTheme.colorScheme
+    val by = lines.groupBy { it.status }.mapValues { (_, l) -> l.sumOf { it.msat } / 1000 }
+    @Composable fun chip(text: String, background: androidx.compose.ui.graphics.Color) =
+        Text(text, Modifier.clip(RoundedCornerShape(12.dp)).background(background).padding(horizontal = 10.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+    FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val ok = Hopp.colors.ok.copy(alpha = 0.14f)
+        if (by.keys == setOf("paid")) chip(stringResource(Res.string.history_all_paid), ok)
+        else {
+            by["paid"]?.let { chip(stringResource(Res.string.history_sum_paid, formatSats(it)), ok) }
+            by["unknown"]?.let { chip(stringResource(Res.string.history_sum_unknown, formatSats(it)), Hopp.colors.value.copy(alpha = 0.16f)) }
+            by["skipped"]?.let { chip(stringResource(Res.string.history_sum_skipped, formatSats(it)), colors.surfaceVariant) }
+            by.filterKeys { it !in setOf("paid", "unknown", "skipped") }.values.sum().takeIf { it > 0 }
+                ?.let { chip(stringResource(Res.string.history_sum_failed, formatSats(it)), colors.errorContainer) }
+        }
     }
 }
 

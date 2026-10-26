@@ -6,8 +6,15 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Wallet:** The wallet page says in plain words what your wallet reaches, and at which of your shows it misses recipients.
+- **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
+
 ### 🐛 Fixes
 - **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.
+- **Streaming:** Shares your wallet cannot pay are no longer set aside and then skipped, round after round.
+- **Wallet:** A wallet that does not answer – coinos with its app closed, say – is sent nothing; Hopp says so and waits.
+- **History:** An entry shows what was to go out and what became of it, instead of "0 sats".
 
 ## [0.3.0] - 2026-10-25
 

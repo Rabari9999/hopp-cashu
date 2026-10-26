@@ -6,8 +6,15 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht und bei welchen deiner Shows Empfänger fehlen.
+- **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
+
 ### 🐛 Fixes
 - **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.
+- **Streaming:** Anteile, die deine Wallet nicht zahlen kann, werden nicht mehr angespart und dann Runde für Runde übersprungen.
+- **Wallet:** Eine Wallet, die nicht antwortet – etwa coinos bei geschlossener App –, bekommt nichts geschickt; Hopp sagt das und wartet.
+- **Verlauf:** Ein Eintrag zeigt, was rausgehen sollte und was daraus wurde, statt „0 sats“.
 
 ## [0.3.0] - 2026-10-25
 

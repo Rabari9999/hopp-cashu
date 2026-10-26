@@ -211,12 +211,7 @@
     <string name="reason_unconfirmed">not yet confirmed by the instance</string>
     <string name="boost_none_payable">Your wallet cannot reach any recipient of this show.</string>
     <string name="boost_not_paid">%1$s: %2$s</string>
-    <string name="wallet_can_invoice">Pay invoices (Lightning addresses)</string>
-    <string name="wallet_can_keysend">Keysend (node recipients)</string>
-    <string name="wallet_yes">yes</string>
-    <string name="wallet_no">no</string>
     <string name="wallet_cannot_pay">This connection can neither pay invoices nor send keysend — boosts and streaming will not work. Check the connection's permissions in your wallet.</string>
-    <string name="wallet_no_keysend_note">Recipients with a node address are skipped; Lightning addresses are paid by invoice.</string>
     <string name="discover_recent">Recent searches</string>
     <string name="discover_recent_clear">Clear</string>
     <string name="nav_home">Home</string>
@@ -921,4 +916,43 @@
         <item quantity="one">%1$d setting</item>
         <item quantity="other">%1$d settings</item>
     </plurals>
+
+    <!-- What the connected wallet reaches (device feedback 2026-10-26) -->
+    <string name="wallet_yes">yes</string>
+    <string name="wallet_no">no</string>
+    <string name="wallet_reach_title">What this connection can do</string>
+    <string name="wallet_reach_address">Boosts and streaming to Lightning addresses</string>
+    <string name="wallet_reach_address_note">Hopp pays them by invoice.</string>
+    <string name="wallet_reach_address_keysend">Only where an address also takes keysend.</string>
+    <string name="wallet_reach_node">Recipients with a node address (keysend)</string>
+    <string name="wallet_reach_node_note">Many podcasts receive this way – often the hosts themselves.</string>
+    <string name="wallet_reach_node_off">Many podcasts receive this way – often the hosts themselves. Their share is neither sent nor set aside, and it does not go to the others.</string>
+    <string name="wallet_reach_shows">In your subscriptions this wallet does not reach every recipient for %1$d of %2$d shows, none at all for %3$d.</string>
+    <string name="wallet_reach_shows_some">In your subscriptions this wallet does not reach every recipient for %1$d of %2$d shows.</string>
+    <string name="wallet_reach_which">Which shows?</string>
+    <string name="wallet_reach_hide">Hide</string>
+    <string name="wallet_reach_show_percent">%1$d% reached</string>
+    <string name="wallet_reach_keysend_wallets">Alby Hub, Zeus and LNbits can keysend, for example. Whether a connection may is up to the wallet.</string>
+    <string name="wallet_silent">The wallet is not answering right now. Some wallets answer only while their app is open – in coinos, turn on “Answer while closed”.</string>
+    <string name="wallet_retry">Try again</string>
+    <string name="wallet_what">What my wallet can do</string>
+    <string name="np_not_possible">not possible here</string>
+    <string name="np_wallet_silent">wallet not answering</string>
+    <string name="stream_reach">Your wallet reaches %1$d% of this episode.</string>
+    <string name="stream_reach_keysend">The rest goes to a node address, and %1$s cannot keysend.</string>
+    <string name="stream_reach_other">The rest goes to recipients %1$s cannot pay.</string>
+    <string name="stream_reach_none_keysend">This episode receives by keysend only, and %1$s cannot do that.</string>
+    <string name="stream_reach_none">%1$s reaches none of this episode’s recipients.</string>
+    <string name="stream_unreachable">%1$d% · %2$s, not set aside</string>
+    <string name="reach_node">node address – not reachable with %1$s</string>
+    <string name="reach_address">Lightning address – %1$s cannot pay invoices</string>
+    <string name="stream_silent">Your wallet is not answering, so this round sent nothing; the sats stay set aside. Some wallets answer only while their app is open.</string>
+    <string name="stream_reason_silent">wallet not answering, goes out once it does</string>
+    <string name="boost_wallet_silent">%1$s is not answering right now – a boost would go unanswered. Some wallets answer only while their app is open.</string>
+    <string name="history_sum_paid">%1$s sent</string>
+    <string name="history_sum_unknown">%1$s outcome unknown</string>
+    <string name="history_sum_skipped">%1$s skipped</string>
+    <string name="history_sum_failed">%1$s failed</string>
+    <string name="history_all_paid">all sent</string>
+    <string name="history_unknown_note">Unknown means the wallet did not say whether it paid. Check its history. Hopp does not send these sats again and counts them against today’s budget.</string>
 </resources>

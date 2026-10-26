@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.data.EpisodeItem
+import space.sovereigncast.hopp.resources.np_not_possible
+import space.sovereigncast.hopp.resources.np_wallet_silent
+import space.sovereigncast.hopp.resources.stream_silent
+import space.sovereigncast.hopp.resources.stream_unreachable
+import space.sovereigncast.hopp.resources.wallet_what
+import space.sovereigncast.hopp.resources.stream_reason_silent
+import space.sovereigncast.hopp.resources.stream_reach
+import space.sovereigncast.hopp.resources.stream_reach_keysend
+import space.sovereigncast.hopp.resources.stream_reach_other
+import space.sovereigncast.hopp.resources.stream_reach_none_keysend
+import space.sovereigncast.hopp.resources.stream_reach_none
+import space.sovereigncast.hopp.resources.reach_node
+import space.sovereigncast.hopp.resources.reach_address
+import space.sovereigncast.hopp.resources.boost_wallet_silent
+import space.sovereigncast.hopp.resources.wallet_retry
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.boost_close
 import space.sovereigncast.hopp.resources.boost_custom
@@ -116,10 +132,12 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     val today by vm.streamedToday.collectAsState()
     val pending by vm.pending.collectAsState()
     val over by vm.overBudget.collectAsState()
+    val silent by vm.streamSilent.collectAsState()
+    val reach by vm.reach.collectAsState()
     var invite by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
-    LaunchedEffect(item.id, settings?.streamRateSats) { vm.forEpisode(item) }
+    LaunchedEffect(item.id, settings?.streamRateSats, wallet) { vm.forEpisode(item) }
     val streaming = settings?.streaming == true && wallet != null
     val hasValue by vm.hasValue.collectAsState()
     // No value block in the feed: nothing to boost or stream to (device feedback 2026-10-16).
@@ -163,9 +181,15 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
                 .padding(horizontal = 12.dp, vertical = 2.dp),
         ) {
             Text(stringResource(Res.string.np_streaming, rate ?: 0), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            // Why nothing goes, where it would (device feedback 2026-10-26): a wallet that cannot
+            // reach anyone here, or one that does not answer.
             if (streaming) Text(
-                if (over) stringResource(Res.string.np_over_budget)
-                else stringResource(Res.string.np_streamed_pending, formatSats(today / 1000), pendingSats(pending)) + " ›",
+                when {
+                    reach?.percent == 0 -> stringResource(Res.string.np_not_possible) + " ›"
+                    over -> stringResource(Res.string.np_over_budget)
+                    silent -> stringResource(Res.string.np_wallet_silent) + " ›"
+                    else -> stringResource(Res.string.np_streamed_pending, formatSats(today / 1000), pendingSats(pending)) + " ›"
+                },
                 style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText,
             )
         }
@@ -182,7 +206,8 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         )
     }
 
-    if (details) StreamSheet(vm, item, today, pending, rate ?: 0, onOpenEpisode = { details = false; onOpenEpisode(it) }) { details = false }
+    if (details) StreamSheet(vm, item, today, pending, rate ?: 0, onOpenEpisode = { details = false; onOpenEpisode(it) },
+        onOpenWallet = { details = false; onOpenWallet() }) { details = false }
 
     if (invite) AlertDialog(
         onDismissRequest = { invite = false },
@@ -205,8 +230,14 @@ private fun pendingSats(msat: Long): String = if (msat in 1..999) "<1" else form
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Long, pendingMsat: Long, rate: Int, onOpenEpisode: (EpisodeItem) -> Unit, onDismiss: () -> Unit) {
+private fun StreamSheet(
+    vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Long, pendingMsat: Long, rate: Int,
+    onOpenEpisode: (EpisodeItem) -> Unit, onOpenWallet: () -> Unit, onDismiss: () -> Unit,
+) {
     val detail by vm.detail.collectAsState()
+    val reach by vm.reach.collectAsState()
+    val silent by vm.streamSilent.collectAsState()
+    val label = vm.connected.collectAsState().value?.label.orEmpty()
     val colors = MaterialTheme.colorScheme
     // Accruals grow every few seconds while playing; the countdown with them.
     LaunchedEffect(item.id) { while (true) { vm.refreshDetail(item.id); kotlinx.coroutines.delay(3_000) } }
@@ -214,6 +245,8 @@ private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Lon
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(Res.string.stream_sheet_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(stringResource(Res.string.np_streaming, rate), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            reach?.takeIf { it.percent < 100 }?.let { r -> ReachNote(r, label) }
+            if (silent) Hint(stringResource(Res.string.stream_silent))
             StreamFigure(stringResource(Res.string.stream_sent_today), formatSats(todayMsat / 1000) + " sats")
             StreamFigure(stringResource(Res.string.stream_pending), formatMsat(pendingMsat) + " sats")
             detail?.takeIf { it.episodeId == item.id }?.let { d ->
@@ -230,13 +263,22 @@ private fun StreamSheet(vm: ValueBarViewModel, item: EpisodeItem, todayMsat: Lon
             val d = detail
             // Until the first look at this episode, nothing — not "nothing set aside".
             if (d == null || d.episodeId != item.id) CircularProgressIndicator(Modifier.size(24.dp)) else {
-                if (d.shares.isEmpty()) Text(stringResource(Res.string.stream_nothing), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                val off = reach?.unreachable.orEmpty()
+                if (d.shares.isEmpty() && off.isEmpty()) Text(stringResource(Res.string.stream_nothing), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                 d.shares.forEach { s ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Text(formatMsat(s.msat) + " sats", style = MaterialTheme.typography.bodyMedium, color = if (s.msat >= 1000) Hopp.colors.valueText else colors.onSurfaceVariant)
                     }
                 }
+                // Who this wallet cannot pay: named, with their part — not set aside (ADR 0005).
+                off.forEach { u ->
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(u.name, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                        Text(stringResource(Res.string.stream_unreachable, u.percent, reachReason(u.reason, label)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    }
+                }
+                if (off.isNotEmpty()) TextButton(onClick = onOpenWallet, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_what), fontWeight = FontWeight.Bold) }
                 if (d.shares.any { it.msat >= 1000 }) TextButton(onClick = { vm.settleNow(item.id) }) { Text(stringResource(Res.string.stream_send_now), fontWeight = FontWeight.Bold) }
                 // Which other episodes still owe, and why (device feedback 2026-10-12).
                 if (d.others.isNotEmpty()) {
@@ -262,6 +304,7 @@ private fun PendingEpisodeRow(p: space.sovereigncast.hopp.value.PendingEpisode, 
             val why = stringResource(when (p.reason) {
                 space.sovereigncast.hopp.value.PendingReason.Failed -> Res.string.stream_reason_failed
                 space.sovereigncast.hopp.value.PendingReason.OverBudget -> Res.string.stream_reason_budget
+                space.sovereigncast.hopp.value.PendingReason.WalletSilent -> Res.string.stream_reason_silent
                 space.sovereigncast.hopp.value.PendingReason.NextRound -> Res.string.stream_reason_next
                 space.sovereigncast.hopp.value.PendingReason.PartsOfASat -> Res.string.stream_reason_parts
             })
@@ -271,6 +314,36 @@ private fun PendingEpisodeRow(p: space.sovereigncast.hopp.value.PendingEpisode, 
         Text(formatMsat(p.msat) + " sats", style = MaterialTheme.typography.bodyMedium, color = Hopp.colors.valueText)
         if (p.item != null) Text(" ›", style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
     }
+}
+
+/** How much of the episode the wallet reaches, and why not the rest — in the streaming sheet. */
+@Composable
+private fun ReachNote(r: space.sovereigncast.hopp.value.Reach, wallet: String) {
+    val keysendOnly = r.unreachable.isNotEmpty() && r.unreachable.all { it.reason == "keysend" }
+    Hint(when {
+        r.percent == 0 && keysendOnly -> stringResource(Res.string.stream_reach_none_keysend, wallet)
+        r.percent == 0 -> stringResource(Res.string.stream_reach_none, wallet)
+        keysendOnly -> stringResource(Res.string.stream_reach, r.percent) + " " + stringResource(Res.string.stream_reach_keysend, wallet)
+        else -> stringResource(Res.string.stream_reach, r.percent) + " " + stringResource(Res.string.stream_reach_other, wallet)
+    })
+}
+
+/** Why a share is out of the wallet's reach, as a short phrase. */
+@Composable
+private fun reachReason(reason: String, wallet: String): String = when (reason) {
+    "keysend" -> stringResource(Res.string.reach_node, wallet)
+    "invoice" -> stringResource(Res.string.reach_address, wallet)
+    else -> reasonText(reason)
+}
+
+/** A note in the value colours: something about the money the listener should know. */
+@Composable
+internal fun Hint(text: String) {
+    Text(
+        text,
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Hopp.colors.value.copy(alpha = 0.12f)).padding(12.dp),
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
 
 @Composable
@@ -307,6 +380,7 @@ fun BoostSheet(
     val state by vm.boost.collectAsState()
     val left by vm.budgetLeft.collectAsState()
     val balance by vm.walletBalance.collectAsState()
+    val silent by vm.walletSilent.collectAsState()
     LaunchedEffect(wallet != null) { if (wallet != null) vm.checkWalletBalance() }
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHapticFeedback.current
@@ -393,9 +467,14 @@ fun BoostSheet(
                 BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
             } else {
                 if (short) Text(stringResource(Res.string.boost_low_balance, formatSats((balance ?: 0) / 1000)), color = colors.error)
+                // No answer from the wallet: a boost now would end "outcome unknown" (device feedback 2026-10-26).
+                if (silent) {
+                    Text(stringResource(Res.string.boost_wallet_silent, w.label), color = colors.error)
+                    TextButton(onClick = vm::checkWalletBalance, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_retry), fontWeight = FontWeight.Bold) }
+                }
                 BigButton(
                     if (over && !overConfirmed) stringResource(Res.string.boost_send_over, formatSats(amount)) else stringResource(Res.string.boost_send, formatSats(amount)),
-                    enabled = canBoost && !short && state != BoostState.Sending,
+                    enabled = canBoost && !short && !silent && state != BoostState.Sending,
                     busy = state == BoostState.Sending,
                 ) {
                     if (over && !overConfirmed) overConfirmed = true

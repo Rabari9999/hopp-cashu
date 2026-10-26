@@ -2,6 +2,7 @@ package space.sovereigncast.hopp.value
 
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
@@ -36,6 +37,15 @@ data class ConnectedWallet(
     val label: String get() = alias?.takeIf { it.isNotBlank() } ?: relay.substringAfter("://").substringBefore('/')
 }
 
+/** The wallet's answer to "what do you hold?". */
+sealed interface BalanceAnswer {
+    data class Known(val msat: Long) : BalanceAnswer
+    /** It does not tell: no get_balance, or it refused — it may pay all the same. */
+    data object Untold : BalanceAnswer
+    /** No answer at all, or no relay reached: a payment now would go unanswered too. */
+    data object Silent : BalanceAnswer
+}
+
 /**
  * The listener's wallet over Nostr Wallet Connect (ADR 0005). The connection
  * string can spend: it lives in the [SecretStore] only. What the wallet can do
@@ -48,6 +58,8 @@ class WalletRepository(
     private val clock: Clock,
     private val connector: RelayConnector = KtorRelayConnector(http),
     private val timeout: Duration = 45.seconds,
+    /** How long a balance question waits: a wallet that answers at all does so in seconds. */
+    private val balanceTimeout: Duration = 15.seconds,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -65,9 +77,9 @@ class WalletRepository(
         null
     }
 
-    fun client(): NwcClient? {
+    fun client(wait: Duration = timeout): NwcClient? {
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
-        return NwcClient(connection, connector, { clock.now() }, timeout)
+        return NwcClient(connection, connector, { clock.now() }, wait)
     }
 
     /** Checks the string, asks the wallet what it can, and only then keeps it.
@@ -99,7 +111,28 @@ class WalletRepository(
     }
 
     /** null when the wallet does not answer or does not tell. */
-    suspend fun balanceMsat(): Long? = runCatching { client()?.balanceMsat() }.getOrNull()
+    suspend fun balanceMsat(): Long? = (balance() as? BalanceAnswer.Known)?.msat
+
+    /**
+     * What the wallet says it holds — or that it said nothing at all (device feedback 2026-10-26:
+     * coinos answers only while its app is open, or with "answer while closed" on; otherwise every
+     * request waits unanswered, and each payment ended as "outcome unclear").
+     */
+    suspend fun balance(): BalanceAnswer {
+        val w = _wallet.value ?: return BalanceAnswer.Untold
+        if (w.methods.isNotEmpty() && "get_balance" !in w.methods) return BalanceAnswer.Untold
+        val client = client(balanceTimeout) ?: return BalanceAnswer.Untold
+        return try {
+            // The relay's connect too: one that never opens is no answer either.
+            withTimeoutOrNull(balanceTimeout) { BalanceAnswer.Known(client.balanceMsat()) } ?: BalanceAnswer.Silent
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: NwcException) {
+            if (e.outcomeUnknown || e.code == "RELAY_UNREACHABLE") BalanceAnswer.Silent else BalanceAnswer.Untold
+        } catch (e: Exception) {
+            BalanceAnswer.Untold
+        }
+    }
 
     companion object {
         private const val URI = "nwc_uri"

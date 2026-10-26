@@ -6,6 +6,7 @@ import app.cash.sqldelight.coroutines.mapToOne
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import space.sovereigncast.hopp.value.nwc.NwcException
+import space.sovereigncast.hopp.value.nwc.WalletInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
@@ -97,13 +98,26 @@ sealed interface QuickBoost {
 }
 
 /** Why streamed sats of an episode have not gone out yet. */
-enum class PendingReason { Failed, OverBudget, NextRound, PartsOfASat }
+enum class PendingReason { Failed, OverBudget, WalletSilent, NextRound, PartsOfASat }
 
 /** Streamed sats of one episode not yet sent. */
 data class PendingEpisode(val episodeId: Long, val item: EpisodeItem?, val podcastTitle: String?, val msat: Long, val reason: PendingReason)
 
 /** Streamed sats waiting for one recipient: owed, or heard and not yet split. */
 data class PendingShare(val name: String, val msat: Long)
+
+/** A recipient the connected wallet cannot pay, and its percent of what is given. */
+data class UnreachableShare(val name: String, val percent: Int, val reason: String)
+
+/**
+ * How much of what is given to an episode the connected wallet reaches (device feedback
+ * 2026-10-26: with coinos, which cannot keysend, the share of the show's node piled up as
+ * set aside and was then skipped, round after round — nothing said it never could go).
+ */
+data class Reach(val percent: Int, val unreachable: List<UnreachableShare>)
+
+/** A show the connected wallet does not reach in full, by its newest episode. */
+data class ShowReach(val podcastId: Long, val title: String, val percent: Int)
 
 /** More than today's budget has left. */
 class OverBudgetException : Exception("over today's budget")
@@ -154,6 +168,9 @@ class ValueService(
     private val _overBudget = MutableStateFlow(false)
     /** Streaming owes more than today's budget allows — shown, not paid. */
     val overBudget: StateFlow<Boolean> = _overBudget.asStateFlow()
+    private val _walletSilent = MutableStateFlow(false)
+    /** The last batch found the wallet not answering, and sent nothing: what is owed waits. */
+    val walletSilent: StateFlow<Boolean> = _walletSilent.asStateFlow()
 
     @OptIn(ExperimentalTime::class)
     fun startOfToday(): Long {
@@ -224,6 +241,45 @@ class ValueService(
     /** The show's suggested rate, in sats per minute (`suggested` is BTC). */
     fun suggestedSatsPerMinute(block: ValueBlock?): Int? =
         block?.suggested?.toDoubleOrNull()?.let { (it * 100_000_000).toInt() }?.takeIf { it > 0 }
+
+    /** What of [item]'s split the connected wallet reaches, outside time splits; null without a
+     *  wallet or a value block. */
+    suspend fun reach(item: EpisodeItem): Reach? {
+        val info = wallet.wallet.value?.info ?: return null
+        val block = blockFor(item) ?: return null
+        val shares = Splits.divide(block.recipients, REACH_BASE)
+        if (shares.isEmpty()) return null
+        val off = shares.mapNotNull { s ->
+            unreachable(s.recipient, info)?.let { UnreachableShare(s.recipient.name ?: s.recipient.address.take(12), percentOf(s.amountMsat), it) }
+        }
+        return Reach(percentOf(REACH_BASE - shares.filter { unreachable(it.recipient, info) != null }.sumOf { it.amountMsat }), off)
+    }
+
+    /** The subscribed shows the connected wallet does not reach in full, least reached first —
+     *  each by its newest episode, whose split is the one heard next. */
+    suspend fun showsNotReached(): List<ShowReach> {
+        if (wallet.wallet.value == null) return emptyList()
+        return podcasts.shows.first().mapNotNull { show ->
+            val newest = episodes.ofPodcastPage(show.id, 1).first().firstOrNull() ?: return@mapNotNull null
+            val r = reach(newest) ?: return@mapNotNull null
+            ShowReach(show.id, show.title, r.percent).takeIf { r.percent < 100 }
+        }.sortedBy { it.percent }
+    }
+
+    /** How many subscribed shows have a split at all — the "of" in "6 of 9 shows". */
+    suspend fun showsWithValue(): Int = podcasts.shows.first().count { show ->
+        episodes.ofPodcastPage(show.id, 1).first().firstOrNull()?.let { blockFor(it) } != null
+    }
+
+    private fun percentOf(msat: Long) = ((msat * 100 + REACH_BASE / 2) / REACH_BASE).toInt()
+
+    /**
+     * Why [r] cannot be paid with this wallet — a node without keysend, an address without
+     * invoices, the wallet itself — or null. Such a share is neither set aside for streaming
+     * nor handed to the others (ADR 0005). An unresolved remote item is not counted: its feed
+     * may be found later, and settlement shows it.
+     */
+    private fun unreachable(r: ValueRecipient, info: WalletInfo): String? = unpayableReason(r, info)?.takeIf { it != "remote" }
 
     // ── boosts ────────────────────────────────────────────────────────────
 
@@ -318,6 +374,10 @@ class ValueService(
         if (w.methods.isNotEmpty() && "get_balance" !in w.methods) return null
         return withTimeoutOrNull(BALANCE_WAIT) { wallet.balanceMsat() }
     }
+
+    /** The wallet's answer about its balance — [BalanceAnswer.Silent] when it gives none, and a
+     *  payment now would be sent into the void and end "outcome unclear". */
+    suspend fun walletBalance(): BalanceAnswer = wallet.balance()
 
     /** Whether [amountMsat] and its fee reserve fit what the wallet holds; true when that is unknown. */
     fun covers(balanceMsat: Long?, amountMsat: Long): Boolean = balanceMsat == null || amountMsat + feeReserve(amountMsat) <= balanceMsat
@@ -494,6 +554,12 @@ class ValueService(
 
     /** What is accrued or owed but not yet paid, in msat. */
     val pendingMsat: Flow<Long> get() = combine(sq.accruedTotal().asFlow().mapToOne(Dispatchers.IO), sq.owedTotal().asFlow().mapToOne(Dispatchers.IO)) { a, b -> a + b }
+        .map { total -> if (total == 0L) 0L else pendingIds().sumOf { id -> pendingFor(id).sumOf { it.msat } } }
+
+    /** Every episode with something accrued or owed. */
+    private suspend fun pendingIds(): Set<Long> = withContext(Dispatchers.IO) {
+        sq.owedByEpisode(RAIL_LIGHTNING).executeAsList().map { it.episode_id }.toSet() + sq.accruedByEpisode().executeAsList().map { it.episode_id }
+    }
 
     /**
      * Hands accruals to settlement (split per recipient, the time split at the
@@ -516,6 +582,14 @@ class ValueService(
         val rows = withContext(Dispatchers.IO) { sq.owedWithHeard(RAIL_LIGHTNING).executeAsList() }
             .map { r -> r to (r.episode_id in roundUp || (r.last_played_at ?: Long.MAX_VALUE) < stale) }
             .filter { (r, done) -> r.owed_msat >= 1000 || done }
+        // A wallet that does not answer would not answer a payment either: then nothing is sent
+        // and nothing ends "outcome unclear" — what is owed waits for the next batch (device
+        // feedback 2026-10-26, coinos with its app closed). Rows in flight are settled all the same.
+        if (rows.any { (r, _) -> inFlightMsat(r.last_error) == null && unreachable(json.decodeFromString(ValueRecipient.serializer(), r.recipient_json), info) == null }) {
+            val silent = wallet.balance() == BalanceAnswer.Silent
+            _walletSilent.value = silent
+            if (silent) return@withLock
+        }
         var caughtUp = 0L
         val caughtUpEpisodes = mutableSetOf<Long>()
         for ((episodeId, group) in rows.groupBy { it.first.episode_id }) {
@@ -523,6 +597,12 @@ class ValueService(
             val results = mutableListOf<ShareResult>()
             try { for ((row, done) in group) {
                 val recipient = json.decodeFromString(ValueRecipient.serializer(), row.recipient_json)
+                // Set aside before Hopp knew better, or under a wallet that could pay it: this
+                // one cannot, and the episode says so — no line in the history for each round.
+                if (inFlightMsat(row.last_error) == null && unreachable(recipient, info) != null) {
+                    withContext(Dispatchers.IO) { sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING) }
+                    continue
+                }
                 // A previous launch died after this row was marked and before the
                 // answer came back. The wallet may have paid what was sent then —
                 // that is settled, not sent again; what was heard since stays owed
@@ -603,8 +683,10 @@ class ValueService(
             val p = byKey[key]
             byKey[key] = PendingShare(p?.name ?: name ?: key.substringAfter(':').take(12), (p?.msat ?: 0) + msat)
         }
-        for (o in owed) add(o.recipient_key, json.decodeFromString(ValueRecipient.serializer(), o.recipient_json).name, o.owed_msat)
-        for (a in accrued) for (p in parts(a)) add(settlementKey(p.recipient), p.recipient.name, p.amountMsat)
+        val info = wallet.wallet.value?.info
+        fun reached(r: ValueRecipient) = info == null || unreachable(r, info) == null
+        for (o in owed) json.decodeFromString(ValueRecipient.serializer(), o.recipient_json).takeIf(::reached)?.let { add(o.recipient_key, it.name, o.owed_msat) }
+        for (a in accrued) for (p in parts(a)) if (reached(p.recipient)) add(settlementKey(p.recipient), p.recipient.name, p.amountMsat)
         return byKey.values.filter { it.msat > 0 }.sortedByDescending { it.msat }
     }
 
@@ -621,12 +703,14 @@ class ValueService(
             val reason = when {
                 (o?.attempts ?: 0) > 0 -> PendingReason.Failed
                 _overBudget.value && (o?.largest ?: 0) >= 1000 -> PendingReason.OverBudget
+                _walletSilent.value && (o?.largest ?: 0) >= 1000 -> PendingReason.WalletSilent
                 (accrued[id] ?: 0) > 0 || (o?.largest ?: 0) >= 1000 -> PendingReason.NextRound
                 else -> PendingReason.PartsOfASat
             }
             val item = episodes.item(id)
             val show = item?.let { podcasts.show(it.podcastId).first()?.title ?: it.podcastTitle }
-            PendingEpisode(id, item, show, (o?.owed ?: 0) + (accrued[id] ?: 0), reason)
+            // As far as this wallet reaches: a share it cannot pay is not waiting for anything.
+            PendingEpisode(id, item, show, pendingFor(id).sumOf { it.msat }, reason)
         }.filter { it.msat > 0 }.sortedByDescending { it.msat }
     }
 
@@ -641,9 +725,11 @@ class ValueService(
         "${r.type}:${r.address}" + (if (r.customKey != null || r.customValue != null) "#${r.customKey.orEmpty()}=${r.customValue.orEmpty()}" else "")
 
     private suspend fun distribute() {
+        val info = wallet.wallet.value?.info
         val pending = withContext(Dispatchers.IO) { sq.pendingAccruals().executeAsList() }
         for (a in pending) {
-            val parts = parts(a)
+            // What this wallet cannot pay is not set aside: it would wait and then be skipped.
+            val parts = parts(a).filter { info == null || unreachable(it.recipient, info) == null }
             withContext(Dispatchers.IO) {
                 db.transaction {
                     for (p in parts) {
@@ -690,5 +776,7 @@ class ValueService(
         /** Not heard for this long, an episode's parts of a sat are rounded up and paid. */
         const val ROUND_UP_AFTER_SECONDS = 24 * 3600L
         const val SUPPORT_NAME = "Hopp"
+        /** What [reach] splits to find each share's percent: 100 sats, in msat. */
+        private const val REACH_BASE = 100_000L
     }
 }

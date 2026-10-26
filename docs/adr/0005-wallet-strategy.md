@@ -108,6 +108,24 @@ settings. No hidden fee, in line with "Honest".
 proposes the feed's `suggested` rate. Sub-sat shares accumulate locally and
 are paid once they reach a whole sat; payments are batched.
 
+(Amended 2026-10-26, device feedback with coinos: a wallet without keysend
+showed the host's node share as set aside, round after round, and every batch
+then logged it as skipped. A share the connected wallet cannot pay — a node
+without `pay_keysend`, an address without `pay_invoice`, the wallet itself — is
+now **not set aside at all**: it is dropped when accruals are split, still not
+redistributed. Owed rows of such recipients from before, or from another
+wallet, are dropped quietly. The listener sees it where it matters instead:
+the value bar says "not possible here" when nothing is reachable, the streaming
+sheet names the unreachable recipients with their percent, and the wallet page
+says in plain words what the connection reaches, with the subscribed shows it
+does not reach in full. Before a batch pays, Hopp asks the wallet's balance:
+a wallet that gives no answer — coinos answers only while its app is open or
+with "answer while closed" on — is sent nothing, so no share ends "outcome
+unknown"; what is owed waits for the next batch. The boost sheet holds a boost
+back for the same reason. The payment history shows what was to go out and what
+became of it — sent, unknown, skipped, failed — instead of only what is sure to
+have gone.)
+
 ### Safety
 
 - Every invoice from a Sovereigncast instance is **decoded and paid only if its

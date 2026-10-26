@@ -675,6 +675,55 @@ class AndroidAppFlowTest {
         check(has("Ep 1") && has("Play")) { screen().toString() }
     }
 
+    /** Device feedback 2026-10-26: with coinos, which cannot keysend, nothing said that the host's
+     *  share never could go — it piled up as set aside. Now the bar, the sheet and the wallet page
+     *  say what this wallet reaches; and that a wallet gives no answer at all. */
+    @Test
+    fun aWalletWithoutKeysendSaysWhatItCannotReach() {
+        val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()
+        secrets.put("nwc_uri", "nostr+walletconnect://" + "a".repeat(64) + "?relay=wss://r.test&secret=" + "b".repeat(64))
+        secrets.put("nwc_info", """{"methods":["pay_invoice","get_balance"],"relay":"wss://r.test"}""")
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(streaming = true, streamRateSats = 10) } }
+        rule.setContent { App() }
+        openEpisode()
+        val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(item, 90_000, 90_000) }
+        waitFor("not possible here ›")
+        snapshot("reach-bar")
+        tap("not possible here ›")
+        waitFor("This episode receives by keysend only, and r.test cannot do that.")
+        waitFor("100% · node address – not reachable with r.test, not set aside")
+        check(has("0 sats") && !has("Send the whole sats now")) { screen().toString() }
+        snapshot("reach-sheet")
+        tap("What my wallet can do")
+        waitFor("What this connection can do")
+        check(has("Recipients with a node address (keysend)") && has("Boosts and streaming to Lightning addresses")) { screen().toString() }
+        waitFor("In your subscriptions this wallet does not reach every recipient for 1 of 1 shows, none at all for 1.")
+        tap("Which shows?")
+        waitFor("0% reached")
+        // The relay of this connection is nowhere: no answer, said as such.
+        waitFor("The wallet is not answering right now", substring = true)
+        snapshot("reach-wallet")
+    }
+
+    /** Device feedback 2026-10-26: a round to coinos read "0 sats" — two shares unknown, one
+     *  skipped. The history shows what was to go out, and what became of it. */
+    @Test
+    fun theHistorySaysWhatBecameOfAPayment() {
+        val lines = """[{"name":"Der Jack","address":"jack@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
+            """{"name":"Calso","address":"calso@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
+            """{"name":"Nodesignal","address":"02aa","msat":2000,"status":"skipped","reason":"wallet cannot send keysend"}]"""
+        koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines)
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Payment history")
+        waitFor("4 sats")
+        check(has("2 outcome unknown") && has("2 skipped") && !has("0 sats")) { screen().toString() }
+        tap("4 sats")
+        waitFor("Unknown means the wallet did not say whether it paid.", substring = true)
+        snapshot("history-outcome")
+    }
+
     @Test
     fun aBrokenConnectionStringIsRefusedVisibly() {
         rule.setContent { App() }
