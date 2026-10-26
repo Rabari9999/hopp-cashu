@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
+    implementation(libs.glance.appwidget)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.androidx.work.runtime)
     implementation(libs.koin.core)
@@ -42,6 +43,7 @@ dependencies {
     // secp256k1 for the host JVM: Robolectric runs on it, not on Android (Nostr identity tests).
     testImplementation(libs.secp256k1.jni.jvm)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.glance.appwidget.testing)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 

@@ -28,4 +28,11 @@
     <string name="skip_back">%1$d Sekunden zurück</string>
     <string name="skip_forward">%1$d Sekunden vor</string>
     <string name="next_chapter">Nächstes Kapitel</string>
+    <!-- The home-screen widget (0.3.1) -->
+    <string name="widget_name">Hopp-Player</string>
+    <string name="widget_description">Was läuft, mit Abspielen, Springen, nächstem Kapitel und deinem Schnell-Boost</string>
+    <string name="widget_nothing">Gerade läuft nichts – tippen, um Hopp zu öffnen</string>
+    <string name="widget_left">noch %1$d Min.</string>
+    <string name="widget_play">Abspielen</string>
+    <string name="widget_pause">Pause</string>
 </resources>

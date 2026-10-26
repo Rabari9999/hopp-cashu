@@ -7,6 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Widget:** The player on your home screen, as on the lock screen – with play, skip, next chapter and your quick boost (Android).
 - **Statistics:** See what you heard and gave – time, time saved, top shows and episodes, sats per show – on all your devices with sync.
 - **Shows:** Skip the first and the last seconds of every episode of a show, set with its speed under "Playback for this show".
 - **Wallet:** The wallet page says in plain words what your wallet reaches.

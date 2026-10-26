@@ -65,6 +65,7 @@ episode is always available. Streaming works without downloading.
 | **Skip silence** | 1 on Android | Built into ExoPlayer; on iOS it needs custom audio processing — later, if asked for. |
 | **Volume boost** | 3 on Android (2026-10-21) | Android's `LoudnessEnhancer` on the player's audio session, +8 dB; AVPlayer cannot go above a file's own volume, so iOS needs the same custom audio processing as skip silence. |
 | **Skip start and end per show** | 0.3.1 (2026-10-26) | AntennaPod's "skip intro / ending", much liked there. Seconds per show (0–600), with its speed in "Playback for this show" on the show's menu, synced with the subscription. The start only when an episode starts from the beginning (not from a chapter, time mark or clip; Android Auto too), the end only when listening crosses into it, not a jump; episodes too short for both plus two minutes stay whole. The player says what it skipped, the start with a way back. |
+| **Home-screen widget** | 0.3.1 on Android (2026-10-26) | The maintainer asked for it ahead of phase 3, looking like the lock screen: cover, show, chapter, title, time left; back, play, forward, next chapter and the quick boost (with a wallet and an amount). One resizable widget, four cells wide: two high it is the whole player, one high title, play and boost. Jetpack Glance (AndroidX, Apache 2.0, no Play services — fine for F-Droid); the playback service tells it what changed, every half minute while playing; before anything played it shows the episode last heard. "Up next" and "today" widgets were offered and not wanted. iOS later (WidgetKit). |
 | **CarPlay** | 3 | Needs Apple's CarPlay audio entitlement and its own template UI. |
 | **Chromecast** | 3 | Needs Google Play Services — `play` flavor only. |
 
@@ -74,7 +75,7 @@ value and is easy to revisit.
 ### Not in phase 1 (decided elsewhere)
 
 Video via `alternateEnclosure` and cross-device sync (phase 2), live items
-(phase 3), home-screen widgets (phase 3).
+(phase 3), home-screen widgets (phase 3; the Android player widget came with 0.3.1).
 
 ## Consequences
 

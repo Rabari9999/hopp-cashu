@@ -1,0 +1,57 @@
+package space.sovereigncast.hopp.widget
+
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
+import androidx.glance.testing.unit.hasContentDescription
+import androidx.glance.testing.unit.hasText
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import space.sovereigncast.hopp.ui.TestApp
+
+/** The home-screen widget (0.3.1): the lock screen's player, four cells wide, one or two high. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = TestApp::class)
+class PlayerWidgetTest {
+    private val now = WidgetNow(
+        title = "E299 – Gemischter Satz", show = "Nodesignal", chapter = "Bark", artworkUrl = null,
+        positionMs = 30 * 60_000L, durationMs = 71 * 60_000L, playing = true, boostSats = 100,
+        skipBackSeconds = 15, skipForwardSeconds = 30,
+    )
+
+    @Test
+    fun twoCellsHighItIsTheLockScreensPlayer() = runGlanceAppWidgetUnitTest {
+        setAppWidgetSize(DpSize(320.dp, 160.dp))
+        setContext(org.robolectric.RuntimeEnvironment.getApplication())
+        provideComposable { PlayerWidget().Content(now, null) }
+        onNode(hasText("E299 – Gemischter Satz")).assertExists()
+        onNode(hasText("Nodesignal · Bark")).assertExists()
+        onNode(hasText("41 min left")).assertExists()
+        onNode(hasContentDescription("Back 15 seconds")).assertExists()
+        onNode(hasContentDescription("Pause")).assertExists()
+        onNode(hasContentDescription("Forward 30 seconds")).assertExists()
+        onNode(hasContentDescription("Next chapter")).assertExists()
+        onNode(hasText("100")).assertExists()
+    }
+
+    @Test
+    fun oneCellHighItKeepsTitlePlayAndBoost() = runGlanceAppWidgetUnitTest {
+        setAppWidgetSize(DpSize(320.dp, 70.dp))
+        setContext(org.robolectric.RuntimeEnvironment.getApplication())
+        provideComposable { PlayerWidget().Content(now.copy(playing = false, boostSats = null), null) }
+        onNode(hasText("E299 – Gemischter Satz")).assertExists()
+        onNode(hasContentDescription("Play")).assertExists()
+        onNode(hasContentDescription("Next chapter")).assertDoesNotExist()
+        onNode(hasContentDescription("Boost")).assertDoesNotExist()
+    }
+
+    @Test
+    fun nothingHeardYetItOpensHopp() = runGlanceAppWidgetUnitTest {
+        setAppWidgetSize(DpSize(320.dp, 160.dp))
+        setContext(org.robolectric.RuntimeEnvironment.getApplication())
+        provideComposable { PlayerWidget().Content(null, null) }
+        onNode(hasText("Nothing playing – tap to open Hopp")).assertExists()
+    }
+}

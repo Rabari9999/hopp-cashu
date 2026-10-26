@@ -7,9 +7,9 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import space.sovereigncast.hopp.widget.WidgetNow
+import space.sovereigncast.hopp.widget.WidgetState
 import space.sovereigncast.hopp.R
-import space.sovereigncast.hopp.value.BoostReports
-import space.sovereigncast.hopp.value.ValueService
 import space.sovereigncast.hopp.value.WalletRepository
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -100,6 +100,18 @@ class PlaybackService : MediaLibraryService() {
         // The controller follows whatever plays — also when only the car is
         // using Hopp and the app's UI never started.
         scope.launch { controller }
+        // The home-screen widget (0.3.1) shows what plays: on every change of episode, play state,
+        // chapter or boost, and while playing every half minute — not with each position report.
+        scope.launch {
+            combine(controller.current, controller.state, koin.get<SettingsRepository>().settings, koin.get<WalletRepository>().wallet) { c, st, s, w ->
+                c?.let {
+                    val position = st.positionMs / WIDGET_STEP_MS * WIDGET_STEP_MS
+                    WidgetNow(it.item.title, it.podcastTitle, it.chapters.current(st.positionMs)?.title, it.artworkUrl, position,
+                        st.durationMs.takeIf { d -> d > 0 } ?: ((it.item.durationSeconds ?: 0) * 1000), st.isPlaying || st.isBuffering,
+                        s.quickBoostSats.takeIf { sats -> sats > 0 && w != null }, s.skipBackSeconds, s.skipForwardSeconds)
+                }
+            }.distinctUntilChanged().collect { WidgetState.show(this@PlaybackService, it) }
+        }
     }
 
     /** The session's callback — for the tests that check who may boost. */
@@ -163,19 +175,7 @@ class PlaybackService : MediaLibraryService() {
     /** One tap, the set amount, no dialog (device feedback 2026-10-08) — and
      *  a notification that says what happened, as the listener chose
      *  (device feedback 2026-10-10: nothing, only failures, or everything). */
-    private fun quickBoost() {
-        // During a Sovereigncast clip the episode behind it is not what is heard.
-        if (controller.remoteClip.value != null) return
-        val now = controller.current.value?.item ?: return
-        val position = controller.state.value.positionMs / 1000
-        // One at a time: a second tap while the first is paying is not a second boost.
-        if (!boosting.compareAndSet(false, true)) return
-        scope.launch {
-            try { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position), quick = true) } finally { boosting.set(false) }
-        }
-    }
-
-    private val boosting = java.util.concurrent.atomic.AtomicBoolean(false)
+    private fun quickBoost() = QuickBoost.send(scope)
 
     /**
      * Who may send the boost — money leaves the wallet with it (security
@@ -275,6 +275,8 @@ class PlaybackService : MediaLibraryService() {
 
     private companion object {
         const val ACTION_BOOST = "space.sovereigncast.hopp.BOOST"
+        /** The widget's time moves in half minutes. */
+        const val WIDGET_STEP_MS = 30_000L
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
