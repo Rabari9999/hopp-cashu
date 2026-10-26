@@ -9,9 +9,10 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🆕 New Features
 - **Widget:** Der Player auf deinem Startbildschirm, wie auf dem Sperrbildschirm – mit Abspielen, Springen, nächstem Kapitel und deinem Schnell-Boost (Android).
 - **Statistik:** Sieh, was du gehört und gegeben hast – Zeit, gesparte Zeit, Top-Shows und -Folgen, Sats pro Show –, mit Sync auf all deinen Geräten.
-- **Shows:** Anfang und Ende jeder Folge einer Show überspringen, einzustellen mit ihrem Tempo unter „Wiedergabe für diese Show“.
+- **Shows:** Intro und Abspann jeder Folge einer Show überspringen, einzustellen mit ihrem Tempo unter „Wiedergabe für diese Show“ oder für alle Shows unter Einstellungen → Wiedergabe → „Pro Show“.
 - **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht.
 - **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
+- **Teilen:** Wähle, was du teilst – Hopp-Link, die Webseite aus dem Feed, den Audio-Link, die geladene Datei oder bei einer Show die Feed-Adresse. Hopp merkt sich deine Wahl.
 
 ### 🐛 Fixes
 - **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.

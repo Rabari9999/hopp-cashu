@@ -532,6 +532,27 @@
     <string name="home_unheard_none_text">Every show’s newest episode is heard or under way.</string>
     <string name="home_several_weekly">several a week</string>
     <string name="share_copy">Copy</string>
+    <string name="share_kind_hopp">Hopp link</string>
+    <string name="share_kind_hopp_note">Opens in Hopp – elsewhere any podcast app</string>
+    <string name="share_kind_website_episode">The episode's website</string>
+    <string name="share_kind_website_show">The show's website</string>
+    <string name="share_kind_website_note">The link from the feed</string>
+    <string name="share_kind_audio">Audio link</string>
+    <string name="share_kind_audio_note">Straight to the audio file, plays in a browser</string>
+    <string name="share_kind_file">Audio file</string>
+    <string name="share_kind_file_note">The downloaded file itself</string>
+    <string name="share_kind_file_note_size">The downloaded file itself · %1$s</string>
+    <string name="share_kind_feed">Feed address (RSS)</string>
+    <string name="share_kind_feed_note">To subscribe in any podcast app</string>
+    <string name="share_note_website">Leads to the page the show put in its feed.</string>
+    <string name="share_note_audio">Just the link, no text. Whoever opens it loads the episode straight from the show's server.</string>
+    <string name="share_note_file">Goes as a file to the app you choose – no link.</string>
+    <string name="share_note_feed">Just the address, no text – what another app asks for when you add a show.</string>
+    <string name="share_from_link">The link starts there</string>
+    <string name="share_from_text">Only in the text</string>
+    <string name="share_from_file">A file always starts at the beginning</string>
+    <string name="share_social_episode">Listening to “%1$s” by %2$s</string>
+    <string name="share_social_episode_at">Listening to “%1$s” by %2$s, from %3$s</string>
     <string name="show_copy_feed">Copy feed address</string>
     <string name="settings_home">Home</string>
     <string name="settings_home_note">Arrange its sections, or hide them</string>
@@ -730,7 +751,7 @@
     <string name="image_full">Show the picture full screen</string>
     <string name="image_close">Close the picture</string>
     <string name="settings_default_speed">Default speed</string>
-    <string name="settings_default_speed_note">For every show. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
+    <string name="settings_default_speed_note">For every show but those with a speed of their own under “Per show”. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
     <string name="settings_downloads_queue">Downloads to “Up next”</string>
     <string name="settings_downloads_queue_note">Each finished download goes to the end of the queue, so you can listen straight through.</string>
     <string name="comments_zap">Zap</string>
@@ -955,15 +976,25 @@
     <string name="show_playback">Playback for this show</string>
     <string name="show_playback_note">For every episode of %1$s, on all your devices.</string>
     <string name="show_speed_default">Default</string>
-    <string name="show_skip_intro">Skip the start</string>
-    <string name="show_skip_intro_hint">intro, ads, jingle</string>
-    <string name="show_skip_outro">Skip the end</string>
-    <string name="show_skip_outro_hint">outro, credits</string>
+    <string name="show_skip_intro">Skip the intro</string>
+    <string name="show_skip_intro_hint">ads, jingle at the start</string>
+    <string name="show_skip_outro">Skip the outro</string>
+    <string name="show_skip_outro_hint">credits at the end</string>
     <string name="show_skip_off">Off</string>
     <string name="show_skip_rule">Skipped only when an episode starts from its beginning and when you listen up to its end – not when you go there yourself or start from a chapter or a time mark. Short episodes are left whole.</string>
-    <string name="skipped_start">Start skipped (%1$d s)</string>
-    <string name="skipped_end">End skipped (%1$d s)</string>
+    <string name="skipped_start">Intro skipped (%1$d s)</string>
+    <string name="skipped_end">Outro skipped (%1$d s)</string>
     <string name="skipped_back">Back</string>
+    <string name="per_show_title">Per show</string>
+    <string name="per_show_note">A speed of its own for each show, skip intro and outro automatically</string>
+    <string name="per_show_text">The speed and what is skipped at the start and the end – for every episode of the show, on all your devices.</string>
+    <string name="per_show_none">No subscriptions yet.</string>
+    <string name="per_show_search">Find a show</string>
+    <string name="per_show_custom">Own settings · %1$d</string>
+    <string name="per_show_like_all">Like every show · %1$d</string>
+    <string name="per_show_default">%1$s× · nothing skipped</string>
+    <string name="per_show_intro_chip">Intro %1$d s</string>
+    <string name="per_show_outro_chip">Outro %1$d s</string>
 
     <!-- Listening statistics (maintainer 2026-10-26) -->
     <string name="stats_title">Listening stats</string>
@@ -1005,4 +1036,8 @@
     <string name="stats_share_text">%1$s of podcasts with Hopp, and %2$s sats to the shows I hear. #V4V</string>
     <string name="stats_empty">Nothing counted yet – the statistics start with your next episode.</string>
     <string name="stats_nostr_link">Your listening stats</string>
+    <plurals name="per_show_count">
+        <item quantity="one">set for %1$d show</item>
+        <item quantity="other">set for %1$d shows</item>
+    </plurals>
 </resources>

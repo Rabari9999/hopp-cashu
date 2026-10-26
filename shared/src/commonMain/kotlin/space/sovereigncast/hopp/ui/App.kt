@@ -511,7 +511,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                         onDispose { if (pageBack.step === back) pageBack.step = null }
                                     }
                                 }
-                                Readable { SettingsPageScreen(page, onTour = { tourPage = 0; tour = true }) }
+                                Readable { SettingsPageScreen(page, onTour = { tourPage = 0; tour = true }, onPage = { nav.navigate(SettingsPageRoute(it.name)) }) }
                             }
                             composable<PrivacyRoute> { Readable { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) } }
                             composable<CrashRoute> { Readable {

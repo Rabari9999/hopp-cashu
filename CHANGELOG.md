@@ -9,9 +9,10 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🆕 New Features
 - **Widget:** The player on your home screen, as on the lock screen – with play, skip, next chapter and your quick boost (Android).
 - **Statistics:** See what you heard and gave – time, time saved, top shows and episodes, sats per show – on all your devices with sync.
-- **Shows:** Skip the first and the last seconds of every episode of a show, set with its speed under "Playback for this show".
+- **Shows:** Skip the intro and the outro of every episode of a show, set with its speed under "Playback for this show" – or for all shows at once under Settings → Playback → "Per show".
 - **Wallet:** The wallet page says in plain words what your wallet reaches.
 - **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
+- **Sharing:** Choose what you share – Hopp's link, the website from the feed, the audio link, the downloaded file or, for a show, its feed address. Hopp keeps your choice.
 
 ### 🐛 Fixes
 - **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.

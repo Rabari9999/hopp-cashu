@@ -85,10 +85,6 @@ class EpisodesProvider : DocumentsProvider() {
             Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED, Document.COLUMN_FLAGS)
 
         /** "Show – Episode.mp3", without what file systems refuse. */
-        internal fun displayName(show: String, title: String, extension: String): String {
-            val clean = { s: String -> s.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), " ").replace(Regex("\\s+"), " ").trim() }
-            val base = listOf(clean(show), clean(title)).filter { it.isNotEmpty() }.joinToString(" – ").take(180).ifEmpty { "Episode" }
-            return if (extension.isEmpty()) base else "$base.$extension"
-        }
+        internal fun displayName(show: String, title: String, extension: String) = space.sovereigncast.hopp.data.episodeFileName(show, title, extension)
     }
 }

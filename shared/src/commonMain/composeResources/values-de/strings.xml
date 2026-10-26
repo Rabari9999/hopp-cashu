@@ -532,6 +532,27 @@
     <string name="home_unheard_none_text">Von jeder Show ist die neueste Folge gehört oder angefangen.</string>
     <string name="home_several_weekly">mehrmals/Wo.</string>
     <string name="share_copy">Kopieren</string>
+    <string name="share_kind_hopp">Hopp-Link</string>
+    <string name="share_kind_hopp_note">Öffnet in Hopp – sonst jede Podcast-App</string>
+    <string name="share_kind_website_episode">Webseite der Folge</string>
+    <string name="share_kind_website_show">Webseite der Show</string>
+    <string name="share_kind_website_note">Der Link aus dem Feed</string>
+    <string name="share_kind_audio">Audio-Link</string>
+    <string name="share_kind_audio_note">Direkt zur Audiodatei, spielt im Browser</string>
+    <string name="share_kind_file">Audiodatei</string>
+    <string name="share_kind_file_note">Die geladene Datei selbst</string>
+    <string name="share_kind_file_note_size">Die geladene Datei selbst · %1$s</string>
+    <string name="share_kind_feed">Feed-Adresse (RSS)</string>
+    <string name="share_kind_feed_note">Zum Abonnieren in jeder Podcast-App</string>
+    <string name="share_note_website">Führt auf die Seite, die die Show in ihren Feed geschrieben hat.</string>
+    <string name="share_note_audio">Nur der Link, ohne Text. Wer ihn öffnet, lädt die Folge direkt vom Server der Show.</string>
+    <string name="share_note_file">Geht als Datei an die App, die du wählst – ohne Link.</string>
+    <string name="share_note_feed">Nur die Adresse, ohne Text – genau das, was eine andere App beim Hinzufügen einer Show erwartet.</string>
+    <string name="share_from_link">Der Link startet dort</string>
+    <string name="share_from_text">Steht nur im Text</string>
+    <string name="share_from_file">Eine Datei beginnt immer am Anfang</string>
+    <string name="share_social_episode">Ich höre „%1$s“ von %2$s</string>
+    <string name="share_social_episode_at">Ich höre „%1$s“ von %2$s, ab %3$s</string>
     <string name="show_copy_feed">Feed-Adresse kopieren</string>
     <string name="settings_home">Home</string>
     <string name="settings_home_note">Bereiche anordnen oder ausblenden</string>
@@ -730,7 +751,7 @@
     <string name="image_full">Bild im Vollbild zeigen</string>
     <string name="image_close">Bild schließen</string>
     <string name="settings_default_speed">Standard-Geschwindigkeit</string>
-    <string name="settings_default_speed_note">Für alle Shows. Eine im Player gewählte Geschwindigkeit bleibt bei dieser Show; wählst du dort wieder den Standard, folgt sie diesem.</string>
+    <string name="settings_default_speed_note">Für alle Shows, außer denen mit eigenem Tempo unter „Pro Show“. Wählst du im Player eine Geschwindigkeit, bekommt die Show sie als eigene; wählst du dort wieder den Standard, folgt sie diesem.</string>
     <string name="settings_downloads_queue">Downloads in „Als Nächstes“</string>
     <string name="settings_downloads_queue_note">Jede fertig heruntergeladene Folge kommt ans Ende der Warteschlange – so hörst du einfach durch.</string>
     <string name="comments_zap">Zappen</string>
@@ -955,15 +976,25 @@
     <string name="show_playback">Wiedergabe für diese Show</string>
     <string name="show_playback_note">Gilt für jede Folge von %1$s, auf all deinen Geräten.</string>
     <string name="show_speed_default">Standard</string>
-    <string name="show_skip_intro">Anfang überspringen</string>
-    <string name="show_skip_intro_hint">Intro, Werbung, Jingle</string>
-    <string name="show_skip_outro">Ende überspringen</string>
-    <string name="show_skip_outro_hint">Outro, Abspann</string>
+    <string name="show_skip_intro">Intro überspringen</string>
+    <string name="show_skip_intro_hint">Werbung, Jingle am Anfang</string>
+    <string name="show_skip_outro">Abspann überspringen</string>
+    <string name="show_skip_outro_hint">Outro am Ende</string>
     <string name="show_skip_off">Aus</string>
     <string name="show_skip_rule">Übersprungen wird nur, wenn eine Folge von vorn beginnt und wenn du bis zum Ende hörst – nicht, wenn du selbst dorthin springst oder über ein Kapitel oder eine Zeitmarke einsteigst. Kurze Folgen bleiben ganz.</string>
-    <string name="skipped_start">Anfang übersprungen (%1$d s)</string>
-    <string name="skipped_end">Ende übersprungen (%1$d s)</string>
+    <string name="skipped_start">Intro übersprungen (%1$d s)</string>
+    <string name="skipped_end">Abspann übersprungen (%1$d s)</string>
     <string name="skipped_back">Zurück</string>
+    <string name="per_show_title">Pro Show</string>
+    <string name="per_show_note">Eigenes Tempo je Show, Intro und Abspann automatisch überspringen</string>
+    <string name="per_show_text">Tempo und was am Anfang und Ende übersprungen wird – für jede Folge der Show, auf all deinen Geräten.</string>
+    <string name="per_show_none">Noch keine Abos.</string>
+    <string name="per_show_search">Show suchen</string>
+    <string name="per_show_custom">Eigene Einstellungen · %1$d</string>
+    <string name="per_show_like_all">Wie alle Shows · %1$d</string>
+    <string name="per_show_default">%1$s× · nichts überspringen</string>
+    <string name="per_show_intro_chip">Intro %1$d s</string>
+    <string name="per_show_outro_chip">Abspann %1$d s</string>
 
     <!-- Listening statistics (maintainer 2026-10-26) -->
     <string name="stats_title">Hörstatistik</string>
@@ -1005,4 +1036,8 @@
     <string name="stats_share_text">%1$s Podcasts mit Hopp gehört und %2$s sats an die Shows gegeben, die ich höre. #V4V</string>
     <string name="stats_empty">Noch nichts gezählt – die Statistik beginnt mit deiner nächsten Folge.</string>
     <string name="stats_nostr_link">Deine Hörstatistik</string>
+    <plurals name="per_show_count">
+        <item quantity="one">bei %1$d Show eingestellt</item>
+        <item quantity="other">bei %1$d Shows eingestellt</item>
+    </plurals>
 </resources>

@@ -515,7 +515,7 @@ private fun SheetChip(label: String, onClick: () -> Unit) {
 /** 1.5f → "1,5" — the speed as the listener reads it. */
 /** 1.1 → "1.1", in German "1,1" (device check 2026-10-20: an English phone showed "1,1×"). */
 /**
- * "Start skipped (30 s) · Back" (maintainer 2026-10-26): where the listener is — in now playing
+ * "Intro skipped (30 s) · Back" (maintainer 2026-10-26): where the listener is — in now playing
  * when it is open ([expanded]), else at the bottom of the app.
  */
 @Composable

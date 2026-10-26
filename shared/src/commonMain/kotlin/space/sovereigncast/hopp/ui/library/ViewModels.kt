@@ -294,6 +294,10 @@ class SettingsViewModel(
         podcasts.shows.map { l -> l.mapNotNull { s -> s.podcastGuid?.takeIf { it.isNotEmpty() }?.let { it to s.title } }.toMap() },
         emptyMap(),
     )
+    /** The shows, for "Per show": each one's speed and what it skips. */
+    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
+    fun setShowSpeed(id: Long, speed: Float?) = viewModelScope.launch { podcasts.setSpeed(id, speed) }
+    fun setShowSkip(id: Long, intro: Int? = null, outro: Int? = null) = viewModelScope.launch { podcasts.setSkip(id, introSeconds = intro, outroSeconds = outro) }
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }

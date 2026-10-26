@@ -10,6 +10,10 @@ interface PlatformActions {
     fun exportOpml(text: String)
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
+    /** Whether a downloaded episode can be handed on as a file (maintainer 2026-10-26). */
+    val canShareFiles: Boolean get() = false
+    /** Hands the downloaded file at [path] to the system's share sheet as [name] ("Show – Episode.mp3"). */
+    fun shareFile(path: String, name: String) = Unit
     /** Puts text on the clipboard (device feedback 2026-10-12: nothing could be copied). */
     fun copyText(text: String, label: String) = Unit
     /** Opens [entity] (`npub1…`, NIP-19) as a NIP-21 `nostr:` link in the listener's Nostr app;

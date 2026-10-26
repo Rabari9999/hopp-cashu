@@ -193,6 +193,18 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(this, R.string.copied, android.widget.Toast.LENGTH_SHORT).show()
     }
 
+    override val canShareFiles: Boolean get() = true
+
+    /** Through the Files app's provider: the receiver reads the file, named [name] there, and nothing else. */
+    override fun shareFile(path: String, name: String) {
+        val file = java.io.File(path)
+        val uri = android.provider.DocumentsContract.buildDocumentUri(EpisodesProvider.authority(this), file.name)
+        val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension) ?: "audio/*"
+        val send = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        send.clipData = android.content.ClipData.newRawUri(name, uri)
+        runCatching { startActivity(Intent.createChooser(send, name)) }
+    }
+
     override fun shareText(text: String, subject: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))

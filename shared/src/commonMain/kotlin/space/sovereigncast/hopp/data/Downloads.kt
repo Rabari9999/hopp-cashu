@@ -49,6 +49,14 @@ fun interface DownloadScheduler {
 
 /** Where downloads live — outside the OS backup (ADR 0015 backs up everything
  *  but keys; a gigabyte of audio is not worth backing up). */
+/** "Show – Episode.mp3", without what file systems refuse: a downloaded file's name for others
+ *  (the Files app, a file shared to a messenger) instead of Hopp's own "123.mp3". */
+fun episodeFileName(show: String, title: String, extension: String): String {
+    val clean = { s: String -> s.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), " ").replace(Regex("\\s+"), " ").trim() }
+    val base = listOf(clean(show), clean(title)).filter { it.isNotEmpty() }.joinToString(" – ").take(180).ifEmpty { "Episode" }
+    return if (extension.isEmpty()) base else "$base.$extension"
+}
+
 class DownloadFiles(val dir: String) {
     fun path(episodeId: Long, url: String) = Path(dir, "$episodeId.${extension(url)}")
     fun partial(episodeId: Long) = Path(dir, "$episodeId.part")

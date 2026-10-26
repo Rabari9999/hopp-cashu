@@ -121,10 +121,27 @@ class IosPlatformActions : PlatformActions {
         )
     }
 
+    override val canShareFiles: Boolean get() = true
+
+    /** Under its own name ("Show – Episode.mp3", not "123.mp3"): a link to it in the temporary
+     *  folder, on the same volume — a copy only where a link cannot be made. */
     @OptIn(ExperimentalForeignApi::class)
-    override fun shareText(text: String, subject: String) {
+    override fun shareFile(path: String, name: String) {
+        val fm = platform.Foundation.NSFileManager.defaultManager
+        val dir = platform.Foundation.NSTemporaryDirectory() + "shared/"
+        fm.createDirectoryAtPath(dir, withIntermediateDirectories = true, attributes = null, error = null)
+        val named = dir + name.replace('/', ' ')
+        fm.removeItemAtPath(named, error = null)
+        if (!fm.linkItemAtPath(path, toPath = named, error = null)) fm.copyItemAtPath(path, toPath = named, error = null)
+        present(listOf(platform.Foundation.NSURL.fileURLWithPath(named)))
+    }
+
+    override fun shareText(text: String, subject: String) = present(listOf(text))
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun present(items: List<Any>) {
         val top = topController() ?: return
-        val sheet = UIActivityViewController(listOf(text), null)
+        val sheet = UIActivityViewController(items, null)
         // On the iPad the sheet is a popover and needs a place to point from.
         sheet.popoverPresentationController?.let { pop ->
             pop.sourceView = top.view

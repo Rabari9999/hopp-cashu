@@ -574,6 +574,43 @@ class AndroidAppFlowTest {
         check(shared[1].endsWith("&episode=ep-2&t=754") && shared[1].startsWith("“Ep 2” from 12:34 — Test Show")) { shared[1] }
     }
 
+    /** Maintainer 2026-10-26: what is shared is a choice — here the audio file's address, from 12:34 —
+     *  and the choice is there first the next time. No website where the feed names none. */
+    @Test
+    fun theAudioLinkIsSharedAndKeptAsTheChoice() {
+        val shared = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun shareText(text: String, subject: String) { shared += text }
+        }
+        rule.setContent { App(actions) }
+        tap("Discover"); subscribe()
+        waitFor("Ep 2")
+        kotlinx.coroutines.runBlocking {
+            val ep = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().ofPodcast(1).first().first { it.title == "Ep 2" }
+            koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().savePosition(ep.id, 754_000)
+        }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("Audio link")
+        check(!has("The episode's website") && !has("Audio file")) { screen().toString() }
+        snapshot("share-kinds")
+        tap("Audio link")
+        waitFor("https://cdn.test/2.mp3")
+        rule.onAllNodes(androidx.compose.ui.test.isToggleable()).onLast().performClick()
+        waitFor("https://cdn.test/2.mp3#t=754")
+        tap("Share…")
+        until { shared.size == 1 }
+        check(shared[0] == "https://cdn.test/2.mp3#t=754") { shared[0] }
+
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("https://cdn.test/2.mp3")
+        tap("Share…")
+        until { shared.size == 2 }
+        check(shared[1] == "https://cdn.test/2.mp3") { shared[1] }
+    }
+
     /** Copying (device feedback 2026-10-12): the share sheet's text, and a show's feed address. */
     @Test
     fun textAndTheFeedAddressCanBeCopied() {
@@ -758,7 +795,7 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe()
         rule.onNode(hasContentDescription("Show options")).performClick()
         tap("Playback for this show")
-        waitFor("Skip the start")
+        waitFor("Skip the intro")
         snapshot("show-playback")
         rule.onAllNodes(hasText("30 s") and hasClickAction())[0].performScrollTo().performClick()
         until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }.skipIntroSeconds == 30 }
@@ -767,6 +804,26 @@ class AndroidAppFlowTest {
         until { show().skipOutroSeconds == 20 }
         rule.onNode(hasText("1.5×") and hasClickAction()).performScrollTo().performClick()
         until { show().let { it.skipIntroSeconds == 30 && it.skipOutroSeconds == 20 && it.playbackSpeed == 1.5f } }
+    }
+
+    /** Maintainer 2026-10-26: every show's own playback in the playback settings too — "Per show". */
+    @Test
+    fun theShowsPlaybackIsSetFromTheSettings() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasText("Home") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Settings")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Playback") and hasClickAction()).performScrollTo().performClick()
+        rule.onNode(hasText("Per show") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Like every show · 1")
+        rule.onNode(hasText("Test Show") and hasClickAction()).performClick()
+        waitFor("Skip the intro")
+        rule.onAllNodes(hasText("30 s") and hasClickAction())[0].performScrollTo().performClick()
+        fun show() = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }
+        until { show().skipIntroSeconds == 30 }
+        waitFor("Own settings · 1")
+        snapshot("per-show")
     }
 
     /** Maintainer 2026-10-26: listening statistics in the settings — time, top shows, Value for Value. */
