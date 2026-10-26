@@ -321,7 +321,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (description != null) SheetChip(stringResource(Res.string.episode_shownotes)) { showNotesSheet = true }
                 if (chapters.stops.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_chapters)) { showChapters = true }
-                if (hasTranscript) SheetChip(stringResource(Res.string.sheet_transcript)) { showTranscript = true }
+                if (hasTranscript) SheetChip(stringResource(Res.string.sheet_transcript)) { showTranscript = true; model.transcriptOpened() }
                 if (playing.persons.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_people)) { showPeople = true }
                 if (hasCommunity) SheetChip(stringResource(Res.string.sheet_community)) { showCommunity = true }
                 SheetChip(stringResource(Res.string.sheet_comments)) { showComments = true }
@@ -471,7 +471,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             LazyColumn(Modifier.padding(bottom = 24.dp)) {
                 itemsIndexed(chapters.stops) { i, ch ->
                     ChapterRow(ch, active = i == chapters.currentIndex(position), onSeek = {
-                        model.seekTo((ch.startSeconds * 1000).toLong()); showChapters = false
+                        model.toChapter((ch.startSeconds * 1000).toLong()); showChapters = false
                     }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null })
                 }
             }

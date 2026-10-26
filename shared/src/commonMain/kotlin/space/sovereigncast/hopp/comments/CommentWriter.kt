@@ -47,6 +47,8 @@ class CommentWriter(
     private val identity: IdentityRepository,
     private val store: CommentStore,
     private val now: () -> Long,
+    /** A comment (or a boost as one) went out — the listening statistics count it. */
+    private val posted: suspend () -> Unit = {},
 ) {
     /** One mute at a time: each reads the list the one before it wrote. */
     private val muting = Mutex()
@@ -82,6 +84,7 @@ class CommentWriter(
         // Fountain's relay too: where Fountain's listeners' comments are, Hopp's should be.
         val event = publish(unsigned, listOf(FOUNTAIN) + relays + anchor.notes.flatMap { it.relays })
         keep(anchor, event, relays)
+        runCatching { posted() }
         return event
     }
 

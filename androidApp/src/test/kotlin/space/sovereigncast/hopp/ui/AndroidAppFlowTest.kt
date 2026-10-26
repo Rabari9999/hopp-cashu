@@ -769,6 +769,31 @@ class AndroidAppFlowTest {
         until { show().let { it.skipIntroSeconds == 30 && it.skipOutroSeconds == 20 && it.playbackSpeed == 1.5f } }
     }
 
+    /** Maintainer 2026-10-26: listening statistics in the settings — time, top shows, Value for Value. */
+    @Test
+    fun theStatisticsShowWhatWasHeardAndGiven() {
+        rule.setContent { App() }
+        openEpisode()
+        val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
+        val listening = koin.get<space.sovereigncast.hopp.data.ListeningRepository>()
+        kotlinx.coroutines.runBlocking {
+            repeat(12 * 95) { listening.heard(item, 5_000, 6_000) }
+            listening.counted(chapters = 4, transcripts = 1)
+            listening.flush()
+        }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().minimize()
+        rule.onNode(hasText("Home") and hasClickAction()).performClick()
+        waitFor("Home")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Settings")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Listening stats") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Heard this month")
+        check(has("1.6 h") && has("Your top shows") && has("Test Show")) { screen().toString() }
+        snapshot("stats")
+        rule.onNode(hasText("All time") and hasClickAction()).performClick()
+        waitFor("Heard with Hopp")
+    }
+
     /** An episode's menu marks it and the older ones heard, as Castamatic does. */
     @Test
     fun anEpisodeAndTheOlderOnesAreMarkedPlayed() {

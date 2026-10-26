@@ -16,8 +16,14 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
-    /** Version 14 from the current schema: a show skipped nothing yet. */
+    /** Version 15 from the current schema: no listening statistics yet. */
+    private fun version15(driver: JdbcSqliteDriver) {
+        listOf("listen_day", "listen_show", "listen_episode", "listen_count").forEach { driver.execute(null, "DROP TABLE $it", 0) }
+    }
+
+    /** Version 14: a show skipped nothing yet either. */
     private fun version14(driver: JdbcSqliteDriver) {
+        version15(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_intro_seconds", 0)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_outro_seconds", 0)
     }
@@ -30,6 +36,16 @@ class SyncMigrationTest {
         HoppDatabase.Schema.migrate(driver, 14, HoppDatabase.Schema.version)
         val show = HoppDatabase(driver).podcastQueries.selectAll().executeAsOne()
         assertEquals(0L to 0L, show.skip_intro_seconds to show.skip_outro_seconds)
+    }
+
+    /** Maintainer 2026-10-26: the statistics' tables come with the update, empty. */
+    @Test
+    fun theStatisticsStartEmptyAfterTheUpdate() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it); version15(it) }
+        HoppDatabase.Schema.migrate(driver, 15, HoppDatabase.Schema.version)
+        val q = HoppDatabase(driver).listeningQueries
+        q.ensureDay("abcd", 20_000); q.addDay(60_000, 90_000, "abcd", 20_000)
+        assertEquals(60_000L, q.daysOf("abcd").executeAsOne().heard_ms)
     }
 
     @Test

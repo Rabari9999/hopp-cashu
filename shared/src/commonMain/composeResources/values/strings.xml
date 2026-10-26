@@ -964,4 +964,45 @@
     <string name="skipped_start">Start skipped (%1$d s)</string>
     <string name="skipped_end">End skipped (%1$d s)</string>
     <string name="skipped_back">Back</string>
+
+    <!-- Listening statistics (maintainer 2026-10-26) -->
+    <string name="stats_title">Listening stats</string>
+    <string name="stats_entry_note">What you heard and gave</string>
+    <string name="stats_range_month">This month</string>
+    <string name="stats_range_all">All time</string>
+    <string name="stats_heard_month">Heard this month</string>
+    <string name="stats_heard_year">Heard in %1$d</string>
+    <string name="stats_heard_all">Heard with Hopp</string>
+    <string name="stats_hours">%1$s h</string>
+    <string name="stats_minutes">%1$d min</string>
+    <string name="stats_days">%1$s days of listening</string>
+    <plurals name="stats_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <string name="stats_streak">Longest run: %1$d days in a row</string>
+    <string name="stats_since">Counted since %1$s</string>
+    <string name="stats_estimate">Before that, about %1$s – estimated from the episodes you finished</string>
+    <string name="stats_saved">Time saved</string>
+    <string name="stats_saved_speed">Speed and skipped silence</string>
+    <string name="stats_saved_skips">Skipped starts and ends</string>
+    <string name="stats_top_shows">Your top shows</string>
+    <string name="stats_top_episodes">Top episodes</string>
+    <string name="stats_value">Value for Value</string>
+    <string name="stats_given">given to the shows you hear</string>
+    <string name="stats_boosts">Boosts</string>
+    <string name="stats_streaming">Streaming</string>
+    <string name="stats_zaps">Zaps</string>
+    <string name="stats_per_hour">%1$s sats/h</string>
+    <string name="stats_never_given">not supported yet</string>
+    <string name="stats_supported">You supported %1$d of the %2$d shows you heard.</string>
+    <string name="stats_p20">Podcasting 2.0</string>
+    <string name="stats_chapters">chapters jumped to</string>
+    <string name="stats_transcripts">transcripts read along</string>
+    <string name="stats_comments">comments and boosts on Nostr</string>
+    <string name="stats_private">Counted on your devices only. With sync on they share it, encrypted to your own key – nobody else sees any of it, unless you share it.</string>
+    <string name="stats_share">Share</string>
+    <string name="stats_share_text">%1$s of podcasts with Hopp, and %2$s sats to the shows I hear. #V4V</string>
+    <string name="stats_empty">Nothing counted yet – the statistics start with your next episode.</string>
+    <string name="stats_nostr_link">Your listening stats</string>
 </resources>

@@ -27,6 +27,8 @@ object SyncDocs {
     const val PROGRESS = "progress"
     const val QUEUE = "queue"
     const val SETTINGS = "settings"
+    /** Listening statistics, each device's own counts (maintainer 2026-10-26). */
+    const val STATS = "stats"
 
     /** A show on every device: its `podcast:guid`, else its feed address. */
     fun showKey(guid: String?, feedUrl: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:$feedUrl"

@@ -7,6 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
+- **Statistics:** See what you heard and gave – time, time saved, top shows and episodes, sats per show – on all your devices with sync.
 - **Shows:** Skip the first and the last seconds of every episode of a show, set with its speed under "Playback for this show".
 - **Wallet:** The wallet page says in plain words what your wallet reaches.
 - **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.

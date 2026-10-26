@@ -3,6 +3,8 @@ package space.sovereigncast.hopp.ui.library
 import androidx.compose.material.icons.rounded.Person
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.player.formatSpeed
+import space.sovereigncast.hopp.resources.stats_entry_note
+import space.sovereigncast.hopp.resources.stats_title
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
@@ -109,6 +111,7 @@ enum class SettingsPage(val title: StringResource) {
 fun SettingsScreen(
     onWallet: () -> Unit = {},
     onHistory: () -> Unit = {},
+    onStats: () -> Unit = {},
     onPage: (SettingsPage) -> Unit = {},
     onPrivacy: () -> Unit = {},
     onCrashReport: (() -> Unit)? = null,
@@ -120,6 +123,7 @@ fun SettingsScreen(
         Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
             wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
         Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+        Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats)
 
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }

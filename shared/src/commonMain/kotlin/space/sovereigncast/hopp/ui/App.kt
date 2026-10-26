@@ -65,6 +65,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.stats_title
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
@@ -145,7 +146,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 /** The settings and what hangs off them — closed when the listener leaves for a tab. */
 private val SETTINGS_ROUTES = listOf(
-    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class,
+    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class,
 )
 
 @Serializable object SettingsRoute
@@ -165,6 +166,7 @@ private val SETTINGS_ROUTES = listOf(
 )
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
+@Serializable object StatsRoute
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -228,6 +230,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
+        destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -258,7 +261,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
     val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground() }
+    // The listening statistics noted before that round, all of it (they otherwise go every half hour).
+    val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
     /** Where the tour was left for one of its pages, to come back to. */
@@ -345,6 +350,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
+            space.sovereigncast.hopp.ui.identity.LocalOpenStats provides { nav.navigate(StatsRoute) },
             space.sovereigncast.hopp.ui.comments.LocalOpenIdentity provides { player.minimize(); nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name)) },
             space.sovereigncast.hopp.ui.comments.LocalOpenWallet provides { player.minimize(); nav.navigate(WalletRoute) },
             // A show's category, opened in Discover (device feedback 2026-10-19).
@@ -487,7 +493,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<SettingsRoute> { Readable {
                                 SettingsScreen(
-                                    onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) },
+                                    onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) }, onStats = { nav.navigate(StatsRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
@@ -516,6 +522,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             } }
                             composable<WalletRoute> { Readable { WalletScreen() } }
                             composable<HistoryRoute> { Readable { HistoryScreen() } }
+                            composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while

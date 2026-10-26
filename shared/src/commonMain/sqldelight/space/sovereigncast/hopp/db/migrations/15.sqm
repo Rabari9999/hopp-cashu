@@ -1,0 +1,39 @@
+-- Version 15 → 16 (maintainer 2026-10-26): listening statistics, per device, synced as hopp/stats.
+CREATE TABLE listen_day (
+    device TEXT NOT NULL,
+    day INTEGER NOT NULL,
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, day)
+);
+CREATE TABLE listen_show (
+    device TEXT NOT NULL,
+    month INTEGER NOT NULL,
+    show TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    skipped_ms INTEGER NOT NULL DEFAULT 0,
+    boost_msat INTEGER NOT NULL DEFAULT 0,
+    stream_msat INTEGER NOT NULL DEFAULT 0,
+    zap_msat INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, month, show)
+);
+CREATE TABLE listen_episode (
+    device TEXT NOT NULL,
+    show TEXT NOT NULL,
+    episode TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    last_month INTEGER NOT NULL,
+    PRIMARY KEY (device, show, episode)
+);
+CREATE TABLE listen_count (
+    device TEXT NOT NULL,
+    month INTEGER NOT NULL,
+    chapters INTEGER NOT NULL DEFAULT 0,
+    transcripts INTEGER NOT NULL DEFAULT 0,
+    comments INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, month)
+);

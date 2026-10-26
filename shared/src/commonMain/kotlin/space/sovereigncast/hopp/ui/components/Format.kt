@@ -20,6 +20,13 @@ fun formatDate(epochSeconds: Long?): String {
     return "${two(t.day)}.${two(t.month.number)}.${t.year}"
 }
 
+/** A day → "07.10.2026". */
+fun formatDate(date: kotlinx.datetime.LocalDate): String = "${two(date.day)}.${two(date.month.number)}.${date.year}"
+
+/** This year on the listener's clock. */
+@OptIn(ExperimentalTime::class)
+fun currentYear(): Int = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+
 /** Epoch seconds → "07.10.2026 · 14:05" — when a payment went out (device feedback 2026-10-09). */
 fun formatDateTime(epochSeconds: Long): String {
     val t = local(epochSeconds)

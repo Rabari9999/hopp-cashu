@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
+import space.sovereigncast.hopp.data.ListeningRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.QueueRepository
 import space.sovereigncast.hopp.data.Settings
@@ -74,6 +75,8 @@ class PlayerController(
     private val value: ValueService? = null,
     /** How much listening one streaming batch covers; shorter in tests. */
     private val settleEvery: kotlin.time.Duration = SETTLE_EVERY,
+    /** The listening statistics; null in tests that do not count. */
+    private val listening: ListeningRepository? = null,
     private val nowMs: () -> Long = { monotonic.elapsedNow().inWholeMilliseconds },
 ) {
     private val _current = MutableStateFlow<NowPlaying?>(null)
@@ -101,6 +104,8 @@ class PlayerController(
     private var lastPosition = 0L
     private var heardId: Long? = null
     private var heardAt = 0L
+    /** When [hear] last ran, on the clock: listening time is the clock's, not the episode's. */
+    private var heardClockAt = 0L
     /** A clip being played (podcast:soundbite): it pauses at [Clip.endMs] and
      *  goes back to where the listener was. */
     private class Clip(val itemId: Long, val startMs: Long, val endMs: Long, val returnTo: Long) { var reached = false }
@@ -169,7 +174,10 @@ class PlayerController(
                 when {
                     (ended && wasPlaying) || outro != null -> {
                         // The end skipped: as if heard to it — paused here, the next one from the queue.
-                        if (outro != null) { engine.pause(); _skipped.tryEmit(Skipped(id, outro, atStart = false)) }
+                        if (outro != null) {
+                            engine.pause(); _skipped.tryEmit(Skipped(id, outro, atStart = false))
+                            _current.value?.item?.takeIf { it.id == id }?.let { item -> listening?.let { l -> scope.launch { l.skipped(item, outro * 1000L) } } }
+                        }
                         episodes.setPlayed(id, true); lastSaved = 0
                         // Heard to its end: its streamed parts of a sat go out now, rounded up.
                         value?.let { v -> scope.launch { delay(ROUND_UP_DELAY); runCatching { v.settle(roundUp = setOf(id)) } } }
@@ -179,6 +187,8 @@ class PlayerController(
                         episodes.savePosition(id, s.positionMs, paused = !s.isPlaying); lastSaved = s.positionMs
                     }
                 }
+                // Paused or over: what was counted goes into the statistics, and to sync before long.
+                if (wasPlaying && (!s.isPlaying || outro != null)) listening?.let { l -> scope.launch { runCatching { l.flush(note = true) } } }
                 // After a skipped end the pause that follows is not one to save over "played".
                 wasPlaying = s.isPlaying && outro == null
             }
@@ -225,10 +235,16 @@ class PlayerController(
     private fun hear(id: Long, s: PlaybackState) {
         val delta = s.positionMs - heardAt
         val heard = s.isPlaying && heardId == id && delta > 0 && delta <= MAX_TICK_MS * s.speed.coerceAtLeast(1f)
+        val clock = nowMs()
+        val clockDelta = (clock - heardClockAt).coerceIn(0, MAX_TICK_MS)
+        heardClockAt = clock
         heardId = id
         heardAt = s.positionMs
-        if (!heard || value == null) return
+        if (!heard) return
         val item = _current.value?.item?.takeIf { it.id == id } ?: return
+        // The statistics: the clock's time, and the episode's own (speed and skipped silence beyond it).
+        listening?.let { l -> scope.launch { runCatching { l.heard(item, clockDelta.coerceAtMost(delta), delta) } } }
+        if (value == null) return
         scope.launch { runCatching { value.accrue(item, s.positionMs, delta) } }
     }
 
@@ -351,6 +367,7 @@ class PlayerController(
             if (skipIntro && intro > 0 && start < intro * 1000L && longEnough(show!!, (item.durationSeconds ?: 0) * 1000L)) {
                 start = intro * 1000L
                 _skipped.tryEmit(Skipped(item.id, intro, atStart = true))
+                listening?.skipped(item, intro * 1000L)
             }
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
@@ -473,13 +490,22 @@ class PlayerController(
     fun skipBy(deltaMs: Long) = seekTo(state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)
     fun skipForward() = skipBy(_settings.value.skipForwardSeconds * 1000L)
-    fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let(engine::seekTo) }
-    fun previousChapter() { _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let(engine::seekTo) }
+    fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
+    fun previousChapter() { _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
+
+    /** A transcript opened to read along — counted for the statistics. */
+    fun transcriptOpened() { listening?.let { l -> scope.launch { l.counted(transcripts = 1) } } }
+
+    /** A chapter's start, gone to by the listener — counted for the statistics. */
+    fun toChapter(startMs: Long) {
+        engine.seekTo(startMs)
+        listening?.let { l -> scope.launch { l.counted(chapters = 1) } }
+    }
 
     /** Headset, notification and car "next": the next chapter, past the last
      *  one the next episode in the queue. */
     fun next() {
-        _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { engine.seekTo(it); return }
+        _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
         scope.launch {
             engine.state.value.itemId?.toLongOrNull()?.let { episodes.savePosition(it, engine.state.value.positionMs) }
             advance()
@@ -488,7 +514,7 @@ class PlayerController(
 
     /** "Previous": the previous chapter, else the start of the episode. */
     fun previous() {
-        _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { engine.seekTo(it); return }
+        _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
         engine.seekTo(0)
     }
 

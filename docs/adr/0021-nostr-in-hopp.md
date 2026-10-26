@@ -596,6 +596,17 @@ switches.
      fresh default and downloaded although automatic downloads were off.
      Tests: `RelayFrameTest`, `RelayPoolTest`, `SyncAuditTest` (delta audit 6).
 
+   *Amended a ninth time 2026-10-26 (0.3.1):* two more things in step.
+   - **A show's skipped start and end** ride with its subscription entry
+     (`intro`, `outro` in seconds, 0–600; left out when 0) — taken from
+     elsewhere only in those bounds, anything else counts as none. A device
+     still on 0.3.0 rebuilds the entry without them when it notes the show.
+   - **A fifth document, `hopp/stats`:** the listening statistics (ADR 0023),
+     each device writing only keys with its own random name, so the counts add
+     up across devices and are never merged over each other. Noted at most
+     every 30 minutes while listening, on a pause after 5 and when the app
+     goes to the background; never a round of its own.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode

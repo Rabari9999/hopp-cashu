@@ -250,3 +250,9 @@ SELECT id FROM episode WHERE podcast_id = ? AND played = 0;
 
 unplayedUpTo:
 SELECT id FROM episode WHERE podcast_id = :podcastId AND played = 0 AND (id = :id OR published_at <= :publishedAt);
+
+-- Listening before the statistics counted (version 16): the length of every episode played to its
+-- end by listening, before [before] — an estimate the statistics page marks as such.
+heardBefore:
+SELECT CAST(coalesce(sum(duration_seconds), 0) AS INTEGER) FROM episode
+WHERE played = 1 AND played_at IS NOT NULL AND last_played_at IS NOT NULL AND played_at < ? AND duration_seconds IS NOT NULL;

@@ -250,9 +250,13 @@ class SyncManager(
     }
 
     /** Hopp goes to the background: what is not out yet goes now. */
-    fun onBackground() {
+    /** [prepare]: what is noted just before (the listening statistics, kept back while playing). */
+    fun onBackground(prepare: suspend () -> Unit = {}) {
         if (!journal.enabled) return
-        if (documents().any { engine.unpublished(it) }) { pending?.cancel(); scope.launch { syncNow() } }
+        scope.launch {
+            runCatching { prepare() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+            if (documents().any { engine.unpublished(it) }) { pending?.cancel(); syncNow() }
+        }
     }
 
     companion object {
