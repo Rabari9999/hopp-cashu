@@ -7,7 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Wallet:** The wallet page says in plain words what your wallet reaches, and at which of your shows it misses recipients.
+- **Wallet:** The wallet page says in plain words what your wallet reaches.
 - **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
 
 ### 🐛 Fixes

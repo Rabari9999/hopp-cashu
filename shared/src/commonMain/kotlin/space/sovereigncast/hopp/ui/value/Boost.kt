@@ -66,7 +66,6 @@ import space.sovereigncast.hopp.resources.stream_reach_none
 import space.sovereigncast.hopp.resources.reach_node
 import space.sovereigncast.hopp.resources.reach_address
 import space.sovereigncast.hopp.resources.boost_wallet_silent
-import space.sovereigncast.hopp.resources.wallet_retry
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.boost_close
 import space.sovereigncast.hopp.resources.boost_custom
@@ -381,6 +380,7 @@ fun BoostSheet(
     val left by vm.budgetLeft.collectAsState()
     val balance by vm.walletBalance.collectAsState()
     val silent by vm.walletSilent.collectAsState()
+    val checking by vm.checkingBalance.collectAsState()
     LaunchedEffect(wallet != null) { if (wallet != null) vm.checkWalletBalance() }
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHapticFeedback.current
@@ -470,7 +470,7 @@ fun BoostSheet(
                 // No answer from the wallet: a boost now would end "outcome unknown" (device feedback 2026-10-26).
                 if (silent) {
                     Text(stringResource(Res.string.boost_wallet_silent, w.label), color = colors.error)
-                    TextButton(onClick = vm::checkWalletBalance, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_retry), fontWeight = FontWeight.Bold) }
+                    Retry(checking, vm::checkWalletBalance)
                 }
                 BigButton(
                     if (over && !overConfirmed) stringResource(Res.string.boost_send_over, formatSats(amount)) else stringResource(Res.string.boost_send, formatSats(amount)),

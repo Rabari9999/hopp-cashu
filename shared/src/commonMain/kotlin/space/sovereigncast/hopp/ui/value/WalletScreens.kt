@@ -11,11 +11,6 @@ import space.sovereigncast.hopp.resources.wallet_reach_address_keysend
 import space.sovereigncast.hopp.resources.wallet_reach_node
 import space.sovereigncast.hopp.resources.wallet_reach_node_note
 import space.sovereigncast.hopp.resources.wallet_reach_node_off
-import space.sovereigncast.hopp.resources.wallet_reach_shows
-import space.sovereigncast.hopp.resources.wallet_reach_shows_some
-import space.sovereigncast.hopp.resources.wallet_reach_which
-import space.sovereigncast.hopp.resources.wallet_reach_hide
-import space.sovereigncast.hopp.resources.wallet_reach_show_percent
 import space.sovereigncast.hopp.resources.wallet_reach_keysend_wallets
 import space.sovereigncast.hopp.resources.history_unknown_note
 import space.sovereigncast.hopp.resources.history_all_paid
@@ -30,6 +25,7 @@ import space.sovereigncast.hopp.resources.wallet_own_value
 import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -190,13 +186,13 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             if (silent) {
                 // No answer at all (device feedback 2026-10-26: coinos with its app closed).
                 Text(stringResource(Res.string.wallet_silent), color = colors.error)
-                TextButton(onClick = vm::refreshBalance, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_retry), fontWeight = FontWeight.Bold) }
+                val checking by vm.checking.collectAsState()
+                Retry(checking, vm::refreshBalance)
             } else Text(
                 balance?.let { stringResource(Res.string.wallet_balance, formatSats(it / 1000)) } ?: stringResource(Res.string.wallet_balance_unknown),
                 color = colors.onSurfaceVariant,
             )
-            val reach by vm.reach.collectAsState()
-            WalletReach(w, reach)
+            WalletReach(w)
             OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
         }
 
@@ -305,13 +301,12 @@ private fun PaymentRow(p: Payment) {
 
 /**
  * What the connection reaches, in plain words (device feedback 2026-10-26: "keysend: no" said
- * nothing about what that means for a boost or for streaming) — and the subscribed shows it does
- * not reach in full. The wallet decides what a connection may do.
+ * nothing about what that means for a boost or for streaming). The wallet decides what a
+ * connection may do.
  */
 @Composable
-private fun WalletReach(w: ConnectedWallet, reach: ShowsReach?) {
+private fun WalletReach(w: ConnectedWallet) {
     val colors = MaterialTheme.colorScheme
-    var showList by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerHigh).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -326,29 +321,17 @@ private fun WalletReach(w: ConnectedWallet, reach: ShowsReach?) {
             stringResource(if (w.canKeysend) Res.string.wallet_reach_node_note else Res.string.wallet_reach_node_off),
         )
         if (!w.canPayInvoice && !w.canKeysend) Text(stringResource(Res.string.wallet_cannot_pay), color = colors.error)
-        reach?.takeIf { it.shows.isNotEmpty() }?.let { r ->
-            val none = r.shows.count { it.percent == 0 }
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Hopp.colors.value.copy(alpha = 0.12f)).padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    if (none > 0) stringResource(Res.string.wallet_reach_shows, r.shows.size, r.withValue, none)
-                    else stringResource(Res.string.wallet_reach_shows_some, r.shows.size, r.withValue),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (showList) r.shows.forEach { s ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(s.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(stringResource(Res.string.wallet_reach_show_percent, s.percent), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                    }
-                }
-                TextButton(onClick = { showList = !showList }, contentPadding = PaddingValues(0.dp)) {
-                    Text(stringResource(if (showList) Res.string.wallet_reach_hide else Res.string.wallet_reach_which), fontWeight = FontWeight.Bold, color = Hopp.colors.valueText)
-                }
-            }
-        }
         if (!w.canKeysend) Text(stringResource(Res.string.wallet_reach_keysend_wallets), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+    }
+}
+
+/** "Try again", and while the wallet is asked a small spinner in its place (device feedback 2026-10-26:
+ *  a tap seemed to do nothing). */
+@Composable
+internal fun Retry(checking: Boolean, onClick: () -> Unit) {
+    Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TextButton(onClick = onClick, enabled = !checking, contentPadding = PaddingValues(0.dp)) { Text(stringResource(Res.string.wallet_retry), fontWeight = FontWeight.Bold) }
+        if (checking) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
     }
 }
 

@@ -223,10 +223,9 @@ class ValueServiceTest {
         assertTrue(value.payments.first().isEmpty())
     }
 
-    /** The wallet page names the subscribed shows the wallet does not reach in full, by their
-     *  newest episode; the streaming sheet sets aside only what it reaches. */
+    /** Half reached: the streaming sheet says so and sets aside only that half. */
     @Test
-    fun theShowsAWalletDoesNotReachAreNamed() = test {
+    fun onlyWhatTheWalletReachesIsSetAside() = test {
         walletMethods = listOf("pay_invoice", "get_balance", "get_info")
         wallet.connect(uri())
         settings.update { it.copy(streaming = true, streamRateSats = 60) }
@@ -234,8 +233,6 @@ class ValueServiceTest {
         val mixedId = (podcasts.subscribe("https://pod.test/mixed.xml") as SubscribeResult.Subscribed).podcastId
         val m = episodes.ofPodcast(mixedId).first().single()
         assertEquals(Reach(50, listOf(UnreachableShare("Host", 50, "keysend"))), value.reach(m))
-        assertEquals(listOf("Show" to 0, "Mixed" to 50), value.showsNotReached().map { it.title to it.percent })
-        assertEquals(2, value.showsWithValue())
         value.accrue(m, 60_000, 30_000)
         assertEquals(listOf("Alice"), value.pendingFor(m.id).map { it.name })
         assertEquals(15_000L, value.pendingMsat.first())
@@ -262,6 +259,36 @@ class ValueServiceTest {
         value.settle()
         assertEquals(listOf(host to 27L, cohost to 3L), keysends())
         assertTrue(!value.walletSilent.value)
+    }
+
+    /** Device feedback 2026-10-26: "try again" seemed to do nothing. While the wallet is asked,
+     *  the wallet page and the boost sheet know it — and show a spinner. */
+    @Test
+    fun askingTheWalletAgainShowsItIsWorking() = test {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            wallet.connect(uri())
+            fake.asleep = true
+            val page = space.sovereigncast.hopp.ui.value.WalletViewModel(wallet, value, settings)
+            assertTrue(page.checking.value, "asked at once")
+            withTimeout(5_000) { while (page.checking.value) delay(20) }
+            assertTrue(page.silent.value)
+            // Awake again: the answer comes, and the spinner goes.
+            fake.asleep = false
+            page.refreshBalance()
+            withTimeout(5_000) { while (page.checking.value) delay(20) }
+            assertTrue(!page.silent.value)
+            assertEquals(21_000_000L, page.balanceMsat.value)
+
+            val sheet = space.sovereigncast.hopp.ui.value.ValueBarViewModel(value, wallet, settings, BoostReports(settings, { }, scope))
+            fake.asleep = true
+            sheet.checkWalletBalance()
+            assertTrue(sheet.checkingBalance.value)
+            withTimeout(5_000) { while (sheet.checkingBalance.value) delay(20) }
+            assertTrue(sheet.walletSilent.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test

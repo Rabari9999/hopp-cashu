@@ -927,11 +927,6 @@
     <string name="wallet_reach_node">Empfänger mit Node-Adresse (Keysend)</string>
     <string name="wallet_reach_node_note">Viele Podcasts empfangen so – oft die Hosts selbst.</string>
     <string name="wallet_reach_node_off">Viele Podcasts empfangen so – oft die Hosts selbst. Ihr Anteil wird weder gesendet noch angespart und geht auch nicht an die anderen.</string>
-    <string name="wallet_reach_shows">In deinen Abos erreicht diese Wallet bei %1$d von %2$d Shows nicht alle Empfänger, bei %3$d gar keinen.</string>
-    <string name="wallet_reach_shows_some">In deinen Abos erreicht diese Wallet bei %1$d von %2$d Shows nicht alle Empfänger.</string>
-    <string name="wallet_reach_which">Welche Shows?</string>
-    <string name="wallet_reach_hide">Ausblenden</string>
-    <string name="wallet_reach_show_percent">%1$d % erreicht</string>
     <string name="wallet_reach_keysend_wallets">Keysend können z. B. Alby Hub, Zeus und LNbits. Ob eine Verbindung es darf, legt die Wallet fest.</string>
     <string name="wallet_silent">Die Wallet antwortet gerade nicht. Manche Wallets antworten nur, solange ihre App offen ist – bei coinos hilft „Antwort während geschlossen“.</string>
     <string name="wallet_retry">Erneut versuchen</string>

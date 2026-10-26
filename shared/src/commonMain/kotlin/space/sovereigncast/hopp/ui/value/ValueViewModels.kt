@@ -47,33 +47,31 @@ class WalletViewModel(
     private val _silent = MutableStateFlow(false)
     /** The wallet gave no answer to the balance question — it would not answer a payment either. */
     val silent: StateFlow<Boolean> = _silent.asStateFlow()
-    private val _reach = MutableStateFlow<ShowsReach?>(null)
-    /** The subscribed shows this wallet does not reach in full; null until looked at. */
-    val reach: StateFlow<ShowsReach?> = _reach.asStateFlow()
+    private val _checking = MutableStateFlow(false)
+    /** The balance question is out — "try again" shows it is working. */
+    val checking: StateFlow<Boolean> = _checking.asStateFlow()
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
 
-    init { refreshBalance(); refreshReach() }
+    init { refreshBalance() }
 
     fun refreshBalance() {
-        if (wallet.wallet.value == null) return
+        if (wallet.wallet.value == null || _checking.value) return
+        _checking.value = true
         viewModelScope.launch {
-            val answer = wallet.balance()
-            _balance.value = (answer as? BalanceAnswer.Known)?.msat
-            _silent.value = answer == BalanceAnswer.Silent
+            try {
+                val answer = wallet.balance()
+                _balance.value = (answer as? BalanceAnswer.Known)?.msat
+                _silent.value = answer == BalanceAnswer.Silent
+            } finally { _checking.value = false }
         }
-    }
-
-    private fun refreshReach() {
-        if (wallet.wallet.value == null) { _reach.value = null; return }
-        viewModelScope.launch { _reach.value = runCatching { ShowsReach(value.showsNotReached(), value.showsWithValue()) }.getOrNull() }
     }
 
     fun connect(uri: String) {
         _connect.value = ConnectState.Working
         viewModelScope.launch {
             _connect.value = try {
-                wallet.connect(uri); refreshBalance(); refreshReach(); ConnectState.Idle
+                wallet.connect(uri); refreshBalance(); ConnectState.Idle
             } catch (e: Exception) {
                 ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
             }
@@ -84,16 +82,12 @@ class WalletViewModel(
         wallet.disconnect()
         _balance.value = null
         _silent.value = false
-        _reach.value = null
         // Without a wallet nothing streams (ADR 0005).
         update { it.copy(streaming = false) }
     }
 
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
 }
-
-/** [shows]: those not reached in full, least first; [withValue]: how many have a split at all. */
-data class ShowsReach(val shows: List<space.sovereigncast.hopp.value.ShowReach>, val withValue: Int)
 
 class HistoryViewModel(value: ValueService) : ViewModel() {
     val payments: StateFlow<List<Payment>?> = state(value.payments, null)
@@ -156,15 +150,21 @@ class ValueBarViewModel(
     /** The wallet did not answer the boost sheet's balance question: a boost would go unanswered. */
     val walletSilent: StateFlow<Boolean> = _walletSilent.asStateFlow()
     private var balanceAsked: kotlinx.coroutines.Deferred<BalanceAnswer>? = null
+    private val _checkingBalance = MutableStateFlow(false)
+    /** The balance question is out — the sheet's "try again" shows it is working. */
+    val checkingBalance: StateFlow<Boolean> = _checkingBalance.asStateFlow()
 
     /** Asks the wallet what it holds — when the boost sheet opens and after a boost (maintainer
      *  2026-10-21: 1,000 sats with 500 in the wallet should not be possible at all). */
     fun checkWalletBalance() {
+        _checkingBalance.value = true
         balanceAsked = viewModelScope.async {
-            value.walletBalance().also {
-                _walletBalance.value = (it as? BalanceAnswer.Known)?.msat
-                _walletSilent.value = it == BalanceAnswer.Silent
-            }
+            try {
+                value.walletBalance().also {
+                    _walletBalance.value = (it as? BalanceAnswer.Known)?.msat
+                    _walletSilent.value = it == BalanceAnswer.Silent
+                }
+            } finally { _checkingBalance.value = false }
         }
     }
 

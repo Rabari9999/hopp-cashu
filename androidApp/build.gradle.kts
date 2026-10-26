@@ -63,7 +63,7 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         }
         listOfNotNull(stamp, sha).joinToString("-")
     }
-val appVersion = "0.3.0"
+val appVersion = "0.3.1"
 // A beta's versionCode: minutes since 2026 at its commit, so every beta handed on updates the one
 // before (delta audit 2026-10-22). Its own app id, so it never meets the release's codes.
 val betaVersionCode: Int? = (git("log", "-1", "--format=%ct")?.toLongOrNull()

@@ -698,9 +698,6 @@ class AndroidAppFlowTest {
         tap("What my wallet can do")
         waitFor("What this connection can do")
         check(has("Recipients with a node address (keysend)") && has("Boosts and streaming to Lightning addresses")) { screen().toString() }
-        waitFor("In your subscriptions this wallet does not reach every recipient for 1 of 1 shows, none at all for 1.")
-        tap("Which shows?")
-        waitFor("0% reached")
         // The relay of this connection is nowhere: no answer, said as such.
         waitFor("The wallet is not answering right now", substring = true)
         snapshot("reach-wallet")

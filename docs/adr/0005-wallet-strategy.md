@@ -117,8 +117,9 @@ redistributed. Owed rows of such recipients from before, or from another
 wallet, are dropped quietly. The listener sees it where it matters instead:
 the value bar says "not possible here" when nothing is reachable, the streaming
 sheet names the unreachable recipients with their percent, and the wallet page
-says in plain words what the connection reaches, with the subscribed shows it
-does not reach in full. Before a batch pays, Hopp asks the wallet's balance:
+says in plain words what the connection reaches. (A count of the subscribed
+shows it does not reach in full was tried and dropped the same day: it said
+less than hoped.) Before a batch pays, Hopp asks the wallet's balance:
 a wallet that gives no answer — coinos answers only while its app is open or
 with "answer while closed" on — is sent nothing, so no share ends "outcome
 unknown"; what is owed waits for the next batch. The boost sheet holds a boost

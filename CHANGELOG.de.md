@@ -7,7 +7,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht und bei welchen deiner Shows Empfänger fehlen.
+- **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht.
 - **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
 
 ### 🐛 Fixes

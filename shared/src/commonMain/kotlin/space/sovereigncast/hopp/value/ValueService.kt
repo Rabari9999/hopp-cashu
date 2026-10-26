@@ -116,9 +116,6 @@ data class UnreachableShare(val name: String, val percent: Int, val reason: Stri
  */
 data class Reach(val percent: Int, val unreachable: List<UnreachableShare>)
 
-/** A show the connected wallet does not reach in full, by its newest episode. */
-data class ShowReach(val podcastId: Long, val title: String, val percent: Int)
-
 /** More than today's budget has left. */
 class OverBudgetException : Exception("over today's budget")
 
@@ -253,22 +250,6 @@ class ValueService(
             unreachable(s.recipient, info)?.let { UnreachableShare(s.recipient.name ?: s.recipient.address.take(12), percentOf(s.amountMsat), it) }
         }
         return Reach(percentOf(REACH_BASE - shares.filter { unreachable(it.recipient, info) != null }.sumOf { it.amountMsat }), off)
-    }
-
-    /** The subscribed shows the connected wallet does not reach in full, least reached first —
-     *  each by its newest episode, whose split is the one heard next. */
-    suspend fun showsNotReached(): List<ShowReach> {
-        if (wallet.wallet.value == null) return emptyList()
-        return podcasts.shows.first().mapNotNull { show ->
-            val newest = episodes.ofPodcastPage(show.id, 1).first().firstOrNull() ?: return@mapNotNull null
-            val r = reach(newest) ?: return@mapNotNull null
-            ShowReach(show.id, show.title, r.percent).takeIf { r.percent < 100 }
-        }.sortedBy { it.percent }
-    }
-
-    /** How many subscribed shows have a split at all — the "of" in "6 of 9 shows". */
-    suspend fun showsWithValue(): Int = podcasts.shows.first().count { show ->
-        episodes.ofPodcastPage(show.id, 1).first().firstOrNull()?.let { blockFor(it) } != null
     }
 
     private fun percentOf(msat: Long) = ((msat * 100 + REACH_BASE / 2) / REACH_BASE).toInt()
