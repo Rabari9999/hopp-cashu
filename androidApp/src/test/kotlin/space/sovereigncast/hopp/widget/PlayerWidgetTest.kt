@@ -47,6 +47,23 @@ class PlayerWidgetTest {
         onNode(hasContentDescription("Boost")).assertDoesNotExist()
     }
 
+    /** Device feedback 2026-10-26: paused from the widget, its button stayed "pause" — the widget
+     *  draws what the player state says now, not what it read once (Glance's test harness does not
+     *  recompose, so the change itself is checked on a device). */
+    @Test
+    fun itDrawsWhatThePlayerSaysNow() = runGlanceAppWidgetUnitTest {
+        setAppWidgetSize(DpSize(320.dp, 160.dp))
+        setContext(org.robolectric.RuntimeEnvironment.getApplication())
+        WidgetState.now.value = now.copy(playing = false, positionMs = 40 * 60_000L)
+        try {
+            provideComposable { PlayerWidget().Live(lastHeard = now) }
+            onNode(hasContentDescription("Play")).assertExists()
+            onNode(hasText("31 min left")).assertExists()
+        } finally {
+            WidgetState.now.value = null
+        }
+    }
+
     @Test
     fun nothingHeardYetItOpensHopp() = runGlanceAppWidgetUnitTest {
         setAppWidgetSize(DpSize(320.dp, 160.dp))

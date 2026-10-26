@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -89,9 +92,22 @@ class PlayerWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SMALL, LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val now = WidgetState.now.value ?: WidgetState.lastHeard()
-        val cover = now?.artworkUrl?.let { Artwork.load(it) }
-        provideContent { Content(now, cover) }
+        val lastHeard = if (WidgetState.now.value == null) WidgetState.lastHeard() else null
+        provideContent { Live(lastHeard) }
+    }
+
+    /**
+     * What plays, followed while the widget's session lasts (device feedback 2026-10-26: paused
+     * from the widget, its button stayed "pause" — an update only recomposes a running session,
+     * and what was read once when it started stayed as it was). [lastHeard]: until anything plays.
+     */
+    @Composable
+    internal fun Live(lastHeard: WidgetNow?) {
+        val live by WidgetState.now.collectAsState()
+        val now = live ?: lastHeard
+        val url = now?.artworkUrl
+        val cover by produceState(Artwork.cached(url), url) { value = url?.let { Artwork.load(it) } }
+        Content(now, cover)
     }
 
     /** What the widget draws for [now] — apart, for the tests. */
@@ -268,8 +284,11 @@ object WidgetState {
 }
 
 /** The cover, small enough for a widget's update — the last one kept, as it rarely changes. */
-private object Artwork {
+internal object Artwork {
     private var last: Pair<String, Bitmap>? = null
+
+    /** The cover of [url], if it is the one loaded last. */
+    fun cached(url: String?): Bitmap? = last?.takeIf { it.first == url }?.second
 
     suspend fun load(url: String): Bitmap? {
         last?.takeIf { it.first == url }?.let { return it.second }
