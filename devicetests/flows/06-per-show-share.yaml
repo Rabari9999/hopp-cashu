@@ -137,7 +137,18 @@ name: Per show and share
 - extendedWaitUntil:
     notVisible: "Hopp link"
     timeout: 10000
+# Paused, so what was heard is written before the next flow ends the app. The player's own
+# button, beside its speed: Home below it has a "Pause" above "Boost" too.
 - tapOn:
     text: "Pause"
-    above: "Boost"
+    rightOf: "Playback speed"
+- extendedWaitUntil:
+    visible:
+      text: "Play"
+      rightOf: "Playback speed"
+    timeout: 10000
 - tapOn: "Close player"
+# To the background, as a listener leaves the app: what was heard is written then — the next
+# flow starts the app anew and reads it in the stats (device check 2026-10-27).
+- pressKey: home
+- waitForAnimationToEnd

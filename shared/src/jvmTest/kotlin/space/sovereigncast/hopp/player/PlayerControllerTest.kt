@@ -359,6 +359,21 @@ class PlayerControllerTest {
         until("Ep 1 from 0") { engine.loaded.last().let { it.id == e1.id.toString() && it.startPositionMs == 0L } }
     }
 
+    /** Device check 2026-10-27: what was heard is in the database once listening pauses — not only
+     *  every half minute — so an app ended right after keeps it. */
+    @Test
+    fun whatWasHeardIsWrittenWhenListeningPauses() = test {
+        val listening = space.sovereigncast.hopp.data.ListeningRepository(db, space.sovereigncast.hopp.platform.MemorySecretStore(), { 1_790_000_000 }) { kotlinx.datetime.TimeZone.UTC }
+        val counting = PlayerController(engine, episodes, podcasts, queue, settings, scope, listening = listening) { clockMs }
+        val (e1) = episodes()
+        counting.play(e1)
+        until("loaded") { engine.loaded.isNotEmpty() }
+        var pos = 0L
+        repeat(20) { clockMs += 500; pos += 500; at(pos) }
+        at(pos, playing = false)
+        until("written") { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+    }
+
     /** Review 2026-10-27: an episode whose feed gives no length takes the skip, and goes back to
      *  its start once it turns out too short for it — a trailer does not begin at its end. */
     @Test

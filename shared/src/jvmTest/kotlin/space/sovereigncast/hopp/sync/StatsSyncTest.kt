@@ -112,6 +112,19 @@ class StatsSyncTest {
         assertEquals(1_000_000L, phone.listening.stats(StatsRange.All).boostMsat, "once, not under both keys")
     }
 
+    /** Device check 2026-10-27: with sync off as well, going to the background writes what was
+     *  heard — an app ended from there kept nothing of its last half minute. */
+    @Test
+    fun theBackgroundWritesWhatWasHeardWithSyncOff() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.listening.heard(phone.item(0), 10_000, 10_000)
+        phone.sync.onBackground { phone.listening.flush(force = true) }
+        kotlinx.coroutines.withTimeout(5_000) {
+            while (phone.db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } == 0L) kotlinx.coroutines.delay(10)
+        }
+    }
+
     /** Review 2026-10-27: a day sync dropped as too old is not noted again with every note after. */
     @Test
     fun whatSyncDropsAsTooOldIsNotNotedAgain() = runBlocking<Unit> {

@@ -826,6 +826,27 @@ class AndroidAppFlowTest {
         snapshot("per-show")
     }
 
+    /** Device check 2026-10-27: paused in now playing over Home, what was heard is in the
+     *  database at once — an app ended right after does not lose it. */
+    @Test
+    fun whatWasHeardIsWrittenWhenPausedInNowPlayingOverHome() {
+        rule.setContent { App() }
+        openEpisode()
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        val engine = engine() as FakeEngine
+        var pos = engine.state.value.positionMs
+        repeat(20) { pos += 500; rule.runOnUiThread { engine.seekTo(pos) }; Thread.sleep(20); rule.waitForIdle() }
+        player.minimize()
+        tap("Home")
+        rule.waitForIdle()
+        player.expand()
+        waitFor("Boost")
+        rule.onAllNodes(hasContentDescription("Pause") and hasClickAction()).onLast().performClick()
+        until { !engine.state.value.isPlaying }
+        val db = koin.get<space.sovereigncast.hopp.db.HoppDatabase>()
+        until { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+    }
+
     /** Maintainer 2026-10-26: listening statistics in the settings — time, top shows, Value for Value. */
     @Test
     fun theStatisticsShowWhatWasHeardAndGiven() {
