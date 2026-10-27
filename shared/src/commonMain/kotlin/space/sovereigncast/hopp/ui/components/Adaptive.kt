@@ -66,3 +66,13 @@ class PageBack {
 }
 
 val LocalPageBack = staticCompositionLocalOf { PageBack() }
+
+/**
+ * A title a page gives the top bar itself (maintainer 2026-10-27): a person's page shows the
+ * name large in its head, and the bar takes it only once that has scrolled away — never twice.
+ */
+class PageTitle {
+    var text: String? by mutableStateOf(null)
+}
+
+val LocalPageTitle = staticCompositionLocalOf { PageTitle() }

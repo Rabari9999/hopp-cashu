@@ -1552,6 +1552,8 @@ class AndroidAppFlowTest {
         waitFor("In your subscriptions")
         check(has("Host on Test Show") && has("Ep 2") && has("primal.net ↗") && has("1 episode")) { screen().toString() }
         check(has("Found by name", substring = true)) { "says that the name went to the index" }
+        // Maintainer 2026-10-27: the name once — in the page's head; the top bar takes it only when that scrolls away.
+        check(rule.onAllNodes(hasText("Karsten")).fetchSemanticsNodes().size == 1) { screen().toString() }
         snapshot("person")
 
         tap("Discover")

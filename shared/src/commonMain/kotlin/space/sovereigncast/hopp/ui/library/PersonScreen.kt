@@ -30,6 +30,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.LocalDensity
+import space.sovereigncast.hopp.ui.components.LocalPageTitle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -133,7 +139,16 @@ fun PersonScreen(
     val subscribing by vm.subscribing.collectAsState()
     val colors = MaterialTheme.colorScheme
     var open by rememberSaveable { mutableStateOf(setOf<Long>()) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    // The name in the top bar only once the head with it has scrolled away (maintainer 2026-10-27).
+    val list = rememberLazyListState()
+    val pageTitle = LocalPageTitle.current
+    val nameGone = with(LocalDensity.current) { 64.dp.roundToPx() }
+    val scrolled by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > nameGone } }
+    DisposableEffect(scrolled, person.name) {
+        pageTitle.text = person.name.takeIf { scrolled }
+        onDispose { if (pageTitle.text == person.name) pageTitle.text = null }
+    }
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Header(person) }
 
         item { Section(stringResource(Res.string.person_in_library), library?.let { pluralStringResource(Res.plurals.person_episodes, it.size, it.size) }) }

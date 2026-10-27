@@ -222,6 +222,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         }
         Unit
     }
+    val pageTitle = remember { space.sovereigncast.hopp.ui.components.PageTitle() }
     val title = when {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
@@ -232,7 +233,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
-        destination?.hasRoute(PersonRoute::class) == true -> entry?.toRoute<PersonRoute>()?.name.orEmpty()
+        destination?.hasRoute(PersonRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
@@ -352,6 +353,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
+            space.sovereigncast.hopp.ui.components.LocalPageTitle provides pageTitle,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
             space.sovereigncast.hopp.ui.identity.LocalOpenStats provides { nav.navigate(StatsRoute) },
             // A person's page (0.3.1) — from an episode, or from the player, which makes way for it.
@@ -402,7 +404,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         snackbarHost = { SnackbarHost(snackbar) },
                         topBar = {
                             CenterAlignedTopAppBar(
-                                title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+                                // Faded, so a page's own title comes up as its head scrolls away.
+                                title = { androidx.compose.animation.Crossfade(title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
                                 navigationIcon = {
                                     // The page's own step first (a picked episode), then the back stack.
                                     if (onTab == null) IconButton(onClick = { pageBack.step?.invoke() ?: nav.popBackStack() }) {
