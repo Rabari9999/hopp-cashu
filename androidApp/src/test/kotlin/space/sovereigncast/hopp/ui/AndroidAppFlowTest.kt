@@ -1540,6 +1540,31 @@ class AndroidAppFlowTest {
         check(has("Karsten") && has("primal.net ↗")) { screen().toString() }
     }
 
+    /** Maintainer 2026-10-26: a person's page — from the player's people, which make way for it,
+     *  and from Discover's search; the episodes with them in the library, their link a button of its own. */
+    @Test
+    fun aPersonsPageShowsTheirEpisodes() {
+        rule.setContent { App() }
+        openEpisode()
+        tapTop("People")
+        waitFor("All episodes with Karsten ›")
+        rule.onNode(hasText("All episodes with Karsten ›", substring = true) and hasClickAction()).performClick()
+        waitFor("In your subscriptions")
+        check(has("Host on Test Show") && has("Ep 2") && has("primal.net ↗") && has("1 episode")) { screen().toString() }
+        check(has("Found by name", substring = true)) { "says that the name went to the index" }
+        snapshot("person")
+
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextClearance()
+        rule.onNode(hasSetTextAction()).performTextInput("Kars")
+        waitFor("People")
+        waitFor("Host on Test Show · 1 episode in your subscriptions")
+        check(has("Episodes with “Kars”")) { screen().toString() }
+        snapshot("discover-people")
+        rule.onNode(hasText("Karsten") and hasClickAction()).performClick()
+        waitFor("In your subscriptions")
+    }
+
     /** Who sees what (ADR 0015), behind the settings. */
     @Test
     fun thePrivacyPageSaysWhoSeesWhat() {

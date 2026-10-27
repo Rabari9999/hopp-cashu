@@ -34,6 +34,12 @@ enum class Source { PodcastIndex, Fyyd, Apple }
 
 /** A show as a directory knows it. The show page before subscribing loads the
  *  real feed; this is only enough to list it. */
+/** An episode the Podcast Index found for a person, with its show. */
+data class PersonHit(
+    val feedUrl: String, val feedTitle: String, val feedImage: String?, val feedAuthor: String?,
+    val guid: String, val title: String, val publishedAt: Long?, val durationSeconds: Long?,
+)
+
 data class DirectoryShow(
     val title: String,
     val feedUrl: String,
@@ -86,6 +92,18 @@ class PodcastIndexClient(private val http: HttpClient, private val clock: Clock)
         return get("search/byterm", credentials, *params.toTypedArray())["feeds"].objects()
             .mapNotNull { show(it) }
     }
+
+    /** Episodes naming [name] (`search/byperson`: the index looks through `podcast:person`,
+     *  titles and descriptions) — maintainer 2026-10-26, the person search. */
+    suspend fun byPerson(name: String, credentials: PodcastIndexCredentials, max: Int = 60): List<PersonHit> =
+        get("search/byperson", credentials, "q" to name, "max" to "$max")["items"].objects().mapNotNull { o ->
+            val feedUrl = o.str("feedUrl")?.takeIf { it.startsWith("http") } ?: return@mapNotNull null
+            PersonHit(
+                feedUrl = feedUrl, feedTitle = o.str("feedTitle") ?: return@mapNotNull null, feedImage = o.str("feedImage"),
+                feedAuthor = o.str("feedAuthor"), guid = o.str("guid") ?: return@mapNotNull null, title = o.str("title") ?: return@mapNotNull null,
+                publishedAt = o.str("datePublished")?.toLongOrNull(), durationSeconds = o.str("duration")?.toLongOrNull()?.takeIf { it > 0 },
+            )
+        }
 
     /**
      * What is popular right now (`podcasts/trending`) in [language], within
@@ -299,6 +317,12 @@ class DirectoryRepository(
             fresh
         }
         SearchResult(shows, failed = answers.filter { it.second.isFailure }.map { it.first })
+    }
+
+    /** Episodes naming [name] in every podcast the index knows; null where this build has no key. */
+    suspend fun byPerson(name: String): List<PersonHit>? {
+        val credentials = credentials() ?: return null
+        return podcastIndex.byPerson(name, credentials)
     }
 
     /** The feed address of the show with this `podcast:guid`, if the index knows it. */

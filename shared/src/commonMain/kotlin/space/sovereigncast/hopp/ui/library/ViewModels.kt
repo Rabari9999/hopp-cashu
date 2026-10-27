@@ -474,7 +474,11 @@ class DiscoverViewModel(
     private val directory: DirectoryRepository,
     private val settings: SettingsRepository,
     private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
+    private val people: space.sovereigncast.hopp.data.PeopleRepository,
 ) : ViewModel() {
+    private val _people = MutableStateFlow<List<space.sovereigncast.hopp.data.PersonMatch>>(emptyList())
+    /** People in the subscribed shows whose name holds the term (0.3.1) — found here, on the device. */
+    val persons: StateFlow<List<space.sovereigncast.hopp.data.PersonMatch>> = _people.asStateFlow()
     private val _scShows = MutableStateFlow(scDirectory.known)
     /** The curated Sovereigncast shows (device feedback 2026-10-10): results get
      *  their badge from it; null while it is still on its way. */
@@ -609,6 +613,7 @@ class DiscoverViewModel(
                         return@collectLatest
                     }
                     _search.value = SearchUi.Searching
+                    _people.value = runCatching { people.find(q) }.getOrDefault(emptyList())
                     val r = directory.search(q, v)
                     seen.value = (r.shows + seen.value).distinctBy { feedKey(it.feedUrl) }.take(SEEN)
                     _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)

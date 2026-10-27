@@ -164,6 +164,8 @@ private val SETTINGS_ROUTES = listOf(
     /** A shared link's episode and start: shown on top of the preview. */
     val episodeGuid: String? = null, val startSeconds: Long? = null,
 )
+/** A person across podcasts (0.3.1): what the place they were met in knew of them. */
+@Serializable data class PersonRoute(val name: String, val img: String? = null, val href: String? = null, val role: String? = null, val show: String? = null)
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
 @Serializable object StatsRoute
@@ -230,6 +232,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
+        destination?.hasRoute(PersonRoute::class) == true -> entry?.toRoute<PersonRoute>()?.name.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
@@ -351,6 +354,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
             space.sovereigncast.hopp.ui.identity.LocalOpenStats provides { nav.navigate(StatsRoute) },
+            // A person's page (0.3.1) — from an episode, or from the player, which makes way for it.
+            space.sovereigncast.hopp.ui.components.LocalOpenPerson provides { p, show ->
+                player.minimize(); nav.navigate(PersonRoute(p.name.trim(), p.img, p.href, p.role, show))
+            },
             space.sovereigncast.hopp.ui.comments.LocalOpenIdentity provides { player.minimize(); nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name)) },
             space.sovereigncast.hopp.ui.comments.LocalOpenWallet provides { player.minimize(); nav.navigate(WalletRoute) },
             // A show's category, opened in Discover (device feedback 2026-10-19).
@@ -465,7 +472,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 ) }
                             }
                             composable<DiscoverRoute> { Readable(LIST_WIDTH) {
-                                DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
+                                DiscoverScreen(
+                                    onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) },
+                                    onPerson = { p -> nav.navigate(PersonRoute(p.name, p.img, p.href, p.role, p.show)) },
+                                )
                             } }
                             composable<ShowPreviewRoute> { e ->
                                 // Subscribed: the show's own page takes the preview's place —
@@ -522,6 +532,15 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             } }
                             composable<WalletRoute> { Readable { WalletScreen() } }
                             composable<HistoryRoute> { Readable { HistoryScreen() } }
+                            composable<PersonRoute> { e ->
+                                val route = e.toRoute<PersonRoute>()
+                                Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.PersonScreen(
+                                    space.sovereigncast.hopp.ui.library.PersonRef(route.name, route.img, route.href, route.role, route.show),
+                                    onEpisode = { nav.navigate(EpisodeRoute(it)) },
+                                    // Another show's episode: its preview, the episode on top — as a shared link opens it.
+                                    onPreview = { url, guid, title, image -> nav.navigate(ShowPreviewRoute(url, title, image, episodeGuid = guid)) },
+                                ) }
+                            }
                             composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()

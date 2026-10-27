@@ -381,6 +381,20 @@
     <string name="person_group_audio_production">Audio production</string>
     <string name="person_group_audio_post">Audio post-production</string>
     <string name="person_group_visuals">Visuals</string>
+    <string name="person_all_episodes">All episodes with %1$s ›</string>
+    <string name="person_open_link">Open %1$s</string>
+    <string name="person_role_at">%1$s on %2$s</string>
+    <string name="person_in_library">In your subscriptions</string>
+    <string name="person_elsewhere">In other podcasts</string>
+    <string name="person_show_all">Show all %1$d ›</string>
+    <string name="person_none_library">%1$s is not in your subscriptions.</string>
+    <string name="person_none_elsewhere">The Podcast Index knows no other episodes.</string>
+    <string name="person_failed">The Podcast Index did not answer.</string>
+    <string name="person_subscribe">Subscribe to %1$s</string>
+    <string name="person_note">Found by name – namesakes may be among them. The name “%1$s” went to the Podcast Index.</string>
+    <string name="discover_people">People</string>
+    <string name="discover_person_everywhere">Episodes with “%1$s”</string>
+    <string name="discover_person_everywhere_note">in all podcasts, from the Podcast Index</string>
     <string name="settings_refresh">Looking for new episodes</string>
     <string name="refresh_off">Off</string>
     <string name="refresh_hourly">Every hour</string>
@@ -1039,5 +1053,13 @@
     <plurals name="per_show_count">
         <item quantity="one">set for %1$d show</item>
         <item quantity="other">set for %1$d shows</item>
+    </plurals>
+    <plurals name="person_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
+    <plurals name="discover_person_count">
+        <item quantity="one">%1$d episode in your subscriptions</item>
+        <item quantity="other">%1$d episodes in your subscriptions</item>
     </plurals>
 </resources>

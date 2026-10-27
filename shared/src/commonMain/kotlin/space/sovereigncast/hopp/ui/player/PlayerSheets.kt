@@ -56,14 +56,14 @@ import space.sovereigncast.hopp.sovereigncast.Boost2UnlockEpisode
 import space.sovereigncast.hopp.sovereigncast.ReleaseBoostingRound
 import space.sovereigncast.hopp.sovereigncast.Suggestion
 
-/** Who is in the episode (`podcast:person`), with picture and link. */
+/** Who is in the episode (`podcast:person`), with picture and link; a tap opens their page. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PeopleSheet(persons: List<Person>, onDismiss: () -> Unit) {
+fun PeopleSheet(persons: List<Person>, show: String? = null, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(stringResource(Res.string.sheet_people), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
-            items(persons) { p -> PersonRow(p, Modifier.padding(horizontal = 8.dp)) }
+            items(persons) { p -> PersonRow(p, Modifier.padding(horizontal = 8.dp), show = show) }
         }
     }
 }

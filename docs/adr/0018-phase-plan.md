@@ -54,7 +54,8 @@
   push (maintainer, 2026-10-20).*
 - WebPush and UnifiedPush (ADR 0007).
 - Person search, trending, categories (ADR 0008); video via
-  `alternateEnclosure`; `valueTimeSplit` with `remoteItem`.
+  `alternateEnclosure`; `valueTimeSplit` with `remoteItem`. *Person search
+  built 2026-10-27 (0.3.1); video put back (maintainer, same day).*
 - Sovereigncast show directory as a curated list (ADR 0008). *Built in
   phase 1 (2026-10-10): `sovereigncast.space/directory.json`.*
 - `podcast:trailer` on the show page. *Built 2026-10-15.*

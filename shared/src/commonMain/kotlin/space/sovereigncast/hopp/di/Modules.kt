@@ -114,6 +114,7 @@ fun sharedModule(platform: Platform) = module {
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
     single { PodcastRepository(get(), get(), get(), get(), get(), get()) { get<SettingsRepository>().current().autoDownloads } }
     single { EpisodeRepository(get(), get(), get(), get()) }
+    single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
@@ -148,7 +149,8 @@ fun sharedModule(platform: Platform) = module {
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get(), get(), get()) }
+    viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }

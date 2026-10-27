@@ -13,6 +13,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht.
 - **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
 - **Teilen:** Wähle, was du teilst – Hopp-Link, die Webseite aus dem Feed, den Audio-Link, die geladene Datei oder bei einer Show die Feed-Adresse. Hopp merkt sich deine Wahl.
+- **Personen:** Tippe auf eine Person in einer Folge oder im Player und sieh alle Folgen mit ihr – in deinen Abos und in anderen Podcasts; auch die Suche in Discover findet Personen.
 
 ### 🐛 Fixes
 - **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.

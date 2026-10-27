@@ -23,6 +23,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.resources.person_all_episodes
+import space.sovereigncast.hopp.resources.person_open_link
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.staticCompositionLocalOf
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.model.Person
@@ -59,33 +68,70 @@ private fun label(value: String?, known: Map<String, StringResource>): String? {
 internal fun linkHost(href: String): String? =
     Regex("^https?://(?:www\\.)?([^/?#]+)", RegexOption.IGNORE_CASE).find(href.trim())?.groupValues?.get(1)?.lowercase()
 
+/** A role as the listener reads it ("Moderation"), or null for none. */
+@Composable
+fun roleLabel(role: String?): String? = label(role, ROLES)
+
+/** Where a person page opens, with the show the person was met in; null: nowhere (a person's
+ *  row then follows their link, as before 0.3.1). */
+val LocalOpenPerson = staticCompositionLocalOf<((Person, String?) -> Unit)?> { null }
+
+/** A person's own link as a button of its own: "twitter.com ↗". */
+@Composable
+fun PersonLink(href: String, modifier: Modifier = Modifier) {
+    val uri = LocalUriHandler.current
+    val host = linkHost(href) ?: return
+    val says = stringResource(Res.string.person_open_link, host)
+    OutlinedButton(
+        onClick = { runCatching { uri.openUri(href) } }, modifier.semantics { contentDescription = says },
+        contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(18.dp),
+    ) { Text("$host ↗", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
+}
+
 /**
  * One `podcast:person` with everything the feed gives (device feedback
- * 2026-10-09): picture (or the initial), name, role and group, and where
- * the link leads — a tap follows it.
+ * 2026-10-09): picture (or the initial), name, role and group. A tap opens
+ * the person's page — every episode with them (maintainer 2026-10-26); their
+ * own link is a button beside it. [show]: the show they are met in.
  */
 @Composable
-fun PersonRow(p: Person, modifier: Modifier = Modifier) {
+fun PersonRow(p: Person, modifier: Modifier = Modifier, show: String? = null) {
     val uri = LocalUriHandler.current
     val colors = MaterialTheme.colorScheme
+    val openPerson = LocalOpenPerson.current
     val href = p.href?.takeIf { linkHost(it) != null }
+    val onClick: (() -> Unit)? = when {
+        openPerson != null -> ({ openPerson(p, show) })
+        href != null -> ({ runCatching { uri.openUri(href) } })
+        else -> null
+    }
     Row(
-        modifier.fillMaxWidth().then(if (href != null) Modifier.clickable { runCatching { uri.openUri(href) } } else Modifier)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier.fillMaxWidth().padding(end = if (openPerson != null && href != null) 12.dp else 0.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(colors.surfaceVariant), contentAlignment = Alignment.Center) {
-            Text(p.name.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
-            if (p.img != null) AsyncImage(p.img, null, Modifier.size(48.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+        Row(
+            Modifier.weight(1f).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(colors.surfaceVariant), contentAlignment = Alignment.Center) {
+                Text(p.name.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
+                if (p.img != null) AsyncImage(p.img, null, Modifier.size(48.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(p.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                listOfNotNull(label(p.role, ROLES), label(p.group, GROUPS)).distinct().takeIf { it.isNotEmpty() }?.let {
+                    Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                if (openPerson != null) Text(
+                    stringResource(Res.string.person_all_episodes, p.name.trim()), style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold, color = Hopp.colors.valueText,
+                )
+                else href?.let { linkHost(it) }?.let { host ->
+                    Text("$host ↗", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
+                }
+            }
         }
-        SelectionContainer(Modifier.weight(1f)) { Column {
-            Text(p.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            listOfNotNull(label(p.role, ROLES), label(p.group, GROUPS)).distinct().takeIf { it.isNotEmpty() }?.let {
-                Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-            }
-            href?.let { linkHost(it) }?.let { host ->
-                Text("$host ↗", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
-            }
-        } }
+        if (openPerson != null && href != null) PersonLink(href)
     }
 }

@@ -381,6 +381,20 @@
     <string name="person_group_audio_production">Tonproduktion</string>
     <string name="person_group_audio_post">Tonnachbearbeitung</string>
     <string name="person_group_visuals">Gestaltung</string>
+    <string name="person_all_episodes">Alle Folgen mit %1$s ›</string>
+    <string name="person_open_link">%1$s öffnen</string>
+    <string name="person_role_at">%1$s bei %2$s</string>
+    <string name="person_in_library">In deinen Abos</string>
+    <string name="person_elsewhere">In anderen Podcasts</string>
+    <string name="person_show_all">Alle %1$d anzeigen ›</string>
+    <string name="person_none_library">In deinen Abos kommt %1$s nicht vor.</string>
+    <string name="person_none_elsewhere">Der Podcast Index kennt keine weiteren Folgen.</string>
+    <string name="person_failed">Der Podcast Index hat nicht geantwortet.</string>
+    <string name="person_subscribe">%1$s abonnieren</string>
+    <string name="person_note">Gefunden über den Namen – gleichnamige Personen können dabei sein. Der Name „%1$s“ ging an den Podcast Index.</string>
+    <string name="discover_people">Personen</string>
+    <string name="discover_person_everywhere">Folgen mit „%1$s“</string>
+    <string name="discover_person_everywhere_note">in allen Podcasts, aus dem Podcast Index</string>
     <string name="settings_refresh">Nach neuen Folgen suchen</string>
     <string name="refresh_off">Aus</string>
     <string name="refresh_hourly">Stündlich</string>
@@ -1039,5 +1053,13 @@
     <plurals name="per_show_count">
         <item quantity="one">bei %1$d Show eingestellt</item>
         <item quantity="other">bei %1$d Shows eingestellt</item>
+    </plurals>
+    <plurals name="person_episodes">
+        <item quantity="one">%1$d Folge</item>
+        <item quantity="other">%1$d Folgen</item>
+    </plurals>
+    <plurals name="discover_person_count">
+        <item quantity="one">%1$d Folge in deinen Abos</item>
+        <item quantity="other">%1$d Folgen in deinen Abos</item>
     </plurals>
 </resources>

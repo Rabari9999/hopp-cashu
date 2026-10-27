@@ -273,7 +273,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     }
                 }
                 EpisodeTab.Transcript -> Unit
-                EpisodeTab.People -> items(persons) { p -> PersonRow(p) }
+                EpisodeTab.People -> items(persons) { p -> PersonRow(p, show = show?.title) }
                 EpisodeTab.Comments -> item {
                     val comments: space.sovereigncast.hopp.ui.comments.CommentsViewModel = koinViewModel(key = "comments-${e.id}") { parametersOf(e.id) }
                     space.sovereigncast.hopp.ui.comments.CommentsPane(comments, onTimestamp = { s -> player.playAt(e, s * 1000) }, modifier = Modifier.padding(16.dp))

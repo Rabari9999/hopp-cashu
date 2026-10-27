@@ -13,6 +13,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Wallet:** The wallet page says in plain words what your wallet reaches.
 - **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
 - **Sharing:** Choose what you share – Hopp's link, the website from the feed, the audio link, the downloaded file or, for a show, its feed address. Hopp keeps your choice.
+- **People:** Tap a person in an episode or the player to see every episode with them – in your subscriptions and in other podcasts; Discover's search finds people too.
 
 ### 🐛 Fixes
 - **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.

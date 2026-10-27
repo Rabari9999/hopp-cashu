@@ -376,7 +376,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     }
 
     if (showTranscript) TranscriptSheet(episode, position, onSeek = model::seekTo) { showTranscript = false }
-    if (showPeople) PeopleSheet(playing.persons) { showPeople = false }
+    if (showPeople) PeopleSheet(playing.persons, playing.podcastTitle) { showPeople = false }
     if (showCommunity) CommunitySheet(episode.podcastId) { showCommunity = false }
     if (showComments) ModalBottomSheet(onDismissRequest = { showComments = false }) {
         val comments: space.sovereigncast.hopp.ui.comments.CommentsViewModel =
