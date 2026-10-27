@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.dp
 import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasContentDescription
 import androidx.glance.testing.unit.hasText
+import io.ktor.client.engine.mock.respond
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -70,5 +71,24 @@ class PlayerWidgetTest {
         setContext(org.robolectric.RuntimeEnvironment.getApplication())
         provideComposable { PlayerWidget().Content(null, null) }
         onNode(hasText("Nothing playing – tap to open Hopp")).assertExists()
+    }
+
+    /** Zetti's beta test 2026-10-27: a feed's cover address answered with more than a cover — said
+     *  up front or only while it streams — is not read whole; the widget goes without a cover. */
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE) // real decoding: text is no picture
+    fun anOversizedCoverIsNotRead() = kotlinx.coroutines.runBlocking {
+        val big = Artwork.MAX_BYTES + 1
+        val client = io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/declared.jpg" -> respond(io.ktor.utils.io.ByteReadChannel(ByteArray(16)), io.ktor.http.HttpStatusCode.OK,
+                    io.ktor.http.headersOf(io.ktor.http.HttpHeaders.ContentLength, big.toString()))
+                "/endless.jpg" -> respond(ByteArray(big.toInt()))
+                else -> respond("not a picture")
+            }
+        })
+        org.junit.Assert.assertNull(Artwork.load("https://cdn.test/declared.jpg", client))
+        org.junit.Assert.assertNull(Artwork.load("https://cdn.test/endless.jpg", client))
+        org.junit.Assert.assertNull(Artwork.load("https://cdn.test/text.jpg", client))
     }
 }

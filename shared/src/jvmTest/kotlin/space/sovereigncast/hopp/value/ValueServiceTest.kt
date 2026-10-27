@@ -400,14 +400,16 @@ class ValueServiceTest {
 
     /** Batches follow listening (user decision 2026-10-11): none before it
      *  starts, one per round while playing, the round under way still paid
-     *  after a pause — then the timer rests. Here a round is 400 ms, not 3 min. */
+     *  after a pause — then the timer rests. Here a round is 1.5 s, not 3 min: long enough that the
+     *  five steps of listening fit into one even on a slow machine (Zetti's beta test 2026-10-27:
+     *  at 400 ms the round could end mid-way and pay in two parts). */
     @Test
     fun streamingBatchesFollowListening() = test {
         wallet.connect(uri())
         settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
         val ep = episode()
         val engine = RecordingEngine()
-        val player = PlayerController(engine, episodes, podcasts, QueueRepository(db), settings, scope, value, settleEvery = 400.milliseconds) { 0 }
+        val player = PlayerController(engine, episodes, podcasts, QueueRepository(db), settings, scope, value, settleEvery = 1_500.milliseconds) { 0 }
         assertNull(value.secondsToNextSettle(), "no round before listening")
         player.play(ep)
         withTimeout(5_000) { while (engine.loaded.isEmpty() || player.current.value == null) delay(10) }
@@ -417,7 +419,7 @@ class ValueServiceTest {
         at(5_000, playing = false)      // paused within the round
         withTimeout(5_000) { while (keysends().isEmpty()) delay(20) }
         assertEquals(listOf(host to 4L), keysends(), "4.5 sats to the host: the whole ones went out after the pause")
-        delay(800)
+        delay(2_000)
         assertNull(value.secondsToNextSettle(), "paused: the timer rests")
         assertEquals(1, keysends().size, "and pays nothing more")
     }

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.datetime.toInstant
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.StatsRange
 import space.sovereigncast.hopp.nostr.Bech32
@@ -117,5 +118,20 @@ class StatsSyncTest {
         assertEquals(mapOf("url:x" to 600_000L, "url:y" to 0L, "url:z" to 0L), shows.associate { it.show to it.heard_ms })
         assertEquals(21_000L, shows.single { it.show == "url:x" }.boost_msat)
         assertTrue(phone.db.listeningQueries.daysOf("abcd").executeAsList().isEmpty(), "more than a day in a day")
+    }
+
+    /** Days leave sync after 400 local days, as they were noted — not by the UTC date
+     *  (Zetti's beta test 2026-10-27): just after midnight in Kiritimati (UTC+14) it is still the day before in UTC. */
+    @Test
+    fun daysExpireByTheLocalDate() {
+        val phone = SyncDevice(relay, scope, nsec)
+        val local = space.sovereigncast.hopp.data.ListeningRepository(phone.db, phone.secrets, { 0 }) { kotlinx.datetime.TimeZone.of("Pacific/Kiritimati") }
+        val doc = StatsDocument(phone.db, local) { 0 }
+        // 2026-10-27 00:30 in Kiritimati = 2026-10-26 10:30 UTC.
+        val now = kotlinx.datetime.LocalDateTime(2026, 10, 27, 0, 30).toInstant(kotlinx.datetime.TimeZone.of("Pacific/Kiritimati")).toEpochMilliseconds()
+        val today = kotlinx.datetime.LocalDate(2026, 10, 27).toEpochDays()
+        val entry = SyncEntry(1)
+        assertTrue(doc.expired(StatsEntries.dayKey("abcd", today - 401), entry, now))
+        assertTrue(!doc.expired(StatsEntries.dayKey("abcd", today - 400), entry, now), "the 400th day before today stays")
     }
 }

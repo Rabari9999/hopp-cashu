@@ -107,9 +107,10 @@ class StatsDocument(
         entries.keys
     }
 
-    /** Days kept 400 days, episodes a year after they were last heard: the months stay. */
+    /** Days kept 400 days, episodes a year after they were last heard: the months stay. Counted
+     *  in local days, as the days are noted (Zetti's beta test 2026-10-27: UTC moved the edge). */
     override fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean {
-        val today = nowMs / 86_400_000
+        val today = listening.dayAt(nowMs)
         return when {
             key.startsWith("d\n") -> key.split('\n').getOrNull(2)?.toLongOrNull()?.let { it < today - DAYS_KEPT } ?: false
             key.startsWith("e\n") -> entry.d.long("y")?.let { it < monthOfDay(today - EPISODES_KEPT_DAYS) } ?: false

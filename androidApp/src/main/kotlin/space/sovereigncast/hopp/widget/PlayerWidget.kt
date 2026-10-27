@@ -49,8 +49,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.statement.readRawBytes
+import io.ktor.http.isSuccess
+import space.sovereigncast.hopp.net.getLimited
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -238,7 +238,13 @@ class PlayerWidgetReceiver : GlanceAppWidgetReceiver() {
 private val player: PlayerController get() = KoinPlatform.getKoin().get()
 
 class TogglePlay : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) = withContext(Dispatchers.Main) { player.togglePlay() }
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) = withContext(Dispatchers.Main) {
+        // Tapped after the process had ended (Zetti's beta test 2026-10-27): the widget shows the
+        // episode last heard, and the player loads it again only a moment after its start — play
+        // that, not nothing.
+        if (player.current.value == null) withTimeoutOrNull(3_000) { player.current.first { it != null } }
+        player.togglePlay()
+    }
 }
 
 class SkipBack : ActionCallback {
@@ -290,19 +296,30 @@ internal object Artwork {
     /** The cover of [url], if it is the one loaded last. */
     fun cached(url: String?): Bitmap? = last?.takeIf { it.first == url }?.second
 
-    suspend fun load(url: String): Bitmap? {
+    suspend fun load(url: String, client: HttpClient = KoinPlatform.getKoin().get()): Bitmap? {
         last?.takeIf { it.first == url }?.let { return it.second }
+        // Read only up to a cover's size (Zetti's beta test 2026-10-27): a feed names the address,
+        // and a huge or endless answer read whole could end the process the widget runs in.
         val bytes = withTimeoutOrNull(8_000) {
-            runCatching { KoinPlatform.getKoin().get<HttpClient>().get(url).readRawBytes() }.getOrNull()
+            runCatching { client.getLimited(url, MAX_BYTES).takeIf { it.status.isSuccess() }?.bytes }.getOrNull()
         } ?: return null
-        return withContext(Dispatchers.Default) {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            var sample = 1
-            while (bounds.outWidth / (sample * 2) >= SIZE && bounds.outHeight / (sample * 2) >= SIZE) sample *= 2
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
-        }?.also { last = url to it }
+        return withContext(Dispatchers.Default) { decode(bytes) }?.also { last = url to it }
     }
 
+    /** [bytes] as a bitmap of about [SIZE] px; null for what is no picture or claims an absurd size. */
+    internal fun decode(bytes: ByteArray): Bitmap? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val w = bounds.outWidth.toLong(); val h = bounds.outHeight.toLong()
+        if (w <= 0 || h <= 0 || w * h > MAX_PIXELS) return null
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= SIZE && bounds.outHeight / (sample * 2) >= SIZE) sample *= 2
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+    }.getOrNull()
+
     private const val SIZE = 192
+    /** Far above any real cover (3000 px square as JPEG: 1–3 MB). */
+    internal const val MAX_BYTES = 8L shl 20
+    /** 10 000 × 10 000: beyond that, a picture is a trap, not a cover. */
+    private const val MAX_PIXELS = 100_000_000L
 }

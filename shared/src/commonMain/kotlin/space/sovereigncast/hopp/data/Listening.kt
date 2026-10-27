@@ -249,6 +249,8 @@ class ListeningRepository(
     @OptIn(ExperimentalTime::class)
     private fun dateOf(epochSeconds: Long): LocalDate = Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(zone()).date
     private fun today(): Long = dateOf(clock.now()).toEpochDays()
+    /** The day [epochMs] falls on where the listener is — the days of the statistics are local days. */
+    fun dayAt(epochMs: Long): Long = dateOf(epochMs / 1000).toEpochDays()
 
     companion object {
         private const val DEVICE_KEY = "stats_device"
