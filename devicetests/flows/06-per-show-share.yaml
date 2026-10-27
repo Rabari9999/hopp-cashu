@@ -92,13 +92,15 @@ name: Per show and share
 - extendedWaitUntil:
     visible: "Pause"
     timeout: 30000
-# The full player, and its share choice — looked at, nothing sent.
+# The full player, and its share choice — looked at, nothing sent. Opened over Home: the
+# pages below the player keep their share buttons in the hierarchy, and on a tablet upright
+# the episode's lay where the tap went (device check 2026-10-27).
+- tapOn: "Home"
 # Beside the show's name on a phone on its side.
 - tapOn: ".*[0-9]+:[0-9]+ / [0-9:]+"
 - extendedWaitUntil:
     visible: "Playback speed"
     timeout: 15000
-# The pages below the player keep their own share buttons in the hierarchy: the player's is beside its close button.
 - tapOn:
     text: "Share"
     rightOf: "Close player"
