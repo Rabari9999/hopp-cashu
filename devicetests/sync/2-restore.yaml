@@ -20,11 +20,11 @@ name: Sync restore
 - inputText: ${PASSWORD}
 # No hideKeyboard: iOS cannot (the simulator's keyboard stays out of the way), and "Use key" is in view.
 - tapOn: "Use key"
-# The offer, with what the relays hold: one show, E297 begun.
+# The offer, with what the relays hold: one show, E297 and E295 begun.
 - extendedWaitUntil:
     visible: "Restore from your other devices"
     timeout: 60000
-- assertVisible: "Shows: 1 · in progress: 1"
+- assertVisible: "Shows: 1 · in progress: 2"
 - waitForAnimationToEnd
 - takeScreenshot: sync-2-offer
 - tapOn: "Restore"
@@ -58,9 +58,21 @@ name: Sync restore
 - scrollUntilVisible:
     element: "Nodesignal-Talk - E296.*"
 - takeScreenshot: sync-2-favourites
+# The listening stats the first device counted, before anything is heard here.
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Listening stats"
+    centerElement: true
+- tapOn: "Listening stats"
+- extendedWaitUntil:
+    visible: "Heard this month"
+    timeout: 60000
+- assertNotVisible: "Nothing counted yet.*"
+- waitForAnimationToEnd
+- takeScreenshot: sync-2-stats
+- tapOn: "Back"
 # The listening habits: the Playback page as the first device set it (iOS reports a
 # chosen chip's label as selected).
-- tapOn: "Settings"
 - scrollUntilVisible:
     element: "Playback"
 - tapOn: "Playback"
@@ -81,6 +93,16 @@ name: Sync restore
     text: "15 s"
     below: "Skip back"
     above: "Skip forward"
+# The show's own playback, as the first device set it: its intro skipped.
+- scrollUntilVisible:
+    element: "Per show"
+    centerElement: true
+- tapOn: "Per show"
+- extendedWaitUntil:
+    visible: "Intro 30 s"
+    timeout: 15000
+- takeScreenshot: sync-2-per-show
+- tapOn: "Back"
 - tapOn: "Back"
 - tapOn: "Back"
 - tapOn: "Library"

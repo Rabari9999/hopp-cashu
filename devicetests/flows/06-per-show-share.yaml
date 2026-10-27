@@ -1,0 +1,113 @@
+# A show's own playback set where the settings keep it (Playback → Per show), its intro
+# then skipped when an episode starts; the share choice from the player, nothing sent.
+appId: ${APP_ID}
+name: Per show and share
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Wallet & payments"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "Playback"
+    centerElement: true
+- tapOn: "Playback"
+- scrollUntilVisible:
+    element: "Per show"
+    centerElement: true
+- waitForAnimationToEnd
+- takeScreenshot: 06-playback-per-show
+- tapOn: "Per show"
+- extendedWaitUntil:
+    visible: "Nodesignal.*"
+    timeout: 15000
+- tapOn: "Nodesignal.*"
+- extendedWaitUntil:
+    visible: "Skip the intro"
+    timeout: 10000
+- tapOn:
+    text: "30 s"
+    below: "Skip the intro"
+    above: "Skip the outro"
+- waitForAnimationToEnd
+- takeScreenshot: 06-per-show-sheet
+# The sheet opens in full: closed by its handle, the scrim where that is not enough.
+- swipe:
+    from: "Drag handle"
+    direction: DOWN
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Skip the intro"
+    commands:
+      - tapOn:
+          point: 50%, 8%
+- extendedWaitUntil:
+    visible: "Intro 30 s"
+    timeout: 10000
+- takeScreenshot: 06-per-show
+- tapOn: "Back"
+- tapOn: "Back"
+# An episode not begun yet, started from its beginning: it begins after the intro.
+- tapOn: "Library"
+- runFlow:
+    when:
+      notVisible: "Up next"
+    commands:
+      - tapOn: "Library"
+- tapOn: "Nodesignal.*"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E295.*"
+- tapOn: "Nodesignal-Talk - E295.*"
+- extendedWaitUntil:
+    visible: "Play"
+    timeout: 15000
+- tapOn:
+    text: "Play"
+    above: "Show notes"
+- extendedWaitUntil:
+    visible: "Intro skipped \\(30 s\\)"
+    timeout: 30000
+- takeScreenshot: 06-intro-skipped
+- extendedWaitUntil:
+    visible: "Pause"
+    timeout: 30000
+# The full player, and its share choice — looked at, nothing sent.
+- tapOn: "[0-9:]+ / [0-9:]+"
+- extendedWaitUntil:
+    visible: "Playback speed"
+    timeout: 15000
+# The pages below the player keep their own share buttons in the hierarchy: the player's is beside its close button.
+- tapOn:
+    text: "Share"
+    rightOf: "Close player"
+- extendedWaitUntil:
+    visible: "Hopp link"
+    timeout: 10000
+- assertVisible: "Audio link"
+- waitForAnimationToEnd
+- takeScreenshot: 06-share
+- tapOn: "Audio link"
+- waitForAnimationToEnd
+- takeScreenshot: 06-share-audio
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: back
+- runFlow:
+    when:
+      visible: "Hopp link"
+    commands:
+      - tapOn:
+          point: 50%, 8%
+- extendedWaitUntil:
+    notVisible: "Hopp link"
+    timeout: 10000
+- tapOn:
+    text: "Pause"
+    above: "Boost"
+- tapOn: "Close player"

@@ -1,0 +1,41 @@
+# A Sovereigncast show looked at before subscribing — its badge and open suggestions,
+# live from its instance — and the listening stats of what the flows before played.
+appId: ${APP_ID}
+name: Preview and stats
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Discover"
+    retryTapIfNoChange: true
+- tapOn: "Search or feed address"
+- inputText: "https://pm.nodesignal.space/feed/bitcoin_bibliothek.xml"
+- tapOn: "Open as feed"
+- extendedWaitUntil:
+    visible: "✓ Sovereigncast"
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: 07-preview
+- scrollUntilVisible:
+    element: "Open suggestions"
+- scrollUntilVisible:
+    element: "Subscribe to the show to vote or suggest a topic yourself."
+- takeScreenshot: 07-preview-suggestions
+- tapOn: "Back"
+# The stats: E297 streamed and E295 begun, so something is counted.
+- tapOn: "Home"
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- scrollUntilVisible:
+    element: "Listening stats"
+    centerElement: true
+- tapOn: "Listening stats"
+- extendedWaitUntil:
+    visible: "Heard this month"
+    timeout: 15000
+- assertNotVisible: "Nothing counted yet.*"
+- waitForAnimationToEnd
+- takeScreenshot: 07-stats
+- scroll
+- takeScreenshot: 07-stats-more
