@@ -43,7 +43,7 @@ CI runner is Linux in Docker, without an emulator.
 | `03-subscribe-play` | Nodesignal found by search, subscribed, an episode streamed; the player, the speed, the comments (read only). |
 | `04-library` | The library and Home with that show. |
 | `05-settings` | The settings pages reachable without a wallet or an identity. |
-| `06-per-show-share` | Playback → Per show: Nodesignal skips a 30 s intro; E295 then starts after it ("Intro skipped"). The player's share choice, looked at — nothing is sent. |
+| `06-per-show-share` | Playback → Per show: Nodesignal skips a 30 s intro; E298 then starts after it ("Intro skipped"). The player's share choice, looked at — nothing is sent. |
 | `07-preview-stats` | The Bitcoin Bibliothek opened as a feed, not subscribed: the Sovereigncast badge and its open suggestions, live from its instance. Then the listening stats of what the flows played. |
 
 They build on each other in that order (`flows/config.yaml`); `03` starts
@@ -54,7 +54,7 @@ Nostr identity and connect no wallet.
 
 When the phone and the iPhone are both in the run, the script goes on with
 sync (ADR 0021 stage 5) on what the phone's runs left — Nodesignal
-subscribed, E297 streamed for a while, E295 begun after its skipped intro:
+subscribed, E297 streamed for a while, E298 begun after its skipped intro:
 
 | Flow | Device | What it does |
 | --- | --- | --- |

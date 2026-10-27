@@ -1,5 +1,5 @@
 # Sync, part 1 (ADR 0021 stage 5): the first device. Runs on what the device
-# check left — Nodesignal subscribed, E297 streamed for a while, E295 begun after
+# check left — Nodesignal subscribed, E297 streamed for a while, E298 begun after
 # its intro (the show skips 30 s) — and adds what else sync carries: listening
 # habits, a favourite, an episode in "Up next". Then a Nostr key made here
 # for the test, sync turned on, and the key's backup (NIP-49, ${PASSWORD})

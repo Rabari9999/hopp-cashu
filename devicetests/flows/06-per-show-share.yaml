@@ -28,6 +28,9 @@ name: Per show and share
 - extendedWaitUntil:
     visible: "Skip the intro"
     timeout: 10000
+# On a phone on its side the outro's choices lie below the sheet's edge.
+- scrollUntilVisible:
+    element: "Skip the outro"
 - tapOn:
     text: "30 s"
     below: "Skip the intro"
@@ -51,27 +54,37 @@ name: Per show and share
 - takeScreenshot: 06-per-show
 - tapOn: "Back"
 - tapOn: "Back"
-# An episode not begun yet, started from its beginning: it begins after the intro.
+# An episode not begun yet (E298: no other flow plays it), started from its beginning: it
+# begins after the intro.
 - tapOn: "Library"
 - runFlow:
     when:
       notVisible: "Up next"
     commands:
       - tapOn: "Library"
-- tapOn: "Nodesignal.*"
-# Slowly: on the iPhone a quick swipe went past it (device check 2026-10-27).
+# The full title: on a phone on its side the mini player's line starts with "Nodesignal" too.
 - scrollUntilVisible:
-    element: "Nodesignal-Talk - E295.*"
-    speed: 20
-    visibilityPercentage: 50
+    element: "Nodesignal - Deine Bitcoin-Frequenz"
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+# Found by the show's own search, not by scrolling: on a phone on its side a swipe over the
+# mini player opens the player (device check 2026-10-27).
+- scrollUntilVisible:
+    element: "Search episodes"
     centerElement: true
-- tapOn: "Nodesignal-Talk - E295.*"
+- tapOn: "Search episodes"
+- inputText: "E298"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E298.*"
+    timeout: 10000
+- tapOn: "Nodesignal-Talk - E298.*"
 - extendedWaitUntil:
     visible: "Play"
     timeout: 15000
+# The page's own button, beside its Boost: "Show notes" lies below the edge on a phone on its side.
 - tapOn:
     text: "Play"
-    above: "Show notes"
+    leftOf: "Boost"
 - extendedWaitUntil:
     visible: "Intro skipped \\(30 s\\)"
     timeout: 30000
@@ -80,7 +93,8 @@ name: Per show and share
     visible: "Pause"
     timeout: 30000
 # The full player, and its share choice — looked at, nothing sent.
-- tapOn: "[0-9:]+ / [0-9:]+"
+# Beside the show's name on a phone on its side.
+- tapOn: ".*[0-9]+:[0-9]+ / [0-9:]+"
 - extendedWaitUntil:
     visible: "Playback speed"
     timeout: 15000
@@ -91,23 +105,33 @@ name: Per show and share
 - extendedWaitUntil:
     visible: "Hopp link"
     timeout: 10000
-- assertVisible: "Audio link"
 - waitForAnimationToEnd
 - takeScreenshot: 06-share
+# Half open on a phone on its side: the other kinds below its edge.
+- scrollUntilVisible:
+    element: "Audio link"
 - tapOn: "Audio link"
 - waitForAnimationToEnd
 - takeScreenshot: 06-share-audio
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - pressKey: back
-- runFlow:
-    when:
+# Closed, nothing sent: Back on Android (once it may only fold the sheet in), and on iOS a
+# tap beside it — at the side, as on a phone on its side its top is the status bar.
+- repeat:
+    while:
       visible: "Hopp link"
+    times: 3
     commands:
-      - tapOn:
-          point: 50%, 8%
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - pressKey: back
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                point: 3%, 30%
+      - waitForAnimationToEnd
 - extendedWaitUntil:
     notVisible: "Hopp link"
     timeout: 10000

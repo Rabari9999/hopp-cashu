@@ -20,7 +20,7 @@ name: Sync restore
 - inputText: ${PASSWORD}
 # No hideKeyboard: iOS cannot (the simulator's keyboard stays out of the way), and "Use key" is in view.
 - tapOn: "Use key"
-# The offer, with what the relays hold: one show, E297 and E295 begun.
+# The offer, with what the relays hold: one show, E297 and E298 begun.
 - extendedWaitUntil:
     visible: "Restore from your other devices"
     timeout: 60000
