@@ -49,6 +49,8 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -100,10 +102,16 @@ class PersonViewModel(
     val subscribing: StateFlow<Set<String>> = _subscribing.asStateFlow()
 
     init {
-        viewModelScope.launch { _library.value = runCatching { people.episodes(name) }.getOrDefault(emptyList()) }
+        // Read again when the subscriptions change: a show subscribed here moves up into them
+        // (review 2026-10-27: it left "In other podcasts" and appeared nowhere).
+        viewModelScope.launch {
+            podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().collectLatest {
+                _library.value = runCatching { people.episodes(name) }.getOrDefault(emptyList())
+            }
+        }
         viewModelScope.launch {
             _elsewhere.value = runCatching { directory.byPerson(name) }.fold(
-                { hits -> hits?.let { h -> Elsewhere.Found(h.groupBy { feedKey(it.feedUrl) }.values.toList()) } ?: Elsewhere.Unavailable },
+                { hits -> hits?.let { h -> Elsewhere.Found(h.groupBy { feedKey(it.feedUrl) }.values.map { g -> g.distinctBy { it.guid } }) } ?: Elsewhere.Unavailable },
                 { Elsewhere.Failed },
             )
         }

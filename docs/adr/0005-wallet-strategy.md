@@ -114,7 +114,9 @@ then logged it as skipped. A share the connected wallet cannot pay — a node
 without `pay_keysend`, an address without `pay_invoice`, the wallet itself — is
 now **not set aside at all**: it is dropped when accruals are split, still not
 redistributed. Owed rows of such recipients from before, or from another
-wallet, are dropped quietly. The listener sees it where it matters instead:
+wallet, are left quietly: not paid, not shown, and paid once a wallet that
+reaches them is connected (amended 2026-10-27, review: they were written off
+for good, judged by what the wallet could do when it was connected). The listener sees it where it matters instead:
 the value bar says "not possible here" when nothing is reachable, the streaming
 sheet names the unreachable recipients with their percent, and the wallet page
 says in plain words what the connection reaches. (A count of the subscribed

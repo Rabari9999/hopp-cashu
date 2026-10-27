@@ -126,6 +126,8 @@ class SovereigncastRepository(
             withContext(Dispatchers.IO) { q.setSovereigncast(base, clock.now(), json.encodeToString(ScShow.serializer(), show), podcastId) }
         } catch (e: ListenerApiException) {
             if (e.status == 404 || e.code == "show_not_found") clear(podcastId)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Offline or the instance is down: keep what we knew.
         }

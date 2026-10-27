@@ -166,6 +166,7 @@ class PlayerController(
                 if (expectedId == null && _current.value?.item?.id != id) follow(id)
                 tickSleep(s)
                 tickClip(id, s)
+                checkIntro(id, s)
                 // Before hear(): whether listening, not a jump, crossed into the show's skipped end.
                 val outro = outroReached(id, s)
                 hear(id, s)
@@ -196,6 +197,18 @@ class PlayerController(
     }
 
     private var batch: kotlinx.coroutines.Job? = null
+
+    /** An intro skipped in an episode of unknown length, until its length is known. */
+    private var introUnchecked: Skipped? = null
+
+    /** A trailer of three minutes with an intro of ten skipped began at its end and sat there: once
+     *  the length is known, an episode too short for the skip goes back to its start. */
+    private fun checkIntro(id: Long, s: PlaybackState) {
+        val skipped = introUnchecked?.takeIf { it.itemId == id } ?: return
+        if (s.durationMs <= 0) return
+        introUnchecked = null
+        if (s.durationMs < skipped.seconds * 1000L + MIN_LEFT_MS) engine.seekTo(0)
+    }
 
     /**
      * Streaming is paid every [settleEvery] of listening, counted from when
@@ -368,7 +381,9 @@ class PlayerController(
                 start = intro * 1000L
                 _skipped.tryEmit(Skipped(item.id, intro, atStart = true))
                 listening?.skipped(item, intro * 1000L)
-            }
+                // Of unknown length: checked again once the engine knows it (review 2026-10-27).
+                introUnchecked = if ((item.durationSeconds ?: 0) <= 0) Skipped(item.id, intro, atStart = true) else null
+            } else introUnchecked = null
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
             // Each show keeps its speed (ADR 0012); one never set follows the default.

@@ -16,6 +16,7 @@ import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 import space.sovereigncast.hopp.sync.StatsEntries
+import space.sovereigncast.hopp.sync.StatsRetention
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -149,7 +150,11 @@ class ListeningRepository(
      *  ride along with the next round, never one of their own (at most every [NOTE_EVERY_MS]). */
     private fun noteChanged() {
         sats()
+        val today = today()
         for ((key, data) in own()) {
+            // What sync drops as too old is not noted again (review 2026-10-27): it would come back
+            // as pending with every note, and every round would send and drop it once more.
+            if (StatsRetention.expired(key, data, today)) continue
             if (journal.current(SyncDocs.STATS, key)?.d != data) journal.record(SyncDocs.STATS, key, data, urgent = false)
         }
     }
@@ -164,6 +169,10 @@ class ListeningRepository(
             val sums = byShow.getOrPut(monthOf(dateOf(p.created_at)) to key) { LongArray(3) }
             sums[when (p.kind) { "stream" -> 1; "zap" -> 2; else -> 0 }] += p.amount_msat
         }
+        // A show's key can change under its payments — unsubscribed, the title stands in for the
+        // feed; a guid added later — and a sum left under the old key counted twice (review
+        // 2026-10-27). The log has every payment: what it no longer names is nothing.
+        lq.clearShowSats(device)
         for ((k, sums) in byShow) {
             lq.ensureShow(device, k.first, k.second)
             lq.setShowSats(sums[0], sums[1], sums[2], (titles[k.second] ?: "").take(TITLE), device, k.first, k.second)
@@ -178,7 +187,7 @@ class ListeningRepository(
 
     /** For sync turned on: this device's counts so far, the sats included. */
     suspend fun snapshot(): Map<String, JsonObject> = lock.withLock {
-        withContext(Dispatchers.IO) { sats(); own() }
+        withContext(Dispatchers.IO) { sats(); val today = today(); own().filterNot { (k, d) -> StatsRetention.expired(k, d, today) } }
     }
 
     // ── the page ─────────────────────────────────────────────────────────
@@ -186,6 +195,9 @@ class ListeningRepository(
     suspend fun stats(range: StatsRange): ListeningStats {
         flush(note = false)
         return withContext(Dispatchers.IO) {
+            // The sats from the payment log first: noted for sync only when it is on, they were
+            // missing from the page without it (review 2026-10-27).
+            sats()
             val today = LocalDate.fromEpochDays(today())
             val (fromMonth, toMonth) = when (range) {
                 StatsRange.Month -> monthOf(today) to monthOf(today)

@@ -580,10 +580,9 @@ class ValueService(
                 val recipient = json.decodeFromString(ValueRecipient.serializer(), row.recipient_json)
                 // Set aside before Hopp knew better, or under a wallet that could pay it: this
                 // one cannot, and the episode says so — no line in the history for each round.
-                if (inFlightMsat(row.last_error) == null && unreachable(recipient, info) != null) {
-                    withContext(Dispatchers.IO) { sq.paid(row.owed_msat, episodeId, row.recipient_key, RAIL_LIGHTNING) }
-                    continue
-                }
+                // Left as it is, not written off (review 2026-10-27): what the wallet can do is
+                // known from when it was connected, and a wallet connected later may reach it.
+                if (inFlightMsat(row.last_error) == null && unreachable(recipient, info) != null) continue
                 // A previous launch died after this row was marked and before the
                 // answer came back. The wallet may have paid what was sent then —
                 // that is settled, not sent again; what was heard since stays owed

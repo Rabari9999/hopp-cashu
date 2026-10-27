@@ -53,8 +53,27 @@ fun interface DownloadScheduler {
  *  (the Files app, a file shared to a messenger) instead of Hopp's own "123.mp3". */
 fun episodeFileName(show: String, title: String, extension: String): String {
     val clean = { s: String -> s.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), " ").replace(Regex("\\s+"), " ").trim() }
-    val base = listOf(clean(show), clean(title)).filter { it.isNotEmpty() }.joinToString(" – ").take(180).ifEmpty { "Episode" }
+    val base = takeUtf8(listOf(clean(show), clean(title)).filter { it.isNotEmpty() }.joinToString(" – "), NAME_BYTES).trim().ifEmpty { "Episode" }
     return if (extension.isEmpty()) base else "$base.$extension"
+}
+
+/** File systems count a name's bytes, not its letters (review 2026-10-27: 180 letters of emoji or
+ *  CJK are over 255 bytes, and the shared file was never made): room left for the extension. */
+private const val NAME_BYTES = 200
+
+/** The start of [s] that fits [max] bytes of UTF-8, never half a character. */
+internal fun takeUtf8(s: String, max: Int): String {
+    var bytes = 0
+    var i = 0
+    while (i < s.length) {
+        val c = s[i]
+        val pair = c.isHighSurrogate() && i + 1 < s.length && s[i + 1].isLowSurrogate()
+        val n = when { pair -> 4; c.code < 0x80 -> 1; c.code < 0x800 -> 2; else -> 3 }
+        if (bytes + n > max) break
+        bytes += n
+        i += if (pair) 2 else 1
+    }
+    return s.substring(0, i)
 }
 
 class DownloadFiles(val dir: String) {

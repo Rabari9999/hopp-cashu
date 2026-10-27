@@ -311,14 +311,14 @@
     <string name="pv_hosts_sees">deine IP-Adresse, den User-Agent, welche Folge geladen wird</string>
     <string name="pv_hosts_when">bei jeder Aktualisierung, jedem Stream und Download</string>
     <string name="pv_pi_who">Podcast Index</string>
-    <string name="pv_pi_sees">deine Suchbegriffe, deine Sprache und die Kategorie, die du ansiehst, und deine IP-Adresse – nie, was du abonniert hast</string>
-    <string name="pv_pi_when">wenn du suchst, Entdecken oder seine Empfehlungen öffnest</string>
+    <string name="pv_pi_sees">deine Suchbegriffe, deine Sprache und die Kategorie, die du ansiehst, die Namen der Personen, deren Seite du öffnest, und deine IP-Adresse – nie, was du abonniert hast</string>
+    <string name="pv_pi_when">wenn du suchst, Entdecken oder seine Empfehlungen öffnest oder die Seite einer Person</string>
     <string name="pv_directories_who">fyyd und Apple Podcasts</string>
     <string name="pv_directories_sees">deine Suchbegriffe und deine IP-Adresse</string>
     <string name="pv_directories_when">nur, wenn du sie in den Einstellungen einschaltest</string>
     <string name="pv_sc_who">Sovereigncast-Instanzen einer Show</string>
     <string name="pv_sc_sees">deine IP-Adresse, welche Show du ansiehst; Name und Nachricht, wenn du sie einer Zahlung mitgibst; deine Nostr-Identität bei Stimmen und Vorschlägen, wenn du eine hast</string>
-    <string name="pv_sc_when">Community-Funktionen: Release Boosting, Boost2Unlock, Vorschläge, Stimmen, Boosts</string>
+    <string name="pv_sc_when">Community-Funktionen: Release Boosting, Boost2Unlock, Vorschläge, Stimmen, Boosts – und die Vorschau einer Show, die du noch nicht abonniert hast</string>
     <string name="pv_wallet_who">Deine Wallet und ihr NWC-Relay</string>
     <string name="pv_wallet_sees">jede Zahlung, die du machst</string>
     <string name="pv_wallet_when">Boosts und Streaming</string>

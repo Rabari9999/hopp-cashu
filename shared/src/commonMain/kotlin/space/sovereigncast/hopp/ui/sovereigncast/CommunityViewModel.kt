@@ -83,12 +83,16 @@ class CommunityViewModel(
     /** Payment hashes handed to the wallet that may be paid: never sent to it twice (M3). */
     private val handedToWallet = mutableSetOf<String>()
 
+    /** Whether the stored feed names an instance at all: without that, nothing to ask again. */
+    @kotlin.concurrent.Volatile private var claimed = false
+
     init {
         // Checked again whenever the stored feed claims something new — after a refresh here,
         // in the background or by sync (maintainer 2026-10-27) — not only when the page opens.
         viewModelScope.launch {
             var first = true
-            sc.claims(podcastId).collectLatest {
+            sc.claims(podcastId).collectLatest { (marker, guid) ->
+                claimed = marker != null && guid != null
                 sc.verify(podcastId, force = !first)
                 first = false
                 load()
@@ -115,7 +119,8 @@ class CommunityViewModel(
             delay(60_000)
             minutes++
             // Not confirmed yet — the instance was out of reach, say: asked again now and then.
-            if (layer.value == null && minutes % 5 == 0) runCatching { sc.verify(podcastId, force = true); if (layer.value != null) load() }
+            // A show that claims none is not asked about every five minutes (review 2026-10-27).
+            if (layer.value == null && claimed && minutes % 5 == 0) runCatching { sc.verify(podcastId, force = true); if (layer.value != null) load() }
             layer.value?.let { l ->
                 if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
                 if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }

@@ -61,6 +61,8 @@ addShow:
 UPDATE listen_show SET heard_ms = heard_ms + :heard, media_ms = media_ms + :media, skipped_ms = skipped_ms + :skipped,
     title = CASE WHEN :title = '' THEN title ELSE :title END
 WHERE device = :device AND month = :month AND show = :show;
+clearShowSats:
+UPDATE listen_show SET boost_msat = 0, stream_msat = 0, zap_msat = 0 WHERE device = ?;
 setShowSats:
 UPDATE listen_show SET boost_msat = :boost, stream_msat = :stream, zap_msat = :zap,
     title = CASE WHEN :title = '' THEN title ELSE :title END

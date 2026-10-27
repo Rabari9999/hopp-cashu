@@ -66,7 +66,9 @@ private fun label(value: String?, known: Map<String, StringResource>): String? {
 
 /** Where a person's link goes, as a reader recognises it: "primal.net". */
 internal fun linkHost(href: String): String? =
-    Regex("^https?://(?:www\\.)?([^/?#]+)", RegexOption.IGNORE_CASE).find(href.trim())?.groupValues?.get(1)?.lowercase()
+    // The host alone, or no button (review 2026-10-27): "https://twitter.com@evil.example" opens
+    // evil.example, and a label up to the first "/" read "twitter.com…".
+    Regex("^https?://(?:www\\.)?([a-z0-9.-]+)(?::[0-9]+)?(?:[/?#]|$)", RegexOption.IGNORE_CASE).find(href.trim())?.groupValues?.get(1)?.lowercase()
 
 /** A role as the listener reads it ("Moderation"), or null for none. */
 @Composable
@@ -83,7 +85,7 @@ fun PersonLink(href: String, modifier: Modifier = Modifier) {
     val host = linkHost(href) ?: return
     val says = stringResource(Res.string.person_open_link, host)
     OutlinedButton(
-        onClick = { runCatching { uri.openUri(href) } }, modifier.semantics { contentDescription = says },
+        onClick = { runCatching { uri.openUri(href.trim()) } }, modifier.semantics { contentDescription = says },
         contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(18.dp),
     ) { Text("$host ↗", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
 }

@@ -204,10 +204,11 @@ class ValueServiceTest {
         assertTrue(value.payments.first().isEmpty(), "and no line for each round")
     }
 
-    /** Set aside under a wallet that could pay it, then another connected that cannot: it goes,
-     *  without a line in the history. */
+    /** Set aside under a wallet that could pay it, then another connected that cannot: it waits,
+     *  without a line in the history — and goes once the wallet that reaches it is back (review
+     *  2026-10-27: it used to be written off for good). */
     @Test
-    fun setAsideUnderAnotherWalletIsDroppedQuietly() = test {
+    fun setAsideUnderAnotherWalletWaitsQuietly() = test {
         wallet.connect(uri())
         settings.update { it.copy(streaming = true, streamRateSats = 60, dailyBudgetSats = 0) }
         val ep = episode()
@@ -221,6 +222,9 @@ class ValueServiceTest {
         value.settle()
         assertTrue(coinos.requests.none { it.first.startsWith("pay_") })
         assertTrue(value.payments.first().isEmpty())
+        wallet.connect(uri())
+        value.settle()
+        assertEquals(30L, keysends().sumOf { it.second })
     }
 
     /** Half reached: the streaming sheet says so and sets aside only that half. */

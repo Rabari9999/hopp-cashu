@@ -267,7 +267,9 @@ ORDER BY e.published_at DESC;
 
 -- A show's episodes that name no one of their own: the show's persons stand for them.
 namingNoOne:
-SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+SELECT e.id, e.podcast_id, e.guid, e.title, e.published_at, e.duration_seconds, e.image_url, e.enclosure_url, e.chapters_url,
+    e.position_ms, e.played, e.in_inbox, e.download_state, e.download_path, e.favorite_at, e.enclosure_length,
+    p.title AS podcast_title, p.image_url AS podcast_image_url
 FROM episode e JOIN podcast p ON p.id = e.podcast_id
 WHERE e.podcast_id = ? AND e.meta_json NOT LIKE '%"persons":%'
 ORDER BY e.published_at DESC;

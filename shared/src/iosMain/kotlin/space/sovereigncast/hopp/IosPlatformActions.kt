@@ -129,11 +129,14 @@ class IosPlatformActions : PlatformActions {
     override fun shareFile(path: String, name: String) {
         val fm = platform.Foundation.NSFileManager.defaultManager
         val dir = platform.Foundation.NSTemporaryDirectory() + "shared/"
+        // Only the file shared now (review 2026-10-27): a link kept from before holds on to a
+        // download deleted since, and its space with it.
+        fm.removeItemAtPath(dir, error = null)
         fm.createDirectoryAtPath(dir, withIntermediateDirectories = true, attributes = null, error = null)
         val named = dir + name.replace('/', ' ')
-        fm.removeItemAtPath(named, error = null)
-        if (!fm.linkItemAtPath(path, toPath = named, error = null)) fm.copyItemAtPath(path, toPath = named, error = null)
-        present(listOf(platform.Foundation.NSURL.fileURLWithPath(named)))
+        val made = fm.linkItemAtPath(path, toPath = named, error = null) || fm.copyItemAtPath(path, toPath = named, error = null)
+        // Not made: the file under Hopp's own name rather than nothing.
+        present(listOf(platform.Foundation.NSURL.fileURLWithPath(if (made) named else path)))
     }
 
     override fun shareText(text: String, subject: String) = present(listOf(text))

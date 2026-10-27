@@ -1563,6 +1563,8 @@ class AndroidAppFlowTest {
         waitFor("All episodes with Karsten ›")
         rule.onNode(hasText("All episodes with Karsten ›", substring = true) and hasClickAction()).performClick()
         waitFor("In your subscriptions")
+        // Read once the subscriptions are known (they are followed, review 2026-10-27).
+        waitFor("1 episode")
         check(has("Host on Test Show") && has("Ep 2") && has("primal.net ↗") && has("1 episode")) { screen().toString() }
         check(has("Found by name", substring = true)) { "says that the name went to the index" }
         // Maintainer 2026-10-27: the name once — in the page's head; the top bar takes it only when that scrolls away.

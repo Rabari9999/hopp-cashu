@@ -175,7 +175,7 @@ class PlaybackService : MediaLibraryService() {
     /** One tap, the set amount, no dialog (device feedback 2026-10-08) — and
      *  a notification that says what happened, as the listener chose
      *  (device feedback 2026-10-10: nothing, only failures, or everything). */
-    private fun quickBoost() = QuickBoost.send(scope)
+    private fun quickBoost() { QuickBoost.send(scope) }
 
     /**
      * Who may send the boost — money leaves the wallet with it (security

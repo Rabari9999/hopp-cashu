@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.playback
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.mp.KoinPlatform
 import space.sovereigncast.hopp.player.PlayerController
@@ -17,15 +18,16 @@ object QuickBoost {
     /** One at a time, wherever it is pressed: a second tap while the first is paying is not a second boost. */
     private val boosting = AtomicBoolean(false)
 
-    fun send(scope: CoroutineScope) {
+    /** The boost on its way, or null when there is nothing to boost or one is already paying. */
+    fun send(scope: CoroutineScope): Job? {
         val koin = KoinPlatform.getKoin()
         val controller = koin.get<PlayerController>()
         // During a Sovereigncast clip the episode behind it is not what is heard.
-        if (controller.remoteClip.value != null) return
-        val now = controller.current.value?.item ?: return
+        if (controller.remoteClip.value != null) return null
+        val now = controller.current.value?.item ?: return null
         val position = controller.state.value.positionMs / 1000
-        if (!boosting.compareAndSet(false, true)) return
-        scope.launch {
+        if (!boosting.compareAndSet(false, true)) return null
+        return scope.launch {
             try { koin.get<BoostReports>().report(koin.get<ValueService>().quickBoost(now, position), quick = true) } finally { boosting.set(false) }
         }
     }

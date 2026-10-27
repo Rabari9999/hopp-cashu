@@ -311,14 +311,14 @@
     <string name="pv_hosts_sees">your IP address, the User-Agent, which episode is fetched</string>
     <string name="pv_hosts_when">every refresh, stream and download</string>
     <string name="pv_pi_who">Podcast Index</string>
-    <string name="pv_pi_sees">your search terms, your language and the category you browse, and your IP address — never what you subscribed to</string>
-    <string name="pv_pi_when">when you search, open Discover or its recommendations</string>
+    <string name="pv_pi_sees">your search terms, your language and the category you browse, the names of the people whose page you open, and your IP address — never what you subscribed to</string>
+    <string name="pv_pi_when">when you search, open Discover or its recommendations, or a person's page</string>
     <string name="pv_directories_who">fyyd and Apple Podcasts</string>
     <string name="pv_directories_sees">your search terms and your IP address</string>
     <string name="pv_directories_when">only if you switch them on in the settings</string>
     <string name="pv_sc_who">Sovereigncast instances of a show</string>
     <string name="pv_sc_sees">your IP address, which show you view; your name and message if you add them to a payment; your Nostr identity on votes and suggestions if you have one</string>
-    <string name="pv_sc_when">community features: Release Boosting, Boost2Unlock, suggestions, votes, boosts</string>
+    <string name="pv_sc_when">community features: Release Boosting, Boost2Unlock, suggestions, votes, boosts — and the preview of a show not subscribed yet</string>
     <string name="pv_wallet_who">Your wallet and its NWC relay</string>
     <string name="pv_wallet_sees">every payment you make</string>
     <string name="pv_wallet_when">boosts and streaming</string>

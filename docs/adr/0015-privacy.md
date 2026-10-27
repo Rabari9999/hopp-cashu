@@ -19,8 +19,8 @@ A settings page lists it plainly:
 | Who | Sees | When |
 |---|---|---|
 | Feed hosts (PodHome, self-hosted instances, …) | IP address, User-Agent, which episode is fetched | every refresh and download |
-| Podcast Index | search queries; the subscription list if the batch check is on (ADR 0013); the device's language and a category (added 2026-10-19) | search, podroll, Discover's popular and new value shows, optional refresh |
-| Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features |
+| Podcast Index | search queries; the subscription list if the batch check is on (ADR 0013); the device's language and a category (added 2026-10-19); a person's name (added 2026-10-27, ADR 0008) | search, podroll, Discover's popular and new value shows, optional refresh; a person's page when it opens |
+| Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features; the preview of a show not subscribed yet, which asks the instance its feed names (added 2026-10-27, ADR 0002) |
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |
 | A commenter's Lightning address server | IP address, the amount, the zap request: which comment, the message, the listener's npub (in a private zap only for the author, encrypted; none in an anonymous one — chosen in the zap sheet, as in Amethyst, and always without an identity); it publishes the receipt on Nostr relays, in public | only when the listener zaps a comment (added 2026-10-19, ADR 0021) |

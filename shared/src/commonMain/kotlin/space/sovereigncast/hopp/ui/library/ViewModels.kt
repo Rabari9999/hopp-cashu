@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -614,8 +615,13 @@ class DiscoverViewModel(
                         return@collectLatest
                     }
                     _search.value = SearchUi.Searching
-                    _people.value = runCatching { people.find(q) }.getOrDefault(emptyList())
-                    val r = directory.search(q, v)
+                    // The library read beside the directories, not before them (review 2026-10-27).
+                    val (found, r) = kotlinx.coroutines.coroutineScope {
+                        val found = async { runCatching { people.find(q) }.getOrDefault(emptyList()) }
+                        val r = directory.search(q, v)
+                        found.await() to r
+                    }
+                    _people.value = found
                     seen.value = (r.shows + seen.value).distinctBy { feedKey(it.feedUrl) }.take(SEEN)
                     _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)
                 }

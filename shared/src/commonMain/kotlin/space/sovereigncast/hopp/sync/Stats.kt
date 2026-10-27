@@ -109,17 +109,8 @@ class StatsDocument(
 
     /** Days kept 400 days, episodes a year after they were last heard: the months stay. Counted
      *  in local days, as the days are noted (Zetti's beta test 2026-10-27: UTC moved the edge). */
-    override fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean {
-        val today = listening.dayAt(nowMs)
-        return when {
-            key.startsWith("d\n") -> key.split('\n').getOrNull(2)?.toLongOrNull()?.let { it < today - DAYS_KEPT } ?: false
-            key.startsWith("e\n") -> entry.d.long("y")?.let { it < monthOfDay(today - EPISODES_KEPT_DAYS) } ?: false
-            else -> false
-        }
-    }
-
-    private fun monthOfDay(epochDay: Long): Long =
-        kotlinx.datetime.LocalDate.fromEpochDays(epochDay).let { (it.year * 100 + it.month.ordinal + 1).toLong() }
+    override fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean =
+        StatsRetention.expired(key, entry.d, listening.dayAt(nowMs))
 
     private fun isMonth(m: Int) = m / 100 in 2000..2999 && m % 100 in 1..12
 
@@ -134,7 +125,21 @@ class StatsDocument(
         const val MAX_COUNT = 10_000_000L
         /** 10 BTC: far beyond any listener's month for one show. */
         const val MAX_MSAT = 1_000_000_000_000_000L
-        const val DAYS_KEPT = 400
-        const val EPISODES_KEPT_DAYS = 365L
     }
+}
+
+/** How long the synced statistics keep a day and an episode — for the document and for what is noted. */
+internal object StatsRetention {
+    const val DAYS_KEPT = 400
+    const val EPISODES_KEPT_DAYS = 365L
+
+    /** [today] as an epoch day, local. */
+    fun expired(key: String, d: JsonObject, today: Long): Boolean = when {
+        key.startsWith("d\n") -> key.split('\n').getOrNull(2)?.toLongOrNull()?.let { it < today - DAYS_KEPT } ?: false
+        key.startsWith("e\n") -> d.long("y")?.let { it < monthOfDay(today - EPISODES_KEPT_DAYS) } ?: false
+        else -> false
+    }
+
+    private fun monthOfDay(epochDay: Long): Long =
+        kotlinx.datetime.LocalDate.fromEpochDays(epochDay).let { (it.year * 100 + it.month.ordinal + 1).toLong() }
 }

@@ -40,9 +40,11 @@ class RecordingEngine : PlaybackEngine {
     val loaded = mutableListOf<PlaybackItem>()
     val seeks = mutableListOf<Long>()
     var lastSpeed = 1f
+    /** The length reported on load; 0 for a stream whose length comes later. */
+    var loadDurationMs = 600_000L
     override fun load(item: PlaybackItem, playWhenReady: Boolean) {
         loaded += item
-        s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = 600_000)
+        s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = loadDurationMs)
     }
     override fun play() { s.value = s.value.copy(isPlaying = true) }
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
@@ -355,6 +357,26 @@ class PlayerControllerTest {
         podcasts.setSkip(e1.podcastId, 300, 250)
         player.play(e1.copy(played = true, durationSeconds = 600))
         until("Ep 1 from 0") { engine.loaded.last().let { it.id == e1.id.toString() && it.startPositionMs == 0L } }
+    }
+
+    /** Review 2026-10-27: an episode whose feed gives no length takes the skip, and goes back to
+     *  its start once it turns out too short for it — a trailer does not begin at its end. */
+    @Test
+    fun anEpisodeOfUnknownLengthTooShortForTheSkipStartsAtItsBeginning() = test {
+        val (e1, e2) = episodes()
+        podcasts.setSkip(e1.podcastId, 600, 0)
+        engine.loadDurationMs = 0
+        player.play(e1.copy(played = true, durationSeconds = null))
+        until("skipped, as nothing says otherwise") { engine.loaded.lastOrNull()?.startPositionMs == 600_000L }
+        engine.s.value = engine.s.value.copy(durationMs = 180_000)
+        until("back to its start") { engine.seeks.lastOrNull() == 0L }
+        // Long enough once known: where the skip put it.
+        engine.seeks.clear()
+        player.play(e2.copy(played = true, durationSeconds = null))
+        until("Ep 2 skipped") { engine.loaded.last().let { it.id == e2.id.toString() && it.startPositionMs == 600_000L } }
+        engine.s.value = engine.s.value.copy(durationMs = 3_600_000)
+        delay(100)
+        assertTrue(engine.seeks.isEmpty())
     }
 
     @Test

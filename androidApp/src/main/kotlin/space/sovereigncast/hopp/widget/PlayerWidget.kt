@@ -260,8 +260,19 @@ class NextChapter : ActionCallback {
 }
 
 class Boost : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) = withContext(Dispatchers.Main) { QuickBoost.send(widgetScope) }
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) = withContext(Dispatchers.Main) {
+        // As for play (review 2026-10-27): after the process had ended, the episode shown comes
+        // back a moment after the start — boost that, not nothing.
+        if (player.current.value == null) withTimeoutOrNull(3_000) { player.current.first { it != null } }
+        // Waited for while the action lasts: with nothing playing, the process may otherwise
+        // end in the middle of the payment. A slow wallet goes on in the scope after that.
+        QuickBoost.send(widgetScope)?.let { withTimeoutOrNull(BOOST_WAIT_MS) { it.join() } }
+        Unit
+    }
 }
+
+/** Within the time a broadcast may take. */
+private const val BOOST_WAIT_MS = 45_000L
 
 private val widgetScope = MainScope()
 
@@ -291,7 +302,7 @@ object WidgetState {
 
 /** The cover, small enough for a widget's update — the last one kept, as it rarely changes. */
 internal object Artwork {
-    private var last: Pair<String, Bitmap>? = null
+    @Volatile private var last: Pair<String, Bitmap>? = null
 
     /** The cover of [url], if it is the one loaded last. */
     fun cached(url: String?): Bitmap? = last?.takeIf { it.first == url }?.second
@@ -310,16 +321,18 @@ internal object Artwork {
     internal fun decode(bytes: ByteArray): Bitmap? = runCatching {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        val w = bounds.outWidth.toLong(); val h = bounds.outHeight.toLong()
-        if (w <= 0 || h <= 0 || w * h > MAX_PIXELS) return null
+        val w = bounds.outWidth; val h = bounds.outHeight
+        if (w <= 0 || h <= 0 || w > MAX_SIDE || h > MAX_SIDE) return null
+        // Sampled by the longer side (review 2026-10-27): by the shorter one, a strip of
+        // 10 000 × 100 px stayed whole and a thin picture could still ask for hundreds of MB.
         var sample = 1
-        while (bounds.outWidth / (sample * 2) >= SIZE && bounds.outHeight / (sample * 2) >= SIZE) sample *= 2
+        while (maxOf(w, h) / (sample * 2) >= SIZE) sample *= 2
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
     }.getOrNull()
 
     private const val SIZE = 192
     /** Far above any real cover (3000 px square as JPEG: 1–3 MB). */
     internal const val MAX_BYTES = 8L shl 20
-    /** 10 000 × 10 000: beyond that, a picture is a trap, not a cover. */
-    private const val MAX_PIXELS = 100_000_000L
+    /** 10 000 px a side: beyond that, a picture is a trap, not a cover. */
+    private const val MAX_SIDE = 10_000
 }

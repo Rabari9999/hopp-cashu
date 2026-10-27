@@ -99,6 +99,35 @@ class StatsSyncTest {
         assertEquals(35 * 60_000L, tablet.listening.stats(StatsRange.All).heardMs)
     }
 
+    /** Review 2026-10-27: what was given shows without sync too, and once — also after the show
+     *  was unsubscribed and its payments fell back to its title. */
+    @Test
+    fun whatWasGivenIsCountedOnceWhenTheShowGoes() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val id = phone.row(feed).id
+        phone.db.paymentQueries.insert(phone.ms / 1000, "boost", id, null, "Nodesignal", null, 1_000_000, null, 0, 0, "[]")
+        assertEquals(1_000_000L, phone.listening.stats(StatsRange.All).boostMsat, "without sync")
+        phone.podcasts.unsubscribe(id)
+        assertEquals(1_000_000L, phone.listening.stats(StatsRange.All).boostMsat, "once, not under both keys")
+    }
+
+    /** Review 2026-10-27: a day sync dropped as too old is not noted again with every note after. */
+    @Test
+    fun whatSyncDropsAsTooOldIsNotNotedAgain() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+        phone.listen(phone.item(0), 10); phone.listening.flush(force = true)
+        phone.ms += 60_000; phone.sync.syncNow()
+        val day = StatsEntries.dayKey(phone.listening.device, phone.listening.dayAt(phone.ms))
+        phone.ms += 402 * 86_400_000L
+        phone.sync.syncNow()
+        phone.listen(phone.item(1), 10); phone.listening.flush(force = true)
+        assertTrue(day !in phone.store.pendingKeys(SyncDocs.STATS))
+        assertTrue(phone.listening.stats(StatsRange.All).heardMs == 20 * 60_000L, "kept here all the same")
+    }
+
     /** What another device sends is taken only in Hopp's shape and bounds. */
     @Test
     fun oddCountsFromElsewhereAreNotTaken() = runBlocking<Unit> {

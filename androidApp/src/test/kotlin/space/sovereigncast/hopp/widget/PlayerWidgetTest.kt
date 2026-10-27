@@ -91,4 +91,19 @@ class PlayerWidgetTest {
         org.junit.Assert.assertNull(Artwork.load("https://cdn.test/endless.jpg", client))
         org.junit.Assert.assertNull(Artwork.load("https://cdn.test/text.jpg", client))
     }
+
+    /** Review 2026-10-27: a picture as thin as a strip passed the size check whole — sampled by
+     *  its shorter side, it stayed as large as it came. */
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun aThinPictureIsMadeSmallOrRefused() {
+        fun png(w: Int, h: Int) = java.io.ByteArrayOutputStream().also {
+            android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        val strip = Artwork.decode(png(8_000, 50))!!
+        org.junit.Assert.assertTrue("${strip.width}×${strip.height}", strip.width < 400)
+        org.junit.Assert.assertNull(Artwork.decode(png(10_001, 10)))
+        val cover = Artwork.decode(png(3_000, 3_000))!!
+        org.junit.Assert.assertTrue("${cover.width}", cover.width in 192 until 400)
+    }
 }
