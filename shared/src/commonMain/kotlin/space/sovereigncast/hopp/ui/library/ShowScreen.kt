@@ -197,7 +197,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         }
     }
 
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh(); community.load() }) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh { community.reverify() } }) {
         TabbedPage(
             labels, pager,
             header = {

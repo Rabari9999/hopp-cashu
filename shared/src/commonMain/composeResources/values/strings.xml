@@ -241,6 +241,7 @@
     <string name="sc_suggestions">Open suggestions</string>
     <string name="sc_no_suggestions">No open suggestions</string>
     <string name="sc_votes">%1$d votes</string>
+    <string name="preview_sc_join">Subscribe to the show to vote or suggest a topic yourself.</string>
     <string name="sc_vote">Vote</string>
     <string name="sc_via">Community features via Sovereigncast · %1$s</string>
     <string name="sc_pay_title_rb">Bring %1$s out sooner</string>

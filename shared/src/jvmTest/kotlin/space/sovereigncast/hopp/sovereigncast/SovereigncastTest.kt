@@ -121,6 +121,31 @@ class SovereigncastTest {
         assertEquals(21, layer.show.amounts.suggestionMinSats)
     }
 
+    /** Maintainer 2026-10-27: subscribed before the feed named its instance, the show stayed without its
+     *  tabs until subscribed again. Now the open page checks again as soon as the stored feed names it. */
+    @Test
+    fun aFeedThatNamesItsInstanceLaterGetsTheLayerWithoutSubscribingAgain() = test {
+        marker = ""
+        val id = subscribe()
+        val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
+        delay(300)
+        assertNull(vm.layer.value, "no marker yet")
+        marker = "https://pm.test"
+        podcasts.refresh(id)
+        withTimeout(5_000) { while (vm.layer.value == null || vm.suggestions.value == null) delay(10) }
+        assertEquals("BIP110", vm.suggestions.value!!.single().title)
+    }
+
+    /** Maintainer 2026-10-27: the preview before subscribing shows the layer too — checked against its own address. */
+    @Test
+    fun aPreviewGetsTheLayerOfItsOwnFeedOnly() = test {
+        val podcast = space.sovereigncast.hopp.feed.FeedParser.parse(feed()).podcast
+        assertEquals("https://pm.test", sc.layerOf("https://pod.test/feed.xml", podcast)?.base)
+        assertNull(sc.layerOf("https://copy.test/feed.xml", podcast), "a copy claiming the guid")
+        showKnown = false
+        assertNull(sc.layerOf("https://pod.test/feed.xml", podcast))
+    }
+
     @Test
     fun aFeedPointingAtAForeignInstanceGetsNoLayer() = test {
         reportedFeed = "https://other.test/feed.xml" // the instance manages the GUID, but for another feed

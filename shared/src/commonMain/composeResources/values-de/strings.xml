@@ -241,6 +241,7 @@
     <string name="sc_suggestions">Offene Themenvorschläge</string>
     <string name="sc_no_suggestions">Keine offenen Vorschläge</string>
     <string name="sc_votes">%1$d Stimmen</string>
+    <string name="preview_sc_join">Abonniere die Show, um abzustimmen oder selbst ein Thema vorzuschlagen.</string>
     <string name="sc_vote">Abstimmen</string>
     <string name="sc_via">Community-Funktionen über Sovereigncast · %1$s</string>
     <string name="sc_pay_title_rb">%1$s früher veröffentlichen</string>

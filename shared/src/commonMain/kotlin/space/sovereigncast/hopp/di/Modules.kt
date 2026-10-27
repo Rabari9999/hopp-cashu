@@ -151,7 +151,7 @@ fun sharedModule(platform: Platform) = module {
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
     viewModel { DiscoverViewModel(get(), get(), get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
-    viewModel { params -> ShowPreviewViewModel(params.get(), get(), get()) }
+    viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }

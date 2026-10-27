@@ -14,12 +14,14 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
 - **Sharing:** Choose what you share – Hopp's link, the website from the feed, the audio link, the downloaded file or, for a show, its feed address. Hopp keeps your choice.
 - **People:** Tap a person in an episode or the player to see every episode with them – in your subscriptions and in other podcasts; Discover's search finds people too.
+- **Sovereigncast:** The preview before subscribing shows the Sovereigncast badge and the open topic suggestions.
 
 ### 🐛 Fixes
 - **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.
 - **Streaming:** Shares your wallet cannot pay are no longer set aside and then skipped, round after round.
 - **Wallet:** A wallet that does not answer – coinos with its app closed, say – is sent nothing; Hopp says so and waits.
 - **History:** An entry shows what was to go out and what became of it, instead of "0 sats".
+- **Sovereigncast:** A show whose feed names its instance only later gets its community tabs without subscribing again – a pull on the show page is enough.
 
 ## [0.3.0] - 2026-10-25
 

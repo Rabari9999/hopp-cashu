@@ -1056,6 +1056,19 @@ class AndroidAppFlowTest {
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("▲ 13") and androidx.compose.ui.test.isNotEnabled()).fetchSemanticsNodes().isNotEmpty() }
     }
 
+    /** Maintainer 2026-10-27: before subscribing, the preview shows the badge and the open suggestions. */
+    @Test
+    fun aSovereigncastShowsPreviewShowsItsCommunity() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/sc.xml")
+        tap("Open as feed")
+        waitFor("✓ Sovereigncast")
+        waitFor("BIP110")
+        check(has("Subscribe to the show to vote or suggest a topic yourself.")) { screen().toString() }
+        snapshot("preview-sc")
+    }
+
     /** Without a wallet the invoice goes to a wallet app; Hopp waits for the instance. */
     @Test
     fun releaseBoostingIsPaidAndConfirmed() {

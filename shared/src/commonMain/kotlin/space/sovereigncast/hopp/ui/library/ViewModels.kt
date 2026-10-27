@@ -409,12 +409,13 @@ class ShowViewModel(
         }
     }
 
-    fun refresh() {
+    /** The feed fetched again; [then] once it is stored — the instance asked again with it. */
+    fun refresh(then: () -> Unit = {}) {
         if (_refreshing.value) return
         _refreshing.value = true
         viewModelScope.launch {
             try { runCatching { podcasts.refresh(podcastId) }; _meta.value = podcasts.podcastMeta(podcastId) }
-            finally { _refreshing.value = false }
+            finally { _refreshing.value = false; then() }
         }
     }
 
@@ -688,7 +689,17 @@ sealed interface PreviewState {
  * The show page before subscribing (ADR 0008): the real feed, fetched
  * directly — the directory's copy can be old and knows nothing of P2.0 tags.
  */
-class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, private val podcasts: PodcastRepository) : ViewModel() {
+class ShowPreviewViewModel(
+    input: String, private val fetcher: FeedFetcher, private val podcasts: PodcastRepository,
+    private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository? = null,
+) : ViewModel() {
+    private val _layer = MutableStateFlow<space.sovereigncast.hopp.sovereigncast.ScLayer?>(null)
+    /** The show's Sovereigncast layer before subscribing (maintainer 2026-10-27), once its instance confirmed this feed. */
+    val layer: StateFlow<space.sovereigncast.hopp.sovereigncast.ScLayer?> = _layer.asStateFlow()
+    private val _suggestions = MutableStateFlow<List<space.sovereigncast.hopp.sovereigncast.Suggestion>?>(null)
+    /** Its open topic suggestions, read only here; null while unknown. */
+    val suggestions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.Suggestion>?> = _suggestions.asStateFlow()
+
     private val url = FeedFetcher.normalize(input) ?: input
     private val _state = MutableStateFlow<PreviewState>(PreviewState.Loading)
     val state: StateFlow<PreviewState> = _state.asStateFlow()
@@ -713,7 +724,13 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
                     is FetchResult.Fetched -> {
                         val feed = withContext(Dispatchers.Default) { FeedParser.parse(r.bytes) }
                         if (feed.podcast.title == null && feed.episodes.isEmpty()) PreviewState.Failed("not a podcast feed")
-                        else PreviewState.Loaded(feed, r.movedTo ?: url, r.etag, r.lastModified)
+                        else PreviewState.Loaded(feed, r.movedTo ?: url, r.etag, r.lastModified).also { loaded ->
+                            if (sc != null) viewModelScope.launch {
+                                val l = sc.layerOf(loaded.feedUrl, feed.podcast) ?: return@launch
+                                _layer.value = l
+                                if (l.show.capabilities.suggestions) _suggestions.value = runCatching { sc.suggestions(l).suggestions }.getOrNull()
+                            }
+                        }
                     }
                     else -> PreviewState.Failed("empty response")
                 }

@@ -110,6 +110,17 @@ link in the temporary folder) and, for a show, its feed address. Only what
 exists is offered. The last choice comes first next time, on this device only
 (`share_as`, not synced).
 
+**Amended 2026-10-27 (verification follows the feed — maintainer, after a new
+show subscribed before its feed named its instance kept no layer until it was
+subscribed again):** an open show page checks the instance again whenever the
+stored feed's marker or `podcast:guid` changes — after a refresh, in the
+background or by sync — and a pull on the page fetches the feed and asks the
+instance again. While a show is unconfirmed, the open page asks again every
+five minutes. The preview before subscribing checks the same way, against the
+address it loaded, and shows the badge and the open topic suggestions to read;
+voting and suggesting stay with subscribing. The preview thus asks the instance
+the feed names, as the page after subscribing did.
+
 An opt-in directory of instances is a later phase.
 
 ## Consequences
