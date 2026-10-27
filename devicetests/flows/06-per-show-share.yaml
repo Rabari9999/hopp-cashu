@@ -59,8 +59,12 @@ name: Per show and share
     commands:
       - tapOn: "Library"
 - tapOn: "Nodesignal.*"
+# Slowly: on the iPhone a quick swipe went past it (device check 2026-10-27).
 - scrollUntilVisible:
     element: "Nodesignal-Talk - E295.*"
+    speed: 20
+    visibilityPercentage: 50
+    centerElement: true
 - tapOn: "Nodesignal-Talk - E295.*"
 - extendedWaitUntil:
     visible: "Play"

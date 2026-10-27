@@ -22,7 +22,8 @@ name: Preview and stats
     element: "Subscribe to the show to vote or suggest a topic yourself."
 - takeScreenshot: 07-preview-suggestions
 - tapOn: "Back"
-# The stats: E297 streamed and E295 begun, so something is counted.
+# The stats: E295 played and paused in the flow before — counted then. (E297's few seconds in
+# 03 are gone: the app is ended before its half minute is written, as on a real kill.)
 - tapOn: "Home"
 - tapOn:
     text: "Settings"
