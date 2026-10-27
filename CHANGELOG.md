@@ -17,6 +17,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sovereigncast:** The preview before subscribing shows the Sovereigncast badge and the open topic suggestions.
 
 ### 🐛 Fixes
+- **Android Auto:** "Forward" on the steering wheel or a headset skips forward by your seconds instead of jumping to the next episode; the next chapter has its own button.
 - **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.
 - **Streaming:** Shares your wallet cannot pay are no longer set aside and then skipped, round after round.
 - **Wallet:** A wallet that does not answer – coinos with its app closed, say – is sent nothing; Hopp says so and waits.

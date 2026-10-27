@@ -22,7 +22,12 @@ every day in the first release.
   player makes it follow the default again.)*
 - **Lock screen, notification, headset and Bluetooth controls:** chapter title
   and chapter image in the now-playing view; previous/next jump between chapters
-  when the episode has them.
+  when the episode has them. *(Amended 2026-10-27, maintainer: "forward" on the
+  car's steering wheel jumped to the next episode — an episode without chapters
+  has no next one. The media keys' next and previous — headsets, Bluetooth, the
+  steering wheel — now skip forward and back by the listener's seconds, as in
+  AntennaPod; the next chapter is a button of its own in the notification, on
+  the lock screen, in Android Auto and on the widget.)*
 - **Chapters:** list with images, tap to seek, current chapter highlighted,
   chapter links tappable.
 - **Transcript:** follows playback with the current cue highlighted, tap to
@@ -80,7 +85,7 @@ Video via `alternateEnclosure` and cross-device sync (phase 2), live items
 ## Consequences
 
 - The playback engine interface (ADR 0003) must expose chapter boundaries, so
-  that "next/previous" on headsets and the end-of-chapter sleep timer work the
+  that the next-chapter button and the end-of-chapter sleep timer work the
   same on both platforms.
 - The download scheduler needs Wi-Fi-only constraints and a storage budget on
   both platforms (WorkManager / background `URLSession`), and the feed refresh

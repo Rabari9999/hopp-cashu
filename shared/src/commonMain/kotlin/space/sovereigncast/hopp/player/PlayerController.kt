@@ -517,8 +517,9 @@ class PlayerController(
         listening?.let { l -> scope.launch { l.counted(chapters = 1) } }
     }
 
-    /** Headset, notification and car "next": the next chapter, past the last
-     *  one the next episode in the queue. */
+    /** "Next chapter" in the notification, the car and the widget: the next chapter, past the
+     *  last one the next episode in the queue. (A headset's or steering wheel's "next" skips
+     *  forward instead, maintainer 2026-10-27.) */
     fun next() {
         _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
         scope.launch {

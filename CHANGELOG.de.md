@@ -17,6 +17,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sovereigncast:** Die Vorschau vor dem Abonnieren zeigt das Sovereigncast-Abzeichen und die offenen Themenvorschläge.
 
 ### 🐛 Fixes
+- **Android Auto:** „Vor“ am Lenkrad oder am Kopfhörer spult um deine Sekunden vor, statt zur nächsten Folge zu springen; das nächste Kapitel hat seinen eigenen Knopf.
 - **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.
 - **Streaming:** Anteile, die deine Wallet nicht zahlen kann, werden nicht mehr angespart und dann Runde für Runde übersprungen.
 - **Wallet:** Eine Wallet, die nicht antwortet – etwa coinos bei geschlossener App –, bekommt nichts geschickt; Hopp sagt das und wartet.

@@ -123,12 +123,13 @@ class PlaybackService : MediaLibraryService() {
     private var skipBackMs = Settings().skipBackSeconds * 1000L
     private var skipForwardMs = Settings().skipForwardSeconds * 1000L
     private val boostCommand = SessionCommand(ACTION_BOOST, Bundle.EMPTY)
+    private val nextChapterCommand = SessionCommand(ACTION_NEXT_CHAPTER, Bundle.EMPTY)
 
     /**
      * The lock screen and the notification (maintainer, 2026-10-21): skip back
      * and forward by the listener's seconds where previous and next were, the
-     * boost beside them — with a wallet — and the next chapter after it.
-     * Headsets and the car keep next and previous for chapters ([ChapterPlayer]).
+     * boost beside them — with a wallet — and the next chapter after it: a command of its own,
+     * as the media keys' next and previous skip by seconds ([ChapterPlayer]).
      */
     private fun buttons(withBoost: Boolean = boostShown): List<CommandButton> = buildList {
         val back = (skipBackMs / 1000).toInt()
@@ -166,7 +167,7 @@ class PlaybackService : MediaLibraryService() {
         add(
             CommandButton.Builder(CommandButton.ICON_NEXT)
                 .setDisplayName(getString(R.string.next_chapter))
-                .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                .setSessionCommand(nextChapterCommand)
                 .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
                 .build(),
         )
@@ -190,10 +191,11 @@ class PlaybackService : MediaLibraryService() {
         c.packageName == packageName || c.isTrusted ||
             session.isMediaNotificationController(c) || session.isAutomotiveController(c) || session.isAutoCompanionController(c)
 
-    /** Next/previous on headsets, the notification and in the car jump by
-     *  chapter, past the last one to the next episode in the queue (ADR 0012).
-     *  Back and forward skip by the listener's intervals, as in the app (device
-     *  feedback 2026-10-14: the notification skipped a fixed 10 and 30 seconds). */
+    /** Back and forward skip by the listener's intervals, as in the app (device feedback
+     *  2026-10-14: the notification skipped a fixed 10 and 30 seconds) — and so do next and
+     *  previous, the media keys of headsets and the car's steering wheel (maintainer
+     *  2026-10-27: "forward" on the wheel jumped to the next episode). The next chapter has
+     *  its button of its own ([nextChapterCommand]); ADR 0012. */
     private inner class ChapterPlayer(player: Player) : ForwardingPlayer(player) {
         private val extra = listOf(
             Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_PREVIOUS,
@@ -202,10 +204,10 @@ class PlaybackService : MediaLibraryService() {
         override fun getAvailableCommands(): Player.Commands =
             super.getAvailableCommands().buildUpon().addAll(*extra.toIntArray()).build()
         override fun isCommandAvailable(command: Int) = command in extra || super.isCommandAvailable(command)
-        override fun seekToNext() = controller.next()
-        override fun seekToNextMediaItem() = controller.next()
-        override fun seekToPrevious() = controller.previous()
-        override fun seekToPreviousMediaItem() = controller.previous()
+        override fun seekToNext() = seekForward()
+        override fun seekToNextMediaItem() = seekForward()
+        override fun seekToPrevious() = seekBack()
+        override fun seekToPreviousMediaItem() = seekBack()
         override fun getSeekBackIncrement() = skipBackMs
         override fun getSeekForwardIncrement() = skipForwardMs
         override fun seekBack() = seekTo((currentPosition - skipBackMs).coerceAtLeast(0))
@@ -217,6 +219,7 @@ class PlaybackService : MediaLibraryService() {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             val allowed = mayBoost(session, controller)
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+            commands.add(nextChapterCommand)
             if (allowed) commands.add(boostCommand)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands.build())
@@ -227,6 +230,10 @@ class PlaybackService : MediaLibraryService() {
         override fun onCustomCommand(
             session: MediaSession, controller: MediaSession.ControllerInfo, customCommand: SessionCommand, args: Bundle,
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == ACTION_NEXT_CHAPTER) {
+                this@PlaybackService.controller.next()
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
             if (customCommand.customAction != ACTION_BOOST) return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
             // Checked again here, not only when the command was offered.
             if (!mayBoost(session, controller)) return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
@@ -275,6 +282,7 @@ class PlaybackService : MediaLibraryService() {
 
     private companion object {
         const val ACTION_BOOST = "space.sovereigncast.hopp.BOOST"
+        const val ACTION_NEXT_CHAPTER = "space.sovereigncast.hopp.NEXT_CHAPTER"
         /** The widget's time moves in half minutes. */
         const val WIDGET_STEP_MS = 30_000L
     }

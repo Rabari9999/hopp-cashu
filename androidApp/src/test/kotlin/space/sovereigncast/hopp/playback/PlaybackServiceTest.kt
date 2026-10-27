@@ -12,8 +12,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 import space.sovereigncast.hopp.ui.TestApp
 
-/** The service starts — session, library callback, chapter player — and
- *  offers next/previous even for a single episode (ADR 0012). */
+/** The service starts — session, library callback, player — and offers next/previous even
+ *  for a single episode (ADR 0012): the media keys of headsets and the car. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = TestApp::class)
 class PlaybackServiceTest {
@@ -32,6 +32,35 @@ class PlaybackServiceTest {
         assertEquals(androidx.media3.session.CommandButton.ICON_SKIP_BACK_10, session.mediaButtonPreferences[0].icon)
         assertEquals(Player.COMMAND_SEEK_BACK, session.mediaButtonPreferences[0].playerCommand)
         assertEquals(Player.COMMAND_SEEK_FORWARD, session.mediaButtonPreferences[1].playerCommand)
+        // The next chapter is a command of its own: next on a headset or the steering wheel skips.
+        assertEquals("space.sovereigncast.hopp.NEXT_CHAPTER", session.mediaButtonPreferences[2].sessionCommand?.customAction)
+        controller.destroy()
+    }
+
+    /** Maintainer 2026-10-27: "forward" on the car's steering wheel jumped to the next episode.
+     *  The media keys' next and previous skip by the listener's seconds, as forward and back. */
+    @Test
+    fun theSteeringWheelsNextSkipsForward() {
+        val controller = Robolectric.buildService(PlaybackService::class.java).create()
+        repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(50) }
+        val service = controller.get()
+        val session = service.onGetSession(androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "test", 0, 0, 0, 0, false, android.os.Bundle.EMPTY, false))!!
+        val player = session.player
+        player.setMediaItem(androidx.media3.common.MediaItem.fromUri("https://cdn.test/1.mp3"), 60_000)
+        ShadowLooper.idleMainLooper()
+        player.seekToNext()
+        ShadowLooper.idleMainLooper()
+        assertEquals(90_000L, player.currentPosition)
+        player.seekToPrevious()
+        ShadowLooper.idleMainLooper()
+        assertEquals(80_000L, player.currentPosition)
+        // Every controller is offered the next chapter, and it is done.
+        val car = androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "com.google.android.projection.gearhead", 0, 0, 0, 0, false, android.os.Bundle.EMPTY, false)
+        val next = androidx.media3.session.SessionCommand("space.sovereigncast.hopp.NEXT_CHAPTER", android.os.Bundle.EMPTY)
+        assertTrue(next in service.callback!!.onConnect(session, car).availableSessionCommands.commands)
+        assertEquals(androidx.media3.session.SessionResult.RESULT_SUCCESS, service.callback!!.onCustomCommand(session, car, next, android.os.Bundle.EMPTY).get().resultCode)
         controller.destroy()
     }
 
