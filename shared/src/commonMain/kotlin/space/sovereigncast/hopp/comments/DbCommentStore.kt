@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.comments
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -19,8 +21,8 @@ class DbCommentStore(private val db: HoppDatabase) : CommentStore {
     private val strings = ListSerializer(String.serializer())
 
     override suspend fun seen(itemTag: String): CommentStore.Seen? = withContext(ioDispatcher) {
-        val fetch = q.fetch(itemTag).executeAsOneOrNull() ?: return@withContext null
-        val events = q.events(itemTag).executeAsList().mapNotNull { runCatching { json.decodeFromString(Event.serializer(), it) }.getOrNull() }
+        val fetch = q.fetch(itemTag).awaitAsOneOrNull() ?: return@withContext null
+        val events = q.events(itemTag).awaitAsList().mapNotNull { runCatching { json.decodeFromString(Event.serializer(), it) }.getOrNull() }
         CommentStore.Seen(events, json.decodeFromString(strings, fetch.relays_json), json.decodeFromString(strings, fetch.muted_json).toSet(), fetch.fetched_at,
             json.decodeFromString(strings, fetch.roots_json).toSet())
     }
@@ -34,7 +36,7 @@ class DbCommentStore(private val db: HoppDatabase) : CommentStore {
 
     override suspend fun authors(keys: Set<String>): Map<String, Pair<CommentAuthor, Long>> = withContext(ioDispatcher) {
         if (keys.isEmpty()) return@withContext emptyMap()
-        keys.chunked(500).flatMap { q.authors(it).executeAsList() }.associate { it.pubkey to (CommentAuthor(it.name, it.picture) to it.fetched_at) }
+        keys.chunked(500).flatMap { q.authors(it).awaitAsList() }.associate { it.pubkey to (CommentAuthor(it.name, it.picture) to it.fetched_at) }
     }
 
     override suspend fun saveAuthors(found: Map<String, CommentAuthor>, at: Long) = withContext(ioDispatcher) {
@@ -43,7 +45,7 @@ class DbCommentStore(private val db: HoppDatabase) : CommentStore {
 
     override suspend fun boosts(ids: Collection<String>): Map<String, Long?> = withContext(ioDispatcher) {
         if (ids.isEmpty()) return@withContext emptyMap()
-        ids.distinct().chunked(500).flatMap { q.boosts(it).executeAsList() }.associate { it.comment_id to it.sats }
+        ids.distinct().chunked(500).flatMap { q.boosts(it).awaitAsList() }.associate { it.comment_id to it.sats }
     }
 
     override suspend fun saveBoosts(found: Map<String, Long?>) = withContext(ioDispatcher) {

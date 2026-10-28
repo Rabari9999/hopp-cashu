@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.QueueRepository
 import space.sovereigncast.hopp.data.Settings
@@ -20,22 +22,22 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
 
     /** This device's queue joins only where the relays have nothing: its order has no time. */
     override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
-        db.queueQueries.selectKeys().executeAsList().mapNotNull { q ->
-            val r = db.episodeQueries.syncKeysOf(q.episode_id).executeAsOneOrNull() ?: return@mapNotNull null
+        db.queueQueries.selectKeys().awaitAsList().mapNotNull { q ->
+            val r = db.episodeQueries.syncKeysOf(q.episode_id).awaitAsOneOrNull() ?: return@mapNotNull null
             val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
             SyncDocs.queueKey(show, r.guid) to SyncEntry(0, d = SyncDocs.queued(show, r.guid, q.sort_key))
         }.toMap()
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().executeAsList() }
+        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
         for ((key, e) in entries) {
             val show = e.d.text("show")
             val guid = e.d.text("guid")
             if (show == null || guid == null) { done += key; continue }
             val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
-            val id = podcast?.let { p -> withContext(ioDispatcher) { db.episodeQueries.selectByGuid(p.id, guid).executeAsOneOrNull()?.id } }
+            val id = podcast?.let { p -> withContext(ioDispatcher) { db.episodeQueries.selectByGuid(p.id, guid).awaitAsOneOrNull()?.id } }
             if (id == null) {
                 // Out of the queue and not here at all: nothing to do. Into it: when the feed has it.
                 if (e.del) done += key

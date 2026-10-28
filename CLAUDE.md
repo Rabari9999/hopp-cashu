@@ -39,6 +39,13 @@ file needs the matching `migrations/<n>.sqm` too, and installed apps run it
 on update; `DownloadsAndQueueTest.aVersionOneDatabaseIsMigrated` shows how to
 check it against the old schema.
 
+The queries are generated asynchronous (`generateAsync`, ADR 0022 — the
+browser's SQLite answers from a worker): read with `awaitAsList()` /
+`awaitAsOne()` / `awaitAsOneOrNull()`, never `executeAs…()`, and write from
+a coroutine. The apps' drivers stay synchronous (`Schema.synchronous()`).
+`jvmTest`'s `testDatabase()` runs on `AsyncOnlyDriver`, so a synchronous call
+left in the code fails there and not only in a browser.
+
 Search needs the Podcast Index key (ADR 0008). Key and secret are public in
 `shared/build.gradle.kts` since 2026-10-10 (open question 17: F-Droid builds
 from source and must produce our APK; AntennaPod and Kasts do the same). A

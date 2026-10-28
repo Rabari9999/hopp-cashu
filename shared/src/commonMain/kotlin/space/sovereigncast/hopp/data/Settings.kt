@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.flow.Flow
@@ -266,7 +267,7 @@ class SettingsRepository(
     suspend fun current(): Settings = settings.first()
 
     suspend fun update(change: (Settings) -> Settings) = withContext(ioDispatcher) {
-        val before = Settings.from(db.settingQueries.selectAll().executeAsList().associate { it.key to it.value_ })
+        val before = Settings.from(db.settingQueries.selectAll().awaitAsList().associate { it.key to it.value_ })
         val after = change(before)
         val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
         db.transaction { changed.forEach { (k, v) -> db.settingQueries.put(k, v) } }

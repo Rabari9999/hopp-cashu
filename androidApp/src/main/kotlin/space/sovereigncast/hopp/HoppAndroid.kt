@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp
 
 import android.content.Context
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import space.sovereigncast.hopp.data.DownloadScheduler
@@ -26,7 +27,7 @@ fun appInfo(context: Context) = AppInfo(
 
 class AndroidPlatform(private val context: Context) : Platform {
     override val app: AppInfo = appInfo(context)
-    override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema, context, "hopp.db")
+    override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), context, "hopp.db")
     override fun playbackEngine(): PlaybackEngine = AndroidPlaybackEngine(context)
     // noBackupFilesDir: app-private, never in Auto Backup (ADR 0015).
     override fun downloadDir(): String = java.io.File(context.noBackupFilesDir, "episodes").absolutePath

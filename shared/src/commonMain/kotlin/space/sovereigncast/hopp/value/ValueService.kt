@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.value
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -403,7 +406,7 @@ class ValueService(
         val id = withContext(ioDispatcher) {
             db.transactionWithResult {
                 pq.insert(clock.now(), kind, podcastId, null, podcastTitle, episodeTitle, 0, message, 0, amountMsat, json.encodeToString(lineList, listOf(line("unknown", null, IN_FLIGHT_REASON))))
-                pq.lastInsertId().executeAsOne()
+                pq.lastInsertId().awaitAsOne()
             }
         }
         suspend fun settle(status: String, fees: Long?, reason: String?) = withContext(NonCancellable + ioDispatcher) {
@@ -427,7 +430,7 @@ class ValueService(
 
     /** [reason] onto a payment's lines — the instance has not confirmed what the wallet paid, say. */
     suspend fun setReason(paymentId: Long, reason: String) = withContext(ioDispatcher) {
-        val row = pq.selectById(paymentId).executeAsOneOrNull() ?: return@withContext
+        val row = pq.selectById(paymentId).awaitAsOneOrNull() ?: return@withContext
         val lines = runCatching { json.decodeFromString(lineList, row.results_json) }.getOrDefault(emptyList())
         pq.setResults(json.encodeToString(lineList, lines.map { it.copy(reason = reason) }), paymentId)
     }
@@ -539,7 +542,7 @@ class ValueService(
 
     /** Every episode with something accrued or owed. */
     private suspend fun pendingIds(): Set<Long> = withContext(ioDispatcher) {
-        sq.owedByEpisode(RAIL_LIGHTNING).executeAsList().map { it.episode_id }.toSet() + sq.accruedByEpisode().executeAsList().map { it.episode_id }
+        sq.owedByEpisode(RAIL_LIGHTNING).awaitAsList().map { it.episode_id }.toSet() + sq.accruedByEpisode().awaitAsList().map { it.episode_id }
     }
 
     /**
@@ -553,14 +556,14 @@ class ValueService(
         val client = wallet.client() ?: return@withLock
         val info = wallet.wallet.value?.info ?: return@withLock
         val budget = settings.current().dailyBudgetSats * 1000L
-        var left = budget - withContext(ioDispatcher) { pq.spentSince(startOfToday()).executeAsOne() }
+        var left = budget - withContext(ioDispatcher) { pq.spentSince(startOfToday()).awaitAsOne() }
         var over = false
         val sender = BoostSender(client, lnAddress, info)
         // Whole sats, and — once an episode is done (heard to its end, or not for
         // 24 h) — its parts of a sat rounded up, at most one sat more per
         // recipient (user decision 2026-10-11): otherwise they would wait for good.
         val stale = clock.now() - ROUND_UP_AFTER_SECONDS
-        val rows = withContext(ioDispatcher) { sq.owedWithHeard(RAIL_LIGHTNING).executeAsList() }
+        val rows = withContext(ioDispatcher) { sq.owedWithHeard(RAIL_LIGHTNING).awaitAsList() }
             .map { r -> r to (r.episode_id in roundUp || (r.last_played_at ?: Long.MAX_VALUE) < stale) }
             .filter { (r, done) -> r.owed_msat >= 1000 || done }
         // A wallet that does not answer would not answer a payment either: then nothing is sent
@@ -656,8 +659,8 @@ class ValueService(
      * showed what was sent, not what waits, nor why).
      */
     suspend fun pendingFor(episodeId: Long): List<PendingShare> {
-        val owed = withContext(ioDispatcher) { sq.owedOf(episodeId, RAIL_LIGHTNING).executeAsList() }
-        val accrued = withContext(ioDispatcher) { sq.accrualsOf(episodeId).executeAsList() }
+        val owed = withContext(ioDispatcher) { sq.owedOf(episodeId, RAIL_LIGHTNING).awaitAsList() }
+        val accrued = withContext(ioDispatcher) { sq.accrualsOf(episodeId).awaitAsList() }
         val byKey = linkedMapOf<String, PendingShare>()
         fun add(key: String, name: String?, msat: Long) {
             val p = byKey[key]
@@ -676,8 +679,8 @@ class ValueService(
      * not from which).
      */
     suspend fun pendingByEpisode(): List<PendingEpisode> {
-        val owed = withContext(ioDispatcher) { sq.owedByEpisode(RAIL_LIGHTNING).executeAsList() }.associateBy { it.episode_id }
-        val accrued = withContext(ioDispatcher) { sq.accruedByEpisode().executeAsList() }.associate { it.episode_id to it.accrued }
+        val owed = withContext(ioDispatcher) { sq.owedByEpisode(RAIL_LIGHTNING).awaitAsList() }.associateBy { it.episode_id }
+        val accrued = withContext(ioDispatcher) { sq.accruedByEpisode().awaitAsList() }.associate { it.episode_id to it.accrued }
         return (owed.keys + accrued.keys).map { id ->
             val o = owed[id]
             val reason = when {
@@ -706,7 +709,7 @@ class ValueService(
 
     private suspend fun distribute() {
         val info = wallet.wallet.value?.info
-        val pending = withContext(ioDispatcher) { sq.pendingAccruals().executeAsList() }
+        val pending = withContext(ioDispatcher) { sq.pendingAccruals().awaitAsList() }
         for (a in pending) {
             // What this wallet cannot pay is not set aside: it would wait and then be skipped.
             val parts = parts(a).filter { info == null || unreachable(it.recipient, info) == null }

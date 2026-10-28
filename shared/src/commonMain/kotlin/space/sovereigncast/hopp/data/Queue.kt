@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.flow.Flow
@@ -20,11 +23,11 @@ class QueueRepository(
 ) {
     private val qq = db.queueQueries
 
-    private fun note(episodeIds: Collection<Long>) {
+    private suspend fun note(episodeIds: Collection<Long>) {
         if (!journal.enabled) return
-        val keys = qq.selectKeys().executeAsList().associate { it.episode_id to it.sort_key }
+        val keys = qq.selectKeys().awaitAsList().associate { it.episode_id to it.sort_key }
         for (id in episodeIds) {
-            val r = db.episodeQueries.syncKeysOf(id).executeAsOneOrNull() ?: continue
+            val r = db.episodeQueries.syncKeysOf(id).awaitAsOneOrNull() ?: continue
             val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
             val sort = keys[id]
             journal.record(SyncDocs.QUEUE, SyncDocs.queueKey(show, r.guid), SyncDocs.queued(show, r.guid, sort ?: 0), deleted = sort == null)
@@ -47,7 +50,7 @@ class QueueRepository(
         val moved = db.transactionWithResult {
             qq.remove(episodeId)
             val renumbered = renumberAtTheEdge()
-            qq.put(episodeId, qq.minKey().executeAsOne() - 1)
+            qq.put(episodeId, qq.minKey().awaitAsOne() - 1)
             renumbered
         }
         note(moved + episodeId)
@@ -57,7 +60,7 @@ class QueueRepository(
         val moved = db.transactionWithResult {
             qq.remove(episodeId)
             val renumbered = renumberAtTheEdge()
-            qq.put(episodeId, qq.maxKey().executeAsOne() + 1)
+            qq.put(episodeId, qq.maxKey().awaitAsOne() + 1)
             renumbered
         }
         note(moved + episodeId)
@@ -68,9 +71,9 @@ class QueueRepository(
      * has, before one goes before or after it — at the edge, two in a row got the same place and their
      * order fell to the episodes' names (delta audit 2 2026-10-22, ND-02). The episodes renumbered.
      */
-    private fun renumberAtTheEdge(): List<Long> {
-        if (qq.minKey().executeAsOne() > -SORT_MAX && qq.maxKey().executeAsOne() < SORT_MAX) return emptyList()
-        val order = qq.selectAll().executeAsList()
+    private suspend fun renumberAtTheEdge(): List<Long> {
+        if (qq.minKey().awaitAsOne() > -SORT_MAX && qq.maxKey().awaitAsOne() < SORT_MAX) return emptyList()
+        val order = qq.selectAll().awaitAsList()
         order.forEachIndexed { i, id -> qq.put(id, i.toLong()) }
         return order
     }
@@ -85,10 +88,10 @@ class QueueRepository(
 
     /** Takes the first one off the queue. */
     suspend fun pop(): Long? = withContext(ioDispatcher) {
-        db.transactionWithResult { qq.first().executeAsOneOrNull()?.also { qq.remove(it) } }?.also { note(listOf(it)) }
+        db.transactionWithResult { qq.first().awaitAsOneOrNull()?.also { qq.remove(it) } }?.also { note(listOf(it)) }
     }
 
-    suspend fun peek(): Long? = withContext(ioDispatcher) { qq.first().executeAsOneOrNull() }
+    suspend fun peek(): Long? = withContext(ioDispatcher) { qq.first().awaitAsOneOrNull() }
 
     companion object {
         /** The farthest place in "Up next" — far beyond any real queue, and never near a Long's end

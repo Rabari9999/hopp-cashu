@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +27,7 @@ import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.RelaySession
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -79,14 +80,14 @@ class SyncAuditTest {
     private inner class Device(val relays: RelayConnector, val secrets: MemorySecretStore = MemorySecretStore()) {
         var ms = nowSeconds * 1000
         val identity = IdentityRepository(secrets, RelayPublisher(relays), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
-        val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+        val db = testDatabase()
         val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relays), secrets) { ms }
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relays)) { ms / 1000 }, identity, keys) { ms }
         val doc = Doc()
-        fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
+        suspend fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
         /** The listener changes [key] here: in the app and in the store, as the repositories do. */
-        fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
+        suspend fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
         suspend fun syncKey() = keys.signer(interactive = false, create = false)?.pubkey
     }
 
@@ -813,7 +814,7 @@ class SyncAuditTest {
         tablet.sync.enable()
         val restored = tablet.row("https://pod.test/selfhosted.xml")
         assertEquals(0L, restored.auto_download)
-        assertEquals(0L, tablet.db.episodeQueries.selectByPodcast(restored.id).executeAsList().count { it.download_state == 1L }.toLong())
+        assertEquals(0L, tablet.db.episodeQueries.selectByPodcast(restored.id).awaitAsList().count { it.download_state == 1L }.toLong())
 
         // A speed no Hopp plays, from a device gone wrong: the show keeps its own.
         val doc = SubscriptionsDocument(tablet.db, tablet.podcasts)
@@ -899,7 +900,7 @@ class SyncAuditTest {
         assertEquals(false, tablet.settings.current().autoDownloads)
         assertEquals(setOf("https://pod.test/nodesignal.xml"), tablet.urls())
         val row = tablet.row("https://pod.test/nodesignal.xml")
-        assertEquals(0, tablet.db.episodeQueries.selectByPodcast(row.id).executeAsList().count { it.download_state != 0L })
+        assertEquals(0, tablet.db.episodeQueries.selectByPodcast(row.id).awaitAsList().count { it.download_state != 0L })
     }
 
     // ── M-05 ────────────────────────────────────────────────────────────────
@@ -911,7 +912,7 @@ class SyncAuditTest {
         val a = SyncDevice(relay, scope, nsec)
         val b = SyncDevice(relay, scope, nsec)
         for (d in listOf(a, b)) d.podcasts.subscribe("https://pod.test/nodesignal.xml")
-        fun ids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row("https://pod.test/nodesignal.xml").id).executeAsList().take(3).map { it.id }
+        suspend fun ids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row("https://pod.test/nodesignal.xml").id).awaitAsList().take(3).map { it.id }
         ids(a).forEach { a.queue.applySynced(it, 7) }
         ids(b).reversed().forEach { b.queue.applySynced(it, 7) }
         assertEquals(a.queueGuids(), b.queueGuids())

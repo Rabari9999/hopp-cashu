@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.player
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -32,6 +32,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** An engine that does what it is told and lets the test play the clock. */
 class RecordingEngine : PlaybackEngine {
@@ -73,7 +74,7 @@ class PlayerControllerTest {
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1000 })
     private val episodes = EpisodeRepository(db, http, { 1000 })
     private val queue = QueueRepository(db)
@@ -371,7 +372,7 @@ class PlayerControllerTest {
         var pos = 0L
         repeat(20) { clockMs += 500; pos += 500; at(pos) }
         at(pos, playing = false)
-        until("written") { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+        until("written") { db.listeningQueries.showTotals(0, 999_912).awaitAsList().sumOf { it.heard ?: 0 } > 0 }
     }
 
     /** Review 2026-10-27: an episode whose feed gives no length takes the skip, and goes back to

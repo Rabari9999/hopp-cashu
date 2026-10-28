@@ -170,6 +170,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
+            implementation(libs.sqldelight.async)
             implementation(libs.navigation.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
@@ -244,6 +245,10 @@ sqldelight {
     databases {
         create("HoppDatabase") {
             packageName.set("space.sovereigncast.hopp.db")
+            // The browser's SQLite runs in a worker and answers asynchronously
+            // (ADR 0022): every query and write is suspend. The apps' drivers
+            // stay synchronous and run the same code (Schema.synchronous()).
+            generateAsync.set(true)
         }
     }
 }

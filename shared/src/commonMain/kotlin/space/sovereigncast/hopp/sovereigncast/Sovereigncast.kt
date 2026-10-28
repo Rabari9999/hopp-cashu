@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.sovereigncast
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.async
@@ -114,7 +116,7 @@ class SovereigncastRepository(
         val base = markerOf(meta)
         val guid = meta.podcastGuid
         if (base == null || guid == null) { clear(podcastId); return }
-        val known = withContext(ioDispatcher) { q.selectSovereigncast(podcastId).executeAsOneOrNull() }
+        val known = withContext(ioDispatcher) { q.selectSovereigncast(podcastId).awaitAsOneOrNull() }
         if (!force && known?.sc_base_url == base && (clock.now() - (known.sc_verified_at ?: 0)) < REVERIFY_SECONDS) return
         try {
             if ("v1" !in api.meta(base).apiVersions) { clear(podcastId); return }
@@ -193,7 +195,7 @@ class SovereigncastRepository(
         if (startDone) return
         startDone = true
         if (settings.current().refreshHours <= 0) { refresh(); return }
-        val ids = withContext(ioDispatcher) { q.selectAllSovereigncast().executeAsList().map { it.id } }.toSet()
+        val ids = withContext(ioDispatcher) { q.selectAllSovereigncast().awaitAsList().map { it.id } }.toSet()
         if (ids.isNotEmpty()) runCatching { podcasts.refreshAll(only = ids) }
         refresh(force = true)
     }
@@ -204,7 +206,7 @@ class SovereigncastRepository(
      * for Home. A show whose instance does not answer is left out, not an error.
      */
     suspend fun activeActions(): List<ShowAction> = coroutineScope {
-        val rows = withContext(ioDispatcher) { q.selectAllSovereigncast().executeAsList() }
+        val rows = withContext(ioDispatcher) { q.selectAllSovereigncast().awaitAsList() }
         rows.map { r ->
             async {
                 val show = r.sc_capabilities_json?.let { runCatching { json.decodeFromString(ScShow.serializer(), it) }.getOrNull() } ?: return@async emptyList()

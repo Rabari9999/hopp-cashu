@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -10,6 +11,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.AsyncOnlyDriver
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.net.FeedFetcher
 import java.io.File
@@ -21,6 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.schemaDriver
 
 /** Package 2: the version 1 → 2 migration, the queue, downloads (ADR 0012). */
 class DownloadsAndQueueTest {
@@ -60,8 +63,8 @@ class DownloadsAndQueueTest {
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
-    private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }
-    private val db = HoppDatabase(driver)
+    private val driver = schemaDriver()
+    private val db = HoppDatabase(AsyncOnlyDriver(driver))
     private val dir = Files.createTempDirectory("hopp-dl").toFile()
     private val files = DownloadFiles(dir.absolutePath)
     private val scheduled = mutableListOf<Boolean>()
@@ -83,7 +86,7 @@ class DownloadsAndQueueTest {
         V1_SCHEMA.split(";").map(String::trim).filter(String::isNotEmpty).forEach { old.execute(null, it, 0) }
         old.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at) VALUES ('https://pod.test/feed.xml', 'Old', '{}', 1)", 0)
         old.execute(null, "INSERT INTO episode (podcast_id, guid, title, meta_json, first_seen_at, position_ms) VALUES (1, 'g', 'Kept', '{\"guid\":\"g\"}', 1, 4200)", 0)
-        HoppDatabase.Schema.migrate(old, 1, HoppDatabase.Schema.version)
+        HoppDatabase.Schema.synchronous().migrate(old, 1, HoppDatabase.Schema.version)
         val migrated = HoppDatabase(old)
         // Version 11: categories, and the feed asked for in full once more to fill them.
         assertEquals("" to null, migrated.podcastQueries.selectAll().executeAsOne().let { it.categories to it.etag })

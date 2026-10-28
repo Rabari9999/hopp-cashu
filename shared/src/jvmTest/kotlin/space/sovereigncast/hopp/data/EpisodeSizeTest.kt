@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.data
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.net.FeedFetcher
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.ui.library.episodeSize
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,7 +28,7 @@ class EpisodeSizeTest {
         else respond("", HttpStatusCode.NotFound)
     })
     private val now = 1_000_000L
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
     private val episodes = EpisodeRepository(db, http, { now })
 
@@ -66,6 +67,6 @@ class EpisodeSizeTest {
         assertNull(byTitle(id).getValue("Big").enclosureLength)
         episodes.fillEnclosureLengths()
         assertEquals(48_000_000L, byTitle(id).getValue("Big").enclosureLength)
-        assertEquals(0, db.episodeQueries.withoutLength(10).executeAsList().size, "every row read once")
+        assertEquals(0, db.episodeQueries.withoutLength(10).awaitAsList().size, "every row read once")
     }
 }

@@ -15,12 +15,12 @@ class SyncJournal(private val store: SyncStore?) {
 
     /** Called after each note: sync sends it out a little later — or, not [urgent]
      *  (a position while playing), with the next round, at most every few minutes. */
-    var onChange: (doc: String, urgent: Boolean) -> Unit = { _, _ -> }
+    var onChange: suspend (doc: String, urgent: Boolean) -> Unit = { _, _ -> }
 
     /** What sync holds for [key] now — to note only what changed (the listening statistics). */
-    fun current(doc: String, key: String): SyncEntry? = if (enabled) store?.entry(doc, key) else null
+    suspend fun current(doc: String, key: String): SyncEntry? = if (enabled) store?.entry(doc, key) else null
 
-    fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true) {
+    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true) {
         if (!enabled || store == null) return
         store.record(doc, key, data, deleted)
         onChange(doc, urgent)

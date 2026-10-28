@@ -19,7 +19,7 @@ interface SyncedDocument {
     /** [apply], where a step that cannot be undone (a show given up takes its episodes, progress and
      *  place in "Up next" with it) asks [stillWins] first, in the same transaction as the step: the
      *  listener may have changed the same thing a moment ago (delta audit 2 2026-10-22, HN-07). */
-    suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (key: String, entry: SyncEntry) -> Boolean): Set<String> = apply(entries)
+    suspend fun apply(entries: Map<String, SyncEntry>, stillWins: suspend (key: String, entry: SyncEntry) -> Boolean): Set<String> = apply(entries)
 
     /** What this device has, as entries with the best time it knows — merged once,
      *  when sync is turned on. An entry of time 0 has none: it joins only where the
@@ -145,7 +145,7 @@ class SyncEngine(
     }
 
     /** Entries dated far ahead ([MAX_AHEAD]): into the store, not the app — [repair] takes them in once their time has come. */
-    private fun hold(doc: SyncedDocument, ahead: Map<String, SyncEntry>) {
+    private suspend fun hold(doc: SyncedDocument, ahead: Map<String, SyncEntry>) {
         if (ahead.isEmpty()) return
         store.markUnapplied(doc.name, store.putIfNewer(doc.name, ahead))
     }
@@ -250,10 +250,10 @@ class SyncEngine(
     fun reach(): Pair<Int, Int>? = relays.lastReach
 
     /** Entries changed here the relays have not taken yet, over every document. */
-    fun toSend(): Int = store.pendingCount()
+    suspend fun toSend(): Int = store.pendingCount()
 
     /** Whether [doc] changed here since the relays last took it. */
-    fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
+    suspend fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
 
     companion object {
         /** Removal markers stay this long; a device away longer starts from the relays' list ([rebase]). */

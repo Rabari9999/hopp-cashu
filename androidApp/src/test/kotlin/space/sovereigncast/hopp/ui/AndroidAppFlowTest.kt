@@ -33,6 +33,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextClearance
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import io.ktor.client.HttpClient
@@ -206,7 +207,7 @@ class TestApp : Application() {
         val platform = object : Platform {
             override val app = AppInfo("0.0.1", "Android", "Phone")
             // A file, like on the device.
-            override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema, app, "hopp.db")
+            override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), app, "hopp.db")
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
             override fun downloadDir(): String = java.io.File(app.cacheDir, "episodes").absolutePath
             override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
@@ -747,7 +748,7 @@ class AndroidAppFlowTest {
         val lines = """[{"name":"Der Jack","address":"jack@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
             """{"name":"Calso","address":"calso@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
             """{"name":"Nodesignal","address":"02aa","msat":2000,"status":"skipped","reason":"wallet cannot send keysend"}]"""
-        koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines)
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines) }
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Payment history")

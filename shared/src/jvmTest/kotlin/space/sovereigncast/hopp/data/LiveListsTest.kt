@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.data
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -13,13 +12,14 @@ import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.net.FeedFetcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import space.sovereigncast.hopp.testDatabase
 
 /** Device feedback 2026-10-08: lists did not follow subscribe/unsubscribe,
  *  and a refresh put every episode into New. */
 class LiveListsTest {
     private val nodesignal = javaClass.getResourceAsStream("/feeds/nodesignal-podhome.xml")!!.readBytes()
     private val http = HttpClient(MockEngine { respond(nodesignal) })  // no ETag, like PodHome
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1000 })
     private val episodes = EpisodeRepository(db, http, { 1000 })
 

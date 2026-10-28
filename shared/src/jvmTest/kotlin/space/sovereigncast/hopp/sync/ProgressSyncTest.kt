@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +36,7 @@ class ProgressSyncTest {
         phone to tablet
     }
 
-    private fun guids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).executeAsList().map { it.guid }
+    private suspend fun guids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).awaitAsList().map { it.guid }
 
     @Test
     fun whereTheListenerStoppedFollowsToTheOtherDevice() = runBlocking<Unit> {

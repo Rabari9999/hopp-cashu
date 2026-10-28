@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import kotlinx.coroutines.MainScope
@@ -30,7 +31,7 @@ fun iosAppInfo() = AppInfo(
 
 class IosPlatform : Platform {
     override val app: AppInfo = iosAppInfo()
-    override fun sqlDriver(): SqlDriver = NativeSqliteDriver(HoppDatabase.Schema, "hopp.db")
+    override fun sqlDriver(): SqlDriver = NativeSqliteDriver(HoppDatabase.Schema.synchronous(), "hopp.db")
     override fun playbackEngine(): PlaybackEngine = IosPlaybackEngine(app.userAgent)
 
     // Caches is outside the iCloud backup; iOS may empty it when space runs

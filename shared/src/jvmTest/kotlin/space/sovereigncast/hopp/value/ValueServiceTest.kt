@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.value
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -42,6 +43,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** Package 4: wallet, boosts and streaming sats (ADR 0005, 0014). */
 class ValueServiceTest {
@@ -93,7 +95,7 @@ class ValueServiceTest {
     private val zapServer = KeyPair.generate()
     private val zapRequests = mutableListOf<String>()
     private var now = 1_780_000_000L
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val settings = SettingsRepository(db)
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
     private val episodes = EpisodeRepository(db, http, { now })
@@ -653,9 +655,9 @@ class ValueServiceTest {
         assertEquals(100_000L, plan.shares.sumOf { it.amountMsat }, "the whole amount to the show")
     }
 
-    private fun rows() = db.streamingQueries.owedWithHeard("lightning").executeAsList()
-    private fun owed(node: String) = rows().filter { node in it.recipient_json }.sumOf { it.owed_msat }
-    private fun markInFlight(node: String, msat: Long) = rows().filter { node in it.recipient_json }
+    private suspend fun rows() = db.streamingQueries.owedWithHeard("lightning").awaitAsList()
+    private suspend fun owed(node: String) = rows().filter { node in it.recipient_json }.sumOf { it.owed_msat }
+    private suspend fun markInFlight(node: String, msat: Long) = rows().filter { node in it.recipient_json }
         .forEach { db.streamingQueries.markSending(ValueService.inFlightMarker(msat), it.episode_id, it.recipient_key, it.rail) }
 
     /** Security audit 2026-10-18, M-03: the routing fee is known only after a
@@ -693,7 +695,7 @@ class ValueServiceTest {
         assertEquals(1, results.count { it.isSuccess }, results.toString())
         assertEquals(9, results.count { it.exceptionOrNull() is OverBudgetException }, results.toString())
         assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
-        assertEquals(101_000L, db.paymentQueries.spentSince(0).executeAsOne(), "100 sats and the fee")
+        assertEquals(101_000L, db.paymentQueries.spentSince(0).awaitAsOne(), "100 sats and the fee")
     }
 
     /** Device feedback 2026-10-08: a boost to the whole show — its block, no

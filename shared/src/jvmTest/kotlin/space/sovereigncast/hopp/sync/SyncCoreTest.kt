@@ -1,7 +1,7 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import space.sovereigncast.hopp.db.HoppDatabase
@@ -12,6 +12,7 @@ import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -115,10 +116,10 @@ class SyncCoreTest {
 
     // ── store ───────────────────────────────────────────────────────────────
 
-    private fun db() = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private fun db() = testDatabase()
 
     @Test
-    fun aChangeHereIsLaterThanWhatItReplacesEvenWithAClockBehind() {
+    fun aChangeHereIsLaterThanWhatItReplacesEvenWithAClockBehind() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         store.putIfNewer("subscriptions", mapOf("show" to SyncEntry(5_000, d = data("by" to "the other device, clock ahead"))))
@@ -130,7 +131,7 @@ class SyncCoreTest {
     }
 
     @Test
-    fun oldRemovalMarkersGoAndWhatIsUnsentIsKnownPerEntry() {
+    fun oldRemovalMarkersGoAndWhatIsUnsentIsKnownPerEntry() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         store.putIfNewer("queue", mapOf("old" to SyncEntry(10, del = true), "new" to SyncEntry(500, del = true), "live" to SyncEntry(10)))
@@ -155,7 +156,7 @@ class SyncCoreTest {
 
     /** Audit 2026-10-22, H-03: a change made while a sync was on its way is not written over. */
     @Test
-    fun anOlderEntryFromTheRelaysNeverReplacesANewerOneHere() {
+    fun anOlderEntryFromTheRelaysNeverReplacesANewerOneHere() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         now = 5_000

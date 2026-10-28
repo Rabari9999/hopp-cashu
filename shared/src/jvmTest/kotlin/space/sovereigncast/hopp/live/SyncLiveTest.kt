@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.live
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.net.createHttpClient
@@ -28,7 +29,7 @@ class SyncLiveTest {
         identity.importKey(key, System.getenv("HOPP_LIVE_SYNC_PASSWORD"))
         println("relays: " + identity.relays())
         println("write: " + identity.writeRelays())
-        val db = space.sovereigncast.hopp.db.HoppDatabase(app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver(app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver.IN_MEMORY).also { space.sovereigncast.hopp.db.HoppDatabase.Schema.create(it) })
+        val db = space.sovereigncast.hopp.db.HoppDatabase(app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver(app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver.IN_MEMORY).also { space.sovereigncast.hopp.db.HoppDatabase.Schema.synchronous().create(it) })
         // Read only: without a keyring none is made here.
         val keys = SyncKeys(identity, publisher, secrets) { System.currentTimeMillis() }
         val engine = SyncEngine(SyncStore(db) { System.currentTimeMillis() }, SyncRelays(publisher, now), identity, keys) { System.currentTimeMillis() }

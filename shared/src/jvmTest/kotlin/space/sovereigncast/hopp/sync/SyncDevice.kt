@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -17,6 +18,7 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.time.Duration.Companion.hours
 
@@ -29,7 +31,7 @@ internal val testFeeds = mapOf(
 /** [db] and [secrets] from another: the same device started again. */
 internal class SyncDevice(
     relay: space.sovereigncast.hopp.nostr.RelayConnector, scope: CoroutineScope, nsec: String, var offline: Boolean = false,
-    val db: HoppDatabase = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }),
+    val db: HoppDatabase = testDatabase(),
     val secrets: MemorySecretStore = MemorySecretStore(),
 ) {
     var ms = 1_790_000_000_000L
@@ -67,9 +69,9 @@ internal class SyncDevice(
         )
     }, { ms }, publishDelay = 1.hours)
 
-    fun urls() = db.podcastQueries.selectAll().executeAsList().map { it.feed_url }.toSet()
-    fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).executeAsOne()
-    fun episode(url: String, guid: String) = db.episodeQueries.selectByGuid(row(url).id, guid).executeAsOne()
+    suspend fun urls() = db.podcastQueries.selectAll().awaitAsList().map { it.feed_url }.toSet()
+    suspend fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).awaitAsOne()
+    suspend fun episode(url: String, guid: String) = db.episodeQueries.selectByGuid(row(url).id, guid).awaitAsOne()
     /** "Up next" as episode guids, in order. */
-    fun queueGuids() = db.queueQueries.selectItems().executeAsList().map { it.guid }
+    suspend fun queueGuids() = db.queueQueries.selectItems().awaitAsList().map { it.guid }
 }

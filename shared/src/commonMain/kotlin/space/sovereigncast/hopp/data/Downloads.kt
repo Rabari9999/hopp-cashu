@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -133,7 +136,7 @@ class DownloadRepository(
     /** Every download — waiting, running, done or failed — and every file left
      *  in the folder (a .part of an interrupted one); running ones stop. */
     suspend fun removeAll() = withContext(ioDispatcher) {
-        eq.downloadIds().executeAsList().forEach { remove(it) }
+        eq.downloadIds().awaitAsList().forEach { remove(it) }
         runCatching { SystemFileSystem.list(Path(files.dir)).forEach { SystemFileSystem.delete(it, mustExist = false) } }
         Unit
     }
@@ -158,7 +161,7 @@ class DownloadRepository(
      *  asked-for ones stay (device feedback 2026-10-24: a restore turned them off while the newest ran). */
     suspend fun dropAutomatic() = withContext(ioDispatcher) {
         eq.dropAutoQueue()
-        eq.runningAutoIds().executeAsList().forEach { remove(it) }
+        eq.runningAutoIds().awaitAsList().forEach { remove(it) }
     }
 
     /** Automatic downloads still waiting for Wi-Fi. */
@@ -167,7 +170,7 @@ class DownloadRepository(
     /** Stops a download or removes a finished one. */
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) {
         cancelled.update { it + episodeId }
-        eq.selectById(episodeId).executeAsOneOrNull()?.download_path?.let(files::delete)
+        eq.selectById(episodeId).awaitAsOneOrNull()?.download_path?.let(files::delete)
         files.delete(files.partial(episodeId).toString())
         eq.clearDownload(episodeId)
     }
@@ -185,7 +188,7 @@ class DownloadRepository(
         withContext(ioDispatcher) { files.ensureDir(); eq.resetInterrupted() }
         var ok = true
         while (true) {
-            val next = withContext(ioDispatcher) { eq.nextDownload(if (includeAuto()) 1L else 0L).executeAsOneOrNull() } ?: break
+            val next = withContext(ioDispatcher) { eq.nextDownload(if (includeAuto()) 1L else 0L).awaitAsOneOrNull() } ?: break
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
@@ -288,7 +291,7 @@ class DownloadRepository(
     private suspend fun enqueue(id: Long) {
         if (!settings.current().downloadsToQueue || id == playing()) return
         withContext(ioDispatcher) {
-            if (eq.selectById(id).executeAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
+            if (eq.selectById(id).awaitAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
         }
     }
 
@@ -302,14 +305,14 @@ class DownloadRepository(
      *  file that disappeared → no longer listed as downloaded. */
     suspend fun cleanup() = withContext(ioDispatcher) {
         val dayAgo = clock.now() - 24 * 3600
-        eq.playedDownloadsBefore(dayAgo).executeAsList().forEach { r ->
+        eq.playedDownloadsBefore(dayAgo).awaitAsList().forEach { r ->
             r.download_path?.let(files::delete); eq.clearDownload(r.id)
         }
-        val unplayed = eq.unplayedDownloadsOldestFirst().executeAsList()
+        val unplayed = eq.unplayedDownloadsOldestFirst().awaitAsList()
         unplayed.filter { r -> r.download_path?.let(files::exists) != true }.forEach { eq.clearDownload(it.id) }
         val limit = settings.current().storageLimitMb.toLong() * 1024 * 1024
         if (limit > 0) {
-            var used = eq.downloadedBytes().executeAsOne()
+            var used = eq.downloadedBytes().awaitAsOne()
             // Never the newest one — that is what the listener is about to hear.
             for (r in unplayed.dropLast(1)) {
                 if (used <= limit) break

@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.db.HoppDatabase
@@ -33,7 +35,7 @@ class ProgressDocument(
     override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         val since = nowSeconds() - KEPT.inWholeSeconds
         buildMap {
-            for (r in db.episodeQueries.progressForSync(since).executeAsList()) {
+            for (r in db.episodeQueries.progressForSync(since).awaitAsList()) {
                 val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
                 val heard = maxOf(r.last_played_at ?: 0, r.played_at ?: 0)
                 if (heard > 0 || r.position_ms > 0) {
@@ -45,7 +47,7 @@ class ProgressDocument(
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().executeAsList() }
+        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
         for ((key, e) in entries) {
             val show = e.d.text("show")
@@ -56,7 +58,7 @@ class ProgressDocument(
             val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
                 ?: shows.firstOrNull { "url:${it.feed_url}" == show }
                 ?: continue
-            val id = withContext(ioDispatcher) { db.episodeQueries.selectByGuid(podcast.id, guid).executeAsOneOrNull()?.id } ?: continue
+            val id = withContext(ioDispatcher) { db.episodeQueries.selectByGuid(podcast.id, guid).awaitAsOneOrNull()?.id } ?: continue
             when {
                 key.startsWith("fav\n") -> episodes.applyFavorite(id, if (e.del) null else e.d.long("at"))
                 key.startsWith("pos\n") -> {
