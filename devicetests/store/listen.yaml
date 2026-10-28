@@ -1,0 +1,45 @@
+# Store screenshots, part 1b: one episode of a show playing, for the stats and
+# "Continue listening" — SHOW is the show's title, EPISODE its episode's (a
+# pattern, the first match is taken), QUERY what the show's search is given
+# when the episode lies further down. Left playing; README says for how long.
+appId: ${APP_ID}
+name: Store listening
+---
+- launchApp
+- tapOn: "Library"
+- runFlow:
+    when:
+      notVisible: "Up next"
+    commands:
+      - tapOn: "Library"
+- scrollUntilVisible:
+    element: ${SHOW}
+- tapOn: ${SHOW}
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 15000
+- runFlow:
+    when:
+      true: ${QUERY != ""}
+    commands:
+      - scrollUntilVisible:
+          element: "Search episodes"
+          centerElement: true
+      - tapOn: "Search episodes"
+      - inputText: ${QUERY}
+      - pressKey: Enter
+- scrollUntilVisible:
+    element: ${EPISODE}
+- tapOn:
+    text: ${EPISODE}
+    index: 0
+- extendedWaitUntil:
+    visible: "Show notes"
+    timeout: 15000
+- tapOn:
+    text: "(Play|Continue).*"
+    above: "Show notes"
+- extendedWaitUntil:
+    visible: "Pause"
+    timeout: 30000
+- pressKey: home

@@ -111,18 +111,49 @@ name: Store setup
     timeout: 60000
 - tapOn: "Back"
 - waitForAnimationToEnd
-# One episode begun, for "Continue listening".
+# Nodesignal's own playback, as the per-show page shows it: 1.3×, its intro skipped.
 - tapOn: "Home"
-- tapOn: "Nodesignal-Talk - E298.*"
 - tapOn:
-    text: "Play"
-    above: "Show notes"
+    text: "Settings"
+    retryTapIfNoChange: true
+- scrollUntilVisible:
+    element: "Playback"
+    centerElement: true
+- tapOn: "Playback"
+- scrollUntilVisible:
+    element: "Per show"
+    centerElement: true
+- tapOn: "Per show"
 - extendedWaitUntil:
-    visible: ".* / 1:32:3\\d"
-    timeout: 30000
+    visible: "Nodesignal.*"
+    timeout: 15000
+- tapOn: "Nodesignal.*"
+- extendedWaitUntil:
+    visible: "Skip the intro"
+    timeout: 10000
+- tapOn:
+    text: "1.3×"
+    below: "Speed"
+    above: "Skip the intro"
+- scrollUntilVisible:
+    element: "Skip the outro"
+- tapOn:
+    text: "30 s"
+    below: "Skip the intro"
+    above: "Skip the outro"
 - swipe:
-    start: 50%, 60%
-    end: 50%, 55%
-- waitForAnimationToEnd:
+    from: "Drag handle"
+    direction: DOWN
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Skip the intro"
+    commands:
+      - tapOn:
+          point: 50%, 8%
+- extendedWaitUntil:
+    visible: "Intro 30 s"
     timeout: 10000
 - stopApp
+# Then listen.yaml, once per show, gives the stats something to count and Home
+# what to continue (README).
