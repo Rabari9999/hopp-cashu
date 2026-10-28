@@ -17,7 +17,7 @@ private fun sqliteWorker(): Worker = js("""new Worker(new URL("./sqlite.worker.j
  * SQLite's `user_version`, as Android keeps it.
  */
 suspend fun openWebDatabase(): SqlDriver {
-    val driver = WebWorkerDriver(sqliteWorker())
+    val driver = SerialDriver(WebWorkerDriver(sqliteWorker()))
     val schema = HoppDatabase.Schema
     val version = driver.executeQuery(null, "PRAGMA user_version", { c -> QueryResult.AsyncValue { if (c.next().await()) c.getLong(0) ?: 0L else 0L } }, 0).await()
     when {
