@@ -74,8 +74,9 @@ name: Per show and share
 - tapOn: "Search episodes"
 - inputText: "E298"
 - pressKey: Enter
-- extendedWaitUntil:
-    visible: "Nodesignal-Talk - E298.*"
+# The one found can lie under the mini player on a phone on its side (device check 2026-10-28).
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E298.*"
     timeout: 10000
 - tapOn: "Nodesignal-Talk - E298.*"
 - extendedWaitUntil:

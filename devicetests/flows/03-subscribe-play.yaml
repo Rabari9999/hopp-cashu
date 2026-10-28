@@ -24,7 +24,15 @@ name: Subscribe and play
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot: 03-show-subscribed
-# An episode not downloaded: its page, then streamed.
+# An episode not downloaded: its page, then streamed. Found by the show's own search, not by
+# scrolling: a Release Boosting card pushes the list down, and on a tablet on its side a swipe
+# in the screen's middle moves the episode pane, not the list (device check 2026-10-28).
+- scrollUntilVisible:
+    element: "Search episodes"
+    centerElement: true
+- tapOn: "Search episodes"
+- inputText: "E297"
+- pressKey: Enter
 - scrollUntilVisible:
     element: "Nodesignal-Talk - E297.*"
 - tapOn: "Nodesignal-Talk - E297.*"

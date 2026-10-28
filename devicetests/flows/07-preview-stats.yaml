@@ -20,7 +20,7 @@ name: Preview and stats
     commands:
       - tapOn: "Open as feed"
 - extendedWaitUntil:
-    visible: "[0-9]+ episodes"
+    visible: "[0-9]+ episodes.*"
     timeout: 60000
 - extendedWaitUntil:
     visible: "✓ Sovereigncast"

@@ -116,11 +116,18 @@ name: Sync restore
     element: "Nodesignal-Talk - E296.*"
 - tapOn: "Nodesignal-Talk - E296.*"
 - tapOn: "Remove from favourites"
-# E297 where the first device left it, played on here with its habits.
+# E297 where the first device left it, played on here with its habits. Found by the show's
+# search: a Release Boosting card above the list moves it (device check 2026-10-28).
 - tapOn: "Back"
 - scrollUntilVisible:
-    element: "Nodesignal-Talk - E297.*"
+    element: "Search episodes"
     direction: UP
+    centerElement: true
+- tapOn: "Search episodes"
+- inputText: "E297"
+- pressKey: Enter
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E297.*"
 - tapOn: "Nodesignal-Talk - E297.*"
 - extendedWaitUntil:
     visible: "Continue · .* left"
