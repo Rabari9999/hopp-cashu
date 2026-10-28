@@ -14,10 +14,10 @@ No account, no tracking, no server of its own.
 [Changelog](CHANGELOG.md) ·
 [Deutsch](CHANGELOG.de.md)
 
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-player.jpg" width="180" alt="Player">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-home.jpg" width="180" alt="Home">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-comments.jpg" width="180" alt="Comments">
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5-stats.jpg" width="180" alt="Listening stats">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-player.jpg" width="150" alt="Player">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-home.jpg" width="150" alt="Home">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-comments.jpg" width="150" alt="Comments">
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5-stats.jpg" width="150" alt="Listening stats">
 
 </div>
 
