@@ -10,6 +10,8 @@ interface PlatformActions {
     fun exportOpml(text: String)
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
+    /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
+    val canDownload: Boolean get() = true
     /** Whether a downloaded episode can be handed on as a file (maintainer 2026-10-26). */
     val canShareFiles: Boolean get() = false
     /** Hands the downloaded file at [path] to the system's share sheet as [name] ("Show – Episode.mp3"). */

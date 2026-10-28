@@ -20,6 +20,9 @@ fun main() {
         // Without IndexedDB (some private windows) secrets live for this tab only.
         val secrets: SecretStore = try { WebSecretStore.open() } catch (e: Throwable) { MemorySecretStore() }
         startKoin { modules(sharedModule(WebPlatform(driver, secrets))) }
-        ComposeViewport(document.body!!) { App() }
+        ComposeViewport(document.body!!) {
+            App(WebPlatformActions())
+            FallbackFonts()
+        }
     }
 }

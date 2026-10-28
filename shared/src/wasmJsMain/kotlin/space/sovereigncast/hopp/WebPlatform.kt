@@ -2,6 +2,10 @@ package space.sovereigncast.hopp
 
 import app.cash.sqldelight.db.SqlDriver
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpSend
+import io.ktor.client.plugins.plugin
+import kotlinx.coroutines.CancellationException
+import kotlinx.io.IOException
 import space.sovereigncast.hopp.data.DownloadScheduler
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.net.createHttpClient
@@ -20,6 +24,7 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     override fun playbackEngine(): PlaybackEngine = HtmlAudioPlaybackEngine()
 
     // No downloads on the web in the first version (ADR 0022, 1).
+    override val downloads: Boolean get() = false
     override fun downloadDir(): String = "/downloads"
     override fun downloadScheduler(): DownloadScheduler = DownloadScheduler.None
 
@@ -29,5 +34,19 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     override val keysInApp: Boolean get() = false
     override fun externalSigner(): ExternalSigner = Nip07Signer()
 
-    override fun httpClient(): HttpClient = createHttpClient(app) { install(FeedProxy) { base = feedProxyBase() } }
+    override fun httpClient(): HttpClient = createHttpClient(app) { install(FeedProxy) { base = feedProxyBase() } }.also { client ->
+        // Ktor's browser engine reports a failed fetch (offline, CORS, a refused connection) as a
+        // kotlin.Error, which Hopp's `catch (e: Exception)` would not see: an IOException, as elsewhere.
+        client.plugin(HttpSend).intercept { request ->
+            try {
+                execute(request)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Error) {
+                throw IOException(e.message ?: "network error", e)
+            } catch (e: JsException) {
+                throw IOException(e.message ?: "network error", e)
+            }
+        }
+    }
 }

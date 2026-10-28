@@ -9,6 +9,7 @@ import space.sovereigncast.hopp.resources.library_sort_title
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import kotlinx.datetime.daysUntil
+import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.directory.Category
 import space.sovereigncast.hopp.data.Settings
@@ -122,9 +123,10 @@ fun LibraryScreen(
                 large -> GridCells.Adaptive(168.dp)
                 else -> GridCells.Adaptive(104.dp)
             }
+            val canDownload = LocalPlatformActions.current.canDownload
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
                 item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
-                item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
+                if (canDownload) item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
                 item(span = { GridItemSpan(maxLineSpan) }) { ShowsHeader(asList, vm::showAsList, sort, vm::sortBy) }
                 items(list, key = { it.id }) { show ->
                     val c = counts[show.id]

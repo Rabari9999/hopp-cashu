@@ -6,6 +6,7 @@ import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
 import androidx.compose.foundation.background
 import space.sovereigncast.hopp.data.Show
+import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
@@ -405,7 +406,7 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
             Icon(Icons.Rounded.MoreVert, stringResource(Res.string.show_options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
+            if (LocalPlatformActions.current.canDownload) DropdownMenuItem(
                 text = { Text(stringResource(Res.string.show_auto_download)) },
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },

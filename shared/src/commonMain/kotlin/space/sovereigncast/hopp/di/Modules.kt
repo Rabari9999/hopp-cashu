@@ -65,6 +65,8 @@ interface Platform {
     fun externalSigner(): space.sovereigncast.hopp.nostr.ExternalSigner? = null
     /** Where a boost's result goes when the listener wants to hear of it. */
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
+    /** Whether episodes are downloaded here — not in the browser (ADR 0022, 1). */
+    val downloads: Boolean get() = true
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
     val keysInApp: Boolean get() = true
     /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
@@ -115,8 +117,8 @@ fun sharedModule(platform: Platform) = module {
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
     single { SettingsRepository(get(), get()) }
     single { QueueRepository(get(), get()) }
-    single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
-    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { get<SettingsRepository>().current().autoDownloads } }
+    single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads) }
+    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { platform.downloads && get<SettingsRepository>().current().autoDownloads } }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }

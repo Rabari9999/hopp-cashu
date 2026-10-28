@@ -226,6 +226,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 }
             }
             SettingsPage.Downloads -> {
+              if (actions.canDownload) {
                 Section(stringResource(Res.string.settings_downloads))
                 Label(stringResource(Res.string.settings_storage))
                 Choices(Settings.storageChoicesMb, s.storageLimitMb, { mb ->
@@ -256,6 +257,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
                 )
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
+              }
                 // How often Hopp looks for new episodes by itself (ADR 0013; device feedback 2026-10-09).
                 Section(stringResource(Res.string.settings_refresh))
                 Choices(Settings.refreshChoicesHours, s.refreshHours, { h ->

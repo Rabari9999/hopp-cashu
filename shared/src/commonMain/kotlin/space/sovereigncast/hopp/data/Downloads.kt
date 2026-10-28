@@ -108,6 +108,8 @@ class DownloadRepository(
     private val files: DownloadFiles,
     private val scheduler: DownloadScheduler,
     private val settings: SettingsRepository,
+    /** false in the browser: nothing is downloaded there (ADR 0022, 1). */
+    private val enabled: Boolean = true,
 ) {
     /** The episode playing — never put into "Up next"; the player sets it once it
      *  exists (a download in the background alone does not make one). */
@@ -143,6 +145,7 @@ class DownloadRepository(
 
     /** The listener asked for it: any network. */
     suspend fun request(episodeId: Long) {
+        if (!enabled) return
         withContext(ioDispatcher) { eq.requestDownload(1, episodeId) }
         scheduler.schedule(manual = true)
     }
@@ -153,6 +156,7 @@ class DownloadRepository(
      * requested again). [episodeId] null: every one that waits.
      */
     suspend fun startNow(episodeId: Long? = null) {
+        if (!enabled) return
         withContext(ioDispatcher) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
         scheduler.schedule(manual = true)
     }

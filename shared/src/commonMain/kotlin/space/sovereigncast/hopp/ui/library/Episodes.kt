@@ -71,6 +71,7 @@ import space.sovereigncast.hopp.resources.menu_play_next
 import space.sovereigncast.hopp.resources.menu_remove_download
 import space.sovereigncast.hopp.resources.queue_drag
 import space.sovereigncast.hopp.resources.queue_remove
+import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatBytes
 
@@ -159,7 +160,7 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
             if (item.inInbox) DropdownMenuItem(text = { Text(stringResource(Res.string.inbox_dismiss)) }, onClick = { pick { vm.dismiss(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_next)) }, onClick = { pick { vm.playNext(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_last)) }, onClick = { pick { vm.playLast(item) } })
-            when (item.downloadState) {
+            if (LocalPlatformActions.current.canDownload) when (item.downloadState) {
                 DownloadState.DONE -> DropdownMenuItem(text = { Text(stringResource(Res.string.menu_remove_download)) }, onClick = { pick { vm.removeDownload(item) } })
                 DownloadState.QUEUED, DownloadState.DOWNLOADING -> {
                     // Waiting for Wi-Fi: load it now, over mobile data too.
