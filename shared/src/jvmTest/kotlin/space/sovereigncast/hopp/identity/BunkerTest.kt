@@ -1,6 +1,8 @@
 package space.sovereigncast.hopp.identity
 
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -19,11 +21,13 @@ import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.Nip44
 import space.sovereigncast.hopp.nostr.Nip46Exception
 import space.sovereigncast.hopp.nostr.Nip98
+import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.seconds
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -222,9 +226,23 @@ class BunkerTest {
     @Test
     fun aNostrConnectCodeIsTakenUp() = runBlocking<Unit> {
         val offer = identities.nostrConnectOffer()
-        assertTrue(offer.uri.startsWith("nostrconnect://${offer.clientKeys.publicKeyHex}?relay=wss%3A%2F%2Frelay.nsec.app"))
+        assertTrue(offer.uri.startsWith("nostrconnect://${offer.clientKeys.publicKeyHex}?relay=wss%3A%2F%2Fnos.lol&relay=wss%3A%2F%2Frelay.primal.net"))
         assertTrue("perms=sign_event%3A27235" in offer.uri && "name=Hopp" in offer.uri)
         val waiting = async { identities.signInWithNostrConnect(offer) }
+        delay(100)
+        bunker.takeUp(offer.uri)
+        assertEquals(bunker.userKeys.publicKeyHex, waiting.await().pubkey)
+    }
+
+    /** Maintainer 2026-10-28: the code's first relay never answered, Hopp waited there alone, and
+     *  Amber's answer on the second went unheard. Every relay of the code listens at once. */
+    @Test
+    fun aNostrConnectAnswerIsHeardWhileTheFirstRelayHangs() = runBlocking<Unit> {
+        val hanging = RelayConnector { url -> if (url == IdentityRepository.CONNECT_RELAYS.first()) awaitCancellation() else relay.connect(url) }
+        // The profile read after it also meets the hanging relay: its own wait kept short.
+        val identities = IdentityRepository(secrets, RelayPublisher(hanging, timeout = 1.seconds), { now })
+        val offer = identities.nostrConnectOffer()
+        val waiting = async { withTimeout(5_000) { identities.signInWithNostrConnect(offer) } }
         delay(100)
         bunker.takeUp(offer.uri)
         assertEquals(bunker.userKeys.publicKeyHex, waiting.await().pubkey)

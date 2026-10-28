@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.ui.identity
 
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
@@ -602,7 +603,7 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
             Text(stringResource(Res.string.nostr_bunker_offer_note), style = MaterialTheme.typography.bodySmall)
             // Scanned by a signer on the phone — the easy way from a computer (maintainer 2026-10-28).
             space.sovereigncast.hopp.ui.components.QrImage(s.uri, stringResource(Res.string.nostr_bunker_qr),
-                Modifier.fillMaxWidth().widthIn(max = 320.dp).padding(vertical = 4.dp))
+                Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 240.dp).padding(vertical = 4.dp))
             SelectionContainer { Text(s.uri, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { runCatching { uri.openUri(s.uri) } }) { Text(stringResource(Res.string.nostr_bunker_open)) }

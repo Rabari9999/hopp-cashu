@@ -401,8 +401,10 @@ class IdentityRepository(
          *  [ExternalSigner.PERMISSIONS]. */
         val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
 
-        /** Where Hopp waits for a signer that takes up a nostrconnect:// code. */
-        val CONNECT_RELAYS = listOf("wss://relay.nsec.app", "wss://nos.lol")
+        /** Where Hopp waits for a signer that takes up a nostrconnect:// code — on all at once.
+         *  Two that carry NIP-46 (2026-10-28: relay.nsec.app did not answer); each one more
+         *  makes the QR code denser. */
+        val CONNECT_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net")
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")
