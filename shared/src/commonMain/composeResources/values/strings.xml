@@ -424,6 +424,7 @@
     <string name="settings_notifications_note">What boosts and zaps report</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_current">English</string>
+    <string name="settings_language_browser">The browser’s language</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Import and export OPML</string>
     <string name="settings_privacy_note">Who sees what</string>

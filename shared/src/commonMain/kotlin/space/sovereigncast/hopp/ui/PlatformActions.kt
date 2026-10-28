@@ -27,6 +27,13 @@ interface PlatformActions {
     val canPickLanguage: Boolean get() = false
     /** Opens the system's language choice for Hopp. */
     fun openLanguageSettings() = Unit
+    /** Where the system offers no language choice for Hopp (the browser): the languages Hopp
+     *  offers itself, by code, each in its own name; null where the system's page is the way. */
+    val appLanguages: Map<String, String>? get() = null
+    /** The language chosen in [appLanguages]; null: the system's (the browser's). */
+    val appLanguage: String? get() = null
+    /** Chooses [code] from [appLanguages], null for the system's; Hopp starts again in it. */
+    fun setAppLanguage(code: String?) = Unit
     /** Keeps the screen out of screenshots and the recent-apps preview while on. */
     fun secureScreen(on: Boolean) = Unit
     /** Opens the system's VPN settings. */

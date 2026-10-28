@@ -52,6 +52,7 @@ fun main() {
         val driver = openWebDatabase()
         // Without IndexedDB (some private windows) secrets live for this tab only.
         val secrets: SecretStore = try { WebSecretStore.open() } catch (e: Throwable) { MemorySecretStore() }
+        applyChosenLanguage()
         startKoin { modules(sharedModule(WebPlatform(driver, secrets))) }
         ComposeViewport(document.body!!) {
             App(WebPlatformActions())

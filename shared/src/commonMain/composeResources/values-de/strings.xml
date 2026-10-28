@@ -424,6 +424,7 @@
     <string name="settings_notifications_note">Was Boosts und Zaps melden</string>
     <string name="settings_language">Sprache</string>
     <string name="settings_language_current">Deutsch</string>
+    <string name="settings_language_browser">Sprache des Browsers</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">OPML importieren und exportieren</string>
     <string name="settings_privacy_note">Wer sieht was</string>

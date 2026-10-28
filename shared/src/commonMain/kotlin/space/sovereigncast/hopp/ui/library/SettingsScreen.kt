@@ -1,7 +1,9 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.RadioButton
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
 import space.sovereigncast.hopp.resources.stats_title
@@ -135,6 +137,30 @@ fun SettingsScreen(
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
         val actions = LocalPlatformActions.current
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
+        // In the browser, which has no such page, Hopp's own choice (maintainer 2026-10-28).
+        actions.appLanguages?.let { languages ->
+            var choose by remember { mutableStateOf(false) }
+            val browser = stringResource(Res.string.settings_language_browser)
+            Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), actions.appLanguage?.let { languages[it] } ?: browser) { choose = true }
+            if (choose) AlertDialog(
+                onDismissRequest = { choose = false },
+                title = { Text(stringResource(Res.string.settings_language)) },
+                text = {
+                    Column {
+                        (listOf<String?>(null) + languages.keys).forEach { code ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { choose = false; if (code != actions.appLanguage) actions.setAppLanguage(code) }.padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(selected = code == actions.appLanguage, onClick = null)
+                                Text(code?.let { languages[it] } ?: browser, Modifier.padding(start = 12.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { choose = false }) { Text(stringResource(Res.string.cancel)) } },
+            )
+        }
         Entry(Icons.Rounded.Search, stringResource(Res.string.settings_directories), stringResource(Res.string.settings_directories_note)) { onPage(SettingsPage.Directories) }
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 
