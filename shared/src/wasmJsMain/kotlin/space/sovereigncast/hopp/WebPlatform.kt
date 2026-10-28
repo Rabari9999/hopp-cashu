@@ -32,6 +32,7 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
 
     // ADR 0022, 2: only signers that keep the key — an extension (NIP-07) or a remote signer (NIP-46).
     override val keysInApp: Boolean get() = false
+    override suspend fun signedOut() = wipeOnNextStart()
     override fun externalSigner(): ExternalSigner = Nip07Signer()
 
     override fun httpClient(): HttpClient = createHttpClient(app) { install(FeedProxy) { base = feedProxyBase() } }.also { client ->

@@ -73,6 +73,7 @@ import space.sovereigncast.hopp.resources.nostr_extension
 import space.sovereigncast.hopp.resources.nostr_extension_failed
 import space.sovereigncast.hopp.resources.nostr_extension_rejected
 import space.sovereigncast.hopp.resources.nostr_hero_text_web
+import space.sovereigncast.hopp.resources.nostr_sign_out_text_web
 import space.sovereigncast.hopp.resources.nostr_via_extension
 import space.sovereigncast.hopp.resources.nostr_web_note
 import space.sovereigncast.hopp.resources.stats_nostr_link
@@ -444,7 +445,7 @@ class NostrIdentityViewModel(
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
-            identities.signOut()
+            identities.signOutCompletely()
         }
     }
 
@@ -699,7 +700,11 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (confirmSignOut) AlertDialog(
         onDismissRequest = { confirmSignOut = false },
         title = { Text(stringResource(Res.string.nostr_sign_out)) },
-        text = { Text(stringResource(if (me.holdsKey) Res.string.nostr_sign_out_text else Res.string.nostr_sign_out_text_amber)) },
+        text = { Text(stringResource(when {
+            !vm.keysInApp -> Res.string.nostr_sign_out_text_web
+            me.holdsKey -> Res.string.nostr_sign_out_text
+            else -> Res.string.nostr_sign_out_text_amber
+        })) },
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )

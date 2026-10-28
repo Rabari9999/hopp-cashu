@@ -67,6 +67,8 @@ interface Platform {
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
     /** Whether episodes are downloaded here — not in the browser (ADR 0022, 1). */
     val downloads: Boolean get() = true
+    /** After signing out: in the browser everything Hopp kept goes too — the library, the secrets (ADR 0022, 2). */
+    suspend fun signedOut() = Unit
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
     val keysInApp: Boolean get() = true
     /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
@@ -90,7 +92,7 @@ fun sharedModule(platform: Platform) = module {
         }
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
-    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp) }
+    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp, platform::signedOut) }
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }

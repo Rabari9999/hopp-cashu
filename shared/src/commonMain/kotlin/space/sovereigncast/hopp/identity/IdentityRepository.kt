@@ -91,6 +91,8 @@ class IdentityRepository(
     val externalSigner: ExternalSigner? = null,
     /** false in the browser: no key is made or imported there — injected code could read it (ADR 0022, 2). */
     val keysInApp: Boolean = true,
+    /** What else goes after signing out — in the browser, all of Hopp's data there (ADR 0022, 2). */
+    private val afterSignOut: suspend () -> Unit = {},
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -375,6 +377,12 @@ class IdentityRepository(
         secrets.put(INFO, null)
         _identity.value = null
         _unreadable.value = false
+    }
+
+    /** [signOut], then what the platform clears with it ([afterSignOut]). */
+    suspend fun signOutCompletely() {
+        signOut()
+        afterSignOut()
     }
 
     private fun save(identity: NostrIdentity) {

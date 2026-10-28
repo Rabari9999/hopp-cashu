@@ -79,7 +79,15 @@ await second.goto(url); await second.waitForTimeout(4000);
 check((await second.textContent('body')).includes('open in another tab'), 'a second tab is turned away');
 await second.close();
 
-// 4. Two browsers, one key: sync (public relays; throwaway key).
+// 4. Signing out takes everything Hopp kept in this browser: the tour again, no secrets left.
+await a.press('Home', 2000); await a.press('Settings', 2000); await a.press('Nostr identity', 3000);
+await a.press('Sign out of Hopp', 2000);
+await a.press('Sign out', 12_000);
+check(await a.has('Skip'), 'after signing out Hopp starts afresh');
+const left = await a.page.evaluate(() => new Promise(ok => { const r = indexedDB.open('hopp-secrets'); r.onsuccess = () => { const s = r.result.transaction('kv').objectStore('kv').getAllKeys(); s.onsuccess = () => ok(s.result.filter(k => k !== '__key').length); }; }));
+check(left === 0, 'no secrets left after signing out');
+
+// 5. Two browsers, one key: sync (public relays; throwaway key).
 if (withSync) {
   const sk = generateSecretKey();
   const p = await device('sync-a', { sk });

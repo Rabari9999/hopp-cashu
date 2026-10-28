@@ -34,6 +34,9 @@ internal val FeedProxy = createClientPlugin("FeedProxy", ::FeedProxyConfig) {
 
 private val DIRECT_HOSTS = setOf("api.podcastindex.org")
 
-/** The proxy's address, from the page: `<meta name="hopp-feed-proxy" content="…">` — set where it is served. */
+private fun absolute(href: String): String = js("new URL(href, document.baseURI).href")
+
+/** The proxy's address, from the page: `<meta name="hopp-feed-proxy" content="…">` — set where it is
+ *  served; a relative one is taken from the page's address. */
 internal fun feedProxyBase(): String =
-    document.querySelector("meta[name=hopp-feed-proxy]")?.getAttribute("content")?.trim().orEmpty()
+    document.querySelector("meta[name=hopp-feed-proxy]")?.getAttribute("content")?.trim()?.takeIf { it.isNotEmpty() }?.let(::absolute).orEmpty()

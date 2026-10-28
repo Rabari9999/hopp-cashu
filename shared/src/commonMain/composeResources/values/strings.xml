@@ -633,6 +633,7 @@
     <string name="nostr_via_extension">Your key stays in your browser extension.</string>
     <string name="nostr_web_note">In the browser Hopp keeps no key: sign in with an extension such as Alby or nos2x, or with a signer that holds your key — Amber, nsec.app.</string>
     <string name="nostr_sign_out_text_amber">Hopp forgets the connection to your signer app. Your key stays in it; what you published stays on Nostr.</string>
+    <string name="nostr_sign_out_text_web">Hopp forgets the connection to your signer and deletes everything it kept in this browser: library, progress, settings. Your key stays with your signer; what you published and synced stays on Nostr.</string>
     <string name="nostr_profile_loading">Loading your profile…</string>
     <string name="nostr_bunker_title">Signer elsewhere (bunker)</string>
     <string name="nostr_bunker_note">Your key in nsec.app, in Amber's bunker mode or on a signing device: paste its bunker:// address. Hopp asks it for each signature; the key never comes here.</string>
