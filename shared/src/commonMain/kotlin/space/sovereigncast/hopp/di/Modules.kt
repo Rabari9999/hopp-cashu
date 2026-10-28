@@ -65,13 +65,15 @@ interface Platform {
     fun externalSigner(): space.sovereigncast.hopp.nostr.ExternalSigner? = null
     /** Where a boost's result goes when the listener wants to hear of it. */
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
+    /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
+    fun httpClient(): io.ktor.client.HttpClient = createHttpClient(app)
 }
 
 @OptIn(kotlin.time.ExperimentalTime::class)
 fun sharedModule(platform: Platform) = module {
     single { platform.app }
     single { HoppDatabase(platform.sqlDriver()) }
-    single { createHttpClient(get()) }
+    single { platform.httpClient() }
     single<Clock> { Clock { kotlin.time.Clock.System.now().epochSeconds } }
     single { FeedFetcher(get()) }
     single {
