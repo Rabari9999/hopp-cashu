@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.value
 
-import fr.acinq.secp256k1.Secp256k1
+import space.sovereigncast.hopp.crypto.Secp256k1
 import space.sovereigncast.hopp.crypto.Sha256
 
 /**
@@ -60,8 +60,7 @@ data class Bolt11(
         internal fun recoverPayee(hrp: String, words: List<Int>): String? = runCatching {
             val signature = toBytes(words.takeLast(104))
             val signed = hrp.encodeToByteArray() + toBytesPadded(words.dropLast(104))
-            val full = Secp256k1.ecdsaRecover(signature.copyOfRange(0, 64), Sha256.digest(signed), signature[64].toInt())
-            Secp256k1.pubKeyCompress(full).toHexString()
+            Secp256k1.ecdsaRecoverCompressed(signature.copyOfRange(0, 64), Sha256.digest(signed), signature[64].toInt()).toHexString()
         }.getOrNull()
 
         /** For tests: the payee from the signature alone, ignoring an `n` field. */

@@ -1,12 +1,11 @@
 package space.sovereigncast.hopp.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.model.Episode
 import space.sovereigncast.hopp.model.Person
 import space.sovereigncast.hopp.model.Podcast
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 /** Someone the subscribed feeds name (`podcast:person`), as the listener's library knows them. */
 data class PersonMatch(
@@ -47,7 +46,7 @@ class PeopleRepository(private val db: HoppDatabase) {
         }.sortedByDescending { it.episodes }.take(max)
     }
 
-    private suspend fun scan(key: String, match: (String) -> Boolean): Map<String, List<Pair<EpisodeItem, Person>>> = withContext(Dispatchers.IO) {
+    private suspend fun scan(key: String, match: (String) -> Boolean): Map<String, List<Pair<EpisodeItem, Person>>> = withContext(ioDispatcher) {
         val pattern = "%" + sieve(key).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         val found = mutableMapOf<String, MutableList<Pair<EpisodeItem, Person>>>()
         fun add(item: EpisodeItem, persons: List<Person>) {

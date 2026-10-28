@@ -2,13 +2,12 @@ package space.sovereigncast.hopp.data
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 
@@ -261,12 +260,12 @@ class SettingsRepository(
     /** Listening habits ([Settings.SYNCED]), noted for sync (ADR 0021, 5). */
     private val journal: SyncJournal = SyncJournal.Off,
 ) {
-    val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(Dispatchers.IO)
+    val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(ioDispatcher)
         .map { rows -> Settings.from(rows.associate { it.key to it.value_ }) }
 
     suspend fun current(): Settings = settings.first()
 
-    suspend fun update(change: (Settings) -> Settings) = withContext(Dispatchers.IO) {
+    suspend fun update(change: (Settings) -> Settings) = withContext(ioDispatcher) {
         val before = Settings.from(db.settingQueries.selectAll().executeAsList().associate { it.key to it.value_ })
         val after = change(before)
         val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
@@ -275,7 +274,7 @@ class SettingsRepository(
     }
 
     /** Listening habits from another device (sync): taken as they are, not noted again. */
-    suspend fun applySynced(values: Map<String, String>) = withContext(Dispatchers.IO) {
+    suspend fun applySynced(values: Map<String, String>) = withContext(ioDispatcher) {
         db.transaction { values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) } }
     }
 

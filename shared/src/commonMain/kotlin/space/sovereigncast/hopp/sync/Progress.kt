@@ -1,10 +1,9 @@
 package space.sovereigncast.hopp.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs.bool
 import space.sovereigncast.hopp.sync.SyncDocs.long
 import space.sovereigncast.hopp.sync.SyncDocs.text
@@ -31,7 +30,7 @@ class ProgressDocument(
     override fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean =
         key.startsWith("pos\n") && entry.t < nowMs - KEPT.inWholeMilliseconds
 
-    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(Dispatchers.IO) {
+    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         val since = nowSeconds() - KEPT.inWholeSeconds
         buildMap {
             for (r in db.episodeQueries.progressForSync(since).executeAsList()) {
@@ -46,7 +45,7 @@ class ProgressDocument(
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        val shows = withContext(Dispatchers.IO) { db.podcastQueries.selectAll().executeAsList() }
+        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().executeAsList() }
         val done = mutableSetOf<String>()
         for ((key, e) in entries) {
             val show = e.d.text("show")
@@ -57,7 +56,7 @@ class ProgressDocument(
             val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
                 ?: shows.firstOrNull { "url:${it.feed_url}" == show }
                 ?: continue
-            val id = withContext(Dispatchers.IO) { db.episodeQueries.selectByGuid(podcast.id, guid).executeAsOneOrNull()?.id } ?: continue
+            val id = withContext(ioDispatcher) { db.episodeQueries.selectByGuid(podcast.id, guid).executeAsOneOrNull()?.id } ?: continue
             when {
                 key.startsWith("fav\n") -> episodes.applyFavorite(id, if (e.del) null else e.d.long("at"))
                 key.startsWith("pos\n") -> {

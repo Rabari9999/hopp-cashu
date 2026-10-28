@@ -16,8 +16,6 @@ import io.ktor.http.contentLength
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +29,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 object DownloadState {
     const val NONE = 0
@@ -121,19 +120,19 @@ class DownloadRepository(
     /** Episode id → 0..1 while it downloads (missing when the size is unknown). */
     val progress: StateFlow<Map<Long, Float>> = _progress.asStateFlow()
 
-    val downloads: Flow<List<EpisodeItem>> = eq.selectDownloads().asFlow().mapToList(Dispatchers.IO).map { rows ->
+    val downloads: Flow<List<EpisodeItem>> = eq.selectDownloads().asFlow().mapToList(ioDispatcher).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
                 r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length)
         }
     }
 
-    val usedBytes: Flow<Long> = eq.downloadedBytes().asFlow().mapToOne(Dispatchers.IO)
-    val downloadedCount: Flow<Long> = eq.downloadedCount().asFlow().mapToOne(Dispatchers.IO)
+    val usedBytes: Flow<Long> = eq.downloadedBytes().asFlow().mapToOne(ioDispatcher)
+    val downloadedCount: Flow<Long> = eq.downloadedCount().asFlow().mapToOne(ioDispatcher)
 
     /** Every download — waiting, running, done or failed — and every file left
      *  in the folder (a .part of an interrupted one); running ones stop. */
-    suspend fun removeAll() = withContext(Dispatchers.IO) {
+    suspend fun removeAll() = withContext(ioDispatcher) {
         eq.downloadIds().executeAsList().forEach { remove(it) }
         runCatching { SystemFileSystem.list(Path(files.dir)).forEach { SystemFileSystem.delete(it, mustExist = false) } }
         Unit
@@ -141,7 +140,7 @@ class DownloadRepository(
 
     /** The listener asked for it: any network. */
     suspend fun request(episodeId: Long) {
-        withContext(Dispatchers.IO) { eq.requestDownload(1, episodeId) }
+        withContext(ioDispatcher) { eq.requestDownload(1, episodeId) }
         scheduler.schedule(manual = true)
     }
 
@@ -151,22 +150,22 @@ class DownloadRepository(
      * requested again). [episodeId] null: every one that waits.
      */
     suspend fun startNow(episodeId: Long? = null) {
-        withContext(Dispatchers.IO) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
+        withContext(ioDispatcher) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
         scheduler.schedule(manual = true)
     }
 
     /** Automatic downloads turned off: those waiting for Wi-Fi are not fetched, one running stops;
      *  asked-for ones stay (device feedback 2026-10-24: a restore turned them off while the newest ran). */
-    suspend fun dropAutomatic() = withContext(Dispatchers.IO) {
+    suspend fun dropAutomatic() = withContext(ioDispatcher) {
         eq.dropAutoQueue()
         eq.runningAutoIds().executeAsList().forEach { remove(it) }
     }
 
     /** Automatic downloads still waiting for Wi-Fi. */
-    val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(Dispatchers.IO)
+    val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(ioDispatcher)
 
     /** Stops a download or removes a finished one. */
-    suspend fun remove(episodeId: Long) = withContext(Dispatchers.IO) {
+    suspend fun remove(episodeId: Long) = withContext(ioDispatcher) {
         cancelled.update { it + episodeId }
         eq.selectById(episodeId).executeAsOneOrNull()?.download_path?.let(files::delete)
         files.delete(files.partial(episodeId).toString())
@@ -183,19 +182,19 @@ class DownloadRepository(
     /** As above, [includeAuto] asked again before each episode: a run started on Wi-Fi that goes on
      *  over mobile data takes no automatic one more (device feedback 2026-10-22). */
     suspend fun runPending(includeAuto: suspend () -> Boolean): Boolean = running.withLock {
-        withContext(Dispatchers.IO) { files.ensureDir(); eq.resetInterrupted() }
+        withContext(ioDispatcher) { files.ensureDir(); eq.resetInterrupted() }
         var ok = true
         while (true) {
-            val next = withContext(Dispatchers.IO) { eq.nextDownload(if (includeAuto()) 1L else 0L).executeAsOneOrNull() } ?: break
+            val next = withContext(ioDispatcher) { eq.nextDownload(if (includeAuto()) 1L else 0L).executeAsOneOrNull() } ?: break
             cancelled.update { it - next.id }
             try {
                 download(next.id, next.enclosure_url!!)
-                withContext(Dispatchers.IO) { eq.setDownloadFailures(0, next.id) }
+                withContext(ioDispatcher) { eq.setDownloadFailures(0, next.id) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
                 // Refused for good: nothing to resume, so no .part left behind either.
-                withContext(Dispatchers.IO) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
+                withContext(ioDispatcher) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } catch (e: DownloadCancelled) {
                 // remove() has already cleared it.
             } catch (e: Exception) {
@@ -207,14 +206,14 @@ class DownloadRepository(
                 // does not start those tries over.
                 val tries = next.download_failures.toInt() + 1
                 if (tries < MAX_TRIES) {
-                    withContext(Dispatchers.IO) {
+                    withContext(ioDispatcher) {
                         eq.setDownloadFailures(tries.toLong(), next.id)
                         eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id)
                     }
                     ok = false
                     break
                 }
-                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
+                withContext(ioDispatcher) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } finally {
                 _progress.update { it - next.id }
             }
@@ -226,7 +225,7 @@ class DownloadRepository(
     private class DownloadCancelled : Exception()
 
     private suspend fun download(id: Long, url: String) {
-        withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
+        withContext(ioDispatcher) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
         val part = files.partial(id)
         val have = files.size(part)
         client.prepareGet(url) {
@@ -258,7 +257,7 @@ class DownloadRepository(
             val buffer = ByteArray(64 * 1024)
             var written = offset
             var reported = -1
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 SystemFileSystem.sink(part, append = append).buffered().use { sink ->
                     while (true) {
                         val n = channel.readAvailable(buffer, 0, buffer.size)
@@ -276,7 +275,7 @@ class DownloadRepository(
             }
             if (total != null && written < total) throw IllegalStateException("incomplete: $written of $total")
         }
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val target = files.path(id, url)
             SystemFileSystem.atomicMove(part, target)
             eq.setDownloaded(target.toString(), files.size(target), id)
@@ -288,7 +287,7 @@ class DownloadRepository(
      *  2026-10-19) — not one already heard, nor the one playing. */
     private suspend fun enqueue(id: Long) {
         if (!settings.current().downloadsToQueue || id == playing()) return
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             if (eq.selectById(id).executeAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
         }
     }
@@ -301,7 +300,7 @@ class DownloadRepository(
 
     /** Played a day ago → gone; over the limit → the oldest unplayed go; a
      *  file that disappeared → no longer listed as downloaded. */
-    suspend fun cleanup() = withContext(Dispatchers.IO) {
+    suspend fun cleanup() = withContext(ioDispatcher) {
         val dayAgo = clock.now() - 24 * 3600
         eq.playedDownloadsBefore(dayAgo).executeAsList().forEach { r ->
             r.download_path?.let(files::delete); eq.clearDownload(r.id)

@@ -1,7 +1,5 @@
 package space.sovereigncast.hopp.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -20,6 +18,7 @@ import space.sovereigncast.hopp.data.MAX_SKIP_SECONDS
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.SubscribeResult
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 /** The documents' names and how their entries are keyed and filled (ADR 0021, 5). */
 object SyncDocs {
@@ -89,14 +88,14 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
 
     private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int)
 
-    private suspend fun local(): List<Local> = withContext(Dispatchers.IO) {
+    private suspend fun local(): List<Local> = withContext(ioDispatcher) {
         db.podcastQueries.selectAll().executeAsList().map {
             Local(it.id, SyncDocs.showKey(it.podcast_guid, it.feed_url), it.feed_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
                 it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt())
         }
     }
 
-    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(Dispatchers.IO) {
+    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         db.podcastQueries.selectAll().executeAsList().associate {
             SyncDocs.showKey(it.podcast_guid, it.feed_url) to
                 SyncEntry(it.subscribed_at * 1000, d = SyncDocs.show(it.feed_url, it.title, it.image_url, it.playback_speed?.toFloat(), it.auto_download == 1L,

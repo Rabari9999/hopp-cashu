@@ -1,7 +1,5 @@
 package space.sovereigncast.hopp.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -13,6 +11,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.platform.SecretStore
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 import space.sovereigncast.hopp.sync.StatsEntries
@@ -119,7 +118,7 @@ class ListeningRepository(
      *  [force]: the app goes to the background — sync hears of all of it now. */
     suspend fun flush(note: Boolean = true, force: Boolean = false) = lock.withLock { flushLocked(note, force) }
 
-    private suspend fun flushLocked(note: Boolean, force: Boolean = false) = withContext(Dispatchers.IO) {
+    private suspend fun flushLocked(note: Boolean, force: Boolean = false) = withContext(ioDispatcher) {
         val heard = pending.toMap()
         pending.clear(); pendingMs = 0
         val counted = counters.copyOf()
@@ -187,14 +186,14 @@ class ListeningRepository(
 
     /** For sync turned on: this device's counts so far, the sats included. */
     suspend fun snapshot(): Map<String, JsonObject> = lock.withLock {
-        withContext(Dispatchers.IO) { sats(); val today = today(); own().filterNot { (k, d) -> StatsRetention.expired(k, d, today) } }
+        withContext(ioDispatcher) { sats(); val today = today(); own().filterNot { (k, d) -> StatsRetention.expired(k, d, today) } }
     }
 
     // ── the page ─────────────────────────────────────────────────────────
 
     suspend fun stats(range: StatsRange): ListeningStats {
         flush(note = false)
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             // The sats from the payment log first: noted for sync only when it is on, they were
             // missing from the page without it (review 2026-10-27).
             sats()

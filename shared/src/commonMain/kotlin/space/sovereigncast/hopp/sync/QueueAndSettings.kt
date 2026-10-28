@@ -1,12 +1,11 @@
 package space.sovereigncast.hopp.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.QueueRepository
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs.long
 import space.sovereigncast.hopp.sync.SyncDocs.text
 
@@ -20,7 +19,7 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
     override val name = SyncDocs.QUEUE
 
     /** This device's queue joins only where the relays have nothing: its order has no time. */
-    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(Dispatchers.IO) {
+    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         db.queueQueries.selectKeys().executeAsList().mapNotNull { q ->
             val r = db.episodeQueries.syncKeysOf(q.episode_id).executeAsOneOrNull() ?: return@mapNotNull null
             val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
@@ -29,14 +28,14 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
-        val shows = withContext(Dispatchers.IO) { db.podcastQueries.selectAll().executeAsList() }
+        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().executeAsList() }
         val done = mutableSetOf<String>()
         for ((key, e) in entries) {
             val show = e.d.text("show")
             val guid = e.d.text("guid")
             if (show == null || guid == null) { done += key; continue }
             val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
-            val id = podcast?.let { p -> withContext(Dispatchers.IO) { db.episodeQueries.selectByGuid(p.id, guid).executeAsOneOrNull()?.id } }
+            val id = podcast?.let { p -> withContext(ioDispatcher) { db.episodeQueries.selectByGuid(p.id, guid).executeAsOneOrNull()?.id } }
             if (id == null) {
                 // Out of the queue and not here at all: nothing to do. Into it: when the feed has it.
                 if (e.del) done += key

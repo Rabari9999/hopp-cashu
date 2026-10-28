@@ -6,8 +6,6 @@ import kotlinx.coroutines.async
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import app.cash.sqldelight.coroutines.mapToList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +25,7 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.directory.feedKey
 import space.sovereigncast.hopp.model.Podcast
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.value.Bolt11
 import space.sovereigncast.hopp.value.InvoicePayment
 import space.sovereigncast.hopp.value.ValueService
@@ -97,7 +96,7 @@ class SovereigncastRepository(
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The show's layer, once verified; null otherwise. */
-    fun layer(podcastId: Long): Flow<ScLayer?> = q.selectSovereigncast(podcastId).asFlow().mapToOneOrNull(Dispatchers.IO).map { r ->
+    fun layer(podcastId: Long): Flow<ScLayer?> = q.selectSovereigncast(podcastId).asFlow().mapToOneOrNull(ioDispatcher).map { r ->
         val base = r?.sc_base_url ?: return@map null
         val show = r.sc_capabilities_json?.let { runCatching { json.decodeFromString(ScShow.serializer(), it) }.getOrNull() } ?: return@map null
         ScLayer(base, show)
@@ -115,7 +114,7 @@ class SovereigncastRepository(
         val base = markerOf(meta)
         val guid = meta.podcastGuid
         if (base == null || guid == null) { clear(podcastId); return }
-        val known = withContext(Dispatchers.IO) { q.selectSovereigncast(podcastId).executeAsOneOrNull() }
+        val known = withContext(ioDispatcher) { q.selectSovereigncast(podcastId).executeAsOneOrNull() }
         if (!force && known?.sc_base_url == base && (clock.now() - (known.sc_verified_at ?: 0)) < REVERIFY_SECONDS) return
         try {
             if ("v1" !in api.meta(base).apiVersions) { clear(podcastId); return }
@@ -123,7 +122,7 @@ class SovereigncastRepository(
             if (!show.podcastGuid.equals(guid, ignoreCase = true) || feedKey(show.feedUrl) != feedKey(subscribed.feedUrl)) {
                 clear(podcastId); return
             }
-            withContext(Dispatchers.IO) { q.setSovereigncast(base, clock.now(), json.encodeToString(ScShow.serializer(), show), podcastId) }
+            withContext(ioDispatcher) { q.setSovereigncast(base, clock.now(), json.encodeToString(ScShow.serializer(), show), podcastId) }
         } catch (e: ListenerApiException) {
             if (e.status == 404 || e.code == "show_not_found") clear(podcastId)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -159,7 +158,7 @@ class SovereigncastRepository(
 
     /** Which shows are verified, and with what — changes when one is (un)verified. */
     fun verifiedShows(): Flow<List<Pair<Long, String?>>> =
-        q.selectAllSovereigncast().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.id to it.sc_capabilities_json } }
+        q.selectAllSovereigncast().asFlow().mapToList(ioDispatcher).map { rows -> rows.map { it.id to it.sc_capabilities_json } }
 
     /** Every subscribed show checked against its instance (each at most once per
      *  [REVERIFY_SECONDS], unless [force]) — so Home knows them without each page being opened. */
@@ -194,7 +193,7 @@ class SovereigncastRepository(
         if (startDone) return
         startDone = true
         if (settings.current().refreshHours <= 0) { refresh(); return }
-        val ids = withContext(Dispatchers.IO) { q.selectAllSovereigncast().executeAsList().map { it.id } }.toSet()
+        val ids = withContext(ioDispatcher) { q.selectAllSovereigncast().executeAsList().map { it.id } }.toSet()
         if (ids.isNotEmpty()) runCatching { podcasts.refreshAll(only = ids) }
         refresh(force = true)
     }
@@ -205,7 +204,7 @@ class SovereigncastRepository(
      * for Home. A show whose instance does not answer is left out, not an error.
      */
     suspend fun activeActions(): List<ShowAction> = coroutineScope {
-        val rows = withContext(Dispatchers.IO) { q.selectAllSovereigncast().executeAsList() }
+        val rows = withContext(ioDispatcher) { q.selectAllSovereigncast().executeAsList() }
         rows.map { r ->
             async {
                 val show = r.sc_capabilities_json?.let { runCatching { json.decodeFromString(ScShow.serializer(), it) }.getOrNull() } ?: return@async emptyList()
@@ -227,7 +226,7 @@ class SovereigncastRepository(
         }.awaitAll().flatten()
     }
 
-    private suspend fun clear(podcastId: Long) = withContext(Dispatchers.IO) { q.clearSovereigncast(podcastId) }
+    private suspend fun clear(podcastId: Long) = withContext(ioDispatcher) { q.clearSovereigncast(podcastId) }
 
     suspend fun releaseBoosting(layer: ScLayer) = api.releaseBoosting(layer.base, layer.show.podcastGuid)
     suspend fun boost2unlock(layer: ScLayer) = api.boost2unlock(layer.base, layer.show.podcastGuid)

@@ -2,12 +2,11 @@ package space.sovereigncast.hopp.data
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 
@@ -33,18 +32,18 @@ class QueueRepository(
     }
 
     /** "Up next" from another device (sync): the episode at [sortKey], or out of it; not noted again. */
-    suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(Dispatchers.IO) {
+    suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(ioDispatcher) {
         if (sortKey == null) qq.remove(episodeId) else qq.put(episodeId, sortKey)
     }
 
-    val items: Flow<List<EpisodeItem>> = qq.selectItems().asFlow().mapToList(Dispatchers.IO).map { rows ->
+    val items: Flow<List<EpisodeItem>> = qq.selectItems().asFlow().mapToList(ioDispatcher).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
                 r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length)
         }
     }
 
-    suspend fun playNext(episodeId: Long) = withContext(Dispatchers.IO) {
+    suspend fun playNext(episodeId: Long) = withContext(ioDispatcher) {
         val moved = db.transactionWithResult {
             qq.remove(episodeId)
             val renumbered = renumberAtTheEdge()
@@ -54,7 +53,7 @@ class QueueRepository(
         note(moved + episodeId)
     }
 
-    suspend fun playLast(episodeId: Long) = withContext(Dispatchers.IO) {
+    suspend fun playLast(episodeId: Long) = withContext(ioDispatcher) {
         val moved = db.transactionWithResult {
             qq.remove(episodeId)
             val renumbered = renumberAtTheEdge()
@@ -76,20 +75,20 @@ class QueueRepository(
         return order
     }
 
-    suspend fun remove(episodeId: Long) = withContext(Dispatchers.IO) { qq.remove(episodeId); note(listOf(episodeId)) }
+    suspend fun remove(episodeId: Long) = withContext(ioDispatcher) { qq.remove(episodeId); note(listOf(episodeId)) }
 
     /** The whole order at once, as the list looks after a drag. */
-    suspend fun reorder(episodeIds: List<Long>) = withContext(Dispatchers.IO) {
+    suspend fun reorder(episodeIds: List<Long>) = withContext(ioDispatcher) {
         db.transaction { episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
         note(episodeIds)
     }
 
     /** Takes the first one off the queue. */
-    suspend fun pop(): Long? = withContext(Dispatchers.IO) {
+    suspend fun pop(): Long? = withContext(ioDispatcher) {
         db.transactionWithResult { qq.first().executeAsOneOrNull()?.also { qq.remove(it) } }?.also { note(listOf(it)) }
     }
 
-    suspend fun peek(): Long? = withContext(Dispatchers.IO) { qq.first().executeAsOneOrNull() }
+    suspend fun peek(): Long? = withContext(ioDispatcher) { qq.first().executeAsOneOrNull() }
 
     companion object {
         /** The farthest place in "Up next" — far beyond any real queue, and never near a Long's end
