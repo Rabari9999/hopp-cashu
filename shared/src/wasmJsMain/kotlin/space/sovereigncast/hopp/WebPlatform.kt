@@ -5,6 +5,8 @@ import io.ktor.client.HttpClient
 import space.sovereigncast.hopp.data.DownloadScheduler
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.net.createHttpClient
+import space.sovereigncast.hopp.nostr.ExternalSigner
+import space.sovereigncast.hopp.nostr.Nip07Signer
 import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.platform.PlaybackEngine
@@ -22,6 +24,10 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     override fun downloadScheduler(): DownloadScheduler = DownloadScheduler.None
 
     override fun secretStore(): SecretStore = secrets
+
+    // ADR 0022, 2: only signers that keep the key — an extension (NIP-07) or a remote signer (NIP-46).
+    override val keysInApp: Boolean get() = false
+    override fun externalSigner(): ExternalSigner = Nip07Signer()
 
     override fun httpClient(): HttpClient = createHttpClient(app) { install(FeedProxy) { base = feedProxyBase() } }
 }

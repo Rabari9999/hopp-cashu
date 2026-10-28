@@ -28,6 +28,9 @@ interface ExternalSigner {
     /** Whether a signer app is installed. */
     fun available(): Boolean
 
+    /** A browser extension (NIP-07: Alby, nos2x …) rather than an app — what the page calls it. */
+    val browserExtension: Boolean get() = false
+
     /** Opens the signer to log in: (pubkey hex, the signer's package). */
     suspend fun login(permissions: List<SignerPermission>): Pair<String, String>
 
@@ -39,6 +42,9 @@ interface ExternalSigner {
     suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean = true): String
 
     companion object {
+        /** What a browser extension (NIP-07) is stored as, in place of a signer app's package. */
+        const val NIP07_PACKAGE = "nip07"
+
         /** NIP-98 for Sovereigncast; comments, answers (1, 1111), likes (7), the mute list (10000)
          *  and reports (1984) since stage 3 — the signer app lets the listener choose. */
         val SIGNED_KINDS = listOf(Nip98.KIND, 1, 1111, 7, 10000, 1984, 10002)

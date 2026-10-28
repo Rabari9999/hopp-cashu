@@ -69,6 +69,12 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
+import space.sovereigncast.hopp.resources.nostr_extension
+import space.sovereigncast.hopp.resources.nostr_extension_failed
+import space.sovereigncast.hopp.resources.nostr_extension_rejected
+import space.sovereigncast.hopp.resources.nostr_hero_text_web
+import space.sovereigncast.hopp.resources.nostr_via_extension
+import space.sovereigncast.hopp.resources.nostr_web_note
 import space.sovereigncast.hopp.resources.stats_nostr_link
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
@@ -232,6 +238,10 @@ class NostrIdentityViewModel(
     val exported: StateFlow<String?> = _exported.asStateFlow()
     /** Whether a signer app (Amber) is on the device — then signing in with it comes first. */
     val signerApp: Boolean = runCatching { identities.externalSigner?.available() == true }.getOrDefault(false)
+    /** The signer is a browser extension (NIP-07), not an app. */
+    val signerIsExtension: Boolean = identities.externalSigner?.browserExtension == true
+    /** false in the browser: no key is made or pasted here, only signers that keep it (ADR 0022, 2). */
+    val keysInApp: Boolean = identities.keysInApp
     /** What went wrong with the signer app, for one line under its button. */
     private val _signerError = MutableStateFlow<SignerError?>(null)
     val signerError: StateFlow<SignerError?> = _signerError.asStateFlow()
@@ -488,7 +498,13 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
             androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Comment, null, Modifier.size(36.dp))
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Text(stringResource(Res.string.nostr_hero_text), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(stringResource(if (vm.keysInApp) Res.string.nostr_hero_text else Res.string.nostr_hero_text_web), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+    if (!vm.keysInApp) {
+        // The browser holds no key (ADR 0022, 2): the ways in with a signer, right here.
+        Text(stringResource(Res.string.nostr_web_note), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodyMedium)
+        SignIn(busy, vm)
+        return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
     Button(onClick = { vm.create(name) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
@@ -521,13 +537,17 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     var bunker by rememberSaveable { mutableStateOf(false) }
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
     if (vm.signerApp) {
-        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_amber)) }
+        val ext = vm.signerIsExtension
+        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
         signerError?.let {
-            Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
+            Text(stringResource(when {
+                it == NostrIdentityViewModel.SignerError.Rejected -> if (ext) Res.string.nostr_extension_rejected else Res.string.nostr_amber_rejected
+                else -> if (ext) Res.string.nostr_extension_failed else Res.string.nostr_amber_failed
+            }),
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (vault != null) {
+    if (vault != null && vm.keysInApp) {
         val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
         val saved by vm.vaultKeys.collectAsState()
         OutlinedButton(onClick = { vm.restoreFromVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
@@ -540,7 +560,7 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
         }
         if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
-    OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
+    if (vm.keysInApp) OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
     if (locked) OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true,
         label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation(),
@@ -639,7 +659,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         }
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
-    if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
     // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
     val openStats = LocalOpenStats.current
     OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }

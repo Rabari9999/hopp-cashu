@@ -87,8 +87,10 @@ class IdentityRepository(
     private val secrets: SecretStore,
     private val publisher: RelayPublisher,
     private val clock: Clock,
-    /** A signer app on the device (Android, NIP-55); null where there is none. */
+    /** A signer app on the device (Android, NIP-55) or extension in the browser (NIP-07); null where there is none. */
     val externalSigner: ExternalSigner? = null,
+    /** false in the browser: no key is made or imported there — injected code could read it (ADR 0022, 2). */
+    val keysInApp: Boolean = true,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -229,6 +231,7 @@ class IdentityRepository(
      */
     suspend fun create(name: String): Set<String> {
         requireReadable()
+        check(keysInApp) { "no key is made here" }
         val keys = KeyPair.generate()
         secrets.put(KEY, keys.secretKey.toHex())
         save(NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, name.trim().ifEmpty { null }, relays = DEFAULT_RELAYS.map { RelayEntry(it) }))
@@ -331,6 +334,7 @@ class IdentityRepository(
      */
     suspend fun importKey(text: String, password: String? = null): NostrIdentity {
         requireReadable()
+        check(keysInApp) { "no key is imported here" }
         val t = text.trim().removePrefix("nostr:")
         val secret = when {
             t.startsWith("nsec1") -> runCatching { Bech32.decode(t) }.getOrNull()?.takeIf { it.first == "nsec" && it.second.size == 32 }?.second

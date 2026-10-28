@@ -627,6 +627,11 @@
     <string name="nostr_amber_rejected">Die Signer-App hat abgelehnt.</string>
     <string name="nostr_amber_failed">Die Signer-App hat nicht geantwortet.</string>
     <string name="nostr_via_amber">Dein Schlüssel bleibt in deiner Signer-App.</string>
+    <string name="nostr_extension">Mit deiner Browser-Erweiterung anmelden</string>
+    <string name="nostr_extension_rejected">Die Erweiterung hat abgelehnt.</string>
+    <string name="nostr_extension_failed">Die Erweiterung hat nicht geantwortet.</string>
+    <string name="nostr_via_extension">Dein Schlüssel bleibt in deiner Browser-Erweiterung.</string>
+    <string name="nostr_web_note">Im Browser hält Hopp keinen Schlüssel: Melde dich mit einer Erweiterung wie Alby oder nos2x an oder mit einem Signer, der deinen Schlüssel verwahrt – Amber, nsec.app.</string>
     <string name="nostr_sign_out_text_amber">Hopp vergisst die Verbindung zu deiner Signer-App. Dein Schlüssel bleibt dort; was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_profile_loading">Profil wird geladen…</string>
     <string name="nostr_bunker_title">Signer anderswo (Bunker)</string>
@@ -734,6 +739,7 @@
     <string name="nostr_import_wrong_password">Mit diesem Passwort öffnet sich die Sicherung nicht.</string>
     <string name="nostr_hero_title">Mitreden auf Nostr</string>
     <string name="nostr_hero_text">Kommentieren, liken und als Person abstimmen. Dein Konto ist ein Schlüssel – Hopp erstellt ihn für dich.</string>
+    <string name="nostr_hero_text_web">Kommentieren, liken und als Person abstimmen – mit deinem Nostr-Account.</string>
     <string name="nostr_start">Loslegen</string>
     <string name="nostr_public_line">Was du auf Nostr veröffentlichst, ist öffentlich und bleibt.</string>
     <string name="nostr_have_account">Ich habe schon einen Nostr-Account</string>

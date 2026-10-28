@@ -65,6 +65,8 @@ interface Platform {
     fun externalSigner(): space.sovereigncast.hopp.nostr.ExternalSigner? = null
     /** Where a boost's result goes when the listener wants to hear of it. */
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
+    /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
+    val keysInApp: Boolean get() = true
     /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
     fun httpClient(): io.ktor.client.HttpClient = createHttpClient(app)
 }
@@ -86,7 +88,7 @@ fun sharedModule(platform: Platform) = module {
         }
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
-    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner()) }
+    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp) }
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
