@@ -77,7 +77,7 @@ class WalletRepository(
         null
     }
 
-    fun client(wait: Duration = timeout): NwcClient? {
+    fun client(wait: Duration = timeout): WalletClient? {
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
         return NwcClient(connection, connector, { clock.now() }, wait)
     }

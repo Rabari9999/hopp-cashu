@@ -16,23 +16,23 @@ locally: sign in with a signer, sync, library, player.
 
 ## Preparation (shipped with the apps, no visible change)
 
-- [ ] **Common code compiles for the web:** `Dispatchers.IO` behind
+- [x] **Common code compiles for the web:** `Dispatchers.IO` behind
       `platform/ioDispatcher`; secp256k1 behind `crypto/Secp256k1Ops`, the
       ACINQ library in a `nonWebMain` source set (Android, JVM, iOS).
-- [ ] **The `wasmJs` target only on request** (`-Phopp.web=true`): default
+- [x] **The `wasmJs` target only on request** (`-Phopp.web=true`): default
       builds, F-Droid's recipe and its scanner never see it.
-- [ ] **Crypto on the web:** `@noble/curves` through JS interop; the NIP-44,
+- [x] **Crypto on the web:** `@noble/curves` through JS interop; the NIP-44,
       Schnorr, NIP-49 and BOLT 11 vectors in `commonTest`, run on the JVM and
       in Chromium. JS errors turned into Kotlin exceptions at the boundary.
-- [ ] **The database asynchronous:** SQLDelight `generateAsync`; every
+- [x] **The database asynchronous:** SQLDelight `generateAsync`; every
       `executeAs…()` → `awaitAs…()`, transactions `suspend`; `jvmTest` on a
       driver that fails on a synchronous call, so a leftover is found on the
       JVM, not only in a browser.
-- [ ] **A wallet interface** in `shared`: `ValueService`, `BoostSender` and
-      `WalletRepository` speak to it; NWC is its first implementation
-      (WebLN in W3).
-- [ ] **Listener API CORS** (`podcasting_tools`, branch
-      `feat/listener-api-cors`): merge request.
+- [x] **A wallet interface** in `shared` (`value/WalletClient`): `ValueService`,
+      `BoostSender` and `WalletRepository` speak to it; NWC is its first
+      implementation (WebLN in W3).
+- [x] **Listener API CORS** (`podcasting_tools`): merge request !25 (branch
+      `feat/listener-api-cors-2`), open for the maintainer.
 
 ## Stage W2 (local only, not published)
 
