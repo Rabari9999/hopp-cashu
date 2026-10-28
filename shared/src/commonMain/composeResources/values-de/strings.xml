@@ -68,6 +68,7 @@
     <string name="menu_play_next">Als Nächstes abspielen</string>
     <string name="menu_play_last">Am Ende abspielen</string>
     <string name="menu_download">Herunterladen</string>
+    <string name="menu_save_audio">Audiodatei speichern</string>
     <string name="menu_remove_download">Download löschen</string>
     <string name="menu_cancel_download">Download abbrechen</string>
     <string name="dl_done">Geladen</string>

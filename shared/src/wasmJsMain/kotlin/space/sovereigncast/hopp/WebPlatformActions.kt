@@ -15,6 +15,12 @@ private fun saveText(name: String, type: String, text: String): Unit = js("""{
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }""")
 
+// A download where the audio's host allows it; where it does not (another origin), the browser
+// opens the file in a tab of its own, with its player's save button — no audio through Hopp's proxy.
+private fun saveLink(url: String, name: String): Unit = js("""{
+  const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.click();
+}""")
+
 private fun clipboard(text: String): Unit = js("{ navigator.clipboard && navigator.clipboard.writeText(text).catch(() => {}); }")
 
 private fun share(text: String, title: String): Unit =
@@ -43,6 +49,8 @@ private val LANGUAGES = mapOf("en" to "English", "de" to "Deutsch")
  *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */
 class WebPlatformActions : PlatformActions {
     override val canDownload: Boolean get() = false
+    override val canSaveAudio: Boolean get() = true
+    override fun saveAudio(url: String, name: String) = saveLink(url, name)
     override val appLanguages: Map<String, String> get() = LANGUAGES
     override val appLanguage: String? get() = storedLanguage()?.takeIf { it in LANGUAGES }
     override fun setAppLanguage(code: String?) = storeLanguage(code)

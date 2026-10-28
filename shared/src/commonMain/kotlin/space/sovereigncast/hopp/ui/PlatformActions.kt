@@ -12,6 +12,10 @@ interface PlatformActions {
     fun shareText(text: String, subject: String) = Unit
     /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
     val canDownload: Boolean get() = true
+    /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */
+    val canSaveAudio: Boolean get() = false
+    /** Saves the audio file at [url] as [name], as the platform can (maintainer 2026-10-28). */
+    fun saveAudio(url: String, name: String) = Unit
     /** Whether a downloaded episode can be handed on as a file (maintainer 2026-10-26). */
     val canShareFiles: Boolean get() = false
     /** Hands the downloaded file at [path] to the system's share sheet as [name] ("Show – Episode.mp3"). */
