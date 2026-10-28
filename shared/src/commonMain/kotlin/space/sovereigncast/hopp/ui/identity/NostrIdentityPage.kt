@@ -76,6 +76,9 @@ import space.sovereigncast.hopp.resources.nostr_extension_failed
 import space.sovereigncast.hopp.resources.nostr_extension_rejected
 import space.sovereigncast.hopp.resources.nostr_hero_text_web
 import space.sovereigncast.hopp.resources.nostr_sign_out_text_web
+import space.sovereigncast.hopp.resources.nostr_tab_only
+import space.sovereigncast.hopp.resources.nostr_tab_only_note
+import space.sovereigncast.hopp.resources.nostr_tab_only_on
 import space.sovereigncast.hopp.resources.nostr_via_extension
 import space.sovereigncast.hopp.resources.nostr_web_note
 import space.sovereigncast.hopp.resources.stats_nostr_link
@@ -506,6 +509,7 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
     if (!vm.keysInApp) {
         // The browser holds no key (ADR 0022, 2): the ways in with a signer, right here.
         Text(stringResource(Res.string.nostr_web_note), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodyMedium)
+        LocalPlatformActions.current.tabOnly?.let { TabOnlyRow(it) }
         SignIn(busy, vm)
         return
     }
@@ -667,6 +671,10 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
     if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    actions.tabOnly?.let { tabOnly ->
+        val active by tabOnly.active.collectAsState()
+        if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
+    }
     // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
     val openStats = LocalOpenStats.current
     OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }
@@ -688,8 +696,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (settings?.nostrSync == true) SyncStatusLine(vm)
     // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
     if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
-    SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
-    SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
+    SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
+    SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -878,19 +886,32 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(shown?.list?.size) { if (shown != null && shown.problem == null && !shown.working) address = "" }
 }
 
+/** "This is not my device" (ADR 0022, 2): once on, until the tab closes — there is no way back to keeping. */
 @Composable
-private fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun TabOnlyRow(tabOnly: space.sovereigncast.hopp.platform.TabOnly) {
+    val active by tabOnly.active.collectAsState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var working by remember { mutableStateOf(false) }
+    SwitchRow(stringResource(Res.string.nostr_tab_only), stringResource(if (active) Res.string.nostr_tab_only_on else Res.string.nostr_tab_only_note),
+        active || working, enabled = !active && !working) {
+        working = true
+        scope.launch { try { tabOnly.begin() } finally { working = false } }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, note: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     // The whole row switches, read out as one switch with its title.
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
+            .toggleable(checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = null)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

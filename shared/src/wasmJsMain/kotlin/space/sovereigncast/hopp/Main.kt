@@ -30,6 +30,7 @@ private fun showOtherTab(): Unit = js("""{
 // Signing out in the browser takes everything Hopp kept there (ADR 0022, 2). The database's file
 // is held by its worker while the app runs, so it goes on the next start, before the worker opens.
 private fun markWipe(): Unit = js("{ try { localStorage.setItem('hopp-wipe', '1'); } catch (e) {} location.reload(); }")
+private fun reload(): Unit = js("location.reload()")
 
 private fun wipeIfMarked(): Promise<JsBoolean> = js("""(async () => {
   let marked = false;
@@ -41,7 +42,9 @@ private fun wipeIfMarked(): Promise<JsBoolean> = js("""(async () => {
   return true;
 })()""")
 
-internal fun wipeOnNextStart() = markWipe()
+// A tab that keeps nothing stored nothing: a reload starts it afresh, and what is stored in the
+// browser — another listener's — stays.
+internal fun wipeOnNextStart() = if (tabOnlyMarked()) reload() else markWipe()
 
 /** Hopp in the browser (ADR 0022, stage W2): the database first, then the app as on the phone. */
 @OptIn(ExperimentalComposeUiApi::class)
@@ -49,13 +52,16 @@ fun main() {
     MainScope().launch {
         if (!holdTabLock().await<JsBoolean>().toBoolean()) return@launch showOtherTab()
         wipeIfMarked().await<JsBoolean>()
-        val driver = openWebDatabase()
+        // "This is not my device", chosen earlier in this tab: nothing opened that is stored.
+        val tabOnly = tabOnlyMarked()
+        val driver = openWebDatabase(tabOnly)
         // Without IndexedDB (some private windows) secrets live for this tab only.
-        val secrets: SecretStore = try { WebSecretStore.open() } catch (e: Throwable) { MemorySecretStore() }
+        val secrets: SecretStore = if (tabOnly) MemorySecretStore() else try { WebSecretStore.open() } catch (e: Throwable) { MemorySecretStore() }
         applyChosenLanguage()
         startKoin { modules(sharedModule(WebPlatform(driver, secrets))) }
+        val actions = WebPlatformActions(WebTabOnly(driver, secrets, tabOnly))
         ComposeViewport(document.body!!) {
-            App(WebPlatformActions())
+            App(actions)
             FallbackFonts()
         }
     }

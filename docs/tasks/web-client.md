@@ -2,7 +2,7 @@
 
 - **Implements:** [ADR 0022](../adr/0022-web-client.md), stages W1 (done as
   spike 6) and W2; release 0.3.2 (maintainer, 2026-10-28).
-- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the iPhone checks are left.
+- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the iPhone checks and WebKit in the browser checks are left.
 - **Reference:** the spike, branch `spike/web-wasm` (local, based on
   147a7b7 before 0.3.0), report [docs/spikes/06-web.md](../spikes/06-web.md)
   once ported. Its steps are rebuilt on the current code, not rebased.
@@ -31,8 +31,8 @@ locally: sign in with a signer, sync, library, player.
 - [x] **A wallet interface** in `shared` (`value/WalletClient`): `ValueService`,
       `BoostSender` and `WalletRepository` speak to it; NWC is its first
       implementation (WebLN in W3).
-- [x] **Listener API CORS** (`podcasting_tools`): merge request !25 (branch
-      `feat/listener-api-cors-2`), open for the maintainer.
+- [x] **Listener API CORS** (`podcasting_tools`): merge request !25, merged
+      and deployed on Nodesignal's instance (2026-10-28).
 
 ## Stage W2 (local only, not published)
 
@@ -57,10 +57,18 @@ How to run and check it: [web/README.md](../../web/README.md).
 - [ ] **The two checks left from W1, on a real iPhone** (maintainer): start
       time in Safari and from the home screen, first visit and from cache;
       a VoiceOver pass over the tour and one list.
-- [ ] "This is not my device" at sign-in: nothing kept beyond the tab — the
-      database in memory as well, not only the secrets.
-- [ ] The Listener API's CORS deployed (podcasting_tools !25); until then a
-      Sovereigncast show has no community tabs in the browser.
+- [x] "This is not my device" at sign-in: the database copied into the
+      worker's memory and its OPFS files deleted, the secrets kept in memory
+      and their IndexedDB store deleted; a reload in that tab starts in
+      memory again (`sessionStorage`). Hopp Web's own language choice is not
+      offered there — it takes a reload. The browser's HTTP cache (feeds,
+      images: public content) is the browser's to clear; a bunker session
+      stays listed in the signer until ended there.
+- [x] Fixes after the first run on the maintainer's machine (2026-10-28):
+      the connect code as a QR code; episodes under the wrong show (the
+      worker driver shared one transaction between coroutines: `SerialDriver`);
+      Hopp's own language choice; "Save audio file"; a crash on a show with
+      tabs (an empty tab label used twice as the pager's key).
 - [ ] WebKit in the browser checks (Playwright's WebKit build).
 
 ## Not in 0.3.2

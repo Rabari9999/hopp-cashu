@@ -54,6 +54,8 @@ interface PlatformActions {
     fun scanQr(onText: (String) -> Unit) = Unit
     /** Where the Nostr key can be kept beyond this device; null where there is none. */
     val keyVault: space.sovereigncast.hopp.platform.KeyVault? get() = null
+    /** "This is not my device" at sign-in (ADR 0022, 2); null where Hopp keeps its data anyway (the apps). */
+    val tabOnly: space.sovereigncast.hopp.platform.TabOnly? get() = null
     /** Copies a secret: marked sensitive, gone from the clipboard after a minute, not sent to other devices. */
     fun copySecret(text: String, label: String) = copyText(text, label)
 }

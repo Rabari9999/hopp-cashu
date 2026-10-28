@@ -634,6 +634,9 @@
     <string name="nostr_extension_failed">Die Erweiterung hat nicht geantwortet.</string>
     <string name="nostr_via_extension">Dein Schlüssel bleibt in deiner Browser-Erweiterung.</string>
     <string name="nostr_web_note">Im Browser hält Hopp keinen Schlüssel: Melde dich mit einer Erweiterung wie Alby oder nos2x an oder mit einem Signer, der deinen Schlüssel verwahrt – Amber, nsec.app.</string>
+    <string name="nostr_tab_only">Das ist nicht mein Gerät</string>
+    <string name="nostr_tab_only_note">Hopp speichert nichts in diesem Browser: Wird der Tab geschlossen, sind Anmeldung und Bibliothek weg.</string>
+    <string name="nostr_tab_only_on">In diesem Browser wird nichts gespeichert. Schließen oder Neuladen des Tabs meldet dich ab und vergisst die Bibliothek.</string>
     <string name="nostr_sign_out_text_amber">Hopp vergisst die Verbindung zu deiner Signer-App. Dein Schlüssel bleibt dort; was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_text_web">Hopp vergisst die Verbindung zu deinem Signer und löscht alles, was es in diesem Browser gespeichert hat: Bibliothek, Hörstand, Einstellungen. Dein Schlüssel bleibt bei deinem Signer; was du veröffentlicht und abgeglichen hast, bleibt auf Nostr.</string>
     <string name="nostr_profile_loading">Profil wird geladen…</string>

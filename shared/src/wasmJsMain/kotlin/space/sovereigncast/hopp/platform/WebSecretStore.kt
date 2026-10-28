@@ -28,6 +28,11 @@ private fun openAll(): Promise<JsString> = js("""(async () => {
     const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(value));
     return req('readwrite', s => s.put({ iv, ct }, name));
   }));
+  // "This is not my device": after the writes under way, the store and its key deleted.
+  globalThis.__hoppSecretsForget = () => (chain = chain.then(() => new Promise(ok => {
+    db.close();
+    const r = indexedDB.deleteDatabase('hopp-secrets'); r.onsuccess = r.onerror = r.onblocked = () => ok();
+  })));
   const all = {};
   const names = await req('readonly', s => s.getAllKeys());
   for (const name of names) {
@@ -40,6 +45,7 @@ private fun openAll(): Promise<JsString> = js("""(async () => {
 })()""")
 
 private fun write(name: String, value: String?): Promise<JsAny?> = js("globalThis.__hoppSecrets(name, value)")
+private fun forgetAll(): Promise<JsAny?> = js("globalThis.__hoppSecretsForget()")
 
 /**
  * The browser's secret store (ADR 0022, 2): the NIP-46 client key, the sync
@@ -51,6 +57,7 @@ private fun write(name: String, value: String?): Promise<JsAny?> = js("globalThi
 class WebSecretStore private constructor(initial: Map<String, String?>) : SecretStore {
     private val values = initial.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
     private val unreadable = initial.filterValues { it == null }.keys.toMutableSet()
+    private var kept = true
 
     override fun get(name: String): String? {
         if (name in unreadable) throw SecretUnreadable(name)
@@ -61,7 +68,14 @@ class WebSecretStore private constructor(initial: Map<String, String?>) : Secret
         if (value != null && name in unreadable) throw SecretUnreadable(name)
         unreadable -= name
         if (value == null) values -= name else values[name] = value
-        write(name, value)
+        if (kept) write(name, value)
+    }
+
+    /** From here on in memory only ("This is not my device", ADR 0022, 2): what was stored is deleted. */
+    suspend fun forget() {
+        if (!kept) return
+        kept = false
+        forgetAll().await<JsAny?>()
     }
 
     companion object {

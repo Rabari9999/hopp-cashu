@@ -33,19 +33,23 @@ What differs from the apps, by decision (ADR 0022):
   importing a key is not offered, and refused underneath too.
 - **Secrets** (the signer's session, the sync key) in IndexedDB, each
   AES-GCM under a WebCrypto key made non-extractable.
+- **"This is not my device"** at sign-in: the library moves into memory,
+  the database file and the secrets' store are deleted, and nothing is
+  written again — closing or reloading the tab ends it all.
 - **Signing out** deletes everything Hopp kept in that browser.
 - **No downloads**; playback streams through `<audio>` with the Media
   Session API (lock screen, media keys).
 - **One tab at a time**: a second one says Hopp is open elsewhere.
 - **Feeds, chapters, transcripts and images through the proxy** — most
   hosts send no CORS headers. The Podcast Index and Sovereigncast's Listener
-  API are asked directly (the Listener API needs podcasting_tools !25).
+  API are asked directly (the Listener API's CORS: podcasting_tools !25).
 
 ## Check it
 
 ```bash
 cd web/e2e && npm ci
-node run.mjs           # against scripts/web-dev.sh: tour, search, subscribe, play, sign in, reload, tabs, sign out
+node run.mjs           # against scripts/web-dev.sh: tour, search, subscribe, play, save, language, QR code,
+                       # sign in, reload, tabs, sign out, "This is not my device"
 node run.mjs --sync    # also two browsers syncing over public relays, with a throwaway key
 ```
 

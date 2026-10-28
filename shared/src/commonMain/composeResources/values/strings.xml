@@ -634,6 +634,9 @@
     <string name="nostr_extension_failed">The extension did not answer.</string>
     <string name="nostr_via_extension">Your key stays in your browser extension.</string>
     <string name="nostr_web_note">In the browser Hopp keeps no key: sign in with an extension such as Alby or nos2x, or with a signer that holds your key — Amber, nsec.app.</string>
+    <string name="nostr_tab_only">This is not my device</string>
+    <string name="nostr_tab_only_note">Hopp keeps nothing in this browser: when the tab closes, your sign-in and library are gone.</string>
+    <string name="nostr_tab_only_on">Nothing is kept in this browser. Closing or reloading the tab signs you out and forgets the library.</string>
     <string name="nostr_sign_out_text_amber">Hopp forgets the connection to your signer app. Your key stays in it; what you published stays on Nostr.</string>
     <string name="nostr_sign_out_text_web">Hopp forgets the connection to your signer and deletes everything it kept in this browser: library, progress, settings. Your key stays with your signer; what you published and synced stays on Nostr.</string>
     <string name="nostr_profile_loading">Loading your profile…</string>

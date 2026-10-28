@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp
 
+import space.sovereigncast.hopp.platform.TabOnly
 import space.sovereigncast.hopp.ui.PlatformActions
 
 private fun pickTextFile(accept: String, onText: (String) -> Unit): Unit = js("""{
@@ -47,11 +48,12 @@ private val LANGUAGES = mapOf("en" to "English", "de" to "Deutsch")
 
 /** What the browser can do for the shared UI (ADR 0022): files by picker and download, the
  *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */
-class WebPlatformActions : PlatformActions {
+class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformActions {
     override val canDownload: Boolean get() = false
     override val canSaveAudio: Boolean get() = true
     override fun saveAudio(url: String, name: String) = saveLink(url, name)
-    override val appLanguages: Map<String, String> get() = LANGUAGES
+    // Kept in localStorage and taken in by a reload, which a tab that keeps nothing does not survive.
+    override val appLanguages: Map<String, String>? get() = LANGUAGES.takeUnless { tabOnly?.active?.value == true }
     override val appLanguage: String? get() = storedLanguage()?.takeIf { it in LANGUAGES }
     override fun setAppLanguage(code: String?) = storeLanguage(code)
     override fun pickOpml(onText: (String) -> Unit) = pickTextFile(".opml,.xml,text/xml,text/x-opml,application/xml", onText)
