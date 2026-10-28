@@ -92,7 +92,12 @@ fun TabbedPage(
                     else -> Box(Modifier)
                 }
             } },
-            { HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = tabs.size > 1, key = { tabs.getOrElse(it) { "$it" } }) { page(it) } },
+            // Keyed by label, so a page keeps its state when a tab appears before it — but a label
+            // that is empty or twice (in the browser the strings arrive after the first frame, all
+            // tabs read "" for a moment) by its place: two pages with one key crashed the app.
+            { HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = tabs.size > 1, key = { i ->
+                tabs.getOrNull(i)?.takeIf { label -> label.isNotEmpty() && tabs.count { it == label } == 1 } ?: "#$i"
+            }) { page(it) } },
         ),
         modifier = modifier.fillMaxSize().clipToBounds().nestedScroll(connection),
     ) { (h, t, p), constraints ->
