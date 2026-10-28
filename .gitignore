@@ -21,6 +21,9 @@ iosApp/Configuration/Local.xcconfig
 .DS_Store
 docs/design/Figtree.ttf
 
+# zsp and hotbox read secrets from .env (SIGN_WITH, HOTBOX_PIN)
+.env
+
 # Signed release APKs that scripts/release.sh leaves behind for zsp
 /hopp-*-foss.apk
 

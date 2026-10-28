@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Sign CI's unsigned release APK with the release key and publish it as a
-# GitLab release (docs/release-checklist.md, docs/signing.md).
+# Sign CI's unsigned release APK with the release key, publish it as a
+# GitLab release and then on Zapstore (docs/release-checklist.md,
+# docs/signing.md, docs/zapstore.md).
 #
-# Usage: scripts/release.sh v0.1.0 /path/to/release-keystore [key-alias]
+# Usage: [SIGN_WITH='bunker://…'] scripts/release.sh v0.1.0 /path/to/release-keystore [key-alias]
+#
+# SIGN_WITH (Nodesignal's Nostr key, an Amber bunker) lets zsp 2 publish on
+# Zapstore right after the GitLab release; without it the script stops there
+# and prints the command. zsp shows its preview before anything goes out.
 #
 # Runs on the maintainer's machine — the key never goes to CI (ADR 0017).
 # apksigner asks for the keystore password itself; it is never on the command
@@ -57,3 +62,21 @@ glab release create "$TAG" -R nodesignal/hopp --name "Hopp $VERSION" -F "$WORK/n
     --assets-links "[{\"name\":\"$NAME\",\"url\":\"$URL\",\"direct_asset_path\":\"/$NAME\",\"link_type\":\"package\"}]"
 echo "✓ https://gitlab.com/nodesignal/hopp/-/releases/$TAG"
 echo "  download: https://gitlab.com/nodesignal/hopp/-/releases/$TAG/downloads/$NAME"
+
+echo "→ Zapstore"
+# zsp 2 takes the APK from the GitLab release just made (zapstore.yaml's
+# `repository`); glab's token keeps GitLab's API from rate-limiting it, and
+# zsp sends it to gitlab.com only.
+ZSP_VERSION=$(zsp --version 2>/dev/null | tail -1 || true)
+[[ $ZSP_VERSION == v2.* ]] || { echo "! zsp 2 not found ($ZSP_VERSION) — publish on Zapstore by hand (docs/zapstore.md)"; exit 0; }
+export GITLAB_TOKEN=${GITLAB_TOKEN:-$(glab config get token --host gitlab.com 2>/dev/null || true)}
+CHECK=$(zsp check --json zapstore.yaml || true)
+FOUND=$(python3 -c 'import json, sys; print((json.load(sys.stdin).get("apk") or {}).get("version_name", ""))' <<<"$CHECK" 2>/dev/null || true)
+[[ $FOUND == "$VERSION" ]] || { echo "zsp finds ${FOUND:-no APK}, not $VERSION, in the GitLab release:" >&2; echo "$CHECK" >&2; exit 1; }
+if [[ -z ${SIGN_WITH:-} ]]; then
+    echo "! SIGN_WITH is not set — not published on Zapstore. Then:"
+    echo "  SIGN_WITH='bunker://…' zsp publish zapstore.yaml"
+    exit 0
+fi
+zsp publish zapstore.yaml
+echo "✓ Zapstore: https://zapstore.dev/apps/space.sovereigncast.hopp"
