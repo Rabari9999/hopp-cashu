@@ -284,6 +284,36 @@ Earlier:
 - Whether a home-screen app on iOS should get Web Push for new episodes
   (needs a push service, ADR 0007).
 
+### 12. Built: stage W2, locally (2026-10-28)
+
+The preparation in `shared` and stage W2 were built on branch `0.3.2`
+(docs/tasks/web-client.md, web/README.md). Decided along the way:
+
+- **The target only on request** (`-Phopp.web=true`), so the apps' builds and
+  F-Droid's scanner never see Node, Yarn or npm. `secp256k1-kmp` sits in a
+  `nonWebMain` source set; the web uses `@noble/curves` (§8).
+- **The database is asynchronous everywhere** (SQLDelight `generateAsync`);
+  the apps' drivers stay synchronous through `Schema.synchronous()`, and the
+  JVM tests run on a driver that fails on a synchronous call.
+- **Payments speak to `WalletClient`**; NWC is its one implementation, WebLN
+  comes in W3 (§4).
+- **The proxy (§6)**: Go, standard library only, in `web/proxy`. Feeds up to
+  32 MB, as the apps read (§6 said 20 MB); text (VTT, SRT, HTML transcripts)
+  and `application/octet-stream`, which many hosts give feeds, are allowed
+  besides XML, JSON and images — served with `nosniff` and a sandbox CSP.
+  The Podcast Index (its key headers, which the proxy never forwards) and
+  the Listener API (CORS of its own, §11.1) are asked directly. Who runs the
+  proxy stays open (§11.2).
+- **NIP-07 is an external signer** behind the interface Amber uses; the
+  extension keeps its own permissions.
+- **Signing out** marks the browser and reloads: the database's file is held
+  by its worker while the app runs, so it goes on the next start, before the
+  worker opens.
+- **No User-Agent from the browser**: it sends its own, and another would
+  cost a CORS preflight per request.
+- **Fallback fonts** (subsets of Noto, OFL) for symbols and emoji, loaded
+  after the first frame: Skia knows only the fonts it is given.
+
 ## Consequences
 
 - **Distribution (ADR 0011)** gains the web as a channel: a reproducible
