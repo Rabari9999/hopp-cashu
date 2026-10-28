@@ -6,6 +6,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-28
+
 ### 🆕 New Features
 - **Widget:** Der Player auf deinem Startbildschirm, wie auf dem Sperrbildschirm – mit Abspielen, Springen, nächstem Kapitel und deinem Schnell-Boost (Android).
 - **Statistik:** Sieh, was du gehört und gegeben hast – Zeit, gesparte Zeit, Top-Shows und -Folgen, Sats pro Show –, mit Sync auf all deinen Geräten.
