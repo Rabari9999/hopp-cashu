@@ -229,6 +229,9 @@ kotlin {
             implementation(libs.secp256k1.jni.android)
             implementation(libs.sqldelight.android)
         }
+        jvmTest.dependencies {
+            implementation(libs.zxing.core)
+        }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.secp256k1.jni.jvm)

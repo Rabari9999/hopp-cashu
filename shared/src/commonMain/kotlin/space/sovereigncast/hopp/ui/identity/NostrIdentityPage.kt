@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.ui.identity
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
@@ -69,6 +70,7 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
+import space.sovereigncast.hopp.resources.nostr_bunker_qr
 import space.sovereigncast.hopp.resources.nostr_extension
 import space.sovereigncast.hopp.resources.nostr_extension_failed
 import space.sovereigncast.hopp.resources.nostr_extension_rejected
@@ -535,7 +537,8 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     // connection string does (code review 2026-10-17, H9).
     var text by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var bunker by rememberSaveable { mutableStateOf(false) }
+    // In the browser a signer elsewhere is one of the two ways in: open from the start.
+    var bunker by rememberSaveable { mutableStateOf(!vm.keysInApp) }
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
     if (vm.signerApp) {
         val ext = vm.signerIsExtension
@@ -593,6 +596,9 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
     when (val s = state) {
         is NostrIdentityViewModel.Bunker.Offer -> {
             Text(stringResource(Res.string.nostr_bunker_offer_note), style = MaterialTheme.typography.bodySmall)
+            // Scanned by a signer on the phone — the easy way from a computer (maintainer 2026-10-28).
+            space.sovereigncast.hopp.ui.components.QrImage(s.uri, stringResource(Res.string.nostr_bunker_qr),
+                Modifier.fillMaxWidth().widthIn(max = 320.dp).padding(vertical = 4.dp))
             SelectionContainer { Text(s.uri, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { runCatching { uri.openUri(s.uri) } }) { Text(stringResource(Res.string.nostr_bunker_open)) }

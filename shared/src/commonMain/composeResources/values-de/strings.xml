@@ -642,7 +642,8 @@
     <string name="nostr_bunker_connect">Verbinden</string>
     <string name="nostr_bunker_connecting">Verbinde mit deinem Signer…</string>
     <string name="nostr_bunker_offer">Code für deinen Signer anzeigen</string>
-    <string name="nostr_bunker_offer_note">Öffne diesen Code in deinem Signer oder füge ihn dort ein. Hopp wartet, bis sich der Signer verbindet.</string>
+    <string name="nostr_bunker_offer_note">Scanne diesen Code mit deinem Signer – Amber, nsec.app und andere – oder öffne ihn dort oder füge ihn ein. Hopp wartet, bis sich der Signer verbindet.</string>
+    <string name="nostr_bunker_qr">QR-Code für deinen Signer</string>
     <string name="nostr_bunker_open">Im Signer öffnen</string>
     <string name="nostr_bunker_waiting">Warte auf deinen Signer…</string>
     <string name="nostr_bunker_auth">Dein Signer bittet dich, auf seiner Seite zu bestätigen.</string>
