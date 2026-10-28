@@ -1,9 +1,11 @@
 package space.sovereigncast.hopp.ui.library
 
+import space.sovereigncast.hopp.resources.show_playback
 import space.sovereigncast.hopp.resources.mark_played
 import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
 import androidx.compose.foundation.background
+import space.sovereigncast.hopp.data.Show
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
@@ -140,6 +142,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     val gone by vm.gone.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var confirmAllPlayed by remember { mutableStateOf(false) }
+    var playback by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     var donating by remember { mutableStateOf<String?>(null) }
     val hasWallet = koinViewModel<ValueBarViewModel>().connected.collectAsState().value != null
@@ -194,7 +197,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
         }
     }
 
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh(); community.load() }) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh { community.reverify() } }) {
         TabbedPage(
             labels, pager,
             header = {
@@ -224,7 +227,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
                         show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
-                            onAllPlayed = { confirmAllPlayed = true }) }
+                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true }) }
                     }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
@@ -373,6 +376,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     }
 
     // A whole show heard at once (device feedback 2026-10-14).
+    val shown = show
+    if (playback && shown != null) ShowPlaybackSheet(shown, onSpeed = vm::setSpeed, onIntro = vm::setSkipIntro, onOutro = vm::setSkipOutro) { playback = false }
+
     if (confirmAllPlayed) AlertDialog(
         onDismissRequest = { confirmAllPlayed = false },
         text = { Text(stringResource(Res.string.show_all_played_confirm, show?.title ?: "")) },
@@ -390,9 +396,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     }
 }
 
-/** The show's settings, out of the way: auto-download and unsubscribe. */
+/** The show's settings, out of the way: auto-download, its playback, unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit) {
+private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -404,6 +410,7 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },
             )
+            DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })

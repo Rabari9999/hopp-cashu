@@ -11,8 +11,41 @@ class SyncMigrationTest {
     /** The database as version 13 had it: no removal times, no list of what the app may not hold. */
     private fun version13(): JdbcSqliteDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { driver ->
         HoppDatabase.Schema.create(driver)
+        version14(driver)
         driver.execute(null, "ALTER TABLE sync_entry DROP COLUMN kept_from", 0)
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
+    }
+
+    /** Version 15 from the current schema: no listening statistics yet. */
+    private fun version15(driver: JdbcSqliteDriver) {
+        listOf("listen_day", "listen_show", "listen_episode", "listen_count").forEach { driver.execute(null, "DROP TABLE $it", 0) }
+    }
+
+    /** Version 14: a show skipped nothing yet either. */
+    private fun version14(driver: JdbcSqliteDriver) {
+        version15(driver)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_intro_seconds", 0)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_outro_seconds", 0)
+    }
+
+    /** Maintainer 2026-10-26: a show's skipped start and end; after the update every show skips nothing. */
+    @Test
+    fun showsSkipNothingAfterTheUpdate() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it); version14(it) }
+        driver.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at) VALUES ('https://pod.test/feed.xml', 'Show', '{}', 1)", 0)
+        HoppDatabase.Schema.migrate(driver, 14, HoppDatabase.Schema.version)
+        val show = HoppDatabase(driver).podcastQueries.selectAll().executeAsOne()
+        assertEquals(0L to 0L, show.skip_intro_seconds to show.skip_outro_seconds)
+    }
+
+    /** Maintainer 2026-10-26: the statistics' tables come with the update, empty. */
+    @Test
+    fun theStatisticsStartEmptyAfterTheUpdate() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it); version15(it) }
+        HoppDatabase.Schema.migrate(driver, 15, HoppDatabase.Schema.version)
+        val q = HoppDatabase(driver).listeningQueries
+        q.ensureDay("abcd", 20_000); q.addDay(60_000, 90_000, "abcd", 20_000)
+        assertEquals(60_000L, q.daysOf("abcd").executeAsOne().heard_ms)
     }
 
     @Test

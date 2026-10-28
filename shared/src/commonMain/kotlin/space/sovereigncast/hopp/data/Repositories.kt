@@ -49,7 +49,13 @@ data class Show(
     val podcastGuid: String? = null,
     /** The feed's categories, as it names them (itunes:category). */
     val categories: List<String> = emptyList(),
+    /** Seconds skipped at the start of each episode, and at its end; 0 for none. */
+    val skipIntroSeconds: Int = 0,
+    val skipOutroSeconds: Int = 0,
 )
+
+/** The most a show may skip at an episode's start or end: ten minutes. */
+const val MAX_SKIP_SECONDS = 600
 
 /** A show's numbers in the library: all its episodes, and the new ones among them. */
 data class ShowCounts(val episodes: Int, val unheard: Int, val latestAt: Long? = null)
@@ -128,7 +134,7 @@ class PodcastRepository(
         if (!sync) return
         q.selectById(id).executeAsOneOrNull()?.let { r ->
             journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
-                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L))
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt()))
         }
     }
 
@@ -136,12 +142,15 @@ class PodcastRepository(
     val lastChecked: Flow<Long?> = q.lastChecked().asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.last }
 
     val shows: Flow<List<Show>> = q.selectAll().asFlow().mapToList(Dispatchers.IO).map { rows ->
-        rows.map { Show(it.id, it.feed_url, it.title, it.author, it.image_url, it.last_error, it.auto_download == 1L, it.playback_speed?.toFloat(), it.podcast_guid, it.categories.lines().filter(String::isNotBlank)) }
+        rows.map { it.toShow() }
     }
 
-    fun show(id: Long): Flow<Show?> = q.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.let { r ->
-        Show(r.id, r.feed_url, r.title, r.author, r.image_url, r.last_error, r.auto_download == 1L, r.playback_speed?.toFloat(), r.podcast_guid, r.categories.lines().filter(String::isNotBlank))
-    } }
+    fun show(id: Long): Flow<Show?> = q.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO).map { it?.toShow() }
+
+    private fun space.sovereigncast.hopp.db.Podcast.toShow() = Show(
+        id, feed_url, title, author, image_url, last_error, auto_download == 1L, playback_speed?.toFloat(), podcast_guid,
+        categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(),
+    )
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(Dispatchers.IO) {
         q.selectById(id).executeAsOneOrNull()?.let { json.decodeFromString(Podcast.serializer(), it.meta_json) }
@@ -296,6 +305,17 @@ class PodcastRepository(
     /** The change and its note for sync in one transaction: sync never sees one without the other (HN-07). */
     suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) } }
     suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(Dispatchers.IO) { db.transaction { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) } }
+    /** Seconds skipped at the start and the end of each episode of show [id]; 0 for none, null: as it is —
+     *  read in the same transaction, so a change to one never puts back an old value of the other. */
+    suspend fun setSkip(id: Long, introSeconds: Int? = null, outroSeconds: Int? = null, sync: Boolean = true) = withContext(Dispatchers.IO) {
+        db.transaction {
+            val r = q.selectById(id).executeAsOneOrNull() ?: return@transaction
+            val intro = introSeconds?.toLong() ?: r.skip_intro_seconds
+            val outro = outroSeconds?.toLong() ?: r.skip_outro_seconds
+            q.setSkip(intro.coerceIn(0, MAX_SKIP_SECONDS.toLong()), outro.coerceIn(0, MAX_SKIP_SECONDS.toLong()), id)
+            noteShow(id, sync)
+        }
+    }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */
     private fun insertEpisode(podcastId: Long, e: Episode, inInbox: Boolean, now: Long, autoDownload: Boolean) {
@@ -400,29 +420,64 @@ class EpisodeRepository(
         noteProgress(id, urgent = paused)
     }
 
+    /** Heard, an episode leaves "Up next" too ([leaveQueue]). */
     suspend fun setPlayed(id: Long, played: Boolean) = withContext(Dispatchers.IO) {
-        if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+        val left = db.transactionWithResult {
+            if (played) eq.markPlayed(clock.now(), id) else eq.markUnplayed(id)
+            if (played) leaveQueue(listOf(id)) else emptyList()
+        }
         noteProgress(id)
+        noteLeft(left)
     }
 
     /** Every episode of a show heard. */
     suspend fun setShowPlayed(podcastId: Long) = withContext(Dispatchers.IO) {
-        val ids = if (journal.enabled) eq.unplayedOfShow(podcastId).executeAsList() else emptyList()
-        eq.markShowPlayed(clock.now(), podcastId)
+        val (ids, left) = db.transactionWithResult {
+            val ids = eq.unplayedOfShow(podcastId).executeAsList()
+            eq.markShowPlayed(clock.now(), podcastId)
+            ids to leaveQueue(ids)
+        }
         ids.forEach { noteProgress(it) }
+        noteLeft(left)
     }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(Dispatchers.IO) {
-        val ids = if (journal.enabled) eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList() else emptyList()
-        eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+        val (ids, left) = db.transactionWithResult {
+            val ids = eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).executeAsList()
+            eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+            ids to leaveQueue(ids)
+        }
         ids.forEach { noteProgress(it) }
+        noteLeft(left)
     }
 
-    /** Progress from another device (sync): as it was there, and not noted again. */
+    /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
+     *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
+     *  a finished download put it in, which only this device knows. */
     suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(Dispatchers.IO) {
         db.transaction {
-            if (played) eq.markPlayed(atSeconds, id) else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+            if (played) { eq.markPlayed(atSeconds, id); leaveQueue(listOf(id)) } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+        }
+    }
+
+    /**
+     * Heard episodes out of "Up next" (device feedback 2026-10-25: one a finished download had put
+     * there, marked heard and its download removed, still started after the episode before it —
+     * streamed). Returns those that were in it.
+     */
+    private fun leaveQueue(ids: Collection<Long>): List<Long> {
+        val queued = db.queueQueries.selectAll().executeAsList().toSet()
+        return ids.filter { it in queued }.onEach { db.queueQueries.remove(it) }
+    }
+
+    /** Those out of "Up next", noted for sync as [QueueRepository] notes a removal. */
+    private fun noteLeft(ids: List<Long>) {
+        if (!journal.enabled) return
+        for (id in ids) {
+            val r = eq.syncKeysOf(id).executeAsOneOrNull() ?: continue
+            val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+            journal.record(SyncDocs.QUEUE, SyncDocs.queueKey(show, r.guid), SyncDocs.queued(show, r.guid, 0), deleted = true)
         }
     }
 

@@ -6,6 +6,26 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-28
+
+### 🆕 New Features
+- **Widget:** Der Player auf deinem Startbildschirm, wie auf dem Sperrbildschirm – mit Abspielen, Springen, nächstem Kapitel und deinem Schnell-Boost (Android).
+- **Statistik:** Sieh, was du gehört und gegeben hast – Zeit, gesparte Zeit, Top-Shows und -Folgen, Sats pro Show –, mit Sync auf all deinen Geräten.
+- **Shows:** Intro und Abspann jeder Folge einer Show überspringen, einzustellen mit ihrem Tempo unter „Wiedergabe für diese Show“ oder für alle Shows unter Einstellungen → Wiedergabe → „Pro Show“.
+- **Wallet:** Die Wallet-Seite sagt in einfachen Worten, wen deine Wallet erreicht.
+- **Streaming:** Player und Streaming-Blatt sagen, wenn deine Wallet jemanden in der Folge nicht erreicht.
+- **Teilen:** Wähle, was du teilst – Hopp-Link, die Webseite aus dem Feed, den Audio-Link, die geladene Datei oder bei einer Show die Feed-Adresse. Hopp merkt sich deine Wahl.
+- **Personen:** Tippe auf eine Person in einer Folge oder im Player und sieh alle Folgen mit ihr – in deinen Abos und in anderen Podcasts; auch die Suche in Discover findet Personen.
+- **Sovereigncast:** Die Vorschau vor dem Abonnieren zeigt das Sovereigncast-Abzeichen und die offenen Themenvorschläge.
+
+### 🐛 Fixes
+- **Android Auto:** „Vor“ am Lenkrad oder am Kopfhörer spult um deine Sekunden vor, statt zur nächsten Folge zu springen; das nächste Kapitel hat seinen eigenen Knopf.
+- **Als Nächstes:** Eine als gehört markierte Folge verlässt „Als Nächstes“ und startet nicht mehr von selbst.
+- **Streaming:** Anteile, die deine Wallet nicht zahlen kann, werden nicht mehr angespart und dann Runde für Runde übersprungen.
+- **Wallet:** Eine Wallet, die nicht antwortet – etwa coinos bei geschlossener App –, bekommt nichts geschickt; Hopp sagt das und wartet.
+- **Verlauf:** Ein Eintrag zeigt, was rausgehen sollte und was daraus wurde, statt „0 sats“.
+- **Sovereigncast:** Eine Show, deren Feed ihre Instanz erst später nennt, bekommt ihre Community-Tabs ohne neues Abonnieren – Herunterziehen auf der Show-Seite reicht.
+
 ## [0.3.0] - 2026-10-25
 
 ### 🆕 New Features

@@ -102,6 +102,7 @@ fun sharedModule(platform: Platform) = module {
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
                 },
                 space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
+                space.sovereigncast.hopp.sync.StatsDocument(koin.get(), koin.get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
             )
         }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
     }
@@ -113,6 +114,7 @@ fun sharedModule(platform: Platform) = module {
     single { DownloadRepository(get(), get(), get(), get(), get(), get()) }
     single { PodcastRepository(get(), get(), get(), get(), get(), get()) { get<SettingsRepository>().current().autoDownloads } }
     single { EpisodeRepository(get(), get(), get(), get()) }
+    single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
@@ -129,14 +131,16 @@ fun sharedModule(platform: Platform) = module {
             { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey,
             { get<space.sovereigncast.hopp.identity.IdentityRepository>().readRelays() })
     }
-    single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) }
+    single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) { get<space.sovereigncast.hopp.data.ListeningRepository>().counted(comments = 1) } }
+    single { space.sovereigncast.hopp.data.ListeningRepository(get(), get(), get(), get()) }
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single {
-        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>())
+        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>(), listening = get())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
     viewModel { InboxViewModel(get(), get(), get()) }
+    viewModel { space.sovereigncast.hopp.ui.library.StatsViewModel(get()) }
     viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
@@ -145,8 +149,9 @@ fun sharedModule(platform: Platform) = module {
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get(), get(), get()) }
-    viewModel { params -> ShowPreviewViewModel(params.get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get(), get(), get()) }
+    viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
+    viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }

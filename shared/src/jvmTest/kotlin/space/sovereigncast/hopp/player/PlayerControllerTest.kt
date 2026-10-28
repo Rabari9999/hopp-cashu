@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,9 +40,11 @@ class RecordingEngine : PlaybackEngine {
     val loaded = mutableListOf<PlaybackItem>()
     val seeks = mutableListOf<Long>()
     var lastSpeed = 1f
+    /** The length reported on load; 0 for a stream whose length comes later. */
+    var loadDurationMs = 600_000L
     override fun load(item: PlaybackItem, playWhenReady: Boolean) {
         loaded += item
-        s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = 600_000)
+        s.value = PlaybackState(item.id, playWhenReady, positionMs = item.startPositionMs, durationMs = loadDurationMs)
     }
     override fun play() { s.value = s.value.copy(isPlaying = true) }
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
@@ -317,6 +320,78 @@ class PlayerControllerTest {
         until("next episode") { engine.loaded.last().id == all.first().id.toString() }
         player.previous()
         assertEquals(0L, engine.seeks.last(), "no chapters: back to the start")
+    }
+
+    /** Maintainer 2026-10-26: a show skips the first and the last seconds of its episodes — from
+     *  the beginning and listened up to the end only, never where the listener went themselves. */
+    @Test
+    fun aShowSkipsItsStartAndItsEnd() = test {
+        val (e1, e2, e3) = episodes()
+        podcasts.setSkip(e1.podcastId, 30, 20)
+        val notices = java.util.concurrent.CopyOnWriteArrayList<Skipped>()
+        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { player.skipped.collect { notices += it } }
+        delay(30)
+        start(e1)
+        assertEquals(30_000L, engine.loaded.last().startPositionMs, "the start skipped")
+        until("said, with a way back") { notices.firstOrNull() == Skipped(e1.id, 30, atStart = true) }
+        player.undoSkip(notices.first())
+        assertEquals(0L, engine.seeks.last())
+        // Jumped past the end's 20 s: not skipped — it ends as it ends.
+        queue.playLast(e2.id)
+        at(582_000)
+        at(584_000)
+        assertTrue(!episodes.item(e1.id)!!.played && engine.loaded.size == 1, "a jump is not listening")
+        step { end() }
+        until("Ep 2 follows, its start skipped") { engine.loaded.last().let { it.id == e2.id.toString() && it.startPositionMs == 30_000L } }
+        step { play() }
+        // Listened into the last 20 s: over, paused, played.
+        at(579_000)
+        at(581_000)
+        until("Ep 2 heard") { episodes.item(e2.id)!!.played }
+        assertTrue(!engine.s.value.isPlaying)
+        until("said") { notices.any { it == Skipped(e2.id, 20, atStart = false) } }
+        // From a chapter or a time mark: where asked.
+        player.playAt(e3, 5_000)
+        until("Ep 3 at 5 s") { engine.loaded.last().let { it.id == e3.id.toString() && it.startPositionMs == 5_000L } }
+        // Skips longer than the episode allows: left whole.
+        podcasts.setSkip(e1.podcastId, 300, 250)
+        player.play(e1.copy(played = true, durationSeconds = 600))
+        until("Ep 1 from 0") { engine.loaded.last().let { it.id == e1.id.toString() && it.startPositionMs == 0L } }
+    }
+
+    /** Device check 2026-10-27: what was heard is in the database once listening pauses — not only
+     *  every half minute — so an app ended right after keeps it. */
+    @Test
+    fun whatWasHeardIsWrittenWhenListeningPauses() = test {
+        val listening = space.sovereigncast.hopp.data.ListeningRepository(db, space.sovereigncast.hopp.platform.MemorySecretStore(), { 1_790_000_000 }) { kotlinx.datetime.TimeZone.UTC }
+        val counting = PlayerController(engine, episodes, podcasts, queue, settings, scope, listening = listening) { clockMs }
+        val (e1) = episodes()
+        counting.play(e1)
+        until("loaded") { engine.loaded.isNotEmpty() }
+        var pos = 0L
+        repeat(20) { clockMs += 500; pos += 500; at(pos) }
+        at(pos, playing = false)
+        until("written") { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+    }
+
+    /** Review 2026-10-27: an episode whose feed gives no length takes the skip, and goes back to
+     *  its start once it turns out too short for it — a trailer does not begin at its end. */
+    @Test
+    fun anEpisodeOfUnknownLengthTooShortForTheSkipStartsAtItsBeginning() = test {
+        val (e1, e2) = episodes()
+        podcasts.setSkip(e1.podcastId, 600, 0)
+        engine.loadDurationMs = 0
+        player.play(e1.copy(played = true, durationSeconds = null))
+        until("skipped, as nothing says otherwise") { engine.loaded.lastOrNull()?.startPositionMs == 600_000L }
+        engine.s.value = engine.s.value.copy(durationMs = 180_000)
+        until("back to its start") { engine.seeks.lastOrNull() == 0L }
+        // Long enough once known: where the skip put it.
+        engine.seeks.clear()
+        player.play(e2.copy(played = true, durationSeconds = null))
+        until("Ep 2 skipped") { engine.loaded.last().let { it.id == e2.id.toString() && it.startPositionMs == 600_000L } }
+        engine.s.value = engine.s.value.copy(durationMs = 3_600_000)
+        delay(100)
+        assertTrue(engine.seeks.isEmpty())
     }
 
     @Test

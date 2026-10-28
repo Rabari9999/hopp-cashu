@@ -58,6 +58,33 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(d, a, c), tablet.queueGuids())
     }
 
+    /** Device feedback 2026-10-25: marked heard on one device, it leaves "Up next" on both — also
+     *  where a finished download put it there, which is not shared. */
+    @Test
+    fun aHeardEpisodeLeavesUpNextOnEveryDevice() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (a, b, c) = guids(phone).take(3)
+        phone.queue.playLast(phone.id(a))
+        phone.queue.playLast(phone.id(b))
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        // Put there by its download, on the tablet only.
+        tablet.db.queueQueries.addLast(tablet.id(c))
+        assertEquals(listOf(a, b, c), tablet.queueGuids())
+
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.id(a), true)
+        phone.episodes.setPlayed(phone.id(c), true)
+        assertEquals(listOf(b), phone.queueGuids())
+        phone.sync.syncNow()
+        tablet.ms += 120_000
+        tablet.sync.syncNow()
+        assertEquals(listOf(b), tablet.queueGuids())
+    }
+
     @Test
     fun listeningHabitsFollowTheWalletAndBudgetStay() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,11 +83,27 @@ class CommunityViewModel(
     /** Payment hashes handed to the wallet that may be paid: never sent to it twice (M3). */
     private val handedToWallet = mutableSetOf<String>()
 
+    /** Whether the stored feed names an instance at all: without that, nothing to ask again. */
+    @kotlin.concurrent.Volatile private var claimed = false
+
     init {
+        // Checked again whenever the stored feed claims something new — after a refresh here,
+        // in the background or by sync (maintainer 2026-10-27) — not only when the page opens.
         viewModelScope.launch {
-            sc.verify(podcastId)
-            load()
+            var first = true
+            sc.claims(podcastId).collectLatest { (marker, guid) ->
+                claimed = marker != null && guid != null
+                sc.verify(podcastId, force = !first)
+                first = false
+                load()
+            }
         }
+    }
+
+    /** After the listener pulled the page: the instance asked again, then what runs there. */
+    fun reverify() = viewModelScope.launch {
+        sc.verify(podcastId, force = true)
+        load()
     }
 
     /**
@@ -100,6 +118,9 @@ class CommunityViewModel(
         while (true) {
             delay(60_000)
             minutes++
+            // Not confirmed yet — the instance was out of reach, say: asked again now and then.
+            // A show that claims none is not asked about every five minutes (review 2026-10-27).
+            if (layer.value == null && claimed && minutes % 5 == 0) runCatching { sc.verify(podcastId, force = true); if (layer.value != null) load() }
             layer.value?.let { l ->
                 if (l.show.capabilities.releaseBoosting) runCatching { _round.value = sc.releaseBoosting(l).round }
                 if (l.show.capabilities.leaderboard && minutes % 5 == 0) runCatching { _leaderboard.value = sc.leaderboard(l) }
@@ -107,8 +128,16 @@ class CommunityViewModel(
         }
     }
 
-    fun load() = viewModelScope.launch {
-        val l = layer.first { it != null } ?: return@launch
+    private var loading: kotlinx.coroutines.Job? = null
+
+    /** What runs at the instance, once the show is confirmed — one load at a time, the newest. */
+    fun load() {
+        loading?.cancel()
+        loading = viewModelScope.launch { loadNow() }
+    }
+
+    private suspend fun loadNow() = coroutineScope {
+        val l = layer.first { it != null } ?: return@coroutineScope
         val c = l.show.capabilities
         val rb = async { if (c.releaseBoosting) runCatching { sc.releaseBoosting(l).round }.getOrNull() else null }
         val b2u = async { if (c.boost2unlock) runCatching { sc.boost2unlock(l).episodes }.getOrDefault(emptyList()) else emptyList() }

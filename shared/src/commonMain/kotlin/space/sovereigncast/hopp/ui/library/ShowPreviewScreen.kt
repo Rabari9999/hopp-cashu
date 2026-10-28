@@ -66,6 +66,8 @@ fun ShowPreviewScreen(
     val subscribedId by vm.subscribedId.collectAsState()
     val working by vm.working.collectAsState()
     val error by vm.error.collectAsState()
+    val layer by vm.layer.collectAsState()
+    val suggestions by vm.suggestions.collectAsState()
     val colors = MaterialTheme.colorScheme
 
     val loaded = state as? PreviewState.Loaded
@@ -96,10 +98,13 @@ fun ShowPreviewScreen(
                     SelectionContainer { Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
                     CategoryTags(p?.categories ?: known?.categories.orEmpty())
-                    if (loaded != null) Text(
-                        listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
-                    )
+                    if (loaded != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (layer != null) space.sovereigncast.hopp.ui.sovereigncast.ScBadge()
+                        Text(
+                            listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        )
+                    }
                     val id = subscribedId
                     if (id != null) OutlinedButton(onClick = { onOpen(id) }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
                     else Button(onClick = { vm.subscribe(onOpen) }, enabled = !working && failed == null) {
@@ -120,6 +125,23 @@ fun ShowPreviewScreen(
             p?.let { TrailerLine(it.trailers, it.title.orEmpty(), it.imageUrl) }
             if (state == PreviewState.Loading) {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            }
+        }
+        // The community before subscribing (maintainer 2026-10-27): a new show has no episodes
+        // yet, but its listeners' topic suggestions — to read here; voting and suggesting once subscribed.
+        if (layer?.show?.capabilities?.suggestions == true) suggestions?.let { list ->
+            item(key = "sc-sug") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(Res.string.sc_suggestions), style = MaterialTheme.typography.titleMedium)
+                    if (list.isEmpty()) Text(stringResource(Res.string.sc_no_suggestions), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    list.take(5).forEach { sg ->
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(colors.surfaceVariant).padding(12.dp)) {
+                            Text(sg.title, style = MaterialTheme.typography.titleSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Text(stringResource(Res.string.sc_votes, sg.voteCount), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        }
+                    }
+                    if (subscribedId == null) Text(stringResource(Res.string.preview_sc_join), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
             }
         }
         // The episode someone shared (device feedback 2026-10-12): on top, a tap

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
+import space.sovereigncast.hopp.value.BalanceAnswer
 import space.sovereigncast.hopp.value.BoostPlan
 import space.sovereigncast.hopp.value.ConnectedWallet
 import space.sovereigncast.hopp.value.Payment
@@ -43,12 +44,28 @@ class WalletViewModel(
     val spentToday: StateFlow<Long> = state(value.spentTodayMsat, 0L)
     private val _balance = MutableStateFlow<Long?>(null)
     val balanceMsat: StateFlow<Long?> = _balance.asStateFlow()
+    private val _silent = MutableStateFlow(false)
+    /** The wallet gave no answer to the balance question — it would not answer a payment either. */
+    val silent: StateFlow<Boolean> = _silent.asStateFlow()
+    private val _checking = MutableStateFlow(false)
+    /** The balance question is out — "try again" shows it is working. */
+    val checking: StateFlow<Boolean> = _checking.asStateFlow()
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
 
     init { refreshBalance() }
 
-    fun refreshBalance() { if (wallet.wallet.value != null) viewModelScope.launch { _balance.value = wallet.balanceMsat() } }
+    fun refreshBalance() {
+        if (wallet.wallet.value == null || _checking.value) return
+        _checking.value = true
+        viewModelScope.launch {
+            try {
+                val answer = wallet.balance()
+                _balance.value = (answer as? BalanceAnswer.Known)?.msat
+                _silent.value = answer == BalanceAnswer.Silent
+            } finally { _checking.value = false }
+        }
+    }
 
     fun connect(uri: String) {
         _connect.value = ConnectState.Working
@@ -64,6 +81,7 @@ class WalletViewModel(
     fun disconnect() {
         wallet.disconnect()
         _balance.value = null
+        _silent.value = false
         // Without a wallet nothing streams (ADR 0005).
         update { it.copy(streaming = false) }
     }
@@ -123,15 +141,31 @@ class ValueBarViewModel(
     }
     val budgetLeft: StateFlow<Long> = state(value.budgetLeftMsat, 0L)
     val overBudget: StateFlow<Boolean> = value.overBudget
+    /** The last streaming batch found the wallet not answering. */
+    val streamSilent: StateFlow<Boolean> = value.walletSilent
     private val _walletBalance = MutableStateFlow<Long?>(null)
     /** What the wallet holds, in msat, for the boost sheet — null while it is asked, or when it does not tell. */
     val walletBalance: StateFlow<Long?> = _walletBalance.asStateFlow()
-    private var balanceAsked: kotlinx.coroutines.Deferred<Long?>? = null
+    private val _walletSilent = MutableStateFlow(false)
+    /** The wallet did not answer the boost sheet's balance question: a boost would go unanswered. */
+    val walletSilent: StateFlow<Boolean> = _walletSilent.asStateFlow()
+    private var balanceAsked: kotlinx.coroutines.Deferred<BalanceAnswer>? = null
+    private val _checkingBalance = MutableStateFlow(false)
+    /** The balance question is out — the sheet's "try again" shows it is working. */
+    val checkingBalance: StateFlow<Boolean> = _checkingBalance.asStateFlow()
 
     /** Asks the wallet what it holds — when the boost sheet opens and after a boost (maintainer
      *  2026-10-21: 1,000 sats with 500 in the wallet should not be possible at all). */
     fun checkWalletBalance() {
-        balanceAsked = viewModelScope.async { value.walletBalanceMsat().also { _walletBalance.value = it } }
+        _checkingBalance.value = true
+        balanceAsked = viewModelScope.async {
+            try {
+                value.walletBalance().also {
+                    _walletBalance.value = (it as? BalanceAnswer.Known)?.msat
+                    _walletSilent.value = it == BalanceAnswer.Silent
+                }
+            } finally { _checkingBalance.value = false }
+        }
     }
 
     /** Whether [amountSats] and its fees fit [balanceMsat]; true when that is unknown. */
@@ -144,12 +178,17 @@ class ValueBarViewModel(
     /** Sats per minute for the episode playing: the listener's or the show's. */
     val rate: StateFlow<Int?> = _rate.asStateFlow()
 
+    private val _reach = MutableStateFlow<space.sovereigncast.hopp.value.Reach?>(null)
+    /** What of the episode playing the connected wallet reaches; null without a wallet or split. */
+    val reach: StateFlow<space.sovereigncast.hopp.value.Reach?> = _reach.asStateFlow()
+
     private val _hasValue = MutableStateFlow<Boolean?>(null)
     /** The episode or its show names recipients (a value block); null until known. */
     val hasValue: StateFlow<Boolean?> = _hasValue.asStateFlow()
 
     fun forEpisode(item: EpisodeItem) = viewModelScope.launch {
         _hasValue.value = runCatching { value.blockFor(item) != null }.getOrDefault(true)
+        _reach.value = runCatching { value.reach(item) }.getOrNull()
         val own = settings.current().streamRateSats
         _rate.value = own.takeIf { it > 0 } ?: value.suggestedSatsPerMinute(value.blockFor(item)) ?: ValueService.DEFAULT_RATE
     }
@@ -197,7 +236,10 @@ class ValueBarViewModel(
         reports.scope.launch {
             // Sent before the wallet answered: once it has, a boost it cannot carry goes back
             // to the sheet, which then says why.
-            val balance = runCatching { balanceAsked?.await() }.getOrNull()
+            val answer = runCatching { balanceAsked?.await() }.getOrNull()
+            // A wallet that gave no answer would leave the boost "outcome unknown": not sent.
+            if (answer == BalanceAnswer.Silent) { _boost.value = BoostState.Editing; return@launch }
+            val balance = (answer as? BalanceAnswer.Known)?.msat
             if (!covers(balance, amountSats)) { _boost.value = BoostState.Editing; return@launch }
             settings.update { it.copy(senderName = name.trim()) }
             val outcome = try {

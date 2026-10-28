@@ -25,6 +25,8 @@ class FakeWallet(
     var failMethod: String? = null
     /** Pays this method but never answers — the answer lost on the relay. */
     var silentMethod: String? = null
+    /** Not running — coinos with its app closed: no request is read, none answered. */
+    var asleep = false
     /** What get_balance answers, in msat. */
     var balanceMsat = 21_000_000L
     /** What get_info names as the wallet's node. */
@@ -43,6 +45,7 @@ class FakeWallet(
 
     /** Handles one request event the client published. */
     fun handle(request: Event) {
+        if (asleep) return
         val ck = Nip44.conversationKey(keys.secretKey, request.pubkey.hexToBytes())
         val body = json.parseToJsonElement(Nip44.decrypt(request.content, ck)).jsonObject
         val method = body["method"]!!.jsonPrimitive.content

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -294,6 +295,10 @@ class SettingsViewModel(
         podcasts.shows.map { l -> l.mapNotNull { s -> s.podcastGuid?.takeIf { it.isNotEmpty() }?.let { it to s.title } }.toMap() },
         emptyMap(),
     )
+    /** The shows, for "Per show": each one's speed and what it skips. */
+    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
+    fun setShowSpeed(id: Long, speed: Float?) = viewModelScope.launch { podcasts.setSpeed(id, speed) }
+    fun setShowSkip(id: Long, intro: Int? = null, outro: Int? = null) = viewModelScope.launch { podcasts.setSkip(id, introSeconds = intro, outroSeconds = outro) }
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
@@ -405,12 +410,13 @@ class ShowViewModel(
         }
     }
 
-    fun refresh() {
+    /** The feed fetched again; [then] once it is stored — the instance asked again with it. */
+    fun refresh(then: () -> Unit = {}) {
         if (_refreshing.value) return
         _refreshing.value = true
         viewModelScope.launch {
             try { runCatching { podcasts.refresh(podcastId) }; _meta.value = podcasts.podcastMeta(podcastId) }
-            finally { _refreshing.value = false }
+            finally { _refreshing.value = false; then() }
         }
     }
 
@@ -433,6 +439,10 @@ class ShowViewModel(
         }
     }
     fun setAutoDownload(on: Boolean) = viewModelScope.launch { podcasts.setAutoDownload(podcastId, on) }
+    /** [speed] null: the show follows the default speed. */
+    fun setSpeed(speed: Float?) = viewModelScope.launch { podcasts.setSpeed(podcastId, speed) }
+    fun setSkipIntro(seconds: Int) = viewModelScope.launch { podcasts.setSkip(podcastId, introSeconds = seconds) }
+    fun setSkipOutro(seconds: Int) = viewModelScope.launch { podcasts.setSkip(podcastId, outroSeconds = seconds) }
     fun markAllPlayed() = viewModelScope.launch { episodes.setShowPlayed(podcastId) }
     fun unsubscribe() = viewModelScope.launch { podcasts.unsubscribe(podcastId) }
 }
@@ -466,7 +476,11 @@ class DiscoverViewModel(
     private val directory: DirectoryRepository,
     private val settings: SettingsRepository,
     private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
+    private val people: space.sovereigncast.hopp.data.PeopleRepository,
 ) : ViewModel() {
+    private val _people = MutableStateFlow<List<space.sovereigncast.hopp.data.PersonMatch>>(emptyList())
+    /** People in the subscribed shows whose name holds the term (0.3.1) — found here, on the device. */
+    val persons: StateFlow<List<space.sovereigncast.hopp.data.PersonMatch>> = _people.asStateFlow()
     private val _scShows = MutableStateFlow(scDirectory.known)
     /** The curated Sovereigncast shows (device feedback 2026-10-10): results get
      *  their badge from it; null while it is still on its way. */
@@ -601,7 +615,13 @@ class DiscoverViewModel(
                         return@collectLatest
                     }
                     _search.value = SearchUi.Searching
-                    val r = directory.search(q, v)
+                    // The library read beside the directories, not before them (review 2026-10-27).
+                    val (found, r) = kotlinx.coroutines.coroutineScope {
+                        val found = async { runCatching { people.find(q) }.getOrDefault(emptyList()) }
+                        val r = directory.search(q, v)
+                        found.await() to r
+                    }
+                    _people.value = found
                     seen.value = (r.shows + seen.value).distinctBy { feedKey(it.feedUrl) }.take(SEEN)
                     _search.value = SearchUi.Done(if (sc) r.copy(shows = r.shows.filter { isSovereigncast(it) }) else r)
                 }
@@ -675,7 +695,17 @@ sealed interface PreviewState {
  * The show page before subscribing (ADR 0008): the real feed, fetched
  * directly — the directory's copy can be old and knows nothing of P2.0 tags.
  */
-class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, private val podcasts: PodcastRepository) : ViewModel() {
+class ShowPreviewViewModel(
+    input: String, private val fetcher: FeedFetcher, private val podcasts: PodcastRepository,
+    private val sc: space.sovereigncast.hopp.sovereigncast.SovereigncastRepository? = null,
+) : ViewModel() {
+    private val _layer = MutableStateFlow<space.sovereigncast.hopp.sovereigncast.ScLayer?>(null)
+    /** The show's Sovereigncast layer before subscribing (maintainer 2026-10-27), once its instance confirmed this feed. */
+    val layer: StateFlow<space.sovereigncast.hopp.sovereigncast.ScLayer?> = _layer.asStateFlow()
+    private val _suggestions = MutableStateFlow<List<space.sovereigncast.hopp.sovereigncast.Suggestion>?>(null)
+    /** Its open topic suggestions, read only here; null while unknown. */
+    val suggestions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.Suggestion>?> = _suggestions.asStateFlow()
+
     private val url = FeedFetcher.normalize(input) ?: input
     private val _state = MutableStateFlow<PreviewState>(PreviewState.Loading)
     val state: StateFlow<PreviewState> = _state.asStateFlow()
@@ -700,7 +730,13 @@ class ShowPreviewViewModel(input: String, private val fetcher: FeedFetcher, priv
                     is FetchResult.Fetched -> {
                         val feed = withContext(Dispatchers.Default) { FeedParser.parse(r.bytes) }
                         if (feed.podcast.title == null && feed.episodes.isEmpty()) PreviewState.Failed("not a podcast feed")
-                        else PreviewState.Loaded(feed, r.movedTo ?: url, r.etag, r.lastModified)
+                        else PreviewState.Loaded(feed, r.movedTo ?: url, r.etag, r.lastModified).also { loaded ->
+                            if (sc != null) viewModelScope.launch {
+                                val l = sc.layerOf(loaded.feedUrl, feed.podcast) ?: return@launch
+                                _layer.value = l
+                                if (l.show.capabilities.suggestions) _suggestions.value = runCatching { sc.suggestions(l).suggestions }.getOrNull()
+                            }
+                        }
                     }
                     else -> PreviewState.Failed("empty response")
                 }

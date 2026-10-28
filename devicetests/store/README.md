@@ -17,9 +17,18 @@ build, English and German.
    adb -s emulator-5554 shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
    adb -s emulator-5554 shell settings put secure stylus_handwriting_enabled 0
    ```
-2. `setup.yaml` — Nodesignal and the shows its podroll recommends, one
-   episode begun (English UI):
+2. `setup.yaml` — Nodesignal and the shows its podroll recommends, and
+   Nodesignal's own playback (1.3×, intro 30 s) (English UI):
    `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta devicetests/store/setup.yaml`
+   Then `listen.yaml` plays an episode of three shows in turn, for the
+   stats and "Continue listening" — Nodesignal's E298 last, the player's
+   picture; each left playing a few minutes, then paused with
+   `adb shell input keyevent KEYCODE_MEDIA_PAUSE`:
+   ```bash
+   maestro … -e SHOW="Sound Money Bitcoin Podcast" -e EPISODE="#[0-9]+ .*" -e QUERY="" devicetests/store/listen.yaml       # 5 min
+   maestro … -e SHOW="Münzweg - der Bitcoin-Podcast" -e EPISODE="Münzweg #[0-9]+.*" -e QUERY="" devicetests/store/listen.yaml  # 6 min
+   maestro … -e SHOW="Nodesignal - Deine Bitcoin-Frequenz" -e EPISODE="Nodesignal-Talk - E298.*" -e QUERY="E298" devicetests/store/listen.yaml  # 10 min
+   ```
 3. Phone only: connect a wallet by hand (Settings → Wallet), one with little
    in it. The flow opens the boost dialog but never sends it; afterwards
    clear the app (`adb shell pm clear space.sovereigncast.hopp.beta`).
@@ -31,9 +40,12 @@ build, English and German.
 5. Look at every picture — Discover and the comments are live data — then
    scale and copy them: phone to 2020 px high, tablet to 1920 px wide, JPEG
    at 80 (`sips -Z … -s format jpeg -s formatOptions 80`). The phone gets
-   player, boost, home, comments, show, community, discover, library,
-   privacy; the tablet player, comments, home, library (the other pages
-   leave half a tablet empty).
+   player, boost, home, comments, stats, show, community, person, per show,
+   widget, discover, library, privacy; the tablet player, comments, home,
+   stats, library (the other pages leave half a tablet empty).
+6. Phone only, by hand: the widget. Long-press the home screen → Widgets →
+   Hopp, add it, start the episode from it once, and take the home screen
+   (`adb exec-out screencap -p`).
 
 The comments come from a V4V show with Fountain listeners (Chad and Reeds
 Podcast), subscribed for the picture and unsubscribed again; a bot that

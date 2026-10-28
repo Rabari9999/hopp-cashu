@@ -99,6 +99,28 @@ leading to it. The `/open` page passes `episode` and `t` on to `hopp://`. In the
 share sheet "from here" is a switch, off by default (user decision); a chapter
 or a transcript line is shared from its start.
 
+**Amended 2026-10-26 (sharing, a choice — maintainer, after a listener
+preferred AntennaPod's):** the share sheet offers what arrives, not only Hopp's
+link: Hopp's link (above), the website the feed names (`<link>`, http(s) only —
+AntennaPod's "social message": a short text and that page, a start only in the
+text), the audio file's address (only the address; a start as a media fragment,
+`#t=<seconds>`, which browsers play from), the downloaded file itself (Android
+through the Files app's provider with a one-time read grant, iOS as a named
+link in the temporary folder) and, for a show, its feed address. Only what
+exists is offered. The last choice comes first next time, on this device only
+(`share_as`, not synced).
+
+**Amended 2026-10-27 (verification follows the feed — maintainer, after a new
+show subscribed before its feed named its instance kept no layer until it was
+subscribed again):** an open show page checks the instance again whenever the
+stored feed's marker or `podcast:guid` changes — after a refresh, in the
+background or by sync — and a pull on the page fetches the feed and asks the
+instance again. While a show is unconfirmed, the open page asks again every
+five minutes. The preview before subscribing checks the same way, against the
+address it loaded, and shows the badge and the open topic suggestions to read;
+voting and suggesting stay with subscribing. The preview thus asks the instance
+the feed names, as the page after subscribing did.
+
 An opt-in directory of instances is a later phase.
 
 ## Consequences

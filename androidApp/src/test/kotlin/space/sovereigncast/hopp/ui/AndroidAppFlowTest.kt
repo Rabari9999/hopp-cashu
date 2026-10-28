@@ -574,6 +574,43 @@ class AndroidAppFlowTest {
         check(shared[1].endsWith("&episode=ep-2&t=754") && shared[1].startsWith("“Ep 2” from 12:34 — Test Show")) { shared[1] }
     }
 
+    /** Maintainer 2026-10-26: what is shared is a choice — here the audio file's address, from 12:34 —
+     *  and the choice is there first the next time. No website where the feed names none. */
+    @Test
+    fun theAudioLinkIsSharedAndKeptAsTheChoice() {
+        val shared = mutableListOf<String>()
+        val actions = object : PlatformActions {
+            override fun pickOpml(onText: (String) -> Unit) = Unit
+            override fun exportOpml(text: String) = Unit
+            override fun shareText(text: String, subject: String) { shared += text }
+        }
+        rule.setContent { App(actions) }
+        tap("Discover"); subscribe()
+        waitFor("Ep 2")
+        kotlinx.coroutines.runBlocking {
+            val ep = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().ofPodcast(1).first().first { it.title == "Ep 2" }
+            koin.get<space.sovereigncast.hopp.data.EpisodeRepository>().savePosition(ep.id, 754_000)
+        }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("Audio link")
+        check(!has("The episode's website") && !has("Audio file")) { screen().toString() }
+        snapshot("share-kinds")
+        tap("Audio link")
+        waitFor("https://cdn.test/2.mp3")
+        rule.onAllNodes(androidx.compose.ui.test.isToggleable()).onLast().performClick()
+        waitFor("https://cdn.test/2.mp3#t=754")
+        tap("Share…")
+        until { shared.size == 1 }
+        check(shared[0] == "https://cdn.test/2.mp3#t=754") { shared[0] }
+
+        rule.onNode(hasContentDescription("Share") and hasClickAction()).performClick()
+        waitFor("https://cdn.test/2.mp3")
+        tap("Share…")
+        until { shared.size == 2 }
+        check(shared[1] == "https://cdn.test/2.mp3") { shared[1] }
+    }
+
     /** Copying (device feedback 2026-10-12): the share sheet's text, and a show's feed address. */
     @Test
     fun textAndTheFeedAddressCanBeCopied() {
@@ -675,6 +712,52 @@ class AndroidAppFlowTest {
         check(has("Ep 1") && has("Play")) { screen().toString() }
     }
 
+    /** Device feedback 2026-10-26: with coinos, which cannot keysend, nothing said that the host's
+     *  share never could go — it piled up as set aside. Now the bar, the sheet and the wallet page
+     *  say what this wallet reaches; and that a wallet gives no answer at all. */
+    @Test
+    fun aWalletWithoutKeysendSaysWhatItCannotReach() {
+        val secrets = koin.get<space.sovereigncast.hopp.platform.SecretStore>()
+        secrets.put("nwc_uri", "nostr+walletconnect://" + "a".repeat(64) + "?relay=wss://r.test&secret=" + "b".repeat(64))
+        secrets.put("nwc_info", """{"methods":["pay_invoice","get_balance"],"relay":"wss://r.test"}""")
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(streaming = true, streamRateSats = 10) } }
+        rule.setContent { App() }
+        openEpisode()
+        val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.value.ValueService>().accrue(item, 90_000, 90_000) }
+        waitFor("not possible here ›")
+        snapshot("reach-bar")
+        tap("not possible here ›")
+        waitFor("This episode receives by keysend only, and r.test cannot do that.")
+        waitFor("100% · node address – not reachable with r.test, not set aside")
+        check(has("0 sats") && !has("Send the whole sats now")) { screen().toString() }
+        snapshot("reach-sheet")
+        tap("What my wallet can do")
+        waitFor("What this connection can do")
+        check(has("Recipients with a node address (keysend)") && has("Boosts and streaming to Lightning addresses")) { screen().toString() }
+        // The relay of this connection is nowhere: no answer, said as such.
+        waitFor("The wallet is not answering right now", substring = true)
+        snapshot("reach-wallet")
+    }
+
+    /** Device feedback 2026-10-26: a round to coinos read "0 sats" — two shares unknown, one
+     *  skipped. The history shows what was to go out, and what became of it. */
+    @Test
+    fun theHistorySaysWhatBecameOfAPayment() {
+        val lines = """[{"name":"Der Jack","address":"jack@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
+            """{"name":"Calso","address":"calso@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
+            """{"name":"Nodesignal","address":"02aa","msat":2000,"status":"skipped","reason":"wallet cannot send keysend"}]"""
+        koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines)
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Payment history")
+        waitFor("4 sats")
+        check(has("2 outcome unknown") && has("2 skipped") && !has("0 sats")) { screen().toString() }
+        tap("4 sats")
+        waitFor("Unknown means the wallet did not say whether it paid.", substring = true)
+        snapshot("history-outcome")
+    }
+
     @Test
     fun aBrokenConnectionStringIsRefusedVisibly() {
         rule.setContent { App() }
@@ -703,6 +786,90 @@ class AndroidAppFlowTest {
         waitFor("Mark every episode of Test Show as played?")
         rule.onAllNodes(hasText("Mark as played") and hasClickAction()).onLast().performClick()
         until { playedTitles() == setOf("Ep 1", "Ep 2") }
+    }
+
+    /** Maintainer 2026-10-26: a show's own playback — its speed, its skipped start and end — from its menu. */
+    @Test
+    fun aShowSetsItsOwnPlayback() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasContentDescription("Show options")).performClick()
+        tap("Playback for this show")
+        waitFor("Skip the intro")
+        snapshot("show-playback")
+        rule.onAllNodes(hasText("30 s") and hasClickAction())[0].performScrollTo().performClick()
+        until { kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }.skipIntroSeconds == 30 }
+        fun show() = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }
+        rule.onAllNodes(hasText("20 s") and hasClickAction())[1].performScrollTo().performClick()
+        until { show().skipOutroSeconds == 20 }
+        rule.onNode(hasText("1.5×") and hasClickAction()).performScrollTo().performClick()
+        until { show().let { it.skipIntroSeconds == 30 && it.skipOutroSeconds == 20 && it.playbackSpeed == 1.5f } }
+    }
+
+    /** Maintainer 2026-10-26: every show's own playback in the playback settings too — "Per show". */
+    @Test
+    fun theShowsPlaybackIsSetFromTheSettings() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        rule.onNode(hasText("Home") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Settings")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Playback") and hasClickAction()).performScrollTo().performClick()
+        rule.onNode(hasText("Per show") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Like every show · 1")
+        rule.onNode(hasText("Test Show") and hasClickAction()).performClick()
+        waitFor("Skip the intro")
+        rule.onAllNodes(hasText("30 s") and hasClickAction())[0].performScrollTo().performClick()
+        fun show() = kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.PodcastRepository>().shows.first().first() }
+        until { show().skipIntroSeconds == 30 }
+        waitFor("Own settings · 1")
+        snapshot("per-show")
+    }
+
+    /** Device check 2026-10-27: paused in now playing over Home, what was heard is in the
+     *  database at once — an app ended right after does not lose it. */
+    @Test
+    fun whatWasHeardIsWrittenWhenPausedInNowPlayingOverHome() {
+        rule.setContent { App() }
+        openEpisode()
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        val engine = engine() as FakeEngine
+        var pos = engine.state.value.positionMs
+        repeat(20) { pos += 500; rule.runOnUiThread { engine.seekTo(pos) }; Thread.sleep(20); rule.waitForIdle() }
+        player.minimize()
+        tap("Home")
+        rule.waitForIdle()
+        player.expand()
+        waitFor("Boost")
+        rule.onAllNodes(hasContentDescription("Pause") and hasClickAction()).onLast().performClick()
+        until { !engine.state.value.isPlaying }
+        val db = koin.get<space.sovereigncast.hopp.db.HoppDatabase>()
+        until { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+    }
+
+    /** Maintainer 2026-10-26: listening statistics in the settings — time, top shows, Value for Value. */
+    @Test
+    fun theStatisticsShowWhatWasHeardAndGiven() {
+        rule.setContent { App() }
+        openEpisode()
+        val item = koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value!!.item
+        val listening = koin.get<space.sovereigncast.hopp.data.ListeningRepository>()
+        kotlinx.coroutines.runBlocking {
+            repeat(12 * 95) { listening.heard(item, 5_000, 6_000) }
+            listening.counted(chapters = 4, transcripts = 1)
+            listening.flush()
+        }
+        koin.get<space.sovereigncast.hopp.player.PlayerController>().minimize()
+        rule.onNode(hasText("Home") and hasClickAction()).performClick()
+        waitFor("Home")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Settings")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("Listening stats") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Heard this month")
+        check(has("1.6 h") && has("Your top shows") && has("Test Show")) { screen().toString() }
+        snapshot("stats")
+        rule.onNode(hasText("All time") and hasClickAction()).performClick()
+        waitFor("Heard with Hopp")
     }
 
     /** An episode's menu marks it and the older ones heard, as Castamatic does. */
@@ -908,6 +1075,19 @@ class AndroidAppFlowTest {
         waitFor("▲ 13")
         // Voted once, the button stays down (disabled) once the vote is stored.
         rule.waitUntil(10_000) { rule.onAllNodes(hasText("▲ 13") and androidx.compose.ui.test.isNotEnabled()).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** Maintainer 2026-10-27: before subscribing, the preview shows the badge and the open suggestions. */
+    @Test
+    fun aSovereigncastShowsPreviewShowsItsCommunity() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/sc.xml")
+        tap("Open as feed")
+        waitFor("✓ Sovereigncast")
+        waitFor("BIP110")
+        check(has("Subscribe to the show to vote or suggest a topic yourself.")) { screen().toString() }
+        snapshot("preview-sc")
     }
 
     /** Without a wallet the invoice goes to a wallet app; Hopp waits for the instance. */
@@ -1392,6 +1572,35 @@ class AndroidAppFlowTest {
         tapTop("People") // the player's chip, over the episode page's tab
         waitFor("Host · Cast")
         check(has("Karsten") && has("primal.net ↗")) { screen().toString() }
+    }
+
+    /** Maintainer 2026-10-26: a person's page — from the player's people, which make way for it,
+     *  and from Discover's search; the episodes with them in the library, their link a button of its own. */
+    @Test
+    fun aPersonsPageShowsTheirEpisodes() {
+        rule.setContent { App() }
+        openEpisode()
+        tapTop("People")
+        waitFor("All episodes with Karsten ›")
+        rule.onNode(hasText("All episodes with Karsten ›", substring = true) and hasClickAction()).performClick()
+        waitFor("In your subscriptions")
+        // Read once the subscriptions are known (they are followed, review 2026-10-27).
+        waitFor("1 episode")
+        check(has("Host on Test Show") && has("Ep 2") && has("primal.net ↗") && has("1 episode")) { screen().toString() }
+        check(has("Found by name", substring = true)) { "says that the name went to the index" }
+        // Maintainer 2026-10-27: the name once — in the page's head; the top bar takes it only when that scrolls away.
+        check(rule.onAllNodes(hasText("Karsten")).fetchSemanticsNodes().size == 1) { screen().toString() }
+        snapshot("person")
+
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextClearance()
+        rule.onNode(hasSetTextAction()).performTextInput("Kars")
+        waitFor("People")
+        waitFor("Host on Test Show · 1 episode in your subscriptions")
+        check(has("Episodes with “Kars”")) { screen().toString() }
+        snapshot("discover-people")
+        rule.onNode(hasText("Karsten") and hasClickAction()).performClick()
+        waitFor("In your subscriptions")
     }
 
     /** Who sees what (ADR 0015), behind the settings. */

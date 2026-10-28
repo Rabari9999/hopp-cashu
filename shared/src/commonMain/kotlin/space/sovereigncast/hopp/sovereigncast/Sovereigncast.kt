@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -125,9 +126,35 @@ class SovereigncastRepository(
             withContext(Dispatchers.IO) { q.setSovereigncast(base, clock.now(), json.encodeToString(ScShow.serializer(), show), podcastId) }
         } catch (e: ListenerApiException) {
             if (e.status == 404 || e.code == "show_not_found") clear(podcastId)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Offline or the instance is down: keep what we knew.
         }
+    }
+
+    /**
+     * What the stored feed of show [podcastId] says about its instance — the marker and the
+     * podcast:guid — anew each time the feed is stored (maintainer 2026-10-27: a show subscribed
+     * before its feed carried them stayed without its layer until it was subscribed again).
+     */
+    fun claims(podcastId: Long): Flow<Pair<String?, String?>> =
+        podcasts.show(podcastId).map { podcasts.podcastMeta(podcastId)?.let { markerOf(it) to it.podcastGuid } ?: (null to null) }
+            .distinctUntilChanged()
+
+    /**
+     * The layer of a show not subscribed (maintainer 2026-10-27): the preview before subscribing
+     * shows it too, checked the same way — against the address the preview loaded. Null when
+     * the feed claims no instance, or the instance does not confirm it.
+     */
+    suspend fun layerOf(feedUrl: String, podcast: Podcast): ScLayer? {
+        val base = markerOf(podcast) ?: return null
+        val guid = podcast.podcastGuid ?: return null
+        return runCatching {
+            if ("v1" !in api.meta(base).apiVersions) return null
+            val show = api.show(base, guid)
+            ScLayer(base, show).takeIf { show.podcastGuid.equals(guid, ignoreCase = true) && feedKey(show.feedUrl) == feedKey(feedUrl) }
+        }.getOrNull()
     }
 
     /** Which shows are verified, and with what — changes when one is (un)verified. */

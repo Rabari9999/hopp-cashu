@@ -17,6 +17,9 @@ class SyncJournal(private val store: SyncStore?) {
      *  (a position while playing), with the next round, at most every few minutes. */
     var onChange: (doc: String, urgent: Boolean) -> Unit = { _, _ -> }
 
+    /** What sync holds for [key] now — to note only what changed (the listening statistics). */
+    fun current(doc: String, key: String): SyncEntry? = if (enabled) store?.entry(doc, key) else null
+
     fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true) {
         if (!enabled || store == null) return
         store.record(doc, key, data, deleted)

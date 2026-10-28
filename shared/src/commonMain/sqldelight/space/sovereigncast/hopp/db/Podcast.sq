@@ -22,7 +22,10 @@ CREATE TABLE podcast (
     auto_download INTEGER NOT NULL DEFAULT 1,
     -- Version 11 (migrations/10.sqm): the feed's itunes:category, one per line —
     -- the library shows the first and Discover counts them (device feedback 2026-10-19).
-    categories TEXT NOT NULL DEFAULT ''
+    categories TEXT NOT NULL DEFAULT '',
+    -- Version 15 (migrations/14.sqm): seconds skipped at an episode's start and end, 0 for none.
+    skip_intro_seconds INTEGER NOT NULL DEFAULT 0,
+    skip_outro_seconds INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
@@ -64,12 +67,15 @@ UPDATE podcast SET playback_speed = ? WHERE id = ?;
 setAutoDownload:
 UPDATE podcast SET auto_download = ? WHERE id = ?;
 
+setSkip:
+UPDATE podcast SET skip_intro_seconds = ?, skip_outro_seconds = ? WHERE id = ?;
+
 -- Sovereigncast layer (ADR 0002): the verified instance and what it answered.
 setSovereigncast:
 UPDATE podcast SET sc_base_url = ?, sc_verified_at = ?, sc_capabilities_json = ? WHERE id = ?;
 
 clearSovereigncast:
-UPDATE podcast SET sc_base_url = NULL, sc_verified_at = NULL, sc_capabilities_json = NULL WHERE id = ?;
+UPDATE podcast SET sc_base_url = NULL, sc_verified_at = NULL, sc_capabilities_json = NULL WHERE id = ? AND sc_base_url IS NOT NULL;
 
 selectSovereigncast:
 SELECT sc_base_url, sc_verified_at, sc_capabilities_json FROM podcast WHERE id = ?;

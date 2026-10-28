@@ -104,6 +104,9 @@ data class Settings(
     /** Subscriptions, progress, "Up next" and listening habits kept in step over Nostr —
      *  off until the listener turns it on (ADR 0021, 5). */
     val nostrSync: Boolean = false,
+    /** What sharing offered first last time ([space.sovereigncast.hopp.ui.components.ShareKind]'s name; maintainer
+     *  2026-10-26): who always shares the audio link need not switch to it each time. This device only. */
+    val shareAs: String = "",
 ) {
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
@@ -191,6 +194,7 @@ data class Settings(
                 autoDownloads = values["auto_downloads"]?.toBooleanStrictOrNull() ?: d.autoDownloads,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
                 nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
+                shareAs = values["share_as"] ?: d.shareAs,
             )
         }
     }
@@ -248,6 +252,7 @@ data class Settings(
         "auto_downloads" to autoDownloads.toString(),
         "zap_privacy" to zapPrivacy,
         "nostr_sync" to nostrSync.toString(),
+        "share_as" to shareAs,
     )
 }
 

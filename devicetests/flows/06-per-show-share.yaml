@@ -1,0 +1,154 @@
+# A show's own playback set where the settings keep it (Playback → Per show), its intro
+# then skipped when an episode starts; the share choice from the player, nothing sent.
+appId: ${APP_ID}
+name: Per show and share
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Wallet & payments"
+    timeout: 15000
+- scrollUntilVisible:
+    element: "Playback"
+    centerElement: true
+- tapOn: "Playback"
+- scrollUntilVisible:
+    element: "Per show"
+    centerElement: true
+- waitForAnimationToEnd
+- takeScreenshot: 06-playback-per-show
+- tapOn: "Per show"
+- extendedWaitUntil:
+    visible: "Nodesignal.*"
+    timeout: 15000
+- tapOn: "Nodesignal.*"
+- extendedWaitUntil:
+    visible: "Skip the intro"
+    timeout: 10000
+# On a phone on its side the outro's choices lie below the sheet's edge.
+- scrollUntilVisible:
+    element: "Skip the outro"
+- tapOn:
+    text: "30 s"
+    below: "Skip the intro"
+    above: "Skip the outro"
+- waitForAnimationToEnd
+- takeScreenshot: 06-per-show-sheet
+# The sheet opens in full: closed by its handle, the scrim where that is not enough.
+- swipe:
+    from: "Drag handle"
+    direction: DOWN
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Skip the intro"
+    commands:
+      - tapOn:
+          point: 50%, 8%
+- extendedWaitUntil:
+    visible: "Intro 30 s"
+    timeout: 10000
+- takeScreenshot: 06-per-show
+- tapOn: "Back"
+- tapOn: "Back"
+# An episode not begun yet (E298: no other flow plays it), started from its beginning: it
+# begins after the intro.
+- tapOn: "Library"
+- runFlow:
+    when:
+      notVisible: "Up next"
+    commands:
+      - tapOn: "Library"
+# The full title: on a phone on its side the mini player's line starts with "Nodesignal" too.
+- scrollUntilVisible:
+    element: "Nodesignal - Deine Bitcoin-Frequenz"
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+# Found by the show's own search, not by scrolling: on a phone on its side a swipe over the
+# mini player opens the player (device check 2026-10-27).
+- scrollUntilVisible:
+    element: "Search episodes"
+    centerElement: true
+- tapOn: "Search episodes"
+- inputText: "E298"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E298.*"
+    timeout: 10000
+- tapOn: "Nodesignal-Talk - E298.*"
+- extendedWaitUntil:
+    visible: "Play"
+    timeout: 15000
+# The page's own button, beside its Boost: "Show notes" lies below the edge on a phone on its side.
+- tapOn:
+    text: "Play"
+    leftOf: "Boost"
+- extendedWaitUntil:
+    visible: "Intro skipped \\(30 s\\)"
+    timeout: 30000
+- takeScreenshot: 06-intro-skipped
+- extendedWaitUntil:
+    visible: "Pause"
+    timeout: 30000
+# The full player, and its share choice — looked at, nothing sent. Opened over Home: the
+# pages below the player keep their share buttons in the hierarchy, and on a tablet upright
+# the episode's lay where the tap went (device check 2026-10-27).
+- tapOn: "Home"
+# Beside the show's name on a phone on its side.
+- tapOn: ".*[0-9]+:[0-9]+ / [0-9:]+"
+- extendedWaitUntil:
+    visible: "Playback speed"
+    timeout: 15000
+- tapOn:
+    text: "Share"
+    rightOf: "Close player"
+- extendedWaitUntil:
+    visible: "Hopp link"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 06-share
+# Half open on a phone on its side: the other kinds below its edge.
+- scrollUntilVisible:
+    element: "Audio link"
+- tapOn: "Audio link"
+- waitForAnimationToEnd
+- takeScreenshot: 06-share-audio
+# Closed, nothing sent: Back on Android (once it may only fold the sheet in), and on iOS a
+# tap beside it — at the side, as on a phone on its side its top is the status bar.
+- repeat:
+    while:
+      visible: "Hopp link"
+    times: 3
+    commands:
+      - runFlow:
+          when:
+            platform: Android
+          commands:
+            - pressKey: back
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - tapOn:
+                point: 3%, 30%
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    notVisible: "Hopp link"
+    timeout: 10000
+# Paused, so what was heard is written before the next flow ends the app. The player's own
+# button, beside its speed: Home below it has a "Pause" above "Boost" too.
+- tapOn:
+    text: "Pause"
+    rightOf: "Playback speed"
+- extendedWaitUntil:
+    visible:
+      text: "Play"
+      rightOf: "Playback speed"
+    timeout: 10000
+- tapOn: "Close player"
+# To the background, as a listener leaves the app: what was heard is written then — the next
+# flow starts the app anew and reads it in the stats (device check 2026-10-27).
+- pressKey: home
+- waitForAnimationToEnd

@@ -45,15 +45,17 @@ ADR 0017's checklist, written out for Android. Every phase ends with it
       job builds the unsigned APK (foss) and AAB (play).
 - [ ] Optional, for F-Droid: build the release locally and check it against
       CI's unsigned APK with `scripts/compare_apks.py` (reproducible builds).
-- [ ] `scripts/release.sh vX.Y.Z /path/to/release-keystore [alias]` — signs
-      CI's unsigned APK, checks the release certificate, uploads it and
-      creates the GitLab release (next section's first box).
+- [ ] `SIGN_WITH='bunker://…' scripts/release.sh vX.Y.Z /path/to/release-keystore [alias]`
+      — signs CI's unsigned APK, checks the release certificate, uploads it,
+      creates the GitLab release and publishes it on Zapstore (next section's
+      first two boxes).
 
 ## Publish
 
 - [ ] **GitLab release** with the signed foss APK (`hopp-X.Y.Z-foss.apk`, the
       name F-Droid's `Binaries` and Obtainium expect) — done by `scripts/release.sh`.
-- [ ] **Zapstore:** `zsp publish zapstore.yaml` (docs/zapstore.md).
+- [ ] **Zapstore** — done by `scripts/release.sh` when `SIGN_WITH` is set;
+      otherwise `zsp publish zapstore.yaml` (docs/zapstore.md).
 - [ ] **F-Droid:** merge request to fdroiddata with the updated metadata
       (first time: the inclusion request — open question 17 first).
 - [ ] Tell the testers what changed — the crew (Signal) and the community

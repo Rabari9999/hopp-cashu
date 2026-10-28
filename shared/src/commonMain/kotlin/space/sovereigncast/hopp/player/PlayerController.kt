@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.data.EpisodeRepository
+import space.sovereigncast.hopp.data.ListeningRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.QueueRepository
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
+import space.sovereigncast.hopp.data.Show
 import space.sovereigncast.hopp.feed.ChapterIndex
 import space.sovereigncast.hopp.model.Person
 import space.sovereigncast.hopp.platform.PlaybackEngine
@@ -51,6 +53,9 @@ sealed interface SleepTimer {
     data object EndOfChapter : SleepTimer
 }
 
+/** The start or the end of an episode skipped as its show asks ([Show.skipIntroSeconds]). */
+data class Skipped(val itemId: Long, val seconds: Int, val atStart: Boolean)
+
 private val monotonic = TimeSource.Monotonic.markNow()
 
 /**
@@ -70,6 +75,8 @@ class PlayerController(
     private val value: ValueService? = null,
     /** How much listening one streaming batch covers; shorter in tests. */
     private val settleEvery: kotlin.time.Duration = SETTLE_EVERY,
+    /** The listening statistics; null in tests that do not count. */
+    private val listening: ListeningRepository? = null,
     private val nowMs: () -> Long = { monotonic.elapsedNow().inWholeMilliseconds },
 ) {
     private val _current = MutableStateFlow<NowPlaying?>(null)
@@ -97,6 +104,8 @@ class PlayerController(
     private var lastPosition = 0L
     private var heardId: Long? = null
     private var heardAt = 0L
+    /** When [hear] last ran, on the clock: listening time is the clock's, not the episode's. */
+    private var heardClockAt = 0L
     /** A clip being played (podcast:soundbite): it pauses at [Clip.endMs] and
      *  goes back to where the listener was. */
     private class Clip(val itemId: Long, val startMs: Long, val endMs: Long, val returnTo: Long) { var reached = false }
@@ -109,6 +118,12 @@ class PlayerController(
     private var remoteClipWasPlaying = false
     /** Until the engine reports the clip, its old item is not someone else's. */
     private var remoteClipLoading = false
+    /** The show of the episode loaded, as it is now: its speed and what it skips. */
+    private var show: Show? = null
+    private var showWatch: kotlinx.coroutines.Job? = null
+    private val _skipped = kotlinx.coroutines.flow.MutableSharedFlow<Skipped>(extraBufferCapacity = 4)
+    /** A start or end skipped (maintainer 2026-10-26): the player says so, with a way back. */
+    val skipped: kotlinx.coroutines.flow.SharedFlow<Skipped> = _skipped
 
     init {
         scope.launch {
@@ -151,11 +166,19 @@ class PlayerController(
                 if (expectedId == null && _current.value?.item?.id != id) follow(id)
                 tickSleep(s)
                 tickClip(id, s)
+                checkIntro(id, s)
+                // Before hear(): whether listening, not a jump, crossed into the show's skipped end.
+                val outro = outroReached(id, s)
                 hear(id, s)
                 if (s.isPlaying) startBatch()
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
-                    ended && wasPlaying -> {
+                    (ended && wasPlaying) || outro != null -> {
+                        // The end skipped: as if heard to it — paused here, the next one from the queue.
+                        if (outro != null) {
+                            engine.pause(); _skipped.tryEmit(Skipped(id, outro, atStart = false))
+                            _current.value?.item?.takeIf { it.id == id }?.let { item -> listening?.let { l -> scope.launch { l.skipped(item, outro * 1000L) } } }
+                        }
                         episodes.setPlayed(id, true); lastSaved = 0
                         // Heard to its end: its streamed parts of a sat go out now, rounded up.
                         value?.let { v -> scope.launch { delay(ROUND_UP_DELAY); runCatching { v.settle(roundUp = setOf(id)) } } }
@@ -165,12 +188,27 @@ class PlayerController(
                         episodes.savePosition(id, s.positionMs, paused = !s.isPlaying); lastSaved = s.positionMs
                     }
                 }
-                wasPlaying = s.isPlaying
+                // Paused or over: what was counted goes into the statistics, and to sync before long.
+                if (wasPlaying && (!s.isPlaying || outro != null)) listening?.let { l -> scope.launch { runCatching { l.flush(note = true) } } }
+                // After a skipped end the pause that follows is not one to save over "played".
+                wasPlaying = s.isPlaying && outro == null
             }
         }
     }
 
     private var batch: kotlinx.coroutines.Job? = null
+
+    /** An intro skipped in an episode of unknown length, until its length is known. */
+    private var introUnchecked: Skipped? = null
+
+    /** A trailer of three minutes with an intro of ten skipped began at its end and sat there: once
+     *  the length is known, an episode too short for the skip goes back to its start. */
+    private fun checkIntro(id: Long, s: PlaybackState) {
+        val skipped = introUnchecked?.takeIf { it.itemId == id } ?: return
+        if (s.durationMs <= 0) return
+        introUnchecked = null
+        if (s.durationMs < skipped.seconds * 1000L + MIN_LEFT_MS) engine.seekTo(0)
+    }
 
     /**
      * Streaming is paid every [settleEvery] of listening, counted from when
@@ -191,15 +229,35 @@ class PlayerController(
         }
     }
 
+    /**
+     * The seconds of the show's end skipped, when listening has just crossed into them — not a
+     * jump there, nor an episode too short for its show's skips ([longEnough]); else null.
+     */
+    private fun outroReached(id: Long, s: PlaybackState): Int? {
+        val show = show ?: return null
+        val item = _current.value?.item?.takeIf { it.id == id && it.podcastId == show.id } ?: return null
+        if (show.skipOutroSeconds <= 0 || !s.isPlaying || clip != null || s.durationMs <= 0 || !longEnough(show, s.durationMs)) return null
+        val at = s.durationMs - show.skipOutroSeconds * 1000L
+        val delta = s.positionMs - heardAt
+        val listened = heardId == item.id && delta > 0 && delta <= MAX_TICK_MS * s.speed.coerceAtLeast(1f)
+        return show.skipOutroSeconds.takeIf { listened && heardAt < at && s.positionMs >= at }
+    }
+
     /** Media time heard since the last report — a jump (seek, chapter) is
      *  not listening and accrues nothing (ADR 0014). */
     private fun hear(id: Long, s: PlaybackState) {
         val delta = s.positionMs - heardAt
         val heard = s.isPlaying && heardId == id && delta > 0 && delta <= MAX_TICK_MS * s.speed.coerceAtLeast(1f)
+        val clock = nowMs()
+        val clockDelta = (clock - heardClockAt).coerceIn(0, MAX_TICK_MS)
+        heardClockAt = clock
         heardId = id
         heardAt = s.positionMs
-        if (!heard || value == null) return
+        if (!heard) return
         val item = _current.value?.item?.takeIf { it.id == id } ?: return
+        // The statistics: the clock's time, and the episode's own (speed and skipped silence beyond it).
+        listening?.let { l -> scope.launch { runCatching { l.heard(item, clockDelta.coerceAtMost(delta), delta) } } }
+        if (value == null) return
         scope.launch { runCatching { value.accrue(item, s.positionMs, delta) } }
     }
 
@@ -276,7 +334,7 @@ class PlayerController(
         _remoteClip.value = null
         val back = afterRemoteClip
         afterRemoteClip = null
-        if (back != null) scope.launch { open(back, load = true, autoplay = false) } else engine.pause()
+        if (back != null) scope.launch { open(back, load = true, autoplay = false, skipIntro = false) } else engine.pause()
     }
 
     private fun tickClip(id: Long, s: PlaybackState) {
@@ -292,24 +350,40 @@ class PlayerController(
         }
     }
 
-    /** From a time mark in the show notes or a chapter: there, playing. */
+    /** From a time mark in the show notes or a chapter: there, playing — the show's skipped start does not apply. */
     fun playAt(item: EpisodeItem, positionMs: Long) {
         if (engine.state.value.itemId == item.id.toString() && _current.value?.item?.id == item.id) {
             engine.seekTo(positionMs); engine.play(); return
         }
-        scope.launch { keepInterrupted(item.id); queue.remove(item.id); open(item.copy(positionMs = positionMs, played = false), load = true, autoplay = true) }
+        scope.launch { keepInterrupted(item.id); queue.remove(item.id); open(item.copy(positionMs = positionMs, played = false), load = true, autoplay = true, skipIntro = false) }
     }
 
-    private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean) {
+    /** The start just skipped, heard after all: back to the beginning. */
+    fun undoSkip(skipped: Skipped) {
+        if (skipped.atStart && engine.state.value.itemId == skipped.itemId.toString()) engine.seekTo(0)
+    }
+
+    /** [skipIntro]: false where the listener chose the place — a time mark, a chapter, back from a clip. */
+    private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean, skipIntro: Boolean = true) {
         val meta = podcasts.podcastMeta(item.podcastId)
         val show = podcasts.show(item.podcastId).first()
+        watchShow(item.podcastId, show)
         val details = episodes.details(item.id)
         val artwork = item.imageUrl ?: meta?.imageUrl
         _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() })
         lastChapter = -1
         if (load) {
             val url = item.playableUrl ?: return
-            val start = if (item.played) 0 else item.positionMs
+            var start = if (item.played) 0 else item.positionMs
+            // The show's skipped start (maintainer 2026-10-26): only before it is over, never into a short episode.
+            val intro = show?.skipIntroSeconds ?: 0
+            if (skipIntro && intro > 0 && start < intro * 1000L && longEnough(show!!, (item.durationSeconds ?: 0) * 1000L)) {
+                start = intro * 1000L
+                _skipped.tryEmit(Skipped(item.id, intro, atStart = true))
+                listening?.skipped(item, intro * 1000L)
+                // Of unknown length: checked again once the engine knows it (review 2026-10-27).
+                introUnchecked = if ((item.durationSeconds ?: 0) <= 0) Skipped(item.id, intro, atStart = true) else null
+            } else introUnchecked = null
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
             // Each show keeps its speed (ADR 0012); one never set follows the default.
@@ -317,6 +391,21 @@ class PlayerController(
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
+        }
+    }
+
+    /** Follows the show playing: a speed or a skip changed on its page counts at once. */
+    private fun watchShow(podcastId: Long, now: Show?) {
+        if (show?.id == podcastId && showWatch?.isActive == true) return
+        show = now
+        showWatch?.cancel()
+        showWatch = scope.launch {
+            podcasts.show(podcastId).collect { s ->
+                val before = show
+                show = s
+                val loaded = _current.value?.item?.takeIf { it.podcastId == podcastId }?.id?.toString() == engine.state.value.itemId
+                if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded) engine.setSpeed(s.playbackSpeed ?: _settings.value.defaultSpeed)
+            }
         }
     }
 
@@ -408,7 +497,7 @@ class PlayerController(
         // Shown, not loaded (after a restart): loaded there, paused.
         val shown = _current.value?.item
         if (shown != null && engine.state.value.itemId == null && _remoteClip.value == null) {
-            scope.launch { open(shown.copy(positionMs = ms.coerceAtLeast(0), played = false), load = true, autoplay = false) }
+            scope.launch { open(shown.copy(positionMs = ms.coerceAtLeast(0), played = false), load = true, autoplay = false, skipIntro = false) }
             return
         }
         engine.seekTo(ms.coerceAtLeast(0))
@@ -416,13 +505,23 @@ class PlayerController(
     fun skipBy(deltaMs: Long) = seekTo(state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)
     fun skipForward() = skipBy(_settings.value.skipForwardSeconds * 1000L)
-    fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let(engine::seekTo) }
-    fun previousChapter() { _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let(engine::seekTo) }
+    fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
+    fun previousChapter() { _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
 
-    /** Headset, notification and car "next": the next chapter, past the last
-     *  one the next episode in the queue. */
+    /** A transcript opened to read along — counted for the statistics. */
+    fun transcriptOpened() { listening?.let { l -> scope.launch { l.counted(transcripts = 1) } } }
+
+    /** A chapter's start, gone to by the listener — counted for the statistics. */
+    fun toChapter(startMs: Long) {
+        engine.seekTo(startMs)
+        listening?.let { l -> scope.launch { l.counted(chapters = 1) } }
+    }
+
+    /** "Next chapter" in the notification, the car and the widget: the next chapter, past the
+     *  last one the next episode in the queue. (A headset's or steering wheel's "next" skips
+     *  forward instead, maintainer 2026-10-27.) */
     fun next() {
-        _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { engine.seekTo(it); return }
+        _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
         scope.launch {
             engine.state.value.itemId?.toLongOrNull()?.let { episodes.savePosition(it, engine.state.value.positionMs) }
             advance()
@@ -431,7 +530,7 @@ class PlayerController(
 
     /** "Previous": the previous chapter, else the start of the episode. */
     fun previous() {
-        _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { engine.seekTo(it); return }
+        _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
         engine.seekTo(0)
     }
 
@@ -464,5 +563,12 @@ class PlayerController(
         /** After an episode's end, so its last ticks have accrued first. */
         val ROUND_UP_DELAY = 2.seconds
         val SPEED_CHOICES = listOf(0.8f, 1f, 1.1f, 1.2f, 1.3f, 1.5f, 1.8f, 2f, 2.5f, 3f)
+        /** What must be left of an episode besides its show's skips: a trailer is not cut to nothing. */
+        const val MIN_LEFT_MS = 120_000L
+
+        /** Whether an episode [durationMs] long takes its show's skips; one of unknown length takes
+         *  the start only — its end is known once it plays. */
+        fun longEnough(show: Show, durationMs: Long): Boolean =
+            durationMs <= 0 || durationMs >= (show.skipIntroSeconds + show.skipOutroSeconds) * 1000L + MIN_LEFT_MS
     }
 }

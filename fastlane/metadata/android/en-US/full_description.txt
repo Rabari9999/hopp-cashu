@@ -1,23 +1,51 @@
-<p>Hopp is a podcast player for every podcast, built for Podcasting 2.0: chapters, transcripts, people, and value for value over Lightning.</p>
+<p>Hopp is a podcast player for every podcast, built for Podcasting 2.0 and value for value. No account, no tracking, no server of its own: install it and listen.</p>
 
-<p><b>No account, no tracking.</b> Install it and listen. Hopp collects nothing and runs no server of its own. A privacy page explains in plain words who sees what when you listen — and what you can do about it.</p>
+<p>Connect your own Lightning wallet and boost the shows you love, or stream sats while you listen – Hopp never holds your sats and takes no cut. With an optional Nostr identity you comment on episodes and keep your devices in sync, encrypted.</p>
 
-<p><b>Only your wallet.</b> Hopp has no built-in wallet and never holds your sats. Connect your own Lightning wallet over Nostr Wallet Connect (NWC), boost an episode or a whole show, or stream sats while you listen — within a daily budget you set.</p>
-
-<p><b>100 % to the podcasters.</b> Hopp takes no cut; routing fees are shown separately. Supporting Hopp is a visible option you turn on yourself.</p>
-
-<p><b>Comments over Nostr.</b> Every episode's comments, Fountain's included. With a Nostr identity — made in Hopp, imported, or kept in Amber — write, like and zap them, publicly, privately or anonymously, post a boost as a comment, and use your own relays.</p>
-
-<p><b>Discover</b> shows by category, from your shows' recommendations, new shows that take sats and what is popular right now — from the Podcast Index.</p>
-
-<p><b>Sovereigncast shows</b> come alive in Hopp: Release Boosting, Boost2Unlock, topic votes and the community's top boosts.</p>
-
+<p><b>Listening</b></p>
 <ul>
-<li>Library as cards or a list, Home with what is new and what you are listening to</li>
-<li>Find shows in the Podcast Index (optionally fyyd and Apple), by feed address or OPML</li>
-<li>Queue, downloads on Wi-Fi, sleep timer, speed per show, skip silence, your own skip intervals</li>
-<li>Notifications for boosts and zaps, set for each on its own</li>
-<li>Android Auto, phones and tablets, in English and German</li>
+<li>✅ Home with what is new and what you are listening to, library as cards or a list</li>
+<li>✅ Up next, downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals</li>
+<li>✅ Speed, intro and outro skipping for each show; quiet shows made louder</li>
+<li>✅ Chapters with pictures, transcripts that read along, people, show notes, clips</li>
+<li>✅ Tap a person to see every episode with them</li>
+<li>✅ Listening statistics: time, time saved, top shows and episodes, sats given</li>
+<li>✅ Home screen widget, lock screen and Android Auto</li>
+<li>✅ Share Hopp's link, the website, the audio link or the file itself</li>
+</ul>
+
+<p><b>Value for value</b></p>
+<ul>
+<li>✅ Your own Lightning wallet over Nostr Wallet Connect (NWC) – no built-in wallet</li>
+<li>✅ Boost an episode or a whole show, quick boost from the lock screen, stream sats per minute</li>
+<li>✅ A daily budget you set, payment history with who got what</li>
+<li>✅ 100 % to the podcasters, routing fees shown apart; supporting Hopp is your choice</li>
+</ul>
+
+<p><b>Nostr</b></p>
+<ul>
+<li>✅ Comments on every episode, Fountain's included: write, like and zap – publicly, privately or anonymously</li>
+<li>✅ Identity made in Hopp, imported or kept in Amber; your own relays</li>
+<li>✅ Sync between your devices: subscriptions, progress, favourites, up next, settings, statistics – encrypted, no Hopp server</li>
+<li>✅ Restore your library on a new device</li>
+</ul>
+
+<p><b>Discover</b></p>
+<ul>
+<li>✅ Podcast Index: search, categories, your shows' recommendations, new shows that take sats, popular right now</li>
+<li>✅ Optionally fyyd and Apple, a feed address, OPML import and export – moving over from another app is easy</li>
+</ul>
+
+<p><b>Sovereigncast shows</b></p>
+<ul>
+<li>✅ Release Boosting, Boost2Unlock, topic suggestions and votes, top boosts and top episodes</li>
+</ul>
+
+<p><b>Privacy and more</b></p>
+<ul>
+<li>✅ A privacy page: who sees what when you listen, and what you can do about it</li>
+<li>✅ Notifications for boosts and zaps, set for each on its own</li>
+<li>✅ Phones and tablets, upright and sideways, light and dark, English and German</li>
 </ul>
 
 <p>Hopp is open source (MIT).</p>

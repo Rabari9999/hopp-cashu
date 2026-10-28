@@ -8,17 +8,23 @@ docs: https://zapstore.dev/docs/publish.
 
 ## Tool
 
-`zsp`, the publisher CLI — a single binary from
+`zsp` 2, the publisher CLI — a single binary from
 https://github.com/zapstore/zsp/releases (`zsp-<version>-darwin-arm64` on the
-Mac; `go install github.com/zapstore/zsp@latest` works too). It reads
-`zapstore.yaml` in the repository root.
+Mac, checked against the release's SHA-256; `go install
+github.com/zapstore/zsp/v2/cmd/zsp@latest` works too). It reads
+`zapstore.yaml` in the repository root. zsp 1 (0.4.x) took `SIGN_WITH=browser`
+and `publish --check`; zsp 2 has neither (2026-10-28).
 
-Signing (`SIGN_WITH`), in order of preference — never an `nsec` in the
-environment on a shared machine:
+Signing (`SIGN_WITH`) — never an `nsec` in the environment on a shared machine:
 
-- `SIGN_WITH=browser` — a NIP-07 extension (Alby, nos2x …); zsp opens a page
-  to approve the events.
-- `SIGN_WITH="bunker://…"` — a NIP-46 remote signer (Amber, nsec.app).
+- `SIGN_WITH="bunker://…"` — a NIP-46 remote signer (Amber, nsec.app), the
+  way Nodesignal's key signs.
+
+zsp also reads `SIGN_WITH` from a `.env` in the working directory; `.env` is
+in `.gitignore`. Its sibling hotbox (github.com/zapstore/hotbox) would keep
+the Nostr key and the release key in one local vault; not used yet — its
+`hotbox sign` re-aligns the APK, which F-Droid's signature copy cannot take
+(docs/fdroid.md).
 
 ## Once, before the first publish
 
@@ -41,19 +47,32 @@ environment on a shared machine:
    zsp identity --verify hopp-0.1.0-foss.apk     # afterwards: the APK is linked
    ```
 
-   Linked on 2026-10-14 for Nodesignal's npub; **the link expires
-   2028-10-13** — run the `--link-key` command again before then.
+   Linked on 2026-10-14 with zsp 1 (the commands above) for Nodesignal's
+   npub; **the link expires 2028-10-13**. zsp 2 has no `identity` command:
+   renew it with its wizard, `zsp` with no arguments, run by hand (zsp's
+   README). `zsp check` shows the link and when it ends.
 
 ## Every release
 
-After `scripts/release.sh` has created the GitLab release:
+`scripts/release.sh` publishes on Zapstore right after the GitLab release
+when `SIGN_WITH` is set:
 
 ```bash
-zsp publish --check zapstore.yaml           # finds hopp-X.Y.Z-foss.apk in the GitLab release
-SIGN_WITH=browser zsp publish zapstore.yaml
+SIGN_WITH='bunker://…' scripts/release.sh vX.Y.Z ~/Documents/hopp-release.jks
 ```
 
-zsp fetches the APK from the release, takes the release notes from
-`CHANGELOG.md`'s section for the version and shows a preview in the browser
-before it publishes. `--channel beta` would publish to Zapstore's beta channel
-instead of `main`; Hopp's releases go to `main`.
+It first runs `zsp check`, which signs and publishes nothing, and stops unless
+zsp finds this version's APK in the GitLab release. Without `SIGN_WITH` it
+stops after the GitLab release; publish by hand then:
+
+```bash
+zsp check zapstore.yaml                       # read-only: APK, listing, proof, next step
+SIGN_WITH='bunker://…' zsp publish zapstore.yaml
+```
+
+`GITLAB_TOKEN` (release.sh takes glab's) keeps GitLab's API from
+rate-limiting zsp; zsp sends it to gitlab.com only. zsp fetches the APK from
+the release, takes the release notes from `CHANGELOG.md`'s section for the
+version and shows a preview in the browser before it publishes. `--channel
+beta` would publish to Zapstore's beta channel instead of `main`; Hopp's
+releases go to `main`.

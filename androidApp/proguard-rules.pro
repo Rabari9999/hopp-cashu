@@ -21,3 +21,7 @@
 # Stack traces in crash reports stay readable against the mapping file.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# The home-screen widget's buttons (0.3.1): Glance makes each ActionCallback by its name, by
+# reflection — its no-argument constructor must stay.
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { <init>(); }

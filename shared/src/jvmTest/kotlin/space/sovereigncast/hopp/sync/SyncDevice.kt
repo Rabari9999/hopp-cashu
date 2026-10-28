@@ -51,6 +51,7 @@ internal class SyncDevice(
     val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal) { settings.current().autoDownloads }
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val queue = QueueRepository(db, journal)
+    val listening = space.sovereigncast.hopp.data.ListeningRepository(db, secrets, { ms / 1000 }, journal) { kotlinx.datetime.TimeZone.UTC }
     val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
     val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
@@ -62,6 +63,7 @@ internal class SyncDevice(
             SubscriptionsDocument(db, podcasts),
             ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
             QueueDocument(db, queue),
+            StatsDocument(db, listening) { ms },
         )
     }, { ms }, publishDelay = 1.hours)
 

@@ -77,6 +77,11 @@ class DirectoryTest {
                         "guid-impostor" -> respond("""{"status":"true","feed":${piFeed("Other", "https://other.test/rss", "guid-something-else")}}""")
                         else -> respond("""{"status":"true","feed":[]}""")
                     }
+                    // As the index answers (checked 2026-10-27): numbers as numbers, the show inline.
+                    path.endsWith("search/byperson") -> respond("""{"status":"true","count":3,"items":[
+                        {"id":1,"title":"Hey Calso","guid":"g1","datePublished":1732317660,"duration":3497,"feedId":7,"feedTitle":"Signal","feedUrl":"https://signal.test/rss","feedImage":"https://img.test/s.jpg","feedAuthor":"S"},
+                        {"id":2,"title":"No feed","guid":"g2","feedTitle":"Lost"},
+                        {"id":3,"title":"Calso again","guid":"g3","duration":0,"feedTitle":"Signal","feedUrl":"https://signal.test/rss"}]}""")
                     path.endsWith("podcasts/trending") -> respond(pi(
                         """{"id":2,"title":"Hot","url":"https://hot.test/rss","categories":{"102":"Technology","55":"News"}}""",
                         """{"id":3,"title":"Copy","url":"https://copy.test/rss","duplicateOf":2}""",
@@ -163,6 +168,16 @@ class DirectoryTest {
         assertTrue(sub is SubscribeResult.Subscribed)
         // Itself, an unknown GUID and an index answer for a different GUID are left out.
         assertEquals(listOf("Friend"), directory().podroll().map { it.show.title })
+    }
+
+    /** Maintainer 2026-10-26: episodes naming a person, with their show — none without a feed address. */
+    @Test
+    fun episodesWithAPerson() = test {
+        val hits = directory().byPerson("Calso")!!
+        assertEquals(listOf("g1", "g3"), hits.map { it.guid })
+        assertEquals(PersonHit("https://signal.test/rss", "Signal", "https://img.test/s.jpg", "S", "g1", "Hey Calso", 1732317660, 3497), hits.first())
+        assertEquals(null, hits.last().durationSeconds, "no length is no length, not 0 minutes")
+        assertTrue(seen.any { "search/byperson" in it && "q=Calso" in it })
     }
 
     /** Device feedback 2026-10-19: Discover's popular and new value shows, with their categories. */

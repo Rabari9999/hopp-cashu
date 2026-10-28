@@ -1,0 +1,124 @@
+-- Listening statistics (maintainer 2026-10-26, version 16): what each device heard, in the shape
+-- sync carries it (hopp/stats) — this device's counted here, the others' as sync brings them.
+-- Times in milliseconds: heard = wall clock, media = the episode's own time (speed counts),
+-- skipped = a show's skipped start and end.
+
+-- Per day, all shows together: the month's bars, the streak.
+CREATE TABLE listen_day (
+    device TEXT NOT NULL,
+    day INTEGER NOT NULL,
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, day)
+);
+
+-- Per month (yyyymm) and show (SyncDocs.showKey): time, and the sats given to it.
+CREATE TABLE listen_show (
+    device TEXT NOT NULL,
+    month INTEGER NOT NULL,
+    show TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    skipped_ms INTEGER NOT NULL DEFAULT 0,
+    boost_msat INTEGER NOT NULL DEFAULT 0,
+    stream_msat INTEGER NOT NULL DEFAULT 0,
+    zap_msat INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, month, show)
+);
+
+-- Per episode, all time; [last_month] when it was last heard.
+CREATE TABLE listen_episode (
+    device TEXT NOT NULL,
+    show TEXT NOT NULL,
+    episode TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    heard_ms INTEGER NOT NULL DEFAULT 0,
+    media_ms INTEGER NOT NULL DEFAULT 0,
+    last_month INTEGER NOT NULL,
+    PRIMARY KEY (device, show, episode)
+);
+
+-- Per month, what Podcasting 2.0 was used for.
+CREATE TABLE listen_count (
+    device TEXT NOT NULL,
+    month INTEGER NOT NULL,
+    chapters INTEGER NOT NULL DEFAULT 0,
+    transcripts INTEGER NOT NULL DEFAULT 0,
+    comments INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device, month)
+);
+
+-- Adding to this device's counts: a row made if missing, then added to (SQLite before 3.24 has no upsert).
+ensureDay:
+INSERT OR IGNORE INTO listen_day (device, day) VALUES (?, ?);
+addDay:
+UPDATE listen_day SET heard_ms = heard_ms + :heard, media_ms = media_ms + :media WHERE device = :device AND day = :day;
+
+ensureShow:
+INSERT OR IGNORE INTO listen_show (device, month, show) VALUES (?, ?, ?);
+addShow:
+UPDATE listen_show SET heard_ms = heard_ms + :heard, media_ms = media_ms + :media, skipped_ms = skipped_ms + :skipped,
+    title = CASE WHEN :title = '' THEN title ELSE :title END
+WHERE device = :device AND month = :month AND show = :show;
+clearShowSats:
+UPDATE listen_show SET boost_msat = 0, stream_msat = 0, zap_msat = 0 WHERE device = ?;
+setShowSats:
+UPDATE listen_show SET boost_msat = :boost, stream_msat = :stream, zap_msat = :zap,
+    title = CASE WHEN :title = '' THEN title ELSE :title END
+WHERE device = :device AND month = :month AND show = :show;
+
+ensureEpisode:
+INSERT OR IGNORE INTO listen_episode (device, show, episode, last_month) VALUES (?, ?, ?, ?);
+addEpisode:
+UPDATE listen_episode SET heard_ms = heard_ms + :heard, media_ms = media_ms + :media, last_month = :month,
+    title = CASE WHEN :title = '' THEN title ELSE :title END
+WHERE device = :device AND show = :show AND episode = :episode;
+
+ensureCount:
+INSERT OR IGNORE INTO listen_count (device, month) VALUES (?, ?);
+addCount:
+UPDATE listen_count SET chapters = chapters + :chapters, transcripts = transcripts + :transcripts, comments = comments + :comments
+WHERE device = :device AND month = :month;
+
+-- Another device's counts, as sync has them: taken as they are, not added.
+putDay:
+INSERT OR REPLACE INTO listen_day (device, day, heard_ms, media_ms) VALUES (?, ?, ?, ?);
+putShow:
+INSERT OR REPLACE INTO listen_show (device, month, show, title, heard_ms, media_ms, skipped_ms, boost_msat, stream_msat, zap_msat)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+putEpisode:
+INSERT OR REPLACE INTO listen_episode (device, show, episode, title, heard_ms, media_ms, last_month) VALUES (?, ?, ?, ?, ?, ?, ?);
+putCount:
+INSERT OR REPLACE INTO listen_count (device, month, chapters, transcripts, comments) VALUES (?, ?, ?, ?, ?);
+
+-- One device's rows, for sync.
+daysOf:
+SELECT * FROM listen_day WHERE device = ?;
+showsOf:
+SELECT * FROM listen_show WHERE device = ?;
+episodesOf:
+SELECT * FROM listen_episode WHERE device = ?;
+countsOf:
+SELECT * FROM listen_count WHERE device = ?;
+
+-- Every device together, for the statistics page.
+days:
+SELECT day, sum(heard_ms) AS heard, sum(media_ms) AS media FROM listen_day WHERE day BETWEEN ? AND ? GROUP BY day ORDER BY day;
+months:
+SELECT month, sum(heard_ms) AS heard FROM listen_show WHERE month BETWEEN ? AND ? GROUP BY month ORDER BY month;
+showTotals:
+SELECT show, max(title) AS title, sum(heard_ms) AS heard, sum(media_ms) AS media, sum(skipped_ms) AS skipped,
+    sum(boost_msat) AS boost, sum(stream_msat) AS stream, sum(zap_msat) AS zap
+FROM listen_show WHERE month BETWEEN ? AND ? GROUP BY show;
+episodeTotals:
+SELECT show, episode, max(title) AS title, sum(heard_ms) AS heard
+FROM listen_episode WHERE last_month BETWEEN ? AND ? GROUP BY show, episode ORDER BY heard DESC LIMIT ?;
+episodeCount:
+SELECT count(*) FROM (SELECT DISTINCT show, episode FROM listen_episode WHERE last_month BETWEEN ? AND ?);
+counts:
+SELECT CAST(coalesce(sum(chapters), 0) AS INTEGER) AS chapters, CAST(coalesce(sum(transcripts), 0) AS INTEGER) AS transcripts,
+    CAST(coalesce(sum(comments), 0) AS INTEGER) AS comments
+FROM listen_count WHERE month BETWEEN ? AND ?;
+firstDay:
+SELECT min(day) AS first FROM listen_day;

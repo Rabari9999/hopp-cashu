@@ -34,6 +34,7 @@ class SubscriptionsSyncTest {
         val s = phone.podcasts.subscribe("https://pod.test/selfhosted.xml") as SubscribeResult.Subscribed
         phone.podcasts.setSpeed(s.podcastId, 1.5f)
         phone.podcasts.setAutoDownload(s.podcastId, false)
+        phone.podcasts.setSkip(s.podcastId, 30, 15)
         // Sync turned on later: what the phone had before goes out.
         phone.sync.enable()
         assertNull(phone.sync.status.value.problem)
@@ -45,6 +46,15 @@ class SubscriptionsSyncTest {
         val restored = tablet.row("https://pod.test/selfhosted.xml")
         assertEquals(1.5, restored.playback_speed)
         assertEquals(0L, restored.auto_download)
+        assertEquals(30L to 15L, restored.skip_intro_seconds to restored.skip_outro_seconds)
+
+        // Changed on the tablet: the phone follows; an odd value from elsewhere counts as none.
+        tablet.ms += 30_000
+        tablet.podcasts.setSkip(restored.id, 45, 0)
+        tablet.sync.syncNow()
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        phone.row("https://pod.test/selfhosted.xml").let { assertEquals(45L to 0L, it.skip_intro_seconds to it.skip_outro_seconds) }
 
         // Given up on the tablet: gone from the phone too, and it stays gone.
         tablet.ms += 60_000

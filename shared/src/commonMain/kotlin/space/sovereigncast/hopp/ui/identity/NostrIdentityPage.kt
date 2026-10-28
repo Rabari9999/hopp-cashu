@@ -69,6 +69,7 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
+import space.sovereigncast.hopp.resources.stats_nostr_link
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
 import space.sovereigncast.hopp.resources.nostr_restore_hint
@@ -449,6 +450,9 @@ class NostrIdentityViewModel(
  * with a password (NIP-49). Says before anything is published that it stays
  * public — on Nostr nothing can be taken back.
  */
+/** Opens the listening statistics — set by the app around its pages. */
+val LocalOpenStats = androidx.compose.runtime.staticCompositionLocalOf<() -> Unit> { {} }
+
 @Composable
 fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
     val identity by vm.identity.collectAsState()
@@ -636,6 +640,9 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
     if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
+    val openStats = LocalOpenStats.current
+    OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }
     // Only when something is wrong: the profile reached no relay.
     if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

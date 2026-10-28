@@ -7,6 +7,12 @@ name: Store screenshots
 - launchApp:
     stopApp: true
 - tapOn: "Home"
+# The tab may still show a page from before (the person's, an episode's); a second tap is its start.
+- runFlow:
+    when:
+      visible: "(Back|Zurück)"
+    commands:
+      - tapOn: "Home"
 - extendedWaitUntil:
     visible: "Nodesignal-Talk - E298.*"
     timeout: 30000
@@ -60,7 +66,26 @@ name: Store screenshots
       # Above the sheet: its scrim closes it (its label follows the language).
       - tapOn:
           point: 50%, 8%
-- tapOn: "(Close player|Player schließen)"
+
+# A person in the episode, and every episode with them.
+- tapOn:
+    text: "(People|Personen)"
+    below: "Boost"
+- waitForAnimationToEnd
+- tapOn:
+    text: "(All episodes with|Alle Folgen mit) .*"
+    index: 0
+- extendedWaitUntil:
+    visible: "(In your subscriptions|In deinen Abos)"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: 12-person
+- runFlow:
+    when:
+      visible: "(Close player|Player schließen)"
+    commands:
+      - tapOn: "(Close player|Player schließen)"
 
 # The library, a Sovereigncast show and its community.
 - tapOn: "(Library|Bibliothek)"
@@ -104,6 +129,47 @@ name: Store screenshots
 - tapOn: "(Privacy|Privatsphäre)"
 - waitForAnimationToEnd
 - takeScreenshot: 8-privacy
+- tapOn: "(Back|Zurück)"
+
+# What was heard (listen.yaml), and a show's own playback (setup.yaml): both at the
+# top of the settings, above Privacy.
+- scrollUntilVisible:
+    element: "(Listening stats|Hörstatistik)"
+    direction: UP
+    centerElement: true
+- tapOn: "(Listening stats|Hörstatistik)"
+- extendedWaitUntil:
+    visible: "(Heard this month|Gehört diesen Monat)"
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 10-stats
+- tapOn: "(Back|Zurück)"
+- scrollUntilVisible:
+    element: "(Playback|Wiedergabe)"
+    direction: UP
+    centerElement: true
+- tapOn: "(Playback|Wiedergabe)"
+- scrollUntilVisible:
+    element: "(Per show|Pro Show)"
+    centerElement: true
+- tapOn: "(Per show|Pro Show)"
+- extendedWaitUntil:
+    visible: "Nodesignal.*"
+    timeout: 15000
+- tapOn: "Nodesignal.*"
+- extendedWaitUntil:
+    visible: "(Skip the intro|Intro überspringen)"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 11-per-show
+- pressKey: back
+- runFlow:
+    when:
+      visible: "(Skip the intro|Intro überspringen)"
+    commands:
+      - tapOn:
+          point: 50%, 8%
+- tapOn: "(Back|Zurück)"
 - tapOn: "(Back|Zurück)"
 - tapOn: "(Back|Zurück)"
 

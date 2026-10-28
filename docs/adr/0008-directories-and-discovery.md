@@ -90,6 +90,20 @@ settles it.
   unheard, and its list names the newest episode's day and the first
   category.
 
+  *Amended 2026-10-27 (maintainer, 0.3.1): search by person.* A person's page
+  opens from an episode's people, the player's, and Discover's search. It lists
+  the episodes of the subscribed shows naming the person — by the episode, or by
+  its show for episodes naming no one — read from the stored feeds on the
+  device, then what `search/byperson` finds in other podcasts (shows already
+  subscribed left out), each opening the show's preview with the episode on
+  top. People are matched by name (letters and digits, case-blind): feeds give
+  one person different links and pictures. The page says that namesakes can be
+  among the results and that the name went to the Podcast Index. Discover's
+  search shows the library's people whose name holds the term (three letters or
+  more) above the shows, and always a row for the term's episodes everywhere.
+  A person's own link moved to a button beside the row, whose tap now opens
+  their page.
+
 ### Show page before subscribing
 
 Search results come from the directory's cached data; the show page fetches

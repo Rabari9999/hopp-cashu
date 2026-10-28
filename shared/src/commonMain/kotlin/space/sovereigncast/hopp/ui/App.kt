@@ -65,6 +65,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.stats_title
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
@@ -145,7 +146,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 /** The settings and what hangs off them — closed when the listener leaves for a tab. */
 private val SETTINGS_ROUTES = listOf(
-    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class,
+    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class,
 )
 
 @Serializable object SettingsRoute
@@ -163,8 +164,11 @@ private val SETTINGS_ROUTES = listOf(
     /** A shared link's episode and start: shown on top of the preview. */
     val episodeGuid: String? = null, val startSeconds: Long? = null,
 )
+/** A person across podcasts (0.3.1): what the place they were met in knew of them. */
+@Serializable data class PersonRoute(val name: String, val img: String? = null, val href: String? = null, val role: String? = null, val show: String? = null)
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
+@Serializable object StatsRoute
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -218,6 +222,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         }
         Unit
     }
+    val pageTitle = remember { space.sovereigncast.hopp.ui.components.PageTitle() }
     val title = when {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
@@ -228,6 +233,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
+        destination?.hasRoute(PersonRoute::class) == true -> pageTitle.text.orEmpty()
+        destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -244,6 +251,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
     val value: ValueService = koinInject()
     val snackbar = remember { SnackbarHostState() }
+    space.sovereigncast.hopp.ui.player.SkipNotices(player, snackbar, expanded = false)
     // Streaming paid after time offline: say so (ADR 0014).
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
@@ -257,7 +265,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
     val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground() }
+    // The listening statistics noted before that round, all of it (they otherwise go every half hour).
+    val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
     /** Where the tour was left for one of its pages, to come back to. */
@@ -343,7 +353,13 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
+            space.sovereigncast.hopp.ui.components.LocalPageTitle provides pageTitle,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
+            space.sovereigncast.hopp.ui.identity.LocalOpenStats provides { nav.navigate(StatsRoute) },
+            // A person's page (0.3.1) — from an episode, or from the player, which makes way for it.
+            space.sovereigncast.hopp.ui.components.LocalOpenPerson provides { p, show ->
+                player.minimize(); nav.navigate(PersonRoute(p.name.trim(), p.img, p.href, p.role, show))
+            },
             space.sovereigncast.hopp.ui.comments.LocalOpenIdentity provides { player.minimize(); nav.navigate(SettingsPageRoute(space.sovereigncast.hopp.ui.library.SettingsPage.Nostr.name)) },
             space.sovereigncast.hopp.ui.comments.LocalOpenWallet provides { player.minimize(); nav.navigate(WalletRoute) },
             // A show's category, opened in Discover (device feedback 2026-10-19).
@@ -388,7 +404,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         snackbarHost = { SnackbarHost(snackbar) },
                         topBar = {
                             CenterAlignedTopAppBar(
-                                title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+                                // Faded, so a page's own title comes up as its head scrolls away.
+                                title = { androidx.compose.animation.Crossfade(title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
                                 navigationIcon = {
                                     // The page's own step first (a picked episode), then the back stack.
                                     if (onTab == null) IconButton(onClick = { pageBack.step?.invoke() ?: nav.popBackStack() }) {
@@ -458,7 +475,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 ) }
                             }
                             composable<DiscoverRoute> { Readable(LIST_WIDTH) {
-                                DiscoverScreen(onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) })
+                                DiscoverScreen(
+                                    onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) },
+                                    onPerson = { p -> nav.navigate(PersonRoute(p.name, p.img, p.href, p.role, p.show)) },
+                                )
                             } }
                             composable<ShowPreviewRoute> { e ->
                                 // Subscribed: the show's own page takes the preview's place —
@@ -486,7 +506,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             }
                             composable<SettingsRoute> { Readable {
                                 SettingsScreen(
-                                    onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) },
+                                    onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) }, onStats = { nav.navigate(StatsRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
@@ -504,7 +524,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                         onDispose { if (pageBack.step === back) pageBack.step = null }
                                     }
                                 }
-                                Readable { SettingsPageScreen(page, onTour = { tourPage = 0; tour = true }) }
+                                Readable { SettingsPageScreen(page, onTour = { tourPage = 0; tour = true }, onPage = { nav.navigate(SettingsPageRoute(it.name)) }) }
                             }
                             composable<PrivacyRoute> { Readable { PrivacyScreen(onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onWallet = { nav.navigate(WalletRoute) }) } }
                             composable<CrashRoute> { Readable {
@@ -515,6 +535,16 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             } }
                             composable<WalletRoute> { Readable { WalletScreen() } }
                             composable<HistoryRoute> { Readable { HistoryScreen() } }
+                            composable<PersonRoute> { e ->
+                                val route = e.toRoute<PersonRoute>()
+                                Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.PersonScreen(
+                                    space.sovereigncast.hopp.ui.library.PersonRef(route.name, route.img, route.href, route.role, route.show),
+                                    onEpisode = { nav.navigate(EpisodeRoute(it)) },
+                                    // Another show's episode: its preview, the episode on top — as a shared link opens it.
+                                    onPreview = { url, guid, title, image -> nav.navigate(ShowPreviewRoute(url, title, image, episodeGuid = guid)) },
+                                ) }
+                            }
+                            composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while

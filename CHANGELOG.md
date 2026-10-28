@@ -6,6 +6,26 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-28
+
+### 🆕 New Features
+- **Widget:** The player on your home screen, as on the lock screen – with play, skip, next chapter and your quick boost (Android).
+- **Statistics:** See what you heard and gave – time, time saved, top shows and episodes, sats per show – on all your devices with sync.
+- **Shows:** Skip the intro and the outro of every episode of a show, set with its speed under "Playback for this show" – or for all shows at once under Settings → Playback → "Per show".
+- **Wallet:** The wallet page says in plain words what your wallet reaches.
+- **Streaming:** The player and the streaming sheet say when your wallet cannot reach someone in the episode.
+- **Sharing:** Choose what you share – Hopp's link, the website from the feed, the audio link, the downloaded file or, for a show, its feed address. Hopp keeps your choice.
+- **People:** Tap a person in an episode or the player to see every episode with them – in your subscriptions and in other podcasts; Discover's search finds people too.
+- **Sovereigncast:** The preview before subscribing shows the Sovereigncast badge and the open topic suggestions.
+
+### 🐛 Fixes
+- **Android Auto:** "Forward" on the steering wheel or a headset skips forward by your seconds instead of jumping to the next episode; the next chapter has its own button.
+- **Up next:** An episode you mark as played leaves "Up next" and no longer starts on its own.
+- **Streaming:** Shares your wallet cannot pay are no longer set aside and then skipped, round after round.
+- **Wallet:** A wallet that does not answer – coinos with its app closed, say – is sent nothing; Hopp says so and waits.
+- **History:** An entry shows what was to go out and what became of it, instead of "0 sats".
+- **Sovereigncast:** A show whose feed names its instance only later gets its community tabs without subscribing again – a pull on the show page is enough.
+
 ## [0.3.0] - 2026-10-25
 
 ### 🆕 New Features

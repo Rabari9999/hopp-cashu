@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -114,6 +115,11 @@ import space.sovereigncast.hopp.resources.discover_field
 import space.sovereigncast.hopp.resources.discover_no_results
 import space.sovereigncast.hopp.resources.discover_open_feed
 import space.sovereigncast.hopp.resources.discover_results
+import space.sovereigncast.hopp.resources.discover_people
+import space.sovereigncast.hopp.resources.person_role_at
+import space.sovereigncast.hopp.resources.discover_person_count
+import space.sovereigncast.hopp.resources.discover_person_everywhere
+import space.sovereigncast.hopp.resources.discover_person_everywhere_note
 import space.sovereigncast.hopp.resources.discover_suggestions
 import space.sovereigncast.hopp.resources.discover_recent
 import space.sovereigncast.hopp.resources.discover_recent_clear
@@ -133,7 +139,12 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
  *  show opens its page first — subscribing happens there. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel()) {
+fun DiscoverScreen(
+    onPreview: (String, DirectoryShow?) -> Unit,
+    onPerson: (PersonRef) -> Unit = {},
+    vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel(),
+) {
+    val persons by vm.persons.collectAsState()
     val query by vm.query.collectAsState()
     val valueOnly by vm.valueOnly.collectAsState()
     val scOnly by vm.scOnly.collectAsState()
@@ -211,12 +222,32 @@ fun DiscoverScreen(onPreview: (String, DirectoryShow?) -> Unit, vm: DiscoverView
                 is SearchUi.Done -> {
                     val r = s.result
                     val rest = r.shows.filterNot { feedKey(it.feedUrl) in shownAbove }
+                    // People (0.3.1): those in the subscribed shows the term names, and every
+                    // podcast's episodes with that name, from the Podcast Index.
+                    if (q.length >= space.sovereigncast.hopp.data.PeopleRepository.MIN_TERM && (persons.isNotEmpty() || !r.unavailable)) {
+                        item { Header(stringResource(Res.string.discover_people)) }
+                        items(persons, key = { "p" + it.name }) { p ->
+                            PersonLine(
+                                p.name, p.img,
+                                listOfNotNull(
+                                    space.sovereigncast.hopp.ui.components.roleLabel(p.role)?.let { role -> p.show?.let { stringResource(Res.string.person_role_at, role, it) } ?: role },
+                                    org.jetbrains.compose.resources.pluralStringResource(Res.plurals.discover_person_count, p.episodes, p.episodes),
+                                ).joinToString(" · "),
+                            ) { vm.remember(q); onPerson(PersonRef(p.name, p.img, p.href, p.role, p.show)) }
+                        }
+                        if (!r.unavailable) item {
+                            PersonLine(stringResource(Res.string.discover_person_everywhere, q), null, stringResource(Res.string.discover_person_everywhere_note), search = true) {
+                                vm.remember(q); onPerson(PersonRef(q))
+                            }
+                        }
+                        if (rest.isNotEmpty()) item { Header(stringResource(Res.string.discover_results)) }
+                    }
                     when {
                         r.unavailable -> item { Note(stringResource(Res.string.discover_unavailable)) }
                         rest.isEmpty() && suggested.isEmpty() && r.failed.isEmpty() -> item { Note(stringResource(Res.string.discover_no_results)) }
                     }
                     if (r.failed.isNotEmpty()) item { Note(stringResource(Res.string.discover_failed, r.failed.joinToString(", ") { it.label })) }
-                    if (suggested.isNotEmpty() && rest.isNotEmpty()) item { Header(stringResource(Res.string.discover_results)) }
+                    if (suggested.isNotEmpty() && rest.isNotEmpty() && q.length < space.sovereigncast.hopp.data.PeopleRepository.MIN_TERM) item { Header(stringResource(Res.string.discover_results)) }
                     items(rest, key = { "r" + it.feedUrl }) { show ->
                         DirectoryRow(show, feedKey(show.feedUrl) in subscribed, sovereigncast = scShows != null && vm.isSovereigncast(show),
                         busy = feedKey(show.feedUrl) in subscribing, onSubscribe = { vm.subscribe(show) { onPreview(show.feedUrl, show) } }) {
@@ -297,6 +328,27 @@ private val Source.label get() = when (this) { Source.PodcastIndex -> "Podcast I
 
 @Composable
 private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+
+/** A person in the search's results: picture or initial — or a search mark for "everywhere". */
+@Composable
+private fun PersonLine(name: String, img: String?, note: String, search: Boolean = false, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(colors.surfaceVariant), contentAlignment = Alignment.Center) {
+            if (search) Icon(Icons.Rounded.Search, null, tint = colors.onSurfaceVariant)
+            else Text(name.trim().take(1).uppercase(), style = MaterialTheme.typography.titleMedium, color = colors.onSurfaceVariant)
+            if (img != null) coil3.compose.AsyncImage(img, null, Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Text("›", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+    }
+}
 
 @Composable
 private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) = Row(

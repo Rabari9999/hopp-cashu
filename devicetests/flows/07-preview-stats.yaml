@@ -1,0 +1,53 @@
+# A Sovereigncast show looked at before subscribing — its badge and open suggestions,
+# live from its instance — and the listening stats of what the flows before played.
+appId: ${APP_ID}
+name: Preview and stats
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Discover"
+    retryTapIfNoChange: true
+- tapOn: "Search or feed address"
+- inputText: "https://pm.nodesignal.space/feed/bitcoin_bibliothek.xml"
+# The keyboard away first: on a phone on its side it covers the button, and the results'
+# badges below it would pass for the preview's (device check 2026-10-27).
+# Enter opens an address as a feed by itself; the button where it did not.
+- pressKey: Enter
+- runFlow:
+    when:
+      visible: "Open as feed"
+    commands:
+      - tapOn: "Open as feed"
+- extendedWaitUntil:
+    visible: "[0-9]+ episodes"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "✓ Sovereigncast"
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 07-preview
+- scrollUntilVisible:
+    element: "Open suggestions"
+- scrollUntilVisible:
+    element: "Subscribe to the show to vote or suggest a topic yourself."
+- takeScreenshot: 07-preview-suggestions
+- tapOn: "Back"
+# The stats: E298 played and paused in the flow before — counted then. (E297's few seconds in
+# 03 are gone: the app is ended before its half minute is written, as on a real kill.)
+- tapOn: "Home"
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- scrollUntilVisible:
+    element: "Listening stats"
+    centerElement: true
+- tapOn: "Listening stats"
+- extendedWaitUntil:
+    visible: "Heard this month"
+    timeout: 15000
+- assertNotVisible: "Nothing counted yet.*"
+- waitForAnimationToEnd
+- takeScreenshot: 07-stats
+- scroll
+- takeScreenshot: 07-stats-more

@@ -1,23 +1,51 @@
-<p>Hopp ist ein Podcast-Player für jeden Podcast, gebaut für Podcasting 2.0: Kapitel, Transkripte, Mitwirkende und Value for Value über Lightning.</p>
+<p>Hopp ist ein Podcast-Player für jeden Podcast, gebaut für Podcasting 2.0 und Value for Value. Kein Konto, kein Tracking, kein eigener Server: installieren und hören.</p>
 
-<p><b>Kein Konto, kein Tracking.</b> Installieren und hören. Hopp sammelt nichts und betreibt keinen eigenen Server. Eine Seite zur Privatsphäre erklärt in klaren Worten, wer beim Hören was sieht — und was du dagegen tun kannst.</p>
+<p>Verbinde deine eigene Lightning-Wallet und booste die Shows, die du magst, oder streame Sats beim Hören – Hopp hält nie deine Sats und nimmt keinen Anteil. Mit einer optionalen Nostr-Identität kommentierst du Folgen und hältst deine Geräte verschlüsselt auf demselben Stand.</p>
 
-<p><b>Nur deine Wallet.</b> Hopp hat keine eingebaute Wallet und hält nie deine Sats. Verbinde deine eigene Lightning-Wallet per Nostr Wallet Connect (NWC), booste eine Folge oder die ganze Show oder streame Sats beim Hören — im Rahmen eines Tagesbudgets, das du festlegst.</p>
-
-<p><b>100 % für die Podcaster.</b> Hopp nimmt keinen Anteil; Routing-Gebühren stehen extra. Hopp zu unterstützen ist eine sichtbare Option, die du selbst einschaltest.</p>
-
-<p><b>Kommentare über Nostr.</b> Die Kommentare zu jeder Folge, auch die aus Fountain. Mit einer Nostr-Identität — in Hopp erstellt, importiert oder in Amber verwahrt — schreibst, likest und zappst du sie, öffentlich, privat oder anonym, teilst einen Boost als Kommentar und nutzt deine eigenen Relays.</p>
-
-<p><b>Entdecken</b> nach Kategorien, aus den Empfehlungen deiner Shows, neue Shows, die Sats annehmen, und was gerade beliebt ist — aus dem Podcast Index.</p>
-
-<p><b>Sovereigncast-Shows</b> werden in Hopp lebendig: Release Boosting, Boost2Unlock, Themen-Abstimmungen und die Top-Boosts der Community.</p>
-
+<p><b>Hören</b></p>
 <ul>
-<li>Bibliothek als Karten oder Liste, Home mit Neuem und dem, was du gerade hörst</li>
-<li>Shows finden im Podcast Index (wahlweise auch fyyd und Apple), per Feed-Adresse oder OPML</li>
-<li>Warteschlange, Downloads im WLAN, Sleep-Timer, Tempo je Show, Stille überspringen, eigene Sprungweiten</li>
-<li>Benachrichtigungen für Boosts und Zaps, für jeden Fall einzeln einstellbar</li>
-<li>Android Auto, Handy und Tablet, auf Deutsch und Englisch</li>
+<li>✅ Home mit Neuem und dem, was du gerade hörst, Bibliothek als Karten oder Liste</li>
+<li>✅ Als Nächstes, Downloads im WLAN, Sleep-Timer, Stille überspringen, eigene Sprungweiten</li>
+<li>✅ Tempo, Intro und Abspann überspringen je Show; leise Shows lauter</li>
+<li>✅ Kapitel mit Bildern, mitlaufende Transkripte, Mitwirkende, Shownotes, Clips</li>
+<li>✅ Tippe auf eine Person und sieh alle Folgen mit ihr</li>
+<li>✅ Hörstatistik: Zeit, gesparte Zeit, Top-Shows und -Folgen, gegebene Sats</li>
+<li>✅ Widget auf dem Startbildschirm, Sperrbildschirm und Android Auto</li>
+<li>✅ Teile Hopps Link, die Webseite, den Audio-Link oder die Datei selbst</li>
+</ul>
+
+<p><b>Value for Value</b></p>
+<ul>
+<li>✅ Deine eigene Lightning-Wallet per Nostr Wallet Connect (NWC) – keine eingebaute Wallet</li>
+<li>✅ Booste eine Folge oder die ganze Show, Schnell-Boost vom Sperrbildschirm, Sats pro Minute streamen</li>
+<li>✅ Ein Tagesbudget, das du festlegst, Zahlungsverlauf, der zeigt, wer was bekam</li>
+<li>✅ 100 % für die Podcaster, Routing-Gebühren extra ausgewiesen; Hopp zu unterstützen entscheidest du</li>
+</ul>
+
+<p><b>Nostr</b></p>
+<ul>
+<li>✅ Kommentare zu jeder Folge, auch die aus Fountain: schreiben, liken und zappen – öffentlich, privat oder anonym</li>
+<li>✅ Identität in Hopp erstellt, importiert oder in Amber verwahrt; eigene Relays</li>
+<li>✅ Sync zwischen deinen Geräten: Abos, Hörstand, Favoriten, Als Nächstes, Einstellungen, Statistik – verschlüsselt, ohne Hopp-Server</li>
+<li>✅ Bibliothek auf einem neuen Gerät wiederherstellen</li>
+</ul>
+
+<p><b>Entdecken</b></p>
+<ul>
+<li>✅ Podcast Index: Suche, Kategorien, Empfehlungen deiner Shows, neue Shows, die Sats annehmen, gerade beliebt</li>
+<li>✅ Wahlweise fyyd und Apple, Feed-Adresse, OPML-Import und -Export – der Umzug aus einer anderen App ist leicht</li>
+</ul>
+
+<p><b>Sovereigncast-Shows</b></p>
+<ul>
+<li>✅ Release Boosting, Boost2Unlock, Themenvorschläge und Abstimmungen, Top-Boosts und Top-Folgen</li>
+</ul>
+
+<p><b>Privatsphäre und mehr</b></p>
+<ul>
+<li>✅ Eine Seite zur Privatsphäre: wer beim Hören was sieht – und was du dagegen tun kannst</li>
+<li>✅ Benachrichtigungen für Boosts und Zaps, für jeden Fall einzeln einstellbar</li>
+<li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch</li>
 </ul>
 
 <p>Hopp ist Open Source (MIT).</p>

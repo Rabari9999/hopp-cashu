@@ -3,6 +3,8 @@ package space.sovereigncast.hopp.ui.library
 import androidx.compose.material.icons.rounded.Person
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.ui.player.formatSpeed
+import space.sovereigncast.hopp.resources.stats_entry_note
+import space.sovereigncast.hopp.resources.stats_title
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
@@ -76,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.data.Settings
@@ -90,6 +93,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 /** The pages behind the settings overview (device feedback 2026-10-10). */
 enum class SettingsPage(val title: StringResource) {
     Playback(Res.string.settings_playback),
+    PerShow(Res.string.per_show_title),
     Home(Res.string.home_customize),
     Downloads(Res.string.settings_downloads_refresh),
     Notifications(Res.string.settings_notifications),
@@ -109,6 +113,7 @@ enum class SettingsPage(val title: StringResource) {
 fun SettingsScreen(
     onWallet: () -> Unit = {},
     onHistory: () -> Unit = {},
+    onStats: () -> Unit = {},
     onPage: (SettingsPage) -> Unit = {},
     onPrivacy: () -> Unit = {},
     onCrashReport: (() -> Unit)? = null,
@@ -120,6 +125,7 @@ fun SettingsScreen(
         Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
             wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
         Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+        Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats)
 
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
@@ -168,7 +174,7 @@ private fun Entry(icon: ImageVector, title: String, note: String, accent: Boolea
 /** One page of the settings. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
+fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (SettingsPage) -> Unit = {}, vm: SettingsViewModel = koinViewModel()) {
     val app: AppInfo = koinInject()
     val engine: PlaybackEngine = koinInject()
     val settings by vm.current.collectAsState()
@@ -184,15 +190,30 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, vm: Settings
         return
     }
     if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
+    if (page == SettingsPage.PerShow) { PerShowPage(vm); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
-            SettingsPage.Home, SettingsPage.Nostr -> Unit
+            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow -> Unit
             SettingsPage.Playback -> {
                 // Every show plays at this speed until the listener gives it one of its own
                 // in the player (device feedback 2026-10-19).
                 Label(stringResource(Res.string.settings_default_speed))
                 Choices(PlayerController.SPEED_CHOICES, s.defaultSpeed, { "${formatSpeed(it)}×" }) { v -> vm.update { it.copy(defaultSpeed = v) } }
                 Note(stringResource(Res.string.settings_default_speed_note))
+                // Right below the speed every show has, the shows that differ (maintainer 2026-10-26:
+                // in the show's menu alone it was easily missed) — a row like the toggles below.
+                val shows by vm.shows.collectAsState()
+                val own = shows.count { it.hasOwnPlayback }
+                Row(Modifier.fillMaxWidth().clickable { onPage(SettingsPage.PerShow) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.per_show_title))
+                        Text(
+                            stringResource(Res.string.per_show_note) + if (own > 0) " · " + pluralStringResource(Res.plurals.per_show_count, own, own) else "",
+                            color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Text("›", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+                }
                 Label(stringResource(Res.string.settings_skip_back))
                 Choices(Settings.skipBackChoices, s.skipBackSeconds, { stringResource(Res.string.settings_seconds, it) }) { v -> vm.update { it.copy(skipBackSeconds = v) } }
                 Label(stringResource(Res.string.settings_skip_forward))

@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
+    implementation(libs.glance.appwidget)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.androidx.work.runtime)
     implementation(libs.koin.core)
@@ -42,6 +43,7 @@ dependencies {
     // secp256k1 for the host JVM: Robolectric runs on it, not on Android (Nostr identity tests).
     testImplementation(libs.secp256k1.jni.jvm)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.glance.appwidget.testing)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
@@ -63,7 +65,7 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         }
         listOfNotNull(stamp, sha).joinToString("-")
     }
-val appVersion = "0.3.0"
+val appVersion = "0.3.1"
 // A beta's versionCode: minutes since 2026 at its commit, so every beta handed on updates the one
 // before (delta audit 2026-10-22). Its own app id, so it never meets the release's codes.
 val betaVersionCode: Int? = (git("log", "-1", "--format=%ct")?.toLongOrNull()
@@ -89,7 +91,7 @@ android {
         applicationId = "space.sovereigncast.hopp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 6
+        versionCode = 7
         versionName = appVersion
     }
     buildFeatures {

@@ -216,7 +216,10 @@ object FeedParser {
                     "season" -> if (inItem) episode!!.season = text.toIntOrNull() ?: episode!!.season
                     "episode" -> if (inItem) episode!!.number = text.toDoubleOrNull() ?: episode!!.number
                     "person" -> if (text.isNotEmpty()) {
-                        val p = Person(text, el.attrs["role"]?.lowercase(), el.attrs["group"]?.lowercase(), el.attrs["img"], el.attrs["href"])
+                        // Web addresses only, and all of it of a sensible length (review 2026-10-27): the
+                        // person goes into the navigation state, the picture to the image loader.
+                        fun web(v: String?) = v?.trim()?.takeIf { it.length <= 2048 && (it.startsWith("https://", true) || it.startsWith("http://", true)) }
+                        val p = Person(text.take(200), el.attrs["role"]?.lowercase()?.take(64), el.attrs["group"]?.lowercase()?.take(64), web(el.attrs["img"]), web(el.attrs["href"]))
                         if (inItem) episode!!.persons += p else podcast.persons += p
                     }
                     "soundbite" -> if (inItem) {

@@ -60,6 +60,15 @@ class ValueServiceTest {
         </podcast:value>
         <item><title>Ep</title><guid>ep-1</guid><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
         </channel></rss>"""
+    /** Half to a node, half to a Lightning address: a wallet without keysend reaches half. */
+    private val mixed = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
+        <title>Mixed</title><podcast:guid>mixed-guid</podcast:guid>
+        <podcast:value type="lightning" method="keysend">
+          <podcast:valueRecipient name="Host" type="node" address="$host" split="50"/>
+          <podcast:valueRecipient name="Alice" type="lnaddress" address="alice@zap.test" split="50"/>
+        </podcast:value>
+        <item><title>M1</title><guid>m-1</guid><enclosure url="https://cdn.test/m1.mp3" type="audio/mpeg"/></item>
+        </channel></rss>"""
     private val music = """<?xml version="1.0"?><rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0"><channel>
         <title>Band</title><podcast:guid>music-guid</podcast:guid>
         <item><title>Song</title><guid>song-1</guid><enclosure url="https://music.test/1.mp3" type="audio/mpeg"/>
@@ -68,6 +77,7 @@ class ValueServiceTest {
     private val http = HttpClient(MockEngine { req ->
         when (req.url.encodedPath) {
             "/feed.xml" -> if (req.url.host == "music.test") respond(music) else respond(feed)
+            "/mixed.xml" -> respond(mixed)
             "/.well-known/keysend/donate" -> respond("""{"tag":"keysend","pubkey":"$donee"}""")
             "/.well-known/lnurlp/alice", "/.well-known/lnurlp/plain" -> respond("""{"tag":"payRequest","callback":"https://zap.test/cb","minSendable":1000,
                 "maxSendable":100000000,"metadata":"[[\"text/plain\",\"Alice\"]]"""" +
@@ -91,7 +101,7 @@ class ValueServiceTest {
     private var walletMethods = listOf("pay_invoice", "pay_keysend", "get_balance", "get_info")
     private val fake by lazy { FakeWallet(relay, methods = walletMethods).also { it.publishInfo() } }
     private val secrets = MemorySecretStore()
-    private val wallet = WalletRepository(secrets, http, { now }, relay, timeout = kotlin.time.Duration.parse("5s"))
+    private val wallet = WalletRepository(secrets, http, { now }, relay, timeout = kotlin.time.Duration.parse("5s"), balanceTimeout = kotlin.time.Duration.parse("1s"))
     private val value = ValueService(db, wallet, episodes, podcasts, settings, LnAddressClient(http), FeedFetcher(http), null, { now }, AppInfo("0.0.1", "JVM", "Test"))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -175,6 +185,114 @@ class ValueServiceTest {
         wallet.connect(uri())
         val plan = value.plan(episode(), 30, 100_000) as BoostPlan.Ready
         assertEquals(listOf("keysend", "keysend"), plan.shares.map { it.unpayable })
+    }
+
+    /** Device feedback 2026-10-26: with coinos, which cannot keysend, the host's share piled up
+     *  as set aside and was then skipped, round after round, a line in the history each time. */
+    @Test
+    fun whatTheWalletCannotReachIsNotSetAside() = test {
+        walletMethods = listOf("pay_invoice", "get_balance", "get_info")
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        assertEquals(Reach(0, listOf(UnreachableShare("Host", 90, "keysend"), UnreachableShare("Cohost", 10, "keysend"))), value.reach(ep))
+        value.accrue(ep, 60_000, 30_000)
+        assertEquals(0L, value.pendingMsat.first(), "nothing waits that cannot go")
+        assertTrue(value.pendingFor(ep.id).isEmpty())
+        value.settle()
+        assertTrue(fake.requests.none { it.first.startsWith("pay_") })
+        assertTrue(value.payments.first().isEmpty(), "and no line for each round")
+    }
+
+    /** Set aside under a wallet that could pay it, then another connected that cannot: it waits,
+     *  without a line in the history — and goes once the wallet that reaches it is back (review
+     *  2026-10-27: it used to be written off for good). */
+    @Test
+    fun setAsideUnderAnotherWalletWaitsQuietly() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60, dailyBudgetSats = 0) }
+        val ep = episode()
+        value.accrue(ep, 60_000, 30_000)
+        value.settle()
+        assertEquals(30_000L, value.pendingMsat.first(), "over the budget: owed")
+        val coinos = FakeWallet(relay, methods = listOf("pay_invoice", "get_balance", "get_info")).also { it.publishInfo() }
+        wallet.connect("nostr+walletconnect://${coinos.keys.publicKeyHex}?relay=wss://relay.test&secret=${KeyPair.generate().secretKey.toHex()}")
+        assertEquals(0L, value.pendingMsat.first())
+        settings.update { it.copy(dailyBudgetSats = 1_000) }
+        value.settle()
+        assertTrue(coinos.requests.none { it.first.startsWith("pay_") })
+        assertTrue(value.payments.first().isEmpty())
+        wallet.connect(uri())
+        value.settle()
+        assertEquals(30L, keysends().sumOf { it.second })
+    }
+
+    /** Half reached: the streaming sheet says so and sets aside only that half. */
+    @Test
+    fun onlyWhatTheWalletReachesIsSetAside() = test {
+        walletMethods = listOf("pay_invoice", "get_balance", "get_info")
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        episode()
+        val mixedId = (podcasts.subscribe("https://pod.test/mixed.xml") as SubscribeResult.Subscribed).podcastId
+        val m = episodes.ofPodcast(mixedId).first().single()
+        assertEquals(Reach(50, listOf(UnreachableShare("Host", 50, "keysend"))), value.reach(m))
+        value.accrue(m, 60_000, 30_000)
+        assertEquals(listOf("Alice"), value.pendingFor(m.id).map { it.name })
+        assertEquals(15_000L, value.pendingMsat.first())
+    }
+
+    /** Device feedback 2026-10-26: coinos answers only while its app is open. A wallet that does
+     *  not answer is sent nothing — no share ends "outcome unknown" — and what is owed goes once
+     *  it answers again. */
+    @Test
+    fun aWalletThatDoesNotAnswerIsNotPaidIntoTheVoid() = test {
+        wallet.connect(uri())
+        settings.update { it.copy(streaming = true, streamRateSats = 60) }
+        val ep = episode()
+        value.accrue(ep, 60_000, 30_000)
+        fake.asleep = true
+        value.settle()
+        assertTrue(value.walletSilent.value)
+        assertTrue(keysends().isEmpty())
+        assertEquals(30_000L, value.pendingMsat.first(), "still set aside")
+        assertTrue(value.payments.first().isEmpty())
+        assertEquals(BalanceAnswer.Silent, wallet.balance())
+        fake.asleep = false
+        assertEquals(BalanceAnswer.Known(21_000_000L), wallet.balance())
+        value.settle()
+        assertEquals(listOf(host to 27L, cohost to 3L), keysends())
+        assertTrue(!value.walletSilent.value)
+    }
+
+    /** Device feedback 2026-10-26: "try again" seemed to do nothing. While the wallet is asked,
+     *  the wallet page and the boost sheet know it — and show a spinner. */
+    @Test
+    fun askingTheWalletAgainShowsItIsWorking() = test {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            wallet.connect(uri())
+            fake.asleep = true
+            val page = space.sovereigncast.hopp.ui.value.WalletViewModel(wallet, value, settings)
+            assertTrue(page.checking.value, "asked at once")
+            withTimeout(5_000) { while (page.checking.value) delay(20) }
+            assertTrue(page.silent.value)
+            // Awake again: the answer comes, and the spinner goes.
+            fake.asleep = false
+            page.refreshBalance()
+            withTimeout(5_000) { while (page.checking.value) delay(20) }
+            assertTrue(!page.silent.value)
+            assertEquals(21_000_000L, page.balanceMsat.value)
+
+            val sheet = space.sovereigncast.hopp.ui.value.ValueBarViewModel(value, wallet, settings, BoostReports(settings, { }, scope))
+            fake.asleep = true
+            sheet.checkWalletBalance()
+            assertTrue(sheet.checkingBalance.value)
+            withTimeout(5_000) { while (sheet.checkingBalance.value) delay(20) }
+            assertTrue(sheet.walletSilent.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test
@@ -286,14 +404,16 @@ class ValueServiceTest {
 
     /** Batches follow listening (user decision 2026-10-11): none before it
      *  starts, one per round while playing, the round under way still paid
-     *  after a pause — then the timer rests. Here a round is 400 ms, not 3 min. */
+     *  after a pause — then the timer rests. Here a round is 1.5 s, not 3 min: long enough that the
+     *  five steps of listening fit into one even on a slow machine (Zetti's beta test 2026-10-27:
+     *  at 400 ms the round could end mid-way and pay in two parts). */
     @Test
     fun streamingBatchesFollowListening() = test {
         wallet.connect(uri())
         settings.update { it.copy(streaming = true, streamRateSats = 60) } // one sat per second
         val ep = episode()
         val engine = RecordingEngine()
-        val player = PlayerController(engine, episodes, podcasts, QueueRepository(db), settings, scope, value, settleEvery = 400.milliseconds) { 0 }
+        val player = PlayerController(engine, episodes, podcasts, QueueRepository(db), settings, scope, value, settleEvery = 1_500.milliseconds) { 0 }
         assertNull(value.secondsToNextSettle(), "no round before listening")
         player.play(ep)
         withTimeout(5_000) { while (engine.loaded.isEmpty() || player.current.value == null) delay(10) }
@@ -303,7 +423,7 @@ class ValueServiceTest {
         at(5_000, playing = false)      // paused within the round
         withTimeout(5_000) { while (keysends().isEmpty()) delay(20) }
         assertEquals(listOf(host to 4L), keysends(), "4.5 sats to the host: the whole ones went out after the pause")
-        delay(800)
+        delay(2_000)
         assertNull(value.secondsToNextSettle(), "paused: the timer rests")
         assertEquals(1, keysends().size, "and pays nothing more")
     }
@@ -496,7 +616,14 @@ class ValueServiceTest {
     @Test
     fun aBatchCancelledBeforeSendingKeepsTheShareOwed() = test {
         var hang = false
-        val connector = space.sovereigncast.hopp.nostr.RelayConnector { url -> if (hang) kotlinx.coroutines.awaitCancellation() else relay.connect(url) }
+        // The batch first asks the wallet's balance (device feedback 2026-10-26): that answers,
+        // the payment after it hangs.
+        var connects = 0
+        var hangFrom = Int.MAX_VALUE
+        val connector = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            if (hang && hangFrom == Int.MAX_VALUE) hangFrom = connects + 1
+            if (++connects > hangFrom && hang) kotlinx.coroutines.awaitCancellation() else relay.connect(url)
+        }
         val w = WalletRepository(MemorySecretStore(), http, { now }, connector, timeout = kotlin.time.Duration.parse("5s"))
         val v = ValueService(db, w, episodes, podcasts, settings, LnAddressClient(http), FeedFetcher(http), null, { now }, AppInfo("0.0.1", "JVM", "Test"))
         w.connect(uri())

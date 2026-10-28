@@ -59,3 +59,8 @@ recentBoosts:
 SELECT episode_id, max(created_at) AS last_at, CAST(sum(amount_msat) AS INTEGER) AS total_msat
 FROM payment WHERE kind = 'boost' AND episode_id IS NOT NULL
 GROUP BY episode_id ORDER BY last_at DESC LIMIT ?;
+
+-- What went out, per payment, with its show as sync names it — for the listening statistics.
+forStats:
+SELECT p.created_at, p.kind, p.podcast_title, p.amount_msat, pc.podcast_guid, pc.feed_url
+FROM payment p LEFT JOIN podcast pc ON pc.id = p.podcast_id WHERE p.amount_msat > 0;
