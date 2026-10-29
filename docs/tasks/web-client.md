@@ -2,7 +2,7 @@
 
 - **Implements:** [ADR 0022](../adr/0022-web-client.md), stages W1 (done as
   spike 6) and W2; release 0.3.2 (maintainer, 2026-10-28).
-- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the iPhone checks and WebKit in the browser checks are left.
+- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; VoiceOver, the menu bug in Compose's web accessibility and WebKit in the browser checks are left.
 - **Reference:** the spike, branch `spike/web-wasm` (local, based on
   147a7b7 before 0.3.0), report [docs/spikes/06-web.md](../spikes/06-web.md)
   once ported. Its steps are rebuilt on the current code, not rebased.
@@ -67,8 +67,9 @@ How to run and check it: [web/README.md](../../web/README.md).
       database worker no longer spends a second retrying where OPFS is
       missing; `performance.mark`s per stage (`hopp:main` … `hopp:first-frame`,
       `web/e2e/startup.mjs`). WebKit on the Mac with OPFS: 0.6 s to the first
-      screen. To measure again on the iPhone, with the stages from Safari's
-      Web Inspector. VoiceOver still open.
+      screen. Second round (2026-10-29, same iPhone): the welcome screen
+      after 2–3 s, under the 4 s of ADR 0022, 11.4 — the start time passes;
+      the app easier to use on the small screen. VoiceOver still open.
 - [x] "This is not my device" at sign-in: the database copied into the
       worker's memory and its OPFS files deleted, the secrets kept in memory
       and their IndexedDB store deleted; a reload in that tab starts in
