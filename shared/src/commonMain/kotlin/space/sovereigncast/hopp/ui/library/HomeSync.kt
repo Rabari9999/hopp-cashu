@@ -101,9 +101,10 @@ private fun look(status: SyncStatus): Look = when {
 internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: () -> Unit, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val problem = status.problem
-    // Each relay only when something went wrong (maintainer 2026-10-29); a tap shows what it answered.
-    val rounds = status.relayRounds
-    val failing = problem != null && !status.running && rounds.any { !it.ok }
+    // Each relay after every round (maintainer 2026-10-29: two of three went through and the third's reason was
+    // nowhere); a tap shows what it answered. How many a document needs, only when too few went through.
+    val rounds = status.relayRounds.takeIf { !status.running }.orEmpty()
+    val failing = problem != null && rounds.any { !it.ok }
     var detail by remember { mutableStateOf<String?>(null) }
     val actions = LocalPlatformActions.current
     // Open whole, and scrolling where the screen is too short: on a small phone with larger text the half-open
@@ -137,14 +138,12 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                     sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
                 }
             }
-            if (failing) {
-                QuorumBar(rounds.count { it.ok }, rounds.size)
-                RelayList(rounds, status.relayHistory) { detail = it }
-            }
+            if (failing) QuorumBar(rounds.count { it.ok }, rounds.size)
+            if (rounds.isNotEmpty()) RelayList(rounds, status.relayHistory) { detail = it }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainer).border(1.dp, colors.surfaceVariant, RoundedCornerShape(16.dp))) {
                 val lines = buildList {
                     if (problem != null) status.lastSyncedMs?.let { add(stringResource(Res.string.home_sync_last) to ago((nowMs - it) / 1000)) }
-                    if (!failing) status.relays?.let { (answered, asked) -> add(stringResource(Res.string.home_sync_relays) to stringResource(Res.string.home_sync_of, answered, asked)) }
+                    if (rounds.isEmpty()) status.relays?.let { (answered, asked) -> add(stringResource(Res.string.home_sync_relays) to stringResource(Res.string.home_sync_of, answered, asked)) }
                     if (problem == null) add(stringResource(Res.string.home_sync_got) to got(status.applied))
                     add(stringResource(Res.string.home_sync_to_send) to
                         if (status.toSend == 0) stringResource(Res.string.home_sync_nothing) else pluralStringResource(Res.plurals.home_sync_changes, status.toSend, status.toSend))
@@ -173,8 +172,8 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                     FittingLine(stringResource(Res.string.settings), label, min = 11.sp)
                 }
             }
-            if (failing) {
-                if (status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            if (failing && status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            if (rounds.isNotEmpty()) {
                 val report = report(status, nowMs)
                 TextButton(onClick = { actions.copyText(report, "Hopp sync") }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Text(stringResource(Res.string.sync_copy_report))
@@ -211,12 +210,16 @@ private fun RelayList(rounds: List<RelayRound>, history: Map<String, List<Boolea
                 StateDot(r.worst)
                 Column(Modifier.weight(1f)) {
                     Text(host(r.url), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // One that answered everything: one short line.
+                    if (r.ok) {
+                        Text(listOfNotNull(answerLine(r.worst), r.ms?.let(::duration)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        return@Column
+                    }
                     Text(answerLine(r.worst), style = MaterialTheme.typography.bodyMedium, color = tint(r.worst), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val failed = history[r.url].orEmpty().count { !it }
                     val line = listOfNotNull(
                         stringResource(Res.string.sync_read) + " " + mark(r.reads.values.maxByOrNull { it.weight }),
                         stringResource(Res.string.sync_send) + " " + mark(r.sends.values.maxByOrNull { it.weight }),
-                        r.ms?.takeIf { r.ok }?.let(::duration),
                     ).joinToString(" · ")
                     Text(line, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     if (!r.ok && failed > 1) Text(stringResource(Res.string.sync_failed_rounds, failed, history[r.url].orEmpty().size), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
