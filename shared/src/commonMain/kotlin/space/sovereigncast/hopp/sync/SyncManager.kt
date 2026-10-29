@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.data.SettingsRepository
+import space.sovereigncast.hopp.nostr.RelayLog
 import space.sovereigncast.hopp.nostr.withRelayPool
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -40,6 +42,10 @@ data class SyncStatus(
     val relays: Pair<Int, Int>? = null,
     /** Changes made here the relays have not taken yet. */
     val toSend: Int = 0,
+    /** What each relay answered in the last round, per document (maintainer 2026-10-29). */
+    val relayRounds: List<RelayRound> = emptyList(),
+    /** Per relay, its last rounds since the start, oldest first: true where it answered everything. */
+    val relayHistory: Map<String, List<Boolean>> = emptyMap(),
 )
 
 /** What renewing the sync key came to (delta audit 2026-10-22, HN-06/MN-10). */
@@ -78,6 +84,7 @@ class SyncManager(
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
     private val round = Mutex()
     private var pending: Job? = null
+    private val history = mutableMapOf<String, List<Boolean>>()
 
     init {
         journal.onChange = { _, urgent ->
@@ -199,7 +206,9 @@ class SyncManager(
             var sent = 0
             val generation = engine.keyGeneration()
             val docs = documents()
-            for (doc in docs) {
+            // What each relay answers, per document, for the sync page.
+            val log = RelayLog()
+            withContext(log) { for (doc in docs) {
                 // Shows wait until this device has read the listener's settings to the end once: restored
                 // under the fresh default, a show would download although downloads are off elsewhere
                 // (delta audit 6 2026-10-24 — settings first is not enough when their read fails).
@@ -209,19 +218,22 @@ class SyncManager(
                 }
                 // A setting synced only since an update joins as at turning sync on: where the relays have nothing.
                 if (doc.name == SyncDocs.SETTINGS) store.entries(doc.name).let { known -> store.seed(doc.name, doc.snapshot().filterKeys { it !in known }) }
+                log.area = doc.name
                 when (val outcome = engine.sync(doc, interactive)) {
                     is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
                     is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
                     else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
                 }
-            }
+            } }
+            val rounds = RelayRound.of(log.notes())
+            rounds.forEach { r -> history[r.url] = ((history[r.url] ?: emptyList()) + r.ok).takeLast(HISTORY) }
             // A key moved off goes only after a round under the new one, all of it, read every document back
             // complete and had nothing to send — the relays hold under the new key all this device has, what
             // waits for its time included (delta audit 2026-10-22 and 2, HN-06/MN-02).
             val readBack = problem == null && pending == 0 && sent == 0 && engine.keyGeneration() == generation && engine.toSend() == 0
             if (readBack && engine.movedPending()) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
             _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
-                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0))
+                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0), rounds, history.toMap())
             _status.value
         } finally {
             // Cut off (the app closed, sync turned off): not "running" for ever (MN-07).
@@ -263,6 +275,8 @@ class SyncManager(
 
     companion object {
         val FOREGROUND_EVERY = 5.minutes
+        /** How many rounds per relay the sync page shows. */
+        const val HISTORY = 10
         /** Positions while playing go out at most this often. */
         val PROGRESS_EVERY = 5.minutes
     }

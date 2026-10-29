@@ -153,14 +153,19 @@ internal object FakeAmber : space.sovereigncast.hopp.nostr.ExternalSigner {
 
 /** Relays that take every event at once, so publishing a profile needs no network. */
 internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
-    override suspend fun connect(url: String) = object : space.sovereigncast.hopp.nostr.RelaySession {
+    /** A relay that refuses every event, with its words; one that takes no connection — for a test that sets them. */
+    var refusing: Pair<String, String>? = null
+    var unreachable: String? = null
+
+    override suspend fun connect(url: String) = if (url == unreachable) error("connection refused") else object : space.sovereigncast.hopp.nostr.RelaySession {
         private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
         override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
         override suspend fun send(message: String) {
             // A query finds nothing here: end of stored events at once.
             Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { channel.trySend("""["EOSE","${it.groupValues[1]}"]"""); return }
             val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
-            channel.trySend("""["OK","$id",true,""]""")
+            val refused = refusing?.takeIf { it.first == url }?.second
+            channel.trySend(if (refused != null) """["OK","$id",false,"$refused"]""" else """["OK","$id",true,""]""")
         }
         override suspend fun close() { channel.close() }
     }

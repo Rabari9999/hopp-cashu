@@ -206,6 +206,62 @@ class HomeLayoutTest {
         java.io.File("build/sync-sheet/$name.txt").writeText((report + pressed).joinToString("\n"))
     }
 
+    /**
+     * Maintainer 2026-10-29: sync failed and the sheet never said which relay or why. Failed, it lists each
+     * relay with its answer in a few words, and one tap shows what it answered per document, in its own words.
+     */
+    @Test @Config(qualifiers = "en-w320dp-h640dp") fun theSyncSheetSaysWhichRelayFailedAndWhy() =
+        relaysExplained("Refused: too many requests", "Not reachable", "Relay’s reply", "Sync key")
+    @Test @Config(qualifiers = "de-w320dp-h640dp") fun theSyncSheetSaysWhichRelayFailedAndWhyInGerman() =
+        relaysExplained("Abgelehnt: zu viele Anfragen", "Nicht erreichbar", "Antwort des Relays", "Sync-Schlüssel")
+
+    private fun relaysExplained(refused: String, unreachable: String, reply: String, keyring: String) {
+        val (limited, _, gone) = space.sovereigncast.hopp.identity.IdentityRepository.DEFAULT_RELAYS
+        OkRelays.refusing = limited to "rate-limited: slow down"
+        OkRelays.unreachable = gone
+        try {
+            // Home's greeting, where the sync mark is, comes with a show.
+            runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>().subscribe("https://pod.test/feed.xml") }
+            rule.setContent { App() }
+            runBlocking {
+                val koin = org.koin.mp.KoinPlatform.getKoin()
+                koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
+                koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
+            }
+            val mark = hasContentDescription("Sync")
+            rule.waitUntil(10_000) { rule.onAllNodes(mark and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNode(mark and hasClickAction()).performClick()
+            runCatching { waitFor(refused) }.onFailure { error("no refusal on the sheet: ${screen()}") }
+            check(has(unreachable)) { "no line for the relay out of reach: ${screen()}" }
+            check(has(limited.removePrefix("wss://"))) { "the relay not named: ${screen()}" }
+            shoot("failed")
+            rule.onNode(hasText(limited.removePrefix("wss://")) and hasClickAction(), useUnmergedTree = false).performClick()
+            waitFor(reply)
+            check(has("rate-limited: slow down")) { "not in its own words: ${screen()}" }
+            check(has(keyring)) { "not per document: ${screen()}" }
+            shoot("relay")
+        } finally {
+            OkRelays.refusing = null
+            OkRelays.unreachable = null
+        }
+    }
+
+    /** Each window as it is drawn — a sheet is one of its own (captureToImage waits on a popup forever). */
+    private fun shoot(what: String) {
+        java.io.File("build/sync-sheet").mkdirs()
+        val name = "${java.util.Locale.getDefault().language}-$what"
+        val global = Class.forName("android.view.WindowManagerGlobal").getMethod("getInstance").invoke(null)
+        @Suppress("UNCHECKED_CAST")
+        val views = global.javaClass.getDeclaredField("mViews").apply { isAccessible = true }.get(global) as List<android.view.View>
+        rule.runOnIdle {
+            views.forEachIndexed { i, v ->
+                val bitmap = android.graphics.Bitmap.createBitmap(v.width.coerceAtLeast(1), v.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+                v.draw(android.graphics.Canvas(bitmap))
+                java.io.FileOutputStream("build/sync-sheet/$name-$i.png").use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        }
+    }
+
     /** Device feedback 2026-10-17: a long greeting shrinks to one line instead of running off. */
     @Test @Config(qualifiers = "en-w360dp-h800dp")
     fun aLongGreetingFitsOneLine() {
