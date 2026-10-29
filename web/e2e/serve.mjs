@@ -3,12 +3,40 @@
 // (cert.pem, key.pem), and the feed proxy (127.0.0.1:8643) passed through under /feed-proxy/ —
 // an iPhone reaches neither the Mac's 127.0.0.1 nor plain HTTP from an HTTPS page. Local work
 // only: none of the headers of ADR 0022, 7, and the proxy shares the page's origin here.
-import http from 'node:http'; import https from 'node:https'; import fs from 'node:fs'; import path from 'node:path';
+// Compressed and cached as a real server would (maintainer 2026-10-29: 20 MB sent uncompressed
+// at every start made the iPhone's measurement one of the Wi-Fi): Brotli or gzip, the hashed
+// files kept for good, the others asked again with their ETag.
+import http from 'node:http'; import https from 'node:https'; import fs from 'node:fs'; import path from 'node:path'; import zlib from 'node:zlib';
 const args = process.argv.slice(2);
 const lan = args.includes('--lan');
 const [dir, port] = [args[0], +args[1] || 8642];
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json',
   '.map': 'application/json', '.xml': 'application/xml', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.md': 'text/plain' };
+
+const packed = new Map(); // path → { tag, br, gz }, made once per build
+const hashed = /\/[0-9a-f]{20}\.(wasm|js)$/;
+
+function send(req, res, f, b) {
+  const st = fs.statSync(f);
+  const tag = `"${st.size.toString(16)}-${st.mtimeMs.toString(16)}-${b.length.toString(16)}"`;
+  const headers = { 'content-type': types[path.extname(f)] || 'application/octet-stream', etag: tag, vary: 'accept-encoding',
+    'cache-control': hashed.test(f) ? 'public, max-age=31536000, immutable' : 'no-cache' };
+  if (req.headers['if-none-match'] === tag) { res.writeHead(304, headers); return res.end(); }
+  const accept = String(req.headers['accept-encoding'] || '');
+  if (b.length > 1024 && /\.(wasm|js|html|json|xml|ttf|svg|txt|map)$/.test(f)) {
+    let p = packed.get(f);
+    if (!p || p.tag !== tag) packed.set(f, p = { tag });
+    if (/\bbr\b/.test(accept)) {
+      p.br ??= zlib.brotliCompressSync(b, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 } });
+      res.writeHead(200, { ...headers, 'content-encoding': 'br' }); return res.end(p.br);
+    }
+    if (/\bgzip\b/.test(accept)) {
+      p.gz ??= zlib.gzipSync(b, { level: 9 });
+      res.writeHead(200, { ...headers, 'content-encoding': 'gzip' }); return res.end(p.gz);
+    }
+  }
+  res.writeHead(200, headers); res.end(b);
+}
 
 function handler(req, res) {
   const p0 = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -25,8 +53,7 @@ function handler(req, res) {
     if (e) { res.writeHead(404); return res.end('404'); }
     // On the LAN the proxy is this origin's /feed-proxy/.
     if (lan && p.endsWith('index.html')) b = Buffer.from(String(b).replace(/(name="hopp-feed-proxy" content=")[^"]*"/, '$1feed-proxy/"'));
-    res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream', 'cache-control': 'no-store' });
-    res.end(b);
+    send(req, res, f, b);
   });
 }
 

@@ -362,7 +362,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     Spacer(Modifier.height(16.dp))
                     details(false)
                 } else Column(Modifier.fillMaxWidth().fillMaxHeight().wrapContentWidth().widthIn(max = 560.dp)) {
-                    cover(Modifier.fillMaxWidth().aspectRatio(1f))
+                    // As wide as the screen where the height allows, smaller where it does not: in
+                    // Safari on an iPhone 12 mini its bars leave so little that the value bar was
+                    // squeezed unreadable under a full-width cover (maintainer 2026-10-29).
+                    Box(Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                    }
                     Spacer(Modifier.height(16.dp))
                     details(false)
                 }

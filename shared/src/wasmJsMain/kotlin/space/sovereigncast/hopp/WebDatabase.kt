@@ -8,6 +8,7 @@ import app.cash.sqldelight.driver.worker.WebWorkerDriver
 import org.w3c.dom.Worker
 import space.sovereigncast.hopp.db.HoppDatabase
 
+private fun dbMark(name: String): Unit = js("{ try { performance.mark(name); } catch (e) {} }")
 private fun sqliteWorker(): Worker = js("""new Worker(new URL("./sqlite.worker.js", import.meta.url), { type: "module" })""")
 // Named, so the worker knows before it opens anything (sqlite.worker.js).
 private fun tabOnlyWorker(): Worker = js("""new Worker(new URL("./sqlite.worker.js", import.meta.url), { type: "module", name: "hopp-tab-only" })""")
@@ -22,7 +23,9 @@ private fun tabOnlyWorker(): Worker = js("""new Worker(new URL("./sqlite.worker.
 suspend fun openWebDatabase(tabOnly: Boolean = false): SqlDriver {
     val driver = SerialDriver(WebWorkerDriver(if (tabOnly) tabOnlyWorker() else sqliteWorker()))
     val schema = HoppDatabase.Schema
+    dbMark("hopp:db-worker-start")
     val version = driver.executeQuery(null, "PRAGMA user_version", { c -> QueryResult.AsyncValue { if (c.next().await()) c.getLong(0) ?: 0L else 0L } }, 0).await()
+    dbMark("hopp:db-ready")
     when {
         version == 0L -> schema.awaitCreate(driver)
         version < schema.version -> schema.awaitMigrate(driver, version, schema.version)

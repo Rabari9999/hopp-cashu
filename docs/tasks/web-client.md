@@ -57,6 +57,18 @@ How to run and check it: [web/README.md](../../web/README.md).
 - [ ] **The two checks left from W1, on a real iPhone** (maintainer): start
       time in Safari and from the home screen, first visit and from cache;
       a VoiceOver pass over the tour and one list.
+      First round (2026-10-29, iPhone 12 mini): 5–6 s to the first screen, in
+      Safari and from the home screen — over the 4 s of ADR 0022, 11.4;
+      playback and background playback work; the player's value bar was
+      squeezed unreadable in Safari's short window. Done since: the cover
+      gives way to the controls; a splash (the Hopp symbol, drawn by the
+      browser at once) until the first frame; the local server sends Brotli
+      (19.6 → 5.6 MB) and lets the browser keep the hashed files; the
+      database worker no longer spends a second retrying where OPFS is
+      missing; `performance.mark`s per stage (`hopp:main` … `hopp:first-frame`,
+      `web/e2e/startup.mjs`). WebKit on the Mac with OPFS: 0.6 s to the first
+      screen. To measure again on the iPhone, with the stages from Safari's
+      Web Inspector. VoiceOver still open.
 - [x] "This is not my device" at sign-in: the database copied into the
       worker's memory and its OPFS files deleted, the secrets kept in memory
       and their IndexedDB store deleted; a reload in that tab starts in
@@ -70,6 +82,16 @@ How to run and check it: [web/README.md](../../web/README.md).
       Hopp's own language choice; "Save audio file"; a crash on a show with
       tabs (an empty tab label used twice as the pager's key).
 - [ ] WebKit in the browser checks (Playwright's WebKit build).
+- [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): after any
+      item of a dropdown menu (an episode's "More") the menu is gone from the
+      screen, but Compose's accessibility layer in the browser still holds its
+      items, and presses there reach nothing until the page is reloaded; a
+      mouse or finger still works. On a fuller Home after a reload, a press on
+      the mirrored "Settings" button opened "Customize Home" instead. Compose
+      Multiplatform's web accessibility (1.11.1), to report or work around;
+      the VoiceOver pass will show how it is there. Until then `run.mjs` is
+      red from its language check on, its later steps reaching the wrong
+      pages (each of them passes alone).
 
 ## Not in 0.3.2
 

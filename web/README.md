@@ -72,6 +72,10 @@ open "$(mkcert -CAROOT)"   # AirDrop rootCA.pem to the iPhone, install the profi
 ```
 
 Then `scripts/web-dev.sh --lan` and open the address it prints in Safari.
+The start's stages are performance marks: with the iPhone connected, Safari on
+the Mac → Develop → the iPhone → the page, and in its console
+`performance.getEntriesByType('mark').map(m => m.name + ' ' + Math.round(m.startTime))`.
+On the Mac, `node web/e2e/startup.mjs webkit` prints the same.
 Measure there (ADR 0022, 11.4): the time to the first screen, first visit and
 again from the cache, in Safari and added to the home screen; and a VoiceOver
 pass over the tour and one list.

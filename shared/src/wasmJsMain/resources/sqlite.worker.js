@@ -22,13 +22,17 @@ const ready = (async () => {
     return;
   }
   // One worker holds the pool's file handles; a worker just terminated (a
-  // reload, another tab closing) may still hold them for a moment.
-  for (let attempt = 0; attempt < 10 && !db; attempt++) {
+  // reload, another tab closing) may still hold them for a moment: asked again
+  // then. Any other failure — no OPFS for this page (WebKit without persistent
+  // storage, a private window) — is asked again once only, not for a second.
+  for (let attempt = 0, tries = 10; attempt < tries && !db; attempt++) {
     try {
       pool = await sqlite3.installOpfsSAHPoolVfs({ name: "hopp" });
       db = new pool.OpfsSAHPoolDb("/hopp.db");
       storage = "opfs-sahpool";
     } catch (e) {
+      const held = e && (e.name === "NoModificationAllowedError" || e.name === "InvalidStateError");
+      if (!held) tries = Math.min(tries, 2);
       await new Promise((r) => setTimeout(r, 100));
     }
   }

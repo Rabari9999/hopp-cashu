@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import kotlinx.browser.document
@@ -42,6 +44,10 @@ private fun wipeIfMarked(): Promise<JsBoolean> = js("""(async () => {
   return true;
 })()""")
 
+// Where the start's time goes, for the browser's developer tools (Performance, User Timing).
+private fun mark(name: String): Unit = js("{ try { performance.mark(name); } catch (e) {} }")
+private fun hideSplash(): Unit = js("""{ const s = document.getElementById('hopp-splash'); if (s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 250); } }""")
+
 // A tab that keeps nothing stored nothing: a reload starts it afresh, and what is stored in the
 // browser — another listener's — stays.
 internal fun wipeOnNextStart() = if (tabOnlyMarked()) reload() else markWipe()
@@ -49,20 +55,31 @@ internal fun wipeOnNextStart() = if (tabOnlyMarked()) reload() else markWipe()
 /** Hopp in the browser (ADR 0022, stage W2): the database first, then the app as on the phone. */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    mark("hopp:main")
     MainScope().launch {
         if (!holdTabLock().await<JsBoolean>().toBoolean()) return@launch showOtherTab()
+        mark("hopp:tab-lock")
         wipeIfMarked().await<JsBoolean>()
+        mark("hopp:wipe-checked")
         // "This is not my device", chosen earlier in this tab: nothing opened that is stored.
         val tabOnly = tabOnlyMarked()
         val driver = openWebDatabase(tabOnly)
+        mark("hopp:database")
         // Without IndexedDB (some private windows) secrets live for this tab only.
         val secrets: SecretStore = if (tabOnly) MemorySecretStore() else try { WebSecretStore.open() } catch (e: Throwable) { MemorySecretStore() }
         applyChosenLanguage()
         startKoin { modules(sharedModule(WebPlatform(driver, secrets))) }
         val actions = WebPlatformActions(WebTabOnly(driver, secrets, tabOnly))
+        mark("hopp:compose")
         ComposeViewport(document.body!!) {
             App(actions)
             FallbackFonts()
+            LaunchedEffect(Unit) {
+                // The first frame draws before the strings and fonts are in: the splash stays a frame longer.
+                withFrameNanos {}; withFrameNanos {}
+                mark("hopp:first-frame")
+                hideSplash()
+            }
         }
     }
 }
