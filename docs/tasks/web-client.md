@@ -83,16 +83,22 @@ How to run and check it: [web/README.md](../../web/README.md).
       Hopp's own language choice; "Save audio file"; a crash on a show with
       tabs (an empty tab label used twice as the pager's key).
 - [ ] WebKit in the browser checks (Playwright's WebKit build).
-- [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): after any
-      item of a dropdown menu (an episode's "More") the menu is gone from the
-      screen, but Compose's accessibility layer in the browser still holds its
-      items, and presses there reach nothing until the page is reloaded; a
-      mouse or finger still works. On a fuller Home after a reload, a press on
-      the mirrored "Settings" button opened "Customize Home" instead. Compose
-      Multiplatform's web accessibility (1.11.1), to report or work around;
-      the VoiceOver pass will show how it is there. Until then `run.mjs` is
-      red from its language check on, its later steps reaching the wrong
-      pages (each of them passes alone).
+- [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): two
+      faults in Compose Multiplatform's web accessibility, 1.11.1 and still
+      1.12.2 (`ComposeWebSemanticsListener`). It mirrors one semantics owner
+      at a time: a menu or dialog becomes the one, and when it closes the
+      owner is set to none instead of back to the app's — the mirror for
+      screen readers freezes until the page is reloaded (a mouse or finger
+      still works). And each mirrored node listens for clicks itself, so a
+      click on a button inside a row bubbles up and runs the row's action
+      too ("More" opened the episode). 1.13.0-beta01 (2026-10-23) fixes
+      both: every owner mirrored, modal ones making the rest inert, and one
+      delegated click listener acting on the event's target only. Tried
+      locally the same day: it needs Kotlin 2.4.20+ and `hopp.js` loaded as
+      a module, and then the app threw `NoSuchElementException` early and
+      most checks failed — an upgrade of its own, once 1.13 is stable, not
+      for 0.3.2. Until then `run.mjs` is red from its language check on;
+      each later step passes alone.
 
 ## Not in 0.3.2
 
