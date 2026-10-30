@@ -93,6 +93,55 @@ class SyncAuditTest {
 
     private fun Event.d() = tags.firstOrNull { it.size >= 2 && it[0] == "d" }?.get(1)
 
+    /** The maintainer's relays on 2026-10-30, two answering: an old version whole on one, its first two parts
+     *  only on the other; a newer, larger one cut off after its second part on both; nothing kept of it. */
+    @Test
+    fun theMaintainersCutOffVersionIsWrittenOverAfterTenMinutes() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.down += relays[2]
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(400) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.getValue(relays[1]).refuse = { partNo(it) >= 3 }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        phone.ms += 2.minutes.inWholeMilliseconds
+        repeat(160) { phone.record("n$it", blob) }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 3 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+
+        phone.ms += 1_000
+        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc))
+        phone.ms += 4.minutes.inWholeMilliseconds
+        val repaired = phone.engine.sync(phone.doc)
+        assertIs<SyncOutcome.Done>(repaired, "repaired: $repaired")
+    }
+
+    /** "Write anew from this device" on the sync page: at once, whatever the read found. */
+    @Test
+    fun theListenerHasAPartReadDocumentWrittenAnewAtOnce() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 2 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(tablet.doc, interactive = true))
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, rewrite = true))
+        // The phone's entries the missing parts held come back from the phone.
+        phone.ms = tablet.ms + 1_000
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        val third = Device(relays).also { it.ms = phone.ms + 1_000 }
+        assertIs<SyncOutcome.Done>(third.engine.sync(third.doc, interactive = true))
+        assertEquals(100, third.doc.applied.size)
+    }
+
     // ── H-01 ────────────────────────────────────────────────────────────────
 
     /** A keyring the relays lost but for one, and that one down, with only one other answering:

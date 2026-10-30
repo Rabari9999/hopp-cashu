@@ -196,7 +196,11 @@ class SyncManager(
     /** A round, every relay on one connection ([withRelayPool]): many short ones were turned away (device check 2026-10-23). */
     suspend fun syncNow(interactive: Boolean = false): SyncStatus = withRelayPool { syncNowInPool(interactive) }
 
-    private suspend fun syncNowInPool(interactive: Boolean = false): SyncStatus = round.withLock {
+    /** A round in which [doc], read in part, is written anew whole from this device — the listener's word
+     *  on the sync page (maintainer 2026-10-30: "Incomplete" for good, nothing to be done). */
+    suspend fun rewrite(doc: String): SyncStatus = withRelayPool { syncNowInPool(interactive = true, rewrite = doc) }
+
+    private suspend fun syncNowInPool(interactive: Boolean = false, rewrite: String? = null): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
         _status.value = _status.value.copy(running = true)
         try {
@@ -219,7 +223,7 @@ class SyncManager(
                 // A setting synced only since an update joins as at turning sync on: where the relays have nothing.
                 if (doc.name == SyncDocs.SETTINGS) store.entries(doc.name).let { known -> store.seed(doc.name, doc.snapshot().filterKeys { it !in known }) }
                 log.area = doc.name
-                when (val outcome = engine.sync(doc, interactive)) {
+                when (val outcome = engine.sync(doc, interactive, rewrite = doc.name == rewrite)) {
                     is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
                     is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
                     else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }

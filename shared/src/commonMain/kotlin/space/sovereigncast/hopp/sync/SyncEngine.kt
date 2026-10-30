@@ -45,8 +45,9 @@ sealed interface SyncOutcome {
      *  entries from elsewhere not applicable yet (a feed out of reach) — tried again next time. */
     data class Done(val applied: Int, val published: Boolean, val pending: Int = 0) : SyncOutcome
     /** The relays gave the document only in part: [applied] of it taken, nothing sent (audit 2026-10-22, H-02). */
-    /** [doc]: which document came in part (the sync page's report names it). */
-    data class Incomplete(val applied: Int, val doc: String? = null) : SyncOutcome
+    /** [doc]: which document came in part (the sync page's report names it); [found]: what the read
+     *  found, and [rewriteInMs] how long until a gap that stays is written over, for the report. */
+    data class Incomplete(val applied: Int, val doc: String? = null, val found: String? = null, val rewriteInMs: Long? = null) : SyncOutcome
     data object NoIdentity : SyncOutcome
     /** The signer app would have to ask the listener — sync waits for the app to be open. */
     data object WaitsForSigner : SyncOutcome
@@ -73,7 +74,7 @@ class SyncEngine(
 
     /** One round for [doc]. What this device had when sync was turned on without a time (settings, the
      *  queue's order) waits in the store as seeds ([SyncStore.seed]), taken only where the relays have nothing. */
-    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false): SyncOutcome = lock.withLock {
+    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false, rewrite: Boolean = false): SyncOutcome = lock.withLock {
         if (identity.identity.value == null) return SyncOutcome.NoIdentity
         try {
             // A first keyring only with the listener there — never from a round in the background (audit 2026-10-22, H-01).
@@ -91,11 +92,15 @@ class SyncEngine(
             // 2026-10-30: a version cut off by a relay slowing down, left before Hopp kept which).
             var repair = fetched is Fetched.Incomplete && fetched.settled &&
                 (fetched.stale || (fetched.newestRev != null && fetched.newestRev == store.brokenRev(doc.name)))
+            var rewriteIn: Long? = null
             if (fetched is Fetched.Incomplete && fetched.settled && !repair && fetched.newestRev != null) {
                 val (rev, since) = store.stuck(doc.name)
                 if (rev == fetched.newestRev && since != null) repair = now - since >= STUCK_FOR.inWholeMilliseconds
                 else store.markStuck(doc.name, fetched.newestRev, now)
+                if (!repair) rewriteIn = STUCK_FOR.inWholeMilliseconds - (now - (since?.takeIf { rev == fetched.newestRev } ?: now))
             }
+            // The listener's own word on the sync page: this device's copy, whole, over whatever came in part.
+            if (fetched is Fetched.Incomplete && rewrite) repair = true
             if (fetched is Fetched.Complete) store.markStuck(doc.name, null, null)
             val (read, notBefore) = when (fetched) {
                 is Fetched.Complete -> fetched.entries to fetched.newestAt
@@ -130,7 +135,7 @@ class SyncEngine(
             hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
             repair(doc, now, skip = merged.fromThem.keys)
-            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name)
+            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name, fetched.found, rewriteIn)
             store.markFetched(doc.name, nowMs())
             // The gap goes under a whole version, even when the relays lack nothing of ours.
             val publish = merged.theyLack || repair || compact
@@ -303,7 +308,7 @@ class SyncEngine(
         val MAX_AHEAD = 1.days
         /** How long a gap must stay, every relay answering, before it is written over though no one
          *  here knows who left it: a relay holding back a part for a moment still stops the round (HN-02). */
-        val STUCK_FOR = 10.minutes
+        val STUCK_FOR = 3.minutes
         /** This many covered entries on the relays: a smaller version goes out though nothing changed. */
         const val COMPACT_AT = 50
         private const val REASSERT_TRIES = 3

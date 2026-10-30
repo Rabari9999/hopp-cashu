@@ -75,6 +75,8 @@ sealed interface Fetched {
     data class Incomplete(
         val entries: Map<String, SyncEntry>, val newestAt: Long, val settled: Boolean = false,
         val newestRev: String? = null, val stale: Boolean = false, val all: Map<String, SyncEntry> = entries,
+        /** For the report: what the read found, in words (maintainer 2026-10-30: "Incomplete" for good, why not said). */
+        val found: String = "",
     ) : Fetched
     /** Too few relays answered to tell: [answered] of [asked]. */
     data class Unknown(val answered: Int, val asked: Int) : Fetched

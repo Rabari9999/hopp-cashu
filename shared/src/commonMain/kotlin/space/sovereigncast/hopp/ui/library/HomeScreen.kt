@@ -165,7 +165,7 @@ fun HomeScreen(
         val syncStatus by vm.syncStatus.collectAsState()
         var syncOpen by remember { mutableStateOf(false) }
         syncStatus?.takeIf { syncOpen }?.let { st ->
-            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }) { syncOpen = false }
+            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }, onRewrite = vm::rewrite) { syncOpen = false }
         }
         var allActions by remember { mutableStateOf(false) }
         LazyColumn {

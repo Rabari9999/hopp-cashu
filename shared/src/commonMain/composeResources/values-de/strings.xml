@@ -978,6 +978,9 @@
     <string name="sync_area_settings">Einstellungen</string>
     <string name="sync_area_stats">Statistik</string>
     <string name="sync_area_keyring">Sync-Schlüssel</string>
+    <string name="sync_rewrite">„%1$s“ von diesem Gerät neu schreiben</string>
+    <string name="sync_rewrite_in">%1$s: Hopp schreibt es in %2$d Min. selbst neu.</string>
+    <string name="sync_rewrite_note">Die Relays haben nur einen Teil davon. Neu geschrieben aus dem, was dieses Gerät hat und was angekommen ist; was nur in den fehlenden Teilen stand, kommt zurück, sobald das Gerät, das es hat, abgleicht.</string>
     <string name="sync_relay_reply">Antwort des Relays</string>
     <string name="sync_relay_rounds">Letzte Runden</string>
     <string name="sync_hint_rate">Begrenzt, wie viel es annimmt. Meist vorübergehend: später erneut versuchen.</string>

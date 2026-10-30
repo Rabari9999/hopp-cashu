@@ -637,7 +637,7 @@ switches.
      version 18), or when every missing part is there in an older version
      only (a relay that had taken the newer one would hold it instead). A
      part that is simply missing still stops the round: a relay may hold it
-     and not have given it (HN-02) — for ten minutes: a gap every relay has
+     and not have given it (HN-02) — for three minutes (ten at first): a gap every relay has
      shown that long, the same revision each time, is written over too
      (`sync_doc.stuck_rev`/`stuck_since`, version 19). The revision a device
      sends is kept *before* its first part goes and cleared once all went, so
@@ -659,6 +659,13 @@ switches.
      the relays a smaller version goes out though nothing changed. A Hopp
      before 0.3.2 puts its copies back when it sends; 0.3.2 drops them again.
      Tests: `ProgressSyncTest`.
+   - **"Write anew from this device"** on the sync page, under a document
+     read in part: this device's copy, with all that arrived, whole, at once
+     — the listener's word over the wait; what only the missing parts held
+     comes back when the device that has it syncs. The page says when Hopp
+     would do it by itself, and the report what the read found (which parts
+     of the newest version, how many relays answered), with names that a
+     release build does not shorten.
 
 ## Consequences
 

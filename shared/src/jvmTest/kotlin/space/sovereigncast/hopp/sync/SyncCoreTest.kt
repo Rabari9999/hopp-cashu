@@ -297,7 +297,7 @@ class SyncCoreTest {
      * for [SyncEngine.STUCK_FOR].
      */
     @Test
-    fun aGapEveryRelayShowsForTenMinutesIsWrittenOver() = runBlocking<Unit> {
+    fun aGapEveryRelayShowsForAFewMinutesIsWrittenOver() = runBlocking<Unit> {
         val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
         val phone = Device(nsec)
         val doc = MemoryDocument()
@@ -315,10 +315,13 @@ class SyncCoreTest {
         val tablet = Device(nsec)
         tablet.ms = phone.ms + 2_000
         val other = MemoryDocument()
-        assertEquals(SyncOutcome.Incomplete(other.applied.size, "test").doc, (tablet.engine.sync(other, interactive = true) as SyncOutcome.Incomplete).doc)
-        tablet.ms += 5 * 60_000
+        val first = tablet.engine.sync(other, interactive = true) as SyncOutcome.Incomplete
+        assertEquals("test", first.doc)
+        assertEquals(SyncEngine.STUCK_FOR.inWholeMilliseconds, first.rewriteInMs, "the sync page says when")
+        assertTrue(first.found.orEmpty().startsWith("newest version: parts 1,2 of "), first.found)
+        tablet.ms += 60_000
         assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(other))
-        tablet.ms += 6 * 60_000
+        tablet.ms += 3 * 60_000
         assertIs<SyncOutcome.Done>(tablet.engine.sync(other))
         // Whole again: the phone reads it complete, and sends what it alone still had.
         phone.ms = tablet.ms + 2_000

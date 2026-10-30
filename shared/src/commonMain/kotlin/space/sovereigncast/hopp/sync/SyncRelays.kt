@@ -78,7 +78,17 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val p = parts[n] ?: return@all false
             p.rev == first.rev || newest.getValue(n).created_at < root.created_at
         }
-        return Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at, settled = majority, newestRev = newestRev, stale = stale, all = SyncCodec.joinAll(parts))
+        val unread = newest.keys - parts.keys
+        val ofNewest = parts.filterValues { it.rev == newestRev }.keys.sorted()
+        val found = buildString {
+            append("newest version: parts ${ofNewest.joinToString(",").ifEmpty { "none" }} of ${parts.values.firstOrNull { it.rev == newestRev }?.parts ?: "?"}")
+            append("; first part ${if (first == null) "missing" else "of ${if (first.rev == newestRev) "it" else "an older one"}"}")
+            (parts.keys - ofNewest).takeIf { it.isNotEmpty() }?.let { append("; older parts ${it.sorted().joinToString(",")}") }
+            if (unread.isNotEmpty()) append("; unreadable ${unread.sorted().joinToString(",")}")
+            if (later) append("; a later part than the first")
+            append("; read to the end by ${got.answered} of ${got.asked}")
+        }
+        return Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at, settled = majority, newestRev = newestRev, stale = stale, all = SyncCodec.joinAll(parts), found = found)
     }
 
     /**

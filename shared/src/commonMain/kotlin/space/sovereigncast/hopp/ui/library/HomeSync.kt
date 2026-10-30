@@ -98,7 +98,7 @@ private fun look(status: SyncStatus): Look = when {
 /** What the last round came to — only what matters, no explanations. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: () -> Unit, onDismiss: () -> Unit) {
+internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: () -> Unit, onRewrite: (String) -> Unit = {}, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val problem = status.problem
     // Each relay after every round (maintainer 2026-10-29: two of three went through and the third's reason was
@@ -173,6 +173,18 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                 }
             }
             if (failing && status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            // A document the relays hold only in part (maintainer 2026-10-30: "Incomplete" for good): when Hopp
+            // writes it anew by itself, and the way to have it done now, from what this device has.
+            (problem as? SyncOutcome.Incomplete)?.doc?.takeIf { it in AREAS }?.let { doc ->
+                val name = areaName(doc)
+                problem.rewriteInMs?.let { ms ->
+                    Text(stringResource(Res.string.sync_rewrite_in, name, ((ms + 59_999) / 60_000).coerceAtLeast(1)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                }
+                Text(stringResource(Res.string.sync_rewrite_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                OutlinedButton(onClick = { onRewrite(doc) }, enabled = !status.running, modifier = Modifier.fillMaxWidth().height(48.dp), contentPadding = inside) {
+                    FittingLine(stringResource(Res.string.sync_rewrite, name), label, min = 11.sp)
+                }
+            }
             if (rounds.isNotEmpty()) {
                 val report = report(status, nowMs)
                 TextButton(onClick = { actions.copyText(report, "Hopp sync") }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -352,8 +364,22 @@ private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${ms / 1000},${(m
 /** The round in plain text, to pass on when asking for help: technical, not translated. */
 private fun report(status: SyncStatus, nowMs: Long): String = buildString {
     appendLine("Hopp sync, ${(nowMs - (status.lastSyncedMs ?: nowMs)) / 60_000} min since the last full round")
-    status.problem?.let { appendLine("Problem: ${it::class.simpleName}" + ((it as? SyncOutcome.Failed)?.error?.message?.let { m -> " – $m" } ?: "") +
-        ((it as? SyncOutcome.Incomplete)?.doc?.let { d -> " – $d" } ?: "")) }
+    // Names of its own: a release build shortens class names ("w77", maintainer 2026-10-30).
+    status.problem?.let { p ->
+        val kind = when (p) {
+            is SyncOutcome.Incomplete -> "Incomplete"
+            is SyncOutcome.Failed -> "Failed"
+            SyncOutcome.WaitsForSigner -> "Waits for the signer"
+            SyncOutcome.NeedsUpdate -> "Needs a newer Hopp"
+            SyncOutcome.NoIdentity -> "No identity"
+            else -> "Other"
+        }
+        appendLine("Problem: $kind" + ((p as? SyncOutcome.Failed)?.error?.let { e -> " – " + (e.message ?: "error") } ?: ""))
+        (p as? SyncOutcome.Incomplete)?.let { i ->
+            appendLine("  document: ${i.doc ?: "?"}" + (i.rewriteInMs?.let { ms -> ", written anew in ${(ms + 59_999) / 60_000} min" } ?: ""))
+            i.found?.takeIf { it.isNotBlank() }?.let { appendLine("  read: $it") }
+        }
+    }
     status.relayRounds.forEach { r ->
         appendLine("${host(r.url)}: ${text(r.worst)}")
         (r.reads.keys + r.sends.keys).forEach { area -> appendLine("  $area: read ${r.reads[area]?.let(::text) ?: "–"}, send ${r.sends[area]?.let(::text) ?: "–"}") }
