@@ -60,6 +60,9 @@ class WalletRepository(
     private val timeout: Duration = 45.seconds,
     /** How long a balance question waits: a wallet that answers at all does so in seconds. */
     private val balanceTimeout: Duration = 15.seconds,
+    /** False where no wallet may be kept (the browser until ADR 0022, 4's stage W5): nothing is
+     *  stored or loaded, and a connection kept before is deleted (maintainer 2026-10-30). */
+    private val enabled: Boolean = true,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -69,7 +72,10 @@ class WalletRepository(
     private val _wallet = MutableStateFlow(load())
     val wallet: StateFlow<ConnectedWallet?> = _wallet.asStateFlow()
 
-    private fun load(): ConnectedWallet? = try {
+    private fun load(): ConnectedWallet? = if (!enabled) {
+        runCatching { secrets.put(URI, null); secrets.put(INFO, null) }
+        null
+    } else try {
         if (secrets.get(URI) == null) null
         else secrets.get(INFO)?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() } ?: ConnectedWallet()
     } catch (e: SecretUnreadable) {
@@ -78,6 +84,7 @@ class WalletRepository(
     }
 
     fun client(wait: Duration = timeout): WalletClient? {
+        if (!enabled) return null
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
         return NwcClient(connection, connector, { clock.now() }, wait)
     }
@@ -85,6 +92,7 @@ class WalletRepository(
     /** Checks the string, asks the wallet what it can, and only then keeps it.
      *  Throws with the reason when either fails — nothing is stored then. */
     suspend fun connect(uri: String): ConnectedWallet {
+        check(enabled) { "no wallet is kept here" }
         if (_unreadable.value) throw SecretUnreadable(URI)
         val connection = NwcConnection.parse(uri)
         val client = NwcClient(connection, connector, { clock.now() }, 20.seconds)

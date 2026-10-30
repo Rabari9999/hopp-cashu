@@ -50,6 +50,8 @@ private val LANGUAGES = mapOf("en" to "English", "de" to "Deutsch")
  *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */
 class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformActions {
     override val canDownload: Boolean get() = false
+    // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
+    override val canPay: Boolean get() = false
     override val canSaveAudio: Boolean get() = true
     override fun saveAudio(url: String, name: String) = saveLink(url, name)
     // Kept in localStorage and taken in by a reload, which a tab that keeps nothing does not survive.

@@ -151,6 +151,7 @@
     <string name="wallet_rate_value">%1$d sats/min</string>
     <string name="wallet_name">Your name in boosts (optional)</string>
     <string name="wallet_history">Payment history</string>
+    <string name="wallet_not_here">No wallet in the browser yet. Boosts, streaming sats and zaps work in the Hopp app.</string>
     <string name="settings_wallet">Wallet &amp; payments</string>
     <string name="history_empty">No payments yet</string>
     <string name="history_empty_text">Boosts and streamed sats appear here.</string>

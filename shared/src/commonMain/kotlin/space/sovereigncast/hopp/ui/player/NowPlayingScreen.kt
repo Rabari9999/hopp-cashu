@@ -308,9 +308,9 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 SleepButton(sleep) { showSleep = true }
             }
 
-            // Value bar (ADR 0019): boost and streaming.
+            // Value bar (ADR 0019): boost and streaming — where Hopp pays at all.
             val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
-            ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
+            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
 
             Spacer(Modifier.height(12.dp))
             // One line that scrolls sideways: wrapped onto a second, the chips pushed
@@ -376,7 +376,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 
-    if (showBoost) {
+    if (showBoost && space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) {
         BoostSheet(valueVm, episode, playing.podcastTitle, position, onDismiss = { showBoost = false }, onOpenWallet = { showBoost = false; onOpenWallet() })
     }
 

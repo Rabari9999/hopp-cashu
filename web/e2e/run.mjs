@@ -78,6 +78,8 @@ await a.shot('show');
 await openEpisode(a, 'E298', 'Nodesignal-Talk - E298');
 await a.press('Play', 12_000);
 check(await a.has('Pause'), 'an episode plays');
+// No wallet in the browser yet (ADR 0022, 12): the episode of a show with a value block offers no boost.
+check(!(await a.buttons()).some(b => b.trim() === 'Boost'), 'no boost offered in the browser');
 await a.shot('playing');
 await a.press('Pause', 2000);
 

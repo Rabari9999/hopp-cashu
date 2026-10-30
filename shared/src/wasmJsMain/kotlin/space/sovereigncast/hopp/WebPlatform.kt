@@ -32,6 +32,9 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
 
     // ADR 0022, 2: only signers that keep the key — an extension (NIP-07) or a remote signer (NIP-46).
     override val keysInApp: Boolean get() = false
+    // No NWC connection in the browser until it has a passkey's protection and a budget of its own
+    // (ADR 0022, 4, stage W5; maintainer 2026-10-30): one kept before goes at the next start.
+    override val wallet: Boolean get() = false
     override suspend fun signedOut() = wipeOnNextStart()
     override fun externalSigner(): ExternalSigner = Nip07Signer()
 

@@ -93,6 +93,11 @@ How to run and check it: [web/README.md](../../web/README.md).
       the same day: an IONOS VPS, both names with Let's Encrypt
       certificates; `run.mjs --url https://play.sovereigncast.space/`
       passes as it does locally. Still `noindex`, linked nowhere.
+- [x] **No wallet in the browser yet** (maintainer 2026-10-30, ADR 0022, 12):
+      NWC was offered on the web; now off until W5, a connection kept before
+      deleted at the next start.
+- [x] Link preview (Open Graph, English) and Hopp's icon in the tab, on the
+      home screen and in a web manifest (2026-10-30).
 - [ ] WebKit in the browser checks (Playwright's WebKit build).
 - [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): two
       faults in Compose Multiplatform's web accessibility, 1.11.1 and still

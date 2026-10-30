@@ -533,7 +533,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     if (nav.currentBackStackEntry?.destination?.hasRoute(CrashRoute::class) == true) nav.popBackStack()
                                 })
                             } }
-                            composable<WalletRoute> { Readable { WalletScreen() } }
+                            composable<WalletRoute> { Readable { if (platformActions.canPay) WalletScreen() else space.sovereigncast.hopp.ui.value.WalletNotHere() } }
                             composable<HistoryRoute> { Readable { HistoryScreen() } }
                             composable<PersonRoute> { e ->
                                 val route = e.toRoute<PersonRoute>()

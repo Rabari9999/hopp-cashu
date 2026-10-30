@@ -314,6 +314,14 @@ The preparation in `shared` and stage W2 were built on branch `0.3.2`
   cost a CORS preflight per request.
 - **Fallback fonts** (subsets of Noto, OFL) for symbols and emoji, loaded
   after the first frame: Skia knows only the fonts it is given.
+- **No wallet in the browser yet** (maintainer 2026-10-30): the shared UI
+  offered NWC on the web as in the apps — against §4, which keeps NWC for W5
+  behind a passkey. `Platform.wallet` / `PlatformActions.canPay` are off on
+  the web: no connection is stored or loaded, one kept before is deleted at
+  the next start, nothing streams or settles; boosts, zaps, the wallet and
+  its history, the tour's value pages and Sovereigncast's pay buttons are
+  not shown (its cards stay, as in the App Store build). Payments come back
+  with W3 (WebLN, QR) and W5 (NWC).
 - **Its own server** (2026-10-30, `web/deploy/`): Debian 13, Caddy for both
   names, the proxy behind a Unix socket (systemd socket activation) that
   only Caddy may open, and denied every local and private address by

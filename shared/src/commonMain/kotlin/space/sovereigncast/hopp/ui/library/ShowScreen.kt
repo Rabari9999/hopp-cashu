@@ -223,7 +223,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
                         // The whole show, not one episode (device feedback 2026-10-08).
-                        if (meta?.value != null) BoostPill { boosting = true }
+                        if (meta?.value != null && LocalPlatformActions.current.canPay) BoostPill { boosting = true }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
@@ -238,7 +238,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     // to look for a boost-capable variant — only on a tap: by
                     // itself the page would tell the index about a subscription
                     // (ADR 0015; device feedback 2026-10-16, review 2026-10-19).
-                    if (meta != null && meta?.value == null) when (val alt = vm.alternative.collectAsState().value) {
+                    if (meta != null && meta?.value == null && LocalPlatformActions.current.canPay) when (val alt = vm.alternative.collectAsState().value) {
                         ShowViewModel.Alternative.NotAsked, ShowViewModel.Alternative.Searching -> Text(
                             "⚡ " + stringResource(Res.string.show_find_boostable) + if (alt == ShowViewModel.Alternative.Searching) " …" else " ›",
                             Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp))

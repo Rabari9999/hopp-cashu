@@ -32,6 +32,9 @@ play.sovereigncast.space {
 	@unhashed not path_regexp ^/[0-9a-f]{20}\.(wasm|js)$
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 	header @unhashed Cache-Control "no-cache"
+	# The link preview's image: Nostr clients and others show it from their own pages.
+	@preview path /og-image.png
+	header @preview Cross-Origin-Resource-Policy "cross-origin"
 	@manifest path *.webmanifest
 	header @manifest Content-Type "application/manifest+json"
 	# Compressed once at build time (web/deploy/build.sh), not per request.

@@ -140,6 +140,20 @@ class ValueServiceTest {
         assertTrue(stuck.connect(uri()).canPayInvoice)
     }
 
+    /** Maintainer 2026-10-30: no wallet in the browser until ADR 0022, 4's stage W5 — one
+     *  connected before is gone at the next start, a new one is refused, nothing pays. */
+    @Test
+    fun whereNoWalletIsKeptOneConnectedBeforeIsGone() = test {
+        wallet.connect(uri())
+        val web = WalletRepository(secrets, http, { now }, relay, enabled = false)
+        assertNull(web.wallet.value)
+        assertNull(web.client())
+        assertNull(secrets.get("nwc_uri"), "the spending secret deleted")
+        assertNull(secrets.get("nwc_info"))
+        assertFailsWith<IllegalStateException> { web.connect(uri()) }
+        assertNull(secrets.get("nwc_uri"))
+    }
+
     /** Security review 2026-10-20, L-4: a wallet without NIP-44 could never read a request —
      *  every payment would be an unknown outcome. Refused at connect, nothing stored. */
     @Test

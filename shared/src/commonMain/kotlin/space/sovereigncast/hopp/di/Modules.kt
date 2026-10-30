@@ -71,6 +71,9 @@ interface Platform {
     suspend fun signedOut() = Unit
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
     val keysInApp: Boolean get() = true
+    /** Whether a wallet may be connected and Hopp pay from it — not in the browser until its
+     *  wallet has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
+    val wallet: Boolean get() = true
     /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
     fun httpClient(): io.ktor.client.HttpClient = createHttpClient(app)
 }
@@ -126,7 +129,7 @@ fun sharedModule(platform: Platform) = module {
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
-    single { WalletRepository(get(), get(), get()) }
+    single { WalletRepository(get(), get(), get(), enabled = platform.wallet) }
     single { LnAddressClient(get()) }
     single { PaymentMetadataSource(get(), get()) }
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
@@ -144,7 +147,7 @@ fun sharedModule(platform: Platform) = module {
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single {
-        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<ValueService>(), listening = get())
+        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), if (platform.wallet) get<ValueService>() else null, listening = get())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
     viewModel { InboxViewModel(get(), get(), get()) }

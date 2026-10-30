@@ -199,7 +199,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                         )
                     }
                     // Boost this episode right here (device feedback 2026-10-09).
-                    if (hasValue) BoostPill { boosting = true }
+                    if (hasValue && space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) BoostPill { boosting = true }
                     // A favourite, found again on Home (device feedback 2026-10-11).
                     val actions: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()
                     IconButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); actions.setFavorite(e, !e.favorite) }) {

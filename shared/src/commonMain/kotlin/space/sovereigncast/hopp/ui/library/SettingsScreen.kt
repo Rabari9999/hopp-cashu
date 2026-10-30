@@ -124,9 +124,11 @@ fun SettingsScreen(
     val wallet by vm.walletLabel.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
         Group(stringResource(Res.string.settings_group_value))
-        Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
-            wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
-        Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+        if (LocalPlatformActions.current.canPay) {
+            Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
+                wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
+            Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+        }
         Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats)
 
         Group(stringResource(Res.string.settings_group_app))
@@ -312,10 +314,12 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         })
                     }) { v -> vm.update { set(it, v) } }
                 }
-                feedback(Res.string.settings_quick_boost_feedback, s.quickBoostFeedback) { it, v -> it.copy(quickBoostFeedback = v) }
-                feedback(Res.string.settings_boost_feedback, s.boostFeedback) { it, v -> it.copy(boostFeedback = v) }
-                feedback(Res.string.settings_zap_feedback, s.zapFeedback) { it, v -> it.copy(zapFeedback = v) }
-                Note(stringResource(Res.string.settings_boost_feedback_note))
+                if (actions.canPay) {
+                    feedback(Res.string.settings_quick_boost_feedback, s.quickBoostFeedback) { it, v -> it.copy(quickBoostFeedback = v) }
+                    feedback(Res.string.settings_boost_feedback, s.boostFeedback) { it, v -> it.copy(boostFeedback = v) }
+                    feedback(Res.string.settings_zap_feedback, s.zapFeedback) { it, v -> it.copy(zapFeedback = v) }
+                    Note(stringResource(Res.string.settings_boost_feedback_note))
+                }
                 // Each system in its own words (device feedback 2026-10-13: iOS read of Android).
                 Note(stringResource(if (app.isIos) Res.string.settings_notifications_system_ios else Res.string.settings_notifications_system))
                 OutlinedButton(onClick = { actions.openNotificationSettings() }) {

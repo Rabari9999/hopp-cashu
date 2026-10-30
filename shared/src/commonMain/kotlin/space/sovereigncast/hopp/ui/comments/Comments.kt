@@ -659,9 +659,10 @@ private fun CommentRow(
                 // Zapping it from the connected wallet (device feedback 2026-10-19) — not one's own:
                 // there the symbol shows only what others zapped.
                 val zapLabel = stringResource(Res.string.comments_zap)
-                if (c.pubkey != me || zapped > 0) Text(
+                val canZap = c.pubkey != me && actions.canPay
+                if (canZap || zapped > 0) Text(
                     "⚡" + if (zapped > 0) " ${formatSats(zapped)}" else "",
-                    Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = c.pubkey != me) { if (hasWallet) vm.openZap(c) else openWallet() }
+                    Modifier.clip(RoundedCornerShape(6.dp)).clickable(enabled = canZap) { if (hasWallet) vm.openZap(c) else openWallet() }
                         .padding(vertical = 6.dp, horizontal = 2.dp).semantics { contentDescription = zapLabel },
                     color = if (zapped > 0) Hopp.colors.valueText else colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (zapped > 0) FontWeight.Bold else null,
