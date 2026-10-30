@@ -666,6 +666,12 @@ switches.
      would do it by itself, and the report what the read found (which parts
      of the newest version, how many relays answered), with names that a
      release build does not shorten.
+   - **A smaller version leaves no large parts behind.** Passed over as
+     older, the larger one's later parts were still read every round (the
+     maintainer's progress: one part of 8 KB after the fold, 13 old ones of
+     ~700 KB beside it). Each is overwritten by an empty part of the new
+     version — same revision and time, past its part count, so every Hopp
+     passes it over — a few hundred bytes each; best effort.
 
 ## Consequences
 

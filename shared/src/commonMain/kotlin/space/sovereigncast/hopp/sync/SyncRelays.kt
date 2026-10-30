@@ -26,6 +26,8 @@ class SyncNotPublished(val took: Int = 0, val asked: Int = 0, val rev: String? =
  */
 class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: () -> Long) {
     private val lastSent = mutableMapOf<String, Long>()
+    /** The highest part number the last read of each document found — parts a smaller version leaves over. */
+    private val partsSeen = mutableMapOf<String, Int>()
 
     /** How many relays answered the last read to its end, of how many asked — for the status. */
     var lastReach: Pair<Int, Int>? = null
@@ -55,6 +57,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, events) -> events.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
         val majority = got.answered * 2 > got.asked
+        partsSeen[doc] = newest.keys.maxOrNull() ?: 0
         // Absent only with no part at all: a later part without the first is a document read in part (HN-02).
         if (newest.isEmpty()) return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
         val at = newest.values.maxOf { it.created_at }
@@ -111,6 +114,17 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             took = took?.intersect(ok) ?: ok
         }
         if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size, rev)
+        // A smaller version leaves the larger one's later parts behind, older and passed over — but read
+        // again every round (maintainer 2026-10-30: ~700 KB of them after the progress shrank to 8 KB).
+        // Each overwritten by an empty part of this version, a few hundred bytes: past its part count,
+        // every Hopp passes it over. Best effort: one not taken is just read as before.
+        for (n in parts.size + 1..(partsSeen[doc] ?: 0).coerceAtMost(SyncCodec.MAX_PARTS)) {
+            delay(PART_PAUSE)
+            val empty = SyncCodec.Part(SyncCodec.VERSION, rev, n, parts.size)
+            val event = signer.sign(UnsignedEvent(Nip78.KIND, signer.encryptToSelf(SyncCodec.encode(empty)), listOf(listOf("d", SyncCodec.dTag(doc, n))), now))
+            runCatching { publisher.publish(event, relays) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        }
+        partsSeen[doc] = parts.size
         return took
     }
 

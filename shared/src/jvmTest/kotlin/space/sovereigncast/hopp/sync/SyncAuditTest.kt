@@ -119,6 +119,27 @@ class SyncAuditTest {
         assertIs<SyncOutcome.Done>(repaired, "repaired: $repaired")
     }
 
+    /** Maintainer 2026-10-30: progress shrank to one part of 8 KB, and 13 old parts of ~700 KB stayed and were
+     *  read every round. A smaller version overwrites the larger one's later parts with empty ones. */
+    @Test
+    fun aSmallerVersionLeavesNoLargePartsBehind() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        phone.engine.sync(phone.doc, interactive = true)
+        assertTrue(relays.all().any { it.d() == "hopp/test#3" }, "the test needs three parts")
+        phone.doc.expire = { it != "k0" }
+        phone.change("k0", "small")
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        // As a relay keeps them: the newest per part (NIP-01, replaceable by its d tag).
+        val later = relays.all().filter { it.d()?.startsWith("hopp/test#") == true }.groupBy { it.d() }.values.map { v -> v.maxBy { it.created_at } }
+        assertTrue(later.size == 2 && later.all { it.content.length < 1_000 }, "parts 2 and 3 small now: ${later.map { it.content.length }}")
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, interactive = true))
+        assertEquals(setOf("k0"), tablet.doc.applied.keys)
+    }
+
     /** "Write anew from this device" on the sync page: at once, whatever the read found. */
     @Test
     fun theListenerHasAPartReadDocumentWrittenAnewAtOnce() = runBlocking<Unit> {
