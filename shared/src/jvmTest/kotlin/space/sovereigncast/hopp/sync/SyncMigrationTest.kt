@@ -18,8 +18,15 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
-    /** Version 17 from the current schema: no revision kept that failed to go out whole. */
+    /** Version 18 from the current schema: no gap kept that every relay showed. */
+    private fun version18(driver: JdbcSqliteDriver) {
+        driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN stuck_rev", 0)
+        driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN stuck_since", 0)
+    }
+
+    /** Version 17: no revision kept that failed to go out whole either. */
     private fun version17(driver: JdbcSqliteDriver) {
+        version18(driver)
         driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN broken_rev", 0)
     }
 

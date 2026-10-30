@@ -6,6 +6,7 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.SignerNeedsListener
 import space.sovereigncast.hopp.nostr.SignerRejected
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
 
 /** A document sync keeps in step: subscriptions, progress, "Up next", settings. */
 interface SyncedDocument {
@@ -36,7 +37,8 @@ sealed interface SyncOutcome {
      *  entries from elsewhere not applicable yet (a feed out of reach) — tried again next time. */
     data class Done(val applied: Int, val published: Boolean, val pending: Int = 0) : SyncOutcome
     /** The relays gave the document only in part: [applied] of it taken, nothing sent (audit 2026-10-22, H-02). */
-    data class Incomplete(val applied: Int) : SyncOutcome
+    /** [doc]: which document came in part (the sync page's report names it). */
+    data class Incomplete(val applied: Int, val doc: String? = null) : SyncOutcome
     data object NoIdentity : SyncOutcome
     /** The signer app would have to ask the listener — sync waits for the app to be open. */
     data object WaitsForSigner : SyncOutcome
@@ -75,9 +77,17 @@ class SyncEngine(
             var mine = store.entries(doc.name)
             mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it); mine = mine - it }
             val fetched = relays.fetch(signer, doc.name, urls)
-            // A gap that will stay (Fetched.Incomplete): written over with everything that arrived.
-            val repair = fetched is Fetched.Incomplete && fetched.settled &&
+            // A gap that will stay (Fetched.Incomplete): written over with everything that arrived — one this
+            // device left, one of older parts only, or one every relay has shown for [STUCK_FOR] (maintainer
+            // 2026-10-30: a version cut off by a relay slowing down, left before Hopp kept which).
+            var repair = fetched is Fetched.Incomplete && fetched.settled &&
                 (fetched.stale || (fetched.newestRev != null && fetched.newestRev == store.brokenRev(doc.name)))
+            if (fetched is Fetched.Incomplete && fetched.settled && !repair && fetched.newestRev != null) {
+                val (rev, since) = store.stuck(doc.name)
+                if (rev == fetched.newestRev && since != null) repair = now - since >= STUCK_FOR.inWholeMilliseconds
+                else store.markStuck(doc.name, fetched.newestRev, now)
+            }
+            if (fetched is Fetched.Complete) store.markStuck(doc.name, null, null)
             val (read, notBefore) = when (fetched) {
                 is Fetched.Complete -> fetched.entries to fetched.newestAt
                 is Fetched.Incomplete -> (if (repair) fetched.all else fetched.entries) to fetched.newestAt
@@ -101,7 +111,7 @@ class SyncEngine(
             hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
             repair(doc, now, skip = merged.fromThem.keys)
-            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied)
+            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name)
             store.markFetched(doc.name, nowMs())
             // The gap goes under a whole version, even when the relays lack nothing of ours.
             val publish = merged.theyLack || repair
@@ -109,14 +119,13 @@ class SyncEngine(
             val pendingHere = store.pendingKeys(doc.name)
             val all = merged.all.mapValues { (k, e) -> if (e.del && k in pendingHere) e.copy(out = now) else e }
             if (publish) {
-                try {
-                    relays.publish(signer, doc.name, all, urls, notBefore)
-                } catch (e: SyncNotPublished) {
-                    // Some parts may have gone out: a gap this device knows it left, to write over next time.
-                    e.rev?.let { store.markBroken(doc.name, it) }
-                    throw e
-                }
+                // Kept before the first part goes, cleared once all went: however a round ends between
+                // (refused, timed out, the tab closed), this device knows the gap it may have left.
+                val rev = SyncRelays.newRev()
+                store.markBroken(doc.name, rev)
+                relays.publish(signer, doc.name, all, urls, notBefore, rev)
                 store.markBroken(doc.name, null)
+                store.markStuck(doc.name, null, null)
             }
             // The relays hold these versions now; anything changed here since stays pending.
             store.markSent(doc.name, all)
@@ -273,6 +282,9 @@ class SyncEngine(
         val REMOVALS_KEPT = 90.days
         /** How far ahead of this device's clock an entry may be dated. */
         val MAX_AHEAD = 1.days
+        /** How long a gap must stay, every relay answering, before it is written over though no one
+         *  here knows who left it: a relay holding back a part for a moment still stops the round (HN-02). */
+        val STUCK_FOR = 10.minutes
         private const val REASSERT_TRIES = 3
     }
 }

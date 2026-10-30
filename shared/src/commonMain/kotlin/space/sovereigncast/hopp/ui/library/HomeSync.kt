@@ -352,7 +352,8 @@ private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${ms / 1000},${(m
 /** The round in plain text, to pass on when asking for help: technical, not translated. */
 private fun report(status: SyncStatus, nowMs: Long): String = buildString {
     appendLine("Hopp sync, ${(nowMs - (status.lastSyncedMs ?: nowMs)) / 60_000} min since the last full round")
-    status.problem?.let { appendLine("Problem: ${it::class.simpleName}" + ((it as? SyncOutcome.Failed)?.error?.message?.let { m -> " – $m" } ?: "")) }
+    status.problem?.let { appendLine("Problem: ${it::class.simpleName}" + ((it as? SyncOutcome.Failed)?.error?.message?.let { m -> " – $m" } ?: "") +
+        ((it as? SyncOutcome.Incomplete)?.doc?.let { d -> " – $d" } ?: "")) }
     status.relayRounds.forEach { r ->
         appendLine("${host(r.url)}: ${text(r.worst)}")
         (r.reads.keys + r.sends.keys).forEach { area -> appendLine("  $area: read ${r.reads[area]?.let(::text) ?: "–"}, send ${r.sends[area]?.let(::text) ?: "–"}") }

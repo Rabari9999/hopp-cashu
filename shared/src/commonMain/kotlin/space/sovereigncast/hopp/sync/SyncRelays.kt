@@ -87,8 +87,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
      * Taken only when a majority of [relays] took every part ([SyncNotPublished]
      * otherwise: it goes again next time).
      */
-    suspend fun publish(signer: NostrSigner, doc: String, entries: Map<String, SyncEntry>, relays: List<String>, notBefore: Long = 0): Set<String> {
-        val rev = secureRandomBytes(8).toHex()
+    suspend fun publish(signer: NostrSigner, doc: String, entries: Map<String, SyncEntry>, relays: List<String>, notBefore: Long = 0, rev: String = newRev()): Set<String> {
         val parts = SyncCodec.split(entries, rev, doc)
         // Two versions in the same second: relays would keep the lower id, not the newer one.
         val now = maxOf(nowSeconds(), (lastSent[doc] ?: 0) + 1, notBefore + 1).also { lastSent[doc] = it }
@@ -105,7 +104,9 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         return took
     }
 
-    private companion object {
-        val PART_PAUSE = 500.milliseconds
+    companion object {
+        private val PART_PAUSE = 500.milliseconds
+        /** A version's revision, shared by its parts. */
+        fun newRev(): String = secureRandomBytes(8).toHex()
     }
 }

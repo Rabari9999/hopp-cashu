@@ -637,7 +637,15 @@ switches.
      version 18), or when every missing part is there in an older version
      only (a relay that had taken the newer one would hold it instead). A
      part that is simply missing still stops the round: a relay may hold it
-     and not have given it (HN-02).
+     and not have given it (HN-02) — for ten minutes: a gap every relay has
+     shown that long, the same revision each time, is written over too
+     (`sync_doc.stuck_rev`/`stuck_since`, version 19). The revision a device
+     sends is kept *before* its first part goes and cleared once all went, so
+     a round ended any way between — refused, timed out, the tab closed —
+     leaves a gap its device knows. Seen on the maintainer's progress
+     document: nos.lol slows to no answer after ~1.5 MB in a minute, and each
+     failed round sent the parts again. The report names the document that
+     came in part.
      Tests: `SyncCoreTest`, `SyncAuditTest`, `SyncMigrationTest`.
 
 ## Consequences

@@ -290,6 +290,46 @@ class SyncCoreTest {
         assertIs<SyncOutcome.Done>(third.engine.sync(MemoryDocument(), interactive = true))
     }
 
+    /**
+     * Maintainer 2026-10-30, the second time: a larger version cut off after its second part — later parts
+     * nowhere, and a Hopp that did not keep which version it left. Another device waits at first (a relay
+     * may hold a part back for a moment, HN-02), and writes over the gap once every relay has shown it
+     * for [SyncEngine.STUCK_FOR].
+     */
+    @Test
+    fun aGapEveryRelayShowsForTenMinutesIsWrittenOver() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..700).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        phone.engine.sync(doc, interactive = true)
+        // Larger now; its parts after the second never arrive anywhere.
+        phone.ms += 2_000
+        (701..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        relay.refuse = { e -> e.tags.any { t -> t.size >= 2 && t[0] == "d" && t[1].substringAfter('#', "1").toInt() >= 3 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // As a Hopp before 0.3.2 left it: nothing kept of the version it cut off.
+        phone.store.markBroken("test", null)
+
+        val tablet = Device(nsec)
+        tablet.ms = phone.ms + 2_000
+        val other = MemoryDocument()
+        assertEquals(SyncOutcome.Incomplete(other.applied.size, "test").doc, (tablet.engine.sync(other, interactive = true) as SyncOutcome.Incomplete).doc)
+        tablet.ms += 5 * 60_000
+        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(other))
+        tablet.ms += 6 * 60_000
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(other))
+        // Whole again: the phone reads it complete, and sends what it alone still had.
+        phone.ms = tablet.ms + 2_000
+        assertIs<SyncOutcome.Done>(phone.engine.sync(doc))
+        val third = Device(nsec)
+        third.ms = phone.ms + 2_000
+        val all = MemoryDocument()
+        assertIs<SyncOutcome.Done>(third.engine.sync(all, interactive = true))
+        assertEquals(1500, all.applied.size)
+    }
+
     @Test
     fun aDocumentPostedUnderAnotherKeyIsIgnored() = runBlocking<Unit> {
         val me = Device(space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey))

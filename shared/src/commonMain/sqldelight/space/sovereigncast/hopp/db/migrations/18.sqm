@@ -1,0 +1,3 @@
+-- A revision with a gap seen with every relay answering, and since when (maintainer 2026-10-30): written over after a while.
+ALTER TABLE sync_doc ADD COLUMN stuck_rev TEXT;
+ALTER TABLE sync_doc ADD COLUMN stuck_since INTEGER;

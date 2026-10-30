@@ -213,7 +213,7 @@ class SyncManager(
                 // under the fresh default, a show would download although downloads are off elsewhere
                 // (delta audit 6 2026-10-24 — settings first is not enough when their read fails).
                 if (doc.name == SyncDocs.SUBSCRIPTIONS && docs.any { it.name == SyncDocs.SETTINGS } && store.fetchedAt(SyncDocs.SETTINGS) == null) {
-                    if (problem == null) problem = SyncOutcome.Incomplete(0)
+                    if (problem == null) problem = SyncOutcome.Incomplete(0, doc.name)
                     continue
                 }
                 // A setting synced only since an update joins as at turning sync on: where the relays have nothing.
