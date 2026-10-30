@@ -26,6 +26,9 @@ async function device(name, ext = {}) {
   const extension = await installFakeExtension(page, ext);
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
+  // Under scripts/web-dev.sh --strict the page has the server's CSP; what it refuses shows here.
+  const refused = [];
+  page.on('console', m => { if (/Content Security Policy/.test(m.text())) refused.push(m.text()); });
   const mirrored = (selector) => page.evaluate((sel) => [...document.querySelectorAll('*')]
     .flatMap(n => n.shadowRoot ? [...n.shadowRoot.querySelectorAll(sel)] : []).map(b => b.textContent.trim()).filter(Boolean), selector);
   const buttons = () => mirrored('[role=button]');
@@ -37,7 +40,7 @@ async function device(name, ext = {}) {
   const shot = (n) => page.screenshot({ path: `out/${name}-${n}.png` });
   await page.goto(url);
   await page.waitForTimeout(8000);
-  return { ctx, page, extension, errors, mirrored, buttons, has, press, shot };
+  return { ctx, page, extension, errors, refused, mirrored, buttons, has, press, shot };
 }
 
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
@@ -173,6 +176,7 @@ if (withSync) {
 }
 
 check(a.errors.length === 0, `no uncaught errors${a.errors.length ? ': ' + a.errors[0].slice(0, 200) : ''}`);
+check(a.refused.length === 0, `nothing refused by the CSP${a.refused.length ? ': ' + a.refused[0].slice(0, 300) : ''}`);
 await browser.close();
 console.log(failed ? `${failed} failed` : 'all passed');
 process.exit(failed ? 1 : 0);

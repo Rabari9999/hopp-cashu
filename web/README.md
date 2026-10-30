@@ -44,6 +44,8 @@ What differs from the apps, by decision (ADR 0022):
   hosts send no CORS headers. The Podcast Index and Sovereigncast's Listener
   API are asked directly (the Listener API's CORS: podcasting_tools !25).
 
+On its own server: [deploy/README.md](deploy/README.md).
+
 ## Check it
 
 ```bash
@@ -52,6 +54,9 @@ node run.mjs           # against scripts/web-dev.sh: tour, search, subscribe, pl
                        # sign in, reload, tabs, sign out, "This is not my device"
 node run.mjs --sync    # also two browsers syncing over public relays, with a throwaway key
 ```
+
+With `scripts/web-dev.sh --strict` the page has the server's headers, CSP
+included, and `run.mjs` fails on anything the CSP refuses.
 
 A throwaway NIP-07 extension stands in for a real one (`fakeExtension.mjs`).
 Compose draws to a canvas and mirrors its buttons into the DOM for screen

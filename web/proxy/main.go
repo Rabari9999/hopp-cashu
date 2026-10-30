@@ -32,7 +32,13 @@ const (
 	maxImageBytes = 5 << 20
 	maxRedirects  = 5
 	fetchTimeout  = 30 * time.Second
-	userAgent     = "Hopp (Web; feed proxy)"
+	// At most this many fetches at once, each held in memory up to maxFeedBytes: 8 × 32 MB
+	// keeps the proxy within a small server's memory; the rest wait their turn.
+	maxInFlight = 8
+	// Covers change rarely and are the bulk of what passes through; feeds are checked by
+	// the client itself (ETag), so they are kept only briefly.
+	imageMaxAge = 24 * time.Hour
+	userAgent   = "Hopp (Web; feed proxy)"
 )
 
 // Proxy answers /fetch. Origins: the web client's, allowed by CORS.
@@ -40,6 +46,11 @@ type Proxy struct {
 	Origins map[string]bool
 	Client  *http.Client
 	Limiter *Limiter
+	// Behind a web server on the same machine every request comes from it: then the
+	// listener's address is the last one in X-Forwarded-For, which that server sets.
+	TrustForwarded bool
+	// Fetches running at once; nil for no limit.
+	slots chan struct{}
 }
 
 func main() {
@@ -50,10 +61,29 @@ func main() {
 			origins[o] = true
 		}
 	}
-	p := &Proxy{Origins: origins, Client: NewClient(PublicOnly), Limiter: NewLimiter(120, time.Minute)}
-	srv := &http.Server{Addr: addr, Handler: p, ReadHeaderTimeout: 10 * time.Second, WriteTimeout: 2 * fetchTimeout}
-	log.Printf("feed proxy on %s for %d origins", addr, len(origins))
-	log.Fatal(srv.ListenAndServe())
+	p := &Proxy{
+		Origins: origins, Client: NewClient(PublicOnly), Limiter: NewLimiter(120, time.Minute),
+		TrustForwarded: os.Getenv("HOPP_PROXY_TRUST_FORWARDED") == "1",
+		slots:          make(chan struct{}, maxInFlight),
+	}
+	ln, where, err := listen(addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	srv := &http.Server{Handler: p, ReadHeaderTimeout: 10 * time.Second, WriteTimeout: 2 * fetchTimeout}
+	log.Printf("feed proxy on %s for %d origins", where, len(origins))
+	log.Fatal(srv.Serve(ln))
+}
+
+// listen takes the socket systemd hands over (socket activation: a Unix socket the web
+// server may reach, while the proxy itself may reach no local address), else [addr] over TCP.
+func listen(addr string) (net.Listener, string, error) {
+	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) && os.Getenv("LISTEN_FDS") == "1" {
+		ln, err := net.FileListener(os.NewFile(3, "systemd socket"))
+		return ln, "the socket from systemd", err
+	}
+	ln, err := net.Listen("tcp", addr)
+	return ln, addr, err
 }
 
 func envOr(k, d string) string {
@@ -155,7 +185,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "GET only", http.StatusMethodNotAllowed)
 		return
 	}
-	if !p.Limiter.Allow(clientIP(r)) {
+	if !p.Limiter.Allow(p.clientIP(r)) {
 		h.Set("Retry-After", "60")
 		http.Error(w, "too many requests", http.StatusTooManyRequests)
 		return
@@ -179,6 +209,16 @@ func checkURL(raw string) (*url.URL, error) {
 func (p *Proxy) fetch(w http.ResponseWriter, r *http.Request, target *url.URL) {
 	ctx, cancel := context.WithTimeout(r.Context(), fetchTimeout)
 	defer cancel()
+	if p.slots != nil {
+		select {
+		case p.slots <- struct{}{}:
+			defer func() { <-p.slots }()
+		case <-ctx.Done():
+			w.Header().Set("Retry-After", "5")
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	var resp *http.Response
 	for hop := 0; ; hop++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
@@ -250,7 +290,11 @@ func (p *Proxy) fetch(w http.ResponseWriter, r *http.Request, target *url.URL) {
 			h.Set(k, v)
 		}
 	}
-	h.Set("Cache-Control", "public, max-age=60")
+	if limit == maxImageBytes {
+		h.Set("Cache-Control", "public, max-age="+strconv.Itoa(int(imageMaxAge.Seconds())))
+	} else {
+		h.Set("Cache-Control", "public, max-age=60")
+	}
 	h.Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
 	w.Write(body)
@@ -279,7 +323,15 @@ func orDefault(v, d string) string {
 	return v
 }
 
-func clientIP(r *http.Request) string {
+func (p *Proxy) clientIP(r *http.Request) string {
+	if p.TrustForwarded {
+		if f := r.Header.Values("X-Forwarded-For"); len(f) > 0 {
+			hops := strings.Split(f[len(f)-1], ",")
+			if last := strings.TrimSpace(hops[len(hops)-1]); last != "" {
+				return last
+			}
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

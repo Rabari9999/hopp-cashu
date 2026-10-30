@@ -1,0 +1,60 @@
+# Hopp Web on its own server (ADR 0022, 5–7): the client as static files on play., the feed
+# proxy on feeds. — two origins, so nothing fetched through the proxy ever runs with the page.
+# Installed as /etc/caddy/Caddyfile by web/deploy/setup.sh; certificates come from Let's Encrypt.
+
+# The headers of ADR 0022, 7. web/e2e/serve.mjs --strict reads them from here, so the local
+# checks run under the same rules. The one inline style allowed is Compose's own, by its hash
+# (the :host rule of the canvas' shadow root): a Compose update that changes it fails
+# web/e2e/run.mjs's "nothing refused by the CSP" until the hash here is the new one.
+# worker-src blob: is Coil's, which decodes covers in a worker made from a blob (only code
+# already running in the page can make one); img-src https: is the cover the Media Session
+# hands to the lock screen, loaded by the browser from the show's host.
+(hopp_web_headers) {
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'sha256-+bHRyQ0Z1/Lb6dgSILtTESBRCIFl8jkBb/dPQA4Pdnw='; img-src 'self' data: blob: https:; font-src 'self'; media-src https: http: blob:; connect-src 'self' https: wss:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Strict-Transport-Security "max-age=63072000"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		Permissions-Policy "camera=(self), publickey-credentials-get=(self), publickey-credentials-create=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		# Until the imprint and privacy policy are online (ADR 0022, 11.6): kept out of search engines.
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}
+
+play.sovereigncast.space {
+	import hopp_web_headers
+	root * /srv/hopp-web/current
+	# Webpack's content-hashed files never change under their name; everything else is asked again (ETag).
+	@hashed path_regexp hashed ^/[0-9a-f]{20}\.(wasm|js)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	header -@hashed Cache-Control "no-cache"
+	# Compressed once at build time (web/deploy/build.sh), not per request.
+	file_server {
+		precompressed br gzip
+	}
+	log {
+		output discard
+	}
+}
+
+feeds.sovereigncast.space {
+	header {
+		Strict-Transport-Security "max-age=63072000"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+	encode zstd gzip
+	# The proxy listens on the socket systemd holds for it (hopp-feed-proxy.socket); Caddy sets
+	# X-Forwarded-For to the listener's address and drops one the listener sent.
+	reverse_proxy unix//run/hopp-feed-proxy.sock {
+		header_up -Cookie
+		header_up -Authorization
+	}
+	# No logs beyond errors (ADR 0022, 6).
+	log {
+		output discard
+	}
+}

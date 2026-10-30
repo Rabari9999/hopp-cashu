@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -175,6 +176,13 @@ func TestTypesAndSizes(t *testing.T) {
 			t.Errorf("%s: %d, want %d", path, w.Code, want)
 		}
 	}
+	// Covers are kept a day by the browser, everything else a minute.
+	if cc := get(p, up.URL+"/image", nil).Header().Get("Cache-Control"); cc != "public, max-age=86400" {
+		t.Errorf("image: %q", cc)
+	}
+	if cc := get(p, up.URL+"/vtt", nil).Header().Get("Cache-Control"); cc != "public, max-age=60" {
+		t.Errorf("vtt: %q", cc)
+	}
 }
 
 func TestGetOnlyAndARateLimit(t *testing.T) {
@@ -191,5 +199,52 @@ func TestGetOnlyAndARateLimit(t *testing.T) {
 	}
 	if fmt.Sprint(codes) != "[400 400 429]" {
 		t.Fatalf("codes %v", codes)
+	}
+}
+
+// Behind the web server every request comes from it; the limit counts each listener on their own.
+func TestBehindAWebServerTheLimitIsPerListener(t *testing.T) {
+	p := proxy(onlyFirstLoopback)
+	p.Limiter = NewLimiter(1, time.Minute)
+	p.TrustForwarded = true
+	codes := []int{}
+	for _, from := range []string{"203.0.113.9", "198.51.100.7", "203.0.113.9"} {
+		// A listener's own X-Forwarded-For comes first; the web server appends the address it saw.
+		codes = append(codes, get(p, "", map[string]string{"X-Forwarded-For": "1.2.3.4, " + from}).Code)
+	}
+	if fmt.Sprint(codes) != "[400 400 429]" {
+		t.Fatalf("codes %v", codes)
+	}
+	// Not behind one: the header is the listener's to set, so it counts for nothing.
+	p.TrustForwarded = false
+	p.Limiter = NewLimiter(1, time.Minute)
+	a := get(p, "", map[string]string{"X-Forwarded-For": "203.0.113.1"}).Code
+	b := get(p, "", map[string]string{"X-Forwarded-For": "203.0.113.2"}).Code
+	if a != 400 || b != 429 {
+		t.Fatalf("untrusted: %d %d", a, b)
+	}
+}
+
+// With every slot taken a fetch waits; once its time is up it says so instead of piling up.
+func TestFetchesBeyondTheLimitWait(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		w.Write([]byte("<rss/>"))
+	}))
+	defer up.Close()
+	p := proxy(onlyFirstLoopback)
+	p.slots = make(chan struct{}, 1)
+	p.slots <- struct{}{}
+	r := httptest.NewRequest(http.MethodGet, "/fetch?url="+url.QueryEscape(up.URL), nil)
+	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Millisecond)
+	defer cancel()
+	w := httptest.NewRecorder()
+	p.ServeHTTP(w, r.WithContext(ctx))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("full: %d", w.Code)
+	}
+	<-p.slots
+	if w := get(p, up.URL, nil); w.Code != 200 {
+		t.Fatalf("free: %d", w.Code)
 	}
 }

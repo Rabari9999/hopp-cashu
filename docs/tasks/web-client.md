@@ -82,6 +82,15 @@ How to run and check it: [web/README.md](../../web/README.md).
       worker driver shared one transaction between coroutines: `SerialDriver`);
       Hopp's own language choice; "Save audio file"; a crash on a show with
       tabs (an empty tab label used twice as the pager's key).
+- [ ] **Its own server** (maintainer 2026-10-30: apart from Nodesignal's
+      instance, which runs under systemd without containers): Debian 13, one
+      core, 2 GB, 60 GB; Caddy with the headers of ADR 0022, 7 serving
+      `play.` and `feeds.`; the proxy behind a socket only Caddy opens,
+      systemd denying it every private address. Built: `web/deploy/`
+      (build, setup, deploy), the proxy with at most eight fetches at once,
+      the listener's address behind Caddy, covers kept a day; the local
+      checks under the same CSP (`scripts/web-dev.sh --strict`). Open: the
+      server itself, DNS for both names.
 - [ ] WebKit in the browser checks (Playwright's WebKit build).
 - [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): two
       faults in Compose Multiplatform's web accessibility, 1.11.1 and still

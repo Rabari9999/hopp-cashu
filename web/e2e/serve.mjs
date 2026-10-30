@@ -1,4 +1,6 @@
-// Serves the built web client for local work: node serve.mjs <dir> [port] [--lan]
+// Serves the built web client for local work: node serve.mjs <dir> [port] [--lan] [--strict]
+// --strict: with the headers of ADR 0022, 7 as the server sends them — read from
+// web/deploy/Caddyfile, the local proxy added to connect-src — so a check fails where the CSP would.
 // --lan: on every interface, over HTTPS with the mkcert certificate in web/e2e/certs
 // (cert.pem, key.pem), and the feed proxy (127.0.0.1:8643) passed through under /feed-proxy/ —
 // an iPhone reaches neither the Mac's 127.0.0.1 nor plain HTTP from an HTTPS page. Local work
@@ -10,7 +12,17 @@ import http from 'node:http'; import https from 'node:https'; import fs from 'no
 const args = process.argv.slice(2);
 const lan = args.includes('--lan');
 const [dir, port] = [args[0], +args[1] || 8642];
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json',
+const strict = args.includes('--strict') ? serverHeaders() : {};
+
+function serverHeaders() {
+  const caddy = fs.readFileSync(new URL('../deploy/Caddyfile', import.meta.url), 'utf8');
+  const block = caddy.slice(caddy.indexOf('(hopp_web_headers)'), caddy.indexOf('\nplay.'));
+  const h = {};
+  for (const [, k, v] of block.matchAll(/^\s+([A-Z][A-Za-z-]+) "(.*)"$/gm)) if (k !== 'Strict-Transport-Security') h[k.toLowerCase()] = v;
+  h['content-security-policy'] = h['content-security-policy'].replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:8643");
+  return h;
+}
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json',
   '.map': 'application/json', '.xml': 'application/xml', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.md': 'text/plain' };
 
 const packed = new Map(); // path → { tag, br, gz }, made once per build
@@ -19,11 +31,11 @@ const hashed = /\/[0-9a-f]{20}\.(wasm|js)$/;
 function send(req, res, f, b) {
   const st = fs.statSync(f);
   const tag = `"${st.size.toString(16)}-${st.mtimeMs.toString(16)}-${b.length.toString(16)}"`;
-  const headers = { 'content-type': types[path.extname(f)] || 'application/octet-stream', etag: tag, vary: 'accept-encoding',
+  const headers = { ...strict, 'content-type': types[path.extname(f)] || 'application/octet-stream', etag: tag, vary: 'accept-encoding',
     'cache-control': hashed.test(f) ? 'public, max-age=31536000, immutable' : 'no-cache' };
   if (req.headers['if-none-match'] === tag) { res.writeHead(304, headers); return res.end(); }
   const accept = String(req.headers['accept-encoding'] || '');
-  if (b.length > 1024 && /\.(wasm|js|html|json|xml|ttf|svg|txt|map)$/.test(f)) {
+  if (b.length > 1024 && /\.(wasm|js|css|html|json|xml|ttf|svg|txt|map)$/.test(f)) {
     let p = packed.get(f);
     if (!p || p.tag !== tag) packed.set(f, p = { tag });
     if (/\bbr\b/.test(accept)) {

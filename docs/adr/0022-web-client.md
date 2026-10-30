@@ -239,9 +239,10 @@ Before the local build:
    they authenticate with NIP-98, not cookies. Self-hosted instances need
    that version; for older ones the web reads through the proxy or shows
    no Sovereigncast layer.
-2. **The proxy:** who runs it and where — proposed
-   `feeds.sovereigncast.space`, a container beside Nodesignal's instance but
-   apart from it; locally a container in OrbStack.
+2. ~~**The proxy:** who runs it and where~~ — decided 2026-10-30: Nodesignal,
+   on `feeds.sovereigncast.space`, on a small server of its own together
+   with `play.` (§12). Nodesignal's instance runs under systemd without
+   containers, so "beside it but apart" would have been a weak separation.
 3. **Testing on the iPhone before deploying:** service workers and passkeys
    need HTTPS, `localhost` serves only the Mac. A local certificate
    (`mkcert`) or Tailscale on the LAN; Playwright (Chromium, WebKit) for the
@@ -313,6 +314,13 @@ The preparation in `shared` and stage W2 were built on branch `0.3.2`
   cost a CORS preflight per request.
 - **Fallback fonts** (subsets of Noto, OFL) for symbols and emoji, loaded
   after the first frame: Skia knows only the fonts it is given.
+- **Its own server** (2026-10-30, `web/deploy/`): Debian 13, Caddy for both
+  names, the proxy behind a Unix socket (systemd socket activation) that
+  only Caddy may open, and denied every local and private address by
+  systemd as well as by its own checks. The CSP of §7 holds with three
+  additions the local checks found: Compose's one `<style>` by its hash,
+  `worker-src blob:` for Coil's image decoder, `img-src https:` for the
+  Media Session's cover.
 
 ## Consequences
 

@@ -6,6 +6,7 @@
 #   scripts/web-dev.sh --no-build serve what was built last
 #   … --lan                       on the LAN over HTTPS, for an iPhone (web/README.md): needs
 #                                 an mkcert certificate in web/e2e/certs
+#   … --strict                    with the server's headers (web/deploy/Caddyfile: CSP and the rest)
 #
 # Checks against it: cd web/e2e && npm ci && node run.mjs [--sync] (CHROME_BIN for a given Chrome).
 set -euo pipefail
@@ -14,8 +15,8 @@ DIST=shared/build/dist/wasmJs/productionExecutable
 PORT=8642
 PROXY_PORT=8643
 
-LAN=; BUILD=1
-for a in "$@"; do case $a in --lan) LAN=--lan ;; --no-build) BUILD= ;; esac; done
+LAN=; BUILD=1; STRICT=
+for a in "$@"; do case $a in --lan) LAN=--lan ;; --no-build) BUILD= ;; --strict) STRICT=--strict ;; esac; done
 if [[ -n $BUILD ]]; then
     ./gradlew --console=plain -Phopp.web=true :shared:wasmJsBrowserDistribution
 fi
@@ -33,4 +34,4 @@ if [[ -n $LAN ]]; then
 else
     echo "Hopp on http://127.0.0.1:$PORT/"
 fi
-node web/e2e/serve.mjs "$PWD/$DIST" "$PORT" $LAN
+node web/e2e/serve.mjs "$PWD/$DIST" "$PORT" $LAN $STRICT

@@ -6,15 +6,7 @@
     <title>Hopp</title>
     <!-- Where feeds and images are fetched through (ADR 0022, 6, web/proxy): set where Hopp is served. -->
     <meta name="hopp-feed-proxy" content="http://127.0.0.1:8643/">
-    <style>
-        html, body { margin: 0; height: 100%; overflow: hidden; background: #f6f5f2; color: #0a0a0a; }
-        @media (prefers-color-scheme: dark) { html, body { background: #0a0a0a; color: #f6f5f2; } }
-        /* Drawn by the browser at once, while the app's WebAssembly loads; gone with its first frame (Main.kt). */
-        #hopp-splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .2s; }
-        #hopp-splash svg { width: 72px; height: 72px; animation: hopp-pulse 1.6s ease-in-out infinite; }
-        @keyframes hopp-pulse { 50% { opacity: .45; } }
-        @media (prefers-reduced-motion: reduce) { #hopp-splash svg { animation: none; } }
-    </style>
+    <link rel="stylesheet" href="splash.css">
 </head>
 <body>
 <div id="hopp-splash" role="img" aria-label="Hopp">
