@@ -32,6 +32,35 @@ class ProgressDocument(
     override fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean =
         key.startsWith("pos\n") && entry.t < nowMs - KEPT.inWholeMilliseconds
 
+    // The shows heard from their oldest episode on get their "heard up to" — once per start.
+    override suspend fun prepare() { episodes.deriveHeardUpToOnce() }
+
+    /**
+     * An episode's "heard" entry its show's "heard up to" says already (maintainer 2026-10-30: the
+     * single entries of marking before 0.3.2 made the document too large for relays): heard, at its
+     * start, no newer than the mark, and out before it — by this device's copy of the feed; an
+     * episode it does not have stays. Applied again it would change nothing: the mark goes first.
+     */
+    override suspend fun redundant(entries: Map<String, SyncEntry>): Set<String> = withContext(ioDispatcher) {
+        val marks = entries.filter { (k, e) -> k.startsWith(UPTO) && !e.del }.values
+            .mapNotNull { e -> e.d.text("show")?.let { s -> e.d.long("before")?.let { b -> s to (b to e.t) } } }.toMap()
+        if (marks.isEmpty()) return@withContext emptySet()
+        val shows = db.podcastQueries.selectAll().awaitAsList()
+        val dates = mutableMapOf<String, Map<String, Long?>>()
+        entries.filter { (k, e) ->
+            if (!k.startsWith("pos\n") || e.del || e.d.bool("played") != true || (e.d.long("pos") ?: 0) != 0L) return@filter false
+            val show = e.d.text("show") ?: return@filter false
+            val guid = e.d.text("guid") ?: return@filter false
+            val (before, markedAt) = marks[show] ?: return@filter false
+            if (e.t > markedAt) return@filter false
+            val published = dates.getOrPut(show) {
+                val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show } ?: shows.firstOrNull { "url:${it.feed_url}" == show }
+                podcast?.let { p -> db.episodeQueries.publishedOf(p.id).awaitAsList().associate { it.guid to it.published_at } }.orEmpty()
+            }[guid]
+            published != null && published <= before
+        }.keys
+    }
+
     override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         val since = nowSeconds() - KEPT.inWholeSeconds
         buildMap {

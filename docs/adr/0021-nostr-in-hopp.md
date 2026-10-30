@@ -647,6 +647,18 @@ switches.
      failed round sent the parts again. The report names the document that
      came in part.
      Tests: `SyncCoreTest`, `SyncAuditTest`, `SyncMigrationTest`.
+   - **Single entries folded into "heard up to".** Episodes heard one by
+     one before 0.3.2 kept an entry each — the maintainer's progress was
+     ~560 KB. Once per start each show heard from its oldest episode on
+     without a gap (at least ten) gets its mark, dated when the last of them
+     was heard (a device that listened to one since keeps that). An episode
+     entry the mark says already — heard, at its start, no newer than the
+     mark, out before it by this device's feed — is left out of the store,
+     the round and what goes out, without a removal marker; applied again it
+     would change nothing, as the mark goes first. With 50 such entries on
+     the relays a smaller version goes out though nothing changed. A Hopp
+     before 0.3.2 puts its copies back when it sends; 0.3.2 drops them again.
+     Tests: `ProgressSyncTest`.
 
 ## Consequences
 

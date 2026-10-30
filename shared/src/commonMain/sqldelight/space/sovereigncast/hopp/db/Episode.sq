@@ -288,3 +288,11 @@ SELECT e.id, e.podcast_id, e.guid, e.title, e.published_at, e.duration_seconds, 
 FROM episode e JOIN podcast p ON p.id = e.podcast_id
 WHERE e.podcast_id = ? AND e.meta_json NOT LIKE '%"persons":%'
 ORDER BY e.published_at DESC;
+
+-- A show's episodes by date, oldest first: how far it is heard without a gap (sync's compaction, maintainer 2026-10-30).
+heardRunOf:
+SELECT published_at, played, position_ms, played_at FROM episode WHERE podcast_id = ? AND published_at IS NOT NULL ORDER BY published_at ASC;
+
+-- Each episode's date by its guid, for the entries "heard up to" covers.
+publishedOf:
+SELECT guid, published_at FROM episode WHERE podcast_id = ?;

@@ -329,6 +329,9 @@ class PodcastRepository(
     }
 }
 
+/** Fewer heard in a row than this: their single entries are no burden ([EpisodeRepository.deriveHeardUpTo]). */
+private const val MIN_RUN = 10
+
 class EpisodeRepository(
     private val db: HoppDatabase,
     private val http: HttpClient,
@@ -475,6 +478,48 @@ class EpisodeRepository(
             val covered = before != null && r.published_at != null && r.published_at <= before
             if (!covered || journal.current(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid)) != null) noteProgress(id)
         }
+    }
+
+    /**
+     * "Heard up to" found where there is none yet (maintainer 2026-10-30: thousands of single entries
+     * from marking before 0.3.2 made the progress document too large for relays): per show, the
+     * oldest episodes heard without a gap — at least [MIN_RUN] — become one "heard up to", dated when
+     * the last of them was heard, so a device that listened to one of them since keeps that. Nothing
+     * here changes but the show's mark; sync then leaves out the single entries it covers. The shows
+     * given one.
+     */
+    suspend fun deriveHeardUpToOnce() {
+        if (heardUpToDerived) return
+        heardUpToDerived = true
+        deriveHeardUpTo()
+    }
+    // The documents of a sync round are made anew each time: kept here, once per start.
+    private var heardUpToDerived = false
+
+    suspend fun deriveHeardUpTo(): Int = withContext(ioDispatcher) {
+        var given = 0
+        for (p in db.podcastQueries.selectAll().awaitAsList()) {
+            var through: Long? = null
+            var earlier: Long? = null
+            var at = 0L
+            var run = 0
+            for (r in eq.heardRunOf(p.id).awaitAsList()) {
+                val published = r.published_at ?: continue
+                if (r.played != 1L || r.position_ms != 0L) {
+                    // An unheard one of the same second as the last heard: that second is not wholly heard.
+                    if (through == published) through = earlier
+                    break
+                }
+                if (published != through) earlier = through
+                through = published; at = maxOf(at, r.played_at ?: 0); run++
+            }
+            val before = through ?: continue
+            if (run < MIN_RUN || before <= (p.played_through ?: 0)) continue
+            db.podcastQueries.setPlayedThrough(before, at.takeIf { it > 0 } ?: clock.now(), p.id)
+            notePlayedThrough(p.id, emptyList())
+            given++
+        }
+        given
     }
 
     /** "Heard up to" from another device (sync): applied, not noted again; out of "Up next" too. */

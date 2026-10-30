@@ -122,6 +122,69 @@ class ProgressSyncTest {
     }
 
     /** All heard before sync was on: it goes out as the one entry, not as one per episode. */
+    /**
+     * Maintainer 2026-10-30: the old episodes heard one by one before "heard up to" existed made the
+     * progress document ~560 KB. After the update, a show heard from its oldest episode on gets its mark,
+     * a smaller version goes out without the single entries it covers, and the other devices drop them too.
+     */
+    @Test
+    fun singleEntriesFromBeforeHeardUpToAreFoldedIntoOne() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val list = phone.episodes.ofPodcast(phone.row(feed).id).first().sortedByDescending { it.publishedAt }
+        phone.sync.syncNow()
+        // As before 0.3.2: one by one, the oldest 300.
+        phone.ms += 60_000
+        list.takeLast(300).forEach { phone.episodes.setPlayed(it.id, true) }
+        phone.sync.syncNow()
+        assertTrue(phone.store.entries(SyncDocs.PROGRESS).size >= 300, "the large document as it was")
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertTrue(tablet.store.entries(SyncDocs.PROGRESS).size >= 300)
+
+        // The update: at its next start the phone finds the run heard from the oldest on.
+        phone.ms += 60_000
+        assertEquals(1, phone.episodes.deriveHeardUpTo())
+        assertEquals(null, phone.sync.syncNow().problem)
+        val kept = phone.store.entries(SyncDocs.PROGRESS)
+        assertTrue(kept.size <= 3, "the mark instead of 300 entries: ${kept.size}")
+        assertTrue(kept.keys.any { it.startsWith("upto\n") })
+
+        // The tablet reads the smaller version and drops its own copies; nothing it shows changes.
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertTrue(tablet.store.entries(SyncDocs.PROGRESS).size <= 3, "the tablet's copies: ${tablet.store.entries(SyncDocs.PROGRESS).size}")
+        assertEquals(list.takeLast(300).map { it.guid }.toSet(),
+            tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).awaitAsList().filter { it.played == 1L }.map { it.guid }.toSet())
+
+        // A new device takes all 300 from the one mark.
+        val laptop = SyncDevice(relay, scope, nsec)
+        laptop.ms = tablet.ms + 1_000
+        laptop.podcasts.subscribe(feed)
+        laptop.sync.enable()
+        assertEquals(list.takeLast(300).map { it.guid }.toSet(),
+            laptop.db.episodeQueries.selectByPodcast(laptop.row(feed).id).awaitAsList().filter { it.played == 1L }.map { it.guid }.toSet())
+    }
+
+    /** One old episode not heard: the mark stops before it, and every entry after it stays its own. */
+    @Test
+    fun theMarkStopsAtTheFirstEpisodeNotHeard() = runBlocking<Unit> {
+        val (phone, _) = pair()
+        val oldestFirst = phone.episodes.ofPodcast(phone.row(feed).id).first().sortedBy { it.publishedAt }
+        phone.sync.syncNow()
+        phone.ms += 60_000
+        val gap = oldestFirst[150]
+        oldestFirst.take(300).filter { it.id != gap.id }.forEach { phone.episodes.setPlayed(it.id, true) }
+        phone.sync.syncNow()
+        phone.ms += 60_000
+        assertEquals(1, phone.episodes.deriveHeardUpTo())
+        assertEquals(oldestFirst[149].publishedAt, phone.row(feed).played_through)
+        phone.sync.syncNow()
+        val kept = phone.store.entries(SyncDocs.PROGRESS).keys
+        // The 150 before the gap in one mark; the 149 after it as they were.
+        assertEquals(149, kept.count { it.startsWith("pos\n") })
+        assertEquals(0L, phone.episode(feed, gap.guid).played)
+    }
+
     @Test
     fun allHeardBeforeSyncGoesOutAsOneEntry() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)
