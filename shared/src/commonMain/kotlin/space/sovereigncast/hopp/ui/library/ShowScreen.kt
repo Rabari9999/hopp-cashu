@@ -200,7 +200,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh { community.reverify() } }) {
         TabbedPage(
-            labels, pager,
+            labels, pager, title = show?.title,
             header = {
                 Column {
                     Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {

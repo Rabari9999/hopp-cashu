@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +50,9 @@ fun TabbedPage(
     pager: PagerState,
     modifier: Modifier = Modifier,
     singleLabel: Boolean = false,
+    /** The page's name for the top bar once the header has mostly scrolled away ([LocalPageTitle]):
+     *  without it, a show's page scrolled down said nowhere what it was (UX review 2026-10-30). */
+    title: String? = null,
     header: @Composable () -> Unit,
     page: @Composable (index: Int) -> Unit,
 ) {
@@ -55,6 +60,14 @@ fun TabbedPage(
     var headerHeight by remember { mutableIntStateOf(0) }
     // 0 = the header in full, -headerHeight = scrolled away.
     var offset by remember { mutableFloatStateOf(0f) }
+    if (title != null) {
+        val pageTitle = LocalPageTitle.current
+        val gone by remember { derivedStateOf { headerHeight > 0 && offset <= -headerHeight * 0.6f } }
+        DisposableEffect(gone, title) {
+            pageTitle.text = title.takeIf { gone }
+            onDispose { if (pageTitle.text == title) pageTitle.text = null }
+        }
+    }
     fun move(dy: Float): Float {
         val next = (offset + dy).coerceIn(-headerHeight.toFloat(), 0f)
         val used = next - offset

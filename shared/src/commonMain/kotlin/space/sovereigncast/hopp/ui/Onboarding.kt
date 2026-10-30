@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
@@ -232,11 +233,16 @@ fun OnboardingScreen(
                 Skip()
                 Column { Dots(); Buttons() }
             }
-        } else Column(Modifier.fillMaxSize()) {
-            Skip()
-            Pages(Modifier.weight(1f).fillMaxWidth())
-            Dots()
-            Buttons()
+        } else androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // A large window: the tour as one column in its middle, "Skip" at its corner and not the
+            // window's — 1 300 px from the text in a browser (UX review 2026-10-30). A phone as before.
+            val wide = maxWidth >= space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
+            Column(if (wide) Modifier.widthIn(max = 600.dp).heightIn(max = 800.dp).fillMaxSize() else Modifier.fillMaxSize()) {
+                Skip()
+                Pages(Modifier.weight(1f).fillMaxWidth())
+                Dots()
+                Buttons()
+            }
         }
     }
 }

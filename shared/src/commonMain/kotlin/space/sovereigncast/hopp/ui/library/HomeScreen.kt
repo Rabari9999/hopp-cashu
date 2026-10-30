@@ -444,8 +444,10 @@ private fun rhythmText(r: space.sovereigncast.hopp.data.Rhythm): String = when (
     space.sovereigncast.hopp.data.Rhythm.Monthly -> stringResource(Res.string.home_monthly)
 }
 
-/** Wide enough for "every 2 wks" and a countdown under the cover. */
+/** Wide enough for "every 2 wks" and a countdown under the cover … */
 private val STRIP_TILE = 92.dp
+/** … and larger where the page has room (a tablet, the browser): 92 dp looked lost there (UX review 2026-10-30). */
+private val STRIP_TILE_WIDE = 128.dp
 private val STRIP_TILE_SHAPE = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
 
 private val WEEKDAYS = listOf(Res.string.wd_1, Res.string.wd_2, Res.string.wd_3, Res.string.wd_4, Res.string.wd_5, Res.string.wd_6, Res.string.wd_7)
@@ -471,15 +473,17 @@ private fun ShowsStrip(
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     val first = ordered.firstOrNull()?.id
     androidx.compose.runtime.LaunchedEffect(first) { if (state.firstVisibleItemIndex <= 1) state.scrollToItem(0) }
+    androidx.compose.foundation.layout.BoxWithConstraints {
+    val tile = if (maxWidth >= space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH) STRIP_TILE_WIDE else STRIP_TILE
     LazyRow(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(ordered, key = { "s${it.id}" }) { show ->
             // Only the top corners echo the cover's: rounded at the bottom too, the
             // tile cut the ends off the rhythm line under it.
             Column(
-                Modifier.width(STRIP_TILE).clip(STRIP_TILE_SHAPE)
+                Modifier.width(tile).clip(STRIP_TILE_SHAPE)
                     .clickable(onClickLabel = show.title) { onShow(show.id) }.padding(bottom = 4.dp),
             ) {
-                Cover(show.imageUrl, STRIP_TILE, corner = 14.dp)
+                Cover(show.imageUrl, tile, corner = 14.dp)
                 Text(show.title, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val release = releases[show.id]
                 if (release != null) Row(
@@ -494,6 +498,7 @@ private fun ShowsStrip(
                 }
             }
         }
+    }
     }
 }
 

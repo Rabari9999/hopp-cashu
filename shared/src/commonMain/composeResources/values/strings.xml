@@ -422,6 +422,8 @@
     <string name="settings_playback_note">Speed, skip intervals, skip silence</string>
     <string name="settings_downloads_refresh">Downloads &amp; updates</string>
     <string name="settings_downloads_note">Storage, looking for new episodes</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_updates_note">Looking for new episodes</string>
     <string name="settings_notifications">Notifications</string>
     <string name="settings_notifications_note">What boosts and zaps report</string>
     <string name="settings_language">Language</string>

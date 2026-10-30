@@ -36,6 +36,11 @@ internal val LightScheme: ColorScheme = lightColorScheme(
     surfaceContainer = Color(0xFFFBFAF8),
     surfaceContainerHigh = Color(0xFFF1F0EC),
     surfaceContainerHighest = Color(0xFFECEBE7),
+    // The selected item's pill in the navigation rail and bar, a chosen segment, info boxes —
+    // left unset, Material's baseline made them lavender (UX review 2026-10-30). Neutral, as
+    // orange is kept for money (ADR 0019).
+    secondaryContainer = Color(0xFFE2E0DA),
+    onSecondaryContainer = Ink,
 )
 
 internal val DarkScheme: ColorScheme = darkColorScheme(
@@ -56,6 +61,8 @@ internal val DarkScheme: ColorScheme = darkColorScheme(
     surfaceContainer = Color(0xFF1C1C1A),
     surfaceContainerHigh = Color(0xFF232220),
     surfaceContainerHighest = Color(0xFF2A2927),
+    secondaryContainer = Color(0xFF363531),
+    onSecondaryContainer = Paper,
 )
 
 /**

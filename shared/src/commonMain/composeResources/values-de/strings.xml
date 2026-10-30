@@ -422,6 +422,8 @@
     <string name="settings_playback_note">Geschwindigkeit, Sprungweiten, Stille überspringen</string>
     <string name="settings_downloads_refresh">Downloads &amp; Aktualisierung</string>
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
+    <string name="settings_updates">Aktualisierung</string>
+    <string name="settings_updates_note">Suche nach neuen Folgen</string>
     <string name="settings_notifications">Benachrichtigungen</string>
     <string name="settings_notifications_note">Was Boosts und Zaps melden</string>
     <string name="settings_language">Sprache</string>

@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
@@ -74,6 +76,7 @@ import space.sovereigncast.hopp.resources.nav_library
 import space.sovereigncast.hopp.resources.nav_home
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
+import space.sovereigncast.hopp.resources.settings_updates
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.DisposableEffect
@@ -227,13 +230,16 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
         destination?.hasRoute(SettingsPageRoute::class) == true ->
-            entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let { stringResource(it.title) } ?: ""
+            entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let {
+                // Where nothing is downloaded (the browser) the page only looks for new episodes.
+                stringResource(if (it == SettingsPage.Downloads && !platformActions.canDownload) Res.string.settings_updates else it.title)
+            } ?: ""
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
         destination?.hasRoute(FavoritesRoute::class) == true -> stringResource(Res.string.favorites_title)
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
-        destination?.hasRoute(PersonRoute::class) == true -> pageTitle.text.orEmpty()
+        destination?.hasRoute(PersonRoute::class) == true || destination?.hasRoute(ShowRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
@@ -386,17 +392,27 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   val paneWidth = maxOf(PLAYER_PANE_MIN, maxWidth * PLAYER_PANE_SHARE)
                   val paneOpen = playerPane && expanded
                   Row(Modifier.fillMaxSize()) {
+                    // The tabs at the top, where the eye starts, and the settings at the foot of the rail —
+                    // not alone in the window's far corner (UX review 2026-10-30).
                     if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+                        val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
                             NavigationRailItem(
-                                selected = currentTab == tab,
+                                selected = currentTab == tab && !inSettings,
                                 onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, null) },
                                 label = { Text(stringResource(tab.label)) },
                             )
                         }
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        NavigationRailItem(
+                            selected = inSettings,
+                            onClick = { if (destination?.hasRoute(SettingsRoute::class) != true) nav.navigate(SettingsRoute) },
+                            icon = { Icon(Icons.Rounded.Settings, null) },
+                            label = { Text(stringResource(Res.string.settings)) },
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                     }
                     Scaffold(
                         modifier = Modifier.weight(1f),
@@ -405,7 +421,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         topBar = {
                             CenterAlignedTopAppBar(
                                 // Faded, so a page's own title comes up as its head scrolls away.
-                                title = { androidx.compose.animation.Crossfade(title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
+                                // Home's greeting is its head beside a rail: no second "Home" above it (UX review 2026-10-30).
+                                title = { androidx.compose.animation.Crossfade(if (rail && onTab == tabs[0]) "" else title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
                                 navigationIcon = {
                                     // The page's own step first (a picked episode), then the back stack.
                                     if (onTab == null) IconButton(onClick = { pageBack.step?.invoke() ?: nav.popBackStack() }) {
@@ -413,7 +430,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     }
                                 },
                                 actions = {
-                                    if (onTab != null) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
+                                    if (onTab != null && !rail) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
                                         // A cogwheel: Hopp has no account (device feedback 2026-10-10).
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
                                     }
@@ -456,12 +473,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
-                            composable<LibraryRoute> {
+                            composable<LibraryRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 LibraryScreen(
                                     onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
                                 )
-                            }
+                            } }
                             composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
                             composable<FavoritesRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.FavoritesScreen() } }
                             composable<DownloadsRoute> { Readable(LIST_WIDTH) { DownloadsScreen() } }

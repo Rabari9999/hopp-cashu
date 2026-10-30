@@ -1,12 +1,15 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.RadioButton
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
 import space.sovereigncast.hopp.resources.stats_title
+import space.sovereigncast.hopp.resources.settings_updates
+import space.sovereigncast.hopp.resources.settings_updates_note
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
@@ -123,21 +126,26 @@ fun SettingsScreen(
 ) {
     val wallet by vm.walletLabel.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-        Group(stringResource(Res.string.settings_group_value))
-        if (LocalPlatformActions.current.canPay) {
+        val actions = LocalPlatformActions.current
+        // Where Hopp pays nothing (the browser for now) there is no value group: the stats go with the app's
+        // pages, and neither a download page nor one for what payments report is offered (UX review 2026-10-30).
+        val stats = @Composable { Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats) }
+        if (actions.canPay) {
+            Group(stringResource(Res.string.settings_group_value))
             Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
                 wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
             Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+            stats()
         }
-        Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats)
 
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
         Entry(Icons.Rounded.Home, stringResource(Res.string.settings_home), stringResource(Res.string.settings_home_note)) { onPage(SettingsPage.Home) }
-        Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
-        Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        if (actions.canDownload) Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
+        else Entry(Icons.Rounded.Refresh, stringResource(Res.string.settings_updates), stringResource(Res.string.settings_updates_note)) { onPage(SettingsPage.Downloads) }
+        if (actions.canPay) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        if (!actions.canPay) stats()
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
-        val actions = LocalPlatformActions.current
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
         // In the browser, which has no such page, Hopp's own choice (maintainer 2026-10-28).
         actions.appLanguages?.let { languages ->

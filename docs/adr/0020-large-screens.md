@@ -160,6 +160,26 @@ keyboard shortcuts. Running it on a Mac, like on a device, needs the app signed
 with the team (`TEAM_ID` in `iosApp/Configuration/Config.xcconfig`, empty so
 far). Compose Desktop only if listeners ask for a native Mac app.
 
+### UX review of the web and tablet layout (2026-10-30)
+
+Hopp Web at 1440×900, 1280×720 and the iPad's two sizes, the small points first:
+
+- **The rail:** the tabs at its top, the settings at its foot (selected while
+  in them); the cogwheel in the top bar only without a rail. Home's greeting
+  is its head beside a rail — no second "Home" above it.
+- **The selected item** of the rail and the bar, a chosen segment, info boxes:
+  `secondaryContainer` set to a neutral tone; left unset, Material's baseline
+  made them lavender.
+- **A show's name in the top bar** once its header has scrolled away
+  (`TabbedPage(title = …)`, as a person's page does).
+- **The library** centred like the other pages, at most 1 200 dp
+  (`GRID_WIDTH`); Home's show tiles 128 dp from 600 dp wide.
+- **The tour** on a large window as one column of at most 600 × 800 dp,
+  "Skip" at its corner.
+- Open, larger: a player bar with seek, speed and volume on large windows;
+  now playing's sheets as tabs in its column; the show page's empty detail
+  pane; arrows or a grid for Discover's rows under a mouse.
+
 ## Consequences
 
 - Hopp is usable on tablets, the iPad and a phone on its side from step 1;

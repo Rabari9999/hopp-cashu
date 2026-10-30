@@ -116,6 +116,7 @@ import space.sovereigncast.hopp.resources.discover_no_results
 import space.sovereigncast.hopp.resources.discover_open_feed
 import space.sovereigncast.hopp.resources.discover_results
 import space.sovereigncast.hopp.resources.discover_people
+import space.sovereigncast.hopp.resources.sc_tab_episodes
 import space.sovereigncast.hopp.resources.person_role_at
 import space.sovereigncast.hopp.resources.discover_person_count
 import space.sovereigncast.hopp.resources.discover_person_everywhere
@@ -225,7 +226,9 @@ fun DiscoverScreen(
                     // People (0.3.1): those in the subscribed shows the term names, and every
                     // podcast's episodes with that name, from the Podcast Index.
                     if (q.length >= space.sovereigncast.hopp.data.PeopleRepository.MIN_TERM && (persons.isNotEmpty() || !r.unavailable)) {
-                        item { Header(stringResource(Res.string.discover_people)) }
+                        // Without a person of the library by that name, only the search through every podcast's
+                        // episodes is left — "People" above it read as a mistake (UX review 2026-10-30).
+                        item { Header(stringResource(if (persons.isNotEmpty()) Res.string.discover_people else Res.string.sc_tab_episodes)) }
                         items(persons, key = { "p" + it.name }) { p ->
                             PersonLine(
                                 p.name, p.img,
