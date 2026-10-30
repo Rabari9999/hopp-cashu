@@ -29,8 +29,9 @@ play.sovereigncast.space {
 	root * /srv/hopp-web/current
 	# Webpack's content-hashed files never change under their name; everything else is asked again (ETag).
 	@hashed path_regexp hashed ^/[0-9a-f]{20}\.(wasm|js)$
+	@unhashed not path_regexp ^/[0-9a-f]{20}\.(wasm|js)$
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
-	header -@hashed Cache-Control "no-cache"
+	header @unhashed Cache-Control "no-cache"
 	# Compressed once at build time (web/deploy/build.sh), not per request.
 	file_server {
 		precompressed br gzip
