@@ -63,8 +63,19 @@ sealed interface Fetched {
     data class Complete(val entries: Map<String, SyncEntry>, val newestAt: Long) : Fetched
     /** A majority of the relays answered to the end, and none holds the document. */
     data object Absent : Fetched
-    /** Some of it, or from too few relays: [entries] may be applied, never published over. */
-    data class Incomplete(val entries: Map<String, SyncEntry>, val newestAt: Long) : Fetched
+    /**
+     * Some of it, or from too few relays: [entries] may be applied, never published over — a part a
+     * relay holds but did not give might be the gap (audit 2026-10-22, H-02/HN-02). Except a gap known
+     * to stay: a majority read to its end ([settled]) and the newest revision is one this device failed
+     * to send whole ([newestRev], [SyncStore.brokenRev]), or every missing part is there in an older
+     * version only ([stale]) — a relay that took the newer one would hold it instead (replaceable,
+     * NIP-01). Such a gap goes, with [all] that arrived, under a whole new version (maintainer
+     * 2026-10-30: "Incomplete" for good, changes waiting).
+     */
+    data class Incomplete(
+        val entries: Map<String, SyncEntry>, val newestAt: Long, val settled: Boolean = false,
+        val newestRev: String? = null, val stale: Boolean = false, val all: Map<String, SyncEntry> = entries,
+    ) : Fetched
     /** Too few relays answered to tell: [answered] of [asked]. */
     data class Unknown(val answered: Int, val asked: Int) : Fetched
 }
@@ -147,6 +158,14 @@ object SyncCodec {
         val first = parts[1] ?: return emptyMap()
         return parts.filter { (n, p) -> p.part == n && p.rev == first.rev && n <= first.parts }.entries.sortedBy { it.key }
             .fold(emptyMap()) { acc, p -> acc + p.value.entries }
+    }
+
+    /** Every entry of every part, whatever its revision, the one that wins where two hold a key — for a
+     *  version with a gap that is about to be written over: nothing that arrived is dropped. */
+    fun joinAll(parts: Map<Int, Part>): Map<String, SyncEntry> {
+        val all = mutableMapOf<String, SyncEntry>()
+        for (p in parts.values) for ((k, e) in p.entries) { val had = all[k]; if (had == null || e.winsOver(had)) all[k] = e }
+        return all
     }
 
     /** The part number a `d` tag of [doc] names; null for any other tag. */

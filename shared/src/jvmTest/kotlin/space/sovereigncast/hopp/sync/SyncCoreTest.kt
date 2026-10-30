@@ -235,6 +235,61 @@ class SyncCoreTest {
         assertEquals(SyncOutcome.Done(0, false), tablet.engine.sync(docTablet))
     }
 
+    /**
+     * Maintainer 2026-10-30: "Incomplete", every relay answered, four changes waiting that never went out.
+     * A version that only partly went out (a relay refused one part) leaves a revision with a gap on the
+     * relays; with a majority read to its end, that gap never fills — a new, whole version goes out over
+     * it, with every entry that arrived, instead of waiting for ever.
+     */
+    @Test
+    fun aVersionThatPartlyWentOutIsWrittenOverOnceTheRelaysHaveAnswered() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}", "played" to "false")) }
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(doc, interactive = true))
+        // A change; the third part of its version is refused everywhere: parts 1 and 2 are new, part 3 is the old one.
+        phone.ms += 2_000
+        phone.store.record("test", "podcast-guid-1|episode-guid-1", data("pos" to "5", "played" to "true"))
+        relay.refuse = { e -> e.tags.any { it == listOf("d", "hopp/test#3") } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // Every relay answers; the version on them has a gap that no relay will ever fill.
+        phone.ms += 2_000
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(doc))
+        assertFalse(phone.store.unpublished("test"))
+        // Another device reads it whole, the change included.
+        val tablet = Device(nsec)
+        val other = MemoryDocument()
+        tablet.ms = phone.ms + 2_000
+        assertEquals(SyncOutcome.Done(1500, false), tablet.engine.sync(other, interactive = true))
+        assertEquals("true", other.applied.getValue("podcast-guid-1|episode-guid-1").d?.get("played")?.let { (it as JsonPrimitive).content })
+    }
+
+    /** The same gap left by a Hopp that did not keep which version failed: the missing part is there in an
+     *  older version only — a relay that had taken the newer one would hold it instead — so it is written over too. */
+    @Test
+    fun aGapOfOlderPartsOnlyIsWrittenOverWithoutKnowingWhoLeftIt() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        phone.engine.sync(doc, interactive = true)
+        phone.ms += 2_000
+        phone.store.record("test", "podcast-guid-2|episode-guid-2", data("pos" to "7"))
+        relay.refuse = { e -> e.tags.any { it == listOf("d", "hopp/test#3") } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // Another device, which never sent anything, finds the gap: older parts only — it writes over it.
+        val tablet = Device(nsec)
+        tablet.ms = phone.ms + 2_000
+        val other = MemoryDocument()
+        assertEquals(SyncOutcome.Done(1500, true), tablet.engine.sync(other, interactive = true))
+        val third = Device(nsec)
+        third.ms = tablet.ms + 2_000
+        assertIs<SyncOutcome.Done>(third.engine.sync(MemoryDocument(), interactive = true))
+    }
+
     @Test
     fun aDocumentPostedUnderAnotherKeyIsIgnored() = runBlocking<Unit> {
         val me = Device(space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey))

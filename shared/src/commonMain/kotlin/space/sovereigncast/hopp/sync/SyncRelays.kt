@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** Too few relays took a document ([took] of [asked]): it stays unpublished and goes out on the next sync. */
-class SyncNotPublished(val took: Int = 0, val asked: Int = 0) : Exception("$took of $asked relays took the sync event")
+class SyncNotPublished(val took: Int = 0, val asked: Int = 0, val rev: String? = null) : Exception("$took of $asked relays took the sync event")
 
 /**
  * The relays' side of sync (ADR 0021, 5): a document's parts read back and
@@ -70,7 +70,15 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         // Parts left over from a larger revision are always older: a new one goes out later than all of them.
         val root = newest[1]
         val later = root != null && newest.any { (n, e) -> n > 1 && e.created_at >= root.created_at && parts[n]?.rev != parts[1]?.rev }
-        return if (whole != null && majority && !later) Fetched.Complete(whole, at) else Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at)
+        if (whole != null && majority && !later) return Fetched.Complete(whole, at)
+        // Which revision went out last, and whether its gap is only older parts (maintainer 2026-10-30).
+        val newestRev = newest.maxByOrNull { it.value.created_at }?.key?.let { parts[it]?.rev }
+        val first = parts[1]
+        val stale = root != null && first != null && !later && first.parts in 1..SyncCodec.MAX_PARTS && (1..first.parts).all { n ->
+            val p = parts[n] ?: return@all false
+            p.rev == first.rev || newest.getValue(n).created_at < root.created_at
+        }
+        return Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at, settled = majority, newestRev = newestRev, stale = stale, all = SyncCodec.joinAll(parts))
     }
 
     /**
@@ -93,7 +101,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val ok = publisher.publish(event, relays)
             took = took?.intersect(ok) ?: ok
         }
-        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size)
+        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size, rev)
         return took
     }
 

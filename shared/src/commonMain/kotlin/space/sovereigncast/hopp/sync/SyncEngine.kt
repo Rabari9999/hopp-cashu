@@ -75,9 +75,12 @@ class SyncEngine(
             var mine = store.entries(doc.name)
             mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it); mine = mine - it }
             val fetched = relays.fetch(signer, doc.name, urls)
+            // A gap that will stay (Fetched.Incomplete): written over with everything that arrived.
+            val repair = fetched is Fetched.Incomplete && fetched.settled &&
+                (fetched.stale || (fetched.newestRev != null && fetched.newestRev == store.brokenRev(doc.name)))
             val (read, notBefore) = when (fetched) {
                 is Fetched.Complete -> fetched.entries to fetched.newestAt
-                is Fetched.Incomplete -> fetched.entries to fetched.newestAt
+                is Fetched.Incomplete -> (if (repair) fetched.all else fetched.entries) to fetched.newestAt
                 Fetched.Absent -> emptyMap<String, SyncEntry>() to 0L
                 is Fetched.Unknown -> return SyncOutcome.Failed(SyncNotReached(fetched.answered, fetched.asked))
             }
@@ -98,13 +101,23 @@ class SyncEngine(
             hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
             repair(doc, now, skip = merged.fromThem.keys)
-            if (fetched is Fetched.Incomplete) return SyncOutcome.Incomplete(applied)
+            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied)
             store.markFetched(doc.name, nowMs())
-            val publish = merged.theyLack
+            // The gap goes under a whole version, even when the relays lack nothing of ours.
+            val publish = merged.theyLack || repair
             // A removal made here goes out with the time it goes out (HN-05).
             val pendingHere = store.pendingKeys(doc.name)
             val all = merged.all.mapValues { (k, e) -> if (e.del && k in pendingHere) e.copy(out = now) else e }
-            if (publish) relays.publish(signer, doc.name, all, urls, notBefore)
+            if (publish) {
+                try {
+                    relays.publish(signer, doc.name, all, urls, notBefore)
+                } catch (e: SyncNotPublished) {
+                    // Some parts may have gone out: a gap this device knows it left, to write over next time.
+                    e.rev?.let { store.markBroken(doc.name, it) }
+                    throw e
+                }
+                store.markBroken(doc.name, null)
+            }
             // The relays hold these versions now; anything changed here since stays pending.
             store.markSent(doc.name, all)
             SyncOutcome.Done(applied, publish, pending = waiting)

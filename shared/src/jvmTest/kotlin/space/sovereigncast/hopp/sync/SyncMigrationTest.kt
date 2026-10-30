@@ -18,8 +18,14 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
-    /** Version 16 from the current schema: no "heard up to" per show yet. */
+    /** Version 17 from the current schema: no revision kept that failed to go out whole. */
+    private fun version17(driver: JdbcSqliteDriver) {
+        driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN broken_rev", 0)
+    }
+
+    /** Version 16: no "heard up to" per show yet either. */
     private fun version16(driver: JdbcSqliteDriver) {
+        version17(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through", 0)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through_at", 0)
     }

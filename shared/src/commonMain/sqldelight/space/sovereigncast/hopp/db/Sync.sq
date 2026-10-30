@@ -27,11 +27,13 @@ CREATE TABLE sync_unapplied (
     PRIMARY KEY (doc, key)
 );
 
--- Per document: when it was last fetched, and the newest entry the relays took from here.
+-- Per document: when it was last fetched, and the newest entry the relays took from here;
+-- broken_rev: a revision this device failed to send whole, to write over (version 18).
 CREATE TABLE sync_doc (
     doc TEXT PRIMARY KEY NOT NULL,
     fetched_at INTEGER,
-    published_up_to INTEGER
+    published_up_to INTEGER,
+    broken_rev TEXT
 );
 
 entries:
@@ -96,6 +98,12 @@ UPDATE sync_doc SET fetched_at = ? WHERE doc = ?;
 
 setPublished:
 UPDATE sync_doc SET published_up_to = ? WHERE doc = ?;
+
+brokenRev:
+SELECT broken_rev FROM sync_doc WHERE doc = ?;
+
+setBrokenRev:
+UPDATE sync_doc SET broken_rev = ? WHERE doc = ?;
 
 clearEntries:
 DELETE FROM sync_entry;

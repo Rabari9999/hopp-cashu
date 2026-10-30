@@ -119,6 +119,11 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
 
     suspend fun markFetched(doc: String, at: Long) = db.transaction { q.ensureDoc(doc); q.setFetched(at, doc) }
 
+    /** The revision of [doc] this device last failed to send whole — some parts out, some not; null when none. */
+    suspend fun brokenRev(doc: String): String? = q.brokenRev(doc).awaitAsOneOrNull()?.broken_rev
+
+    suspend fun markBroken(doc: String, rev: String?) = db.transaction { q.ensureDoc(doc); q.setBrokenRev(rev, doc) }
+
     /** Entries changed here and not yet taken by the relays, over every document. */
     suspend fun pendingCount(): Int = q.pendingCount().awaitAsOne().toInt()
 

@@ -1,0 +1,2 @@
+-- A sync document's revision this device failed to send whole (maintainer 2026-10-30): written over next time.
+ALTER TABLE sync_doc ADD COLUMN broken_rev TEXT;

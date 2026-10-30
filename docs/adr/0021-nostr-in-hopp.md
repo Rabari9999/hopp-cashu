@@ -623,6 +623,23 @@ switches.
      the sync sheet.
      Tests: `ProgressSyncTest`, `RelayReportTest`, `SyncMigrationTest`.
 
+   *Amended an eleventh time 2026-10-30 (0.3.2, maintainer: "Incomplete" with
+   every relay answering, four changes that never went out):*
+   - **Parts of at most 40 000 bytes:** a 60 000-byte part became an event of
+     ~88 KB, over strfry's default of 64 KiB per event (nos.lol and many
+     others); now ~55 KB.
+   - **A gap that stays is written over.** A version that went out only in
+     part (a relay refused a part) leaves a revision with a gap; read as
+     incomplete, it was never sent over (H-02) — and so never mended. Now,
+     with a majority read to its end, a whole new version goes out over it,
+     with every entry of every part that arrived, when the newest revision
+     is one this device failed to send whole (`sync_doc.broken_rev`,
+     version 18), or when every missing part is there in an older version
+     only (a relay that had taken the newer one would hold it instead). A
+     part that is simply missing still stops the round: a relay may hold it
+     and not have given it (HN-02).
+     Tests: `SyncCoreTest`, `SyncAuditTest`, `SyncMigrationTest`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode
