@@ -76,10 +76,18 @@ install -d -m 755 -o deploy -g deploy /srv/hopp-web /srv/hopp-web/releases
 install -d -m 755 /opt/hopp-feed-proxy
 
 echo "== the feed proxy"
-# Its resolver must be one it may reach: a stub on loopback (systemd-resolved) is not.
-if grep -qE '^nameserver (127\.|::1)' /etc/resolv.conf; then
-    echo "resolv.conf points at loopback — the proxy's IPAddressDeny would cut off its DNS" >&2
+# Its resolver must be one it may reach: with systemd-resolved the service reads resolved's
+# upstream servers (hopp-feed-proxy.service, BindReadOnlyPaths) — public ones, not a stub on loopback.
+seen=/etc/resolv.conf; [[ -f /run/systemd/resolve/resolv.conf ]] && seen=/run/systemd/resolve/resolv.conf
+if grep -qE '^nameserver (127\.|::1|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' "$seen"; then
+    echo "$seen names a local or private resolver — the proxy's IPAddressDeny would cut off its DNS" >&2
     exit 1
+fi
+# LLMNR answers names on the local network; nothing here needs it.
+if systemctl is-active -q systemd-resolved; then
+    mkdir -p /etc/systemd/resolved.conf.d
+    printf '[Resolve]\nLLMNR=no\nMulticastDNS=no\n' > /etc/systemd/resolved.conf.d/10-hopp.conf
+    systemctl restart systemd-resolved
 fi
 cp /tmp/hopp-deploy/hopp-feed-proxy.socket /tmp/hopp-deploy/hopp-feed-proxy.service /etc/systemd/system/
 cp /tmp/hopp-deploy/Caddyfile /etc/caddy/Caddyfile
