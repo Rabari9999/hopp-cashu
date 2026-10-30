@@ -719,7 +719,7 @@
     <string name="onboarding_nostr_comments">comment on episodes and like — seen in Fountain &amp; co. too</string>
     <string name="onboarding_nostr_votes">your Sovereigncast votes on every device</string>
     <string name="onboarding_nostr_boosts">boosts as public comments, if you want</string>
-    <string name="np_no_value">This show takes no sats — its feed names no value recipients.</string>
+    <string name="np_no_value">This show takes no sats.</string>
     <string name="onboarding_nostr_setup">Set up</string>
     <string name="nostr_vault_save_android">Save in password manager</string>
     <string name="nostr_vault_save_ios">Save in iCloud Keychain</string>

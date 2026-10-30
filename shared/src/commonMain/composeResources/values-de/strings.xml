@@ -719,7 +719,7 @@
     <string name="onboarding_nostr_comments">Folgen kommentieren und liken – auch in Fountain &amp; Co. sichtbar</string>
     <string name="onboarding_nostr_votes">deine Sovereigncast-Stimmen auf jedem Gerät</string>
     <string name="onboarding_nostr_boosts">Boosts auf Wunsch als öffentlicher Kommentar</string>
-    <string name="np_no_value">Diese Show nimmt keine Sats an – ihr Feed nennt keine Empfänger.</string>
+    <string name="np_no_value">Diese Show nimmt keine Sats an.</string>
     <string name="onboarding_nostr_setup">Einrichten</string>
     <string name="nostr_vault_save_android">Im Passwortmanager sichern</string>
     <string name="nostr_vault_save_ios">Im iCloud-Schlüsselbund sichern</string>

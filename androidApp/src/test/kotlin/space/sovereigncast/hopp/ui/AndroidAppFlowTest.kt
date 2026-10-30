@@ -1281,7 +1281,7 @@ class AndroidAppFlowTest {
         tap("Play")
         until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
         koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
-        waitFor("This show takes no sats — its feed names no value recipients.")
+        waitFor("This show takes no sats.")
         check(rule.onAllNodes(hasText("Boost") and hasClickAction()).fetchSemanticsNodes().isEmpty()) { "a boost button that cannot work" }
     }
 
