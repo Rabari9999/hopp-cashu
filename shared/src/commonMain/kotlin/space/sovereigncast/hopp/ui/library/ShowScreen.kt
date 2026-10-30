@@ -286,7 +286,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                 ShowTab.Episodes, null -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     item(key = "search") { EpisodeSearchField(query, vm::search, found?.size) }
                     items(found ?: episodes.orEmpty(), key = { it.id }) { item ->
-                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
+                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }, showCover = show?.imageUrl) {
                             PlayButton(item)
                             EpisodeMenu(item)
                         }
