@@ -183,9 +183,12 @@ Hopp Web at 1440×900, 1280×720 and the iPad's two sizes, the small points firs
   rather than scroll; elsewhere off a phone the player's chips wrap too, so
   none runs off the edge where a mouse cannot reach it. On a cover under
   280 dp the chapter band names the chapter only.
+- **A show beside its episode:** the show's column 45 % of the page (420–560
+  dp, its titles broke after two lines at 420 on a desktop), and the newest
+  episode on the right until one is picked — not a step of its own, back
+  still leaves the show — marked in the list like the one picked.
 - Open, larger: a player bar with seek, speed and volume on large windows;
-  the show page's empty detail pane; arrows or a grid for Discover's rows
-  under a mouse.
+  arrows or a grid for Discover's rows under a mouse.
 
 ## Consequences
 

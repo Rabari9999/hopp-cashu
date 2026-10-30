@@ -99,6 +99,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import space.sovereigncast.hopp.resources.crash_title
 import space.sovereigncast.hopp.resources.crash_ask
 import space.sovereigncast.hopp.resources.crash_view
@@ -570,8 +571,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
                                 // Wide: the show and an episode side by side (ADR 0020, step 2).
+                                val latest by remember(route.id) { episodeRepo.ofPodcastPage(route.id, 1).map { it.firstOrNull()?.id } }.collectAsState(null)
                                 space.sovereigncast.hopp.ui.library.ShowListDetail(
-                                    route.id,
+                                    route.id, latest = latest,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
                                             openCommunity = route.community, openBoosts = route.boosts, openRound = route.round, openUnlock = route.unlock,

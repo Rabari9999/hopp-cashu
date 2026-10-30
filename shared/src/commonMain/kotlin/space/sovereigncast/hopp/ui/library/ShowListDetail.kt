@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
@@ -31,7 +32,13 @@ import space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH
 import space.sovereigncast.hopp.ui.components.LocalPageBack
 
 /** How wide the show's own column is beside an episode. */
-private val SHOW_COLUMN = 420.dp
+/** The episode shown beside the list (side by side), marked in it; null elsewhere. */
+val LocalShownEpisode = androidx.compose.runtime.compositionLocalOf<Long?> { null }
+
+/** The show's column: 45 % of the page, between these — at a fixed 420 dp its titles broke after two
+ *  lines on a desktop while half the window stood empty (UX review 2026-10-30). */
+private val SHOW_COLUMN_MIN = 420.dp
+private val SHOW_COLUMN_MAX = 560.dp
 
 /**
  * A show and one of its episodes side by side once the content is wide enough
@@ -51,6 +58,8 @@ private val SHOW_COLUMN = 420.dp
 @Composable
 fun ShowListDetail(
     podcastId: Long,
+    /** The show's newest episode: shown on the right until one is picked, rather than an empty half. */
+    latest: Long? = null,
     show: @Composable () -> Unit,
     episode: @Composable (id: Long, onGone: () -> Unit) -> Unit,
 ) {
@@ -73,13 +82,15 @@ fun ShowListDetail(
         }
         val outer = LocalEpisodeNav.current
         val pick = remember(outer) { EpisodeNav(open = { picked = it.id }, play = outer.play) }
+        val column = (maxWidth * 0.45f).coerceIn(SHOW_COLUMN_MIN, SHOW_COLUMN_MAX)
         Row(Modifier.fillMaxSize()) {
-            Box(Modifier.width(SHOW_COLUMN).fillMaxHeight()) {
-                CompositionLocalProvider(LocalEpisodeNav provides pick) { show() }
+            Box(Modifier.width(column).fillMaxHeight()) {
+                CompositionLocalProvider(LocalEpisodeNav provides pick, LocalShownEpisode provides (picked ?: latest)) { show() }
             }
             VerticalDivider()
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                val id = picked
+                // Not picked: the newest, not a step of its own — back still leaves the show.
+                val id = picked ?: latest
                 if (id == null) Text(
                     stringResource(Res.string.show_pick_episode),
                     Modifier.align(Alignment.Center).padding(32.dp),

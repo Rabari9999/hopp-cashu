@@ -68,7 +68,7 @@ class LargeScreenTest {
     fun nowPlayingFitsATabletUpright() { openPlayer(); controlsOnScreen() }
 
     /** Step 2: on a tablet on its side a row of the show's page picks the episode
-     *  beside it — the list stays, the page is not covered. */
+     *  beside it — the list stays, the page is not covered; until then the newest stands there. */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
     fun showAndEpisodeSideBySideOnATablet() {
         rule.setContent { App() }
@@ -76,9 +76,11 @@ class LargeScreenTest {
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
         tap("Open as feed"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
-        waitFor("Pick an episode to see it here.")
-        tap("Ep 2"); waitFor("Show notes")
-        rule.onNode(hasText("Ep 1")).assertIsDisplayed()
+        // The newest episode beside the list from the start, not an empty half (UX review 2026-10-30).
+        waitFor("Show notes")
+        check(!has("Pick an episode to see it here.")) { "the right half is empty" }
+        tap("Ep 1"); rule.waitUntil(10_000) { rule.onAllNodesWithText("Ep 1").fetchSemanticsNodes().size == 2 }
+        rule.onNode(hasText("Ep 2")).assertIsDisplayed()
         rule.onNode(hasText("✓ Subscribed")).assertIsDisplayed()
     }
 
