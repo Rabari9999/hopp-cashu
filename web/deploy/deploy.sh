@@ -20,7 +20,9 @@ VERSION=$(basename "$REL")
 [[ -f $REL/site/index.html && -x $REL/proxy ]] || { echo "no build in $REL" >&2; exit 1; }
 
 # Server files travel with every deploy, so the server always runs what the repository says.
-rsync -a -e "${SSH[*]}" web/deploy/Caddyfile web/deploy/hopp-feed-proxy.socket web/deploy/hopp-feed-proxy.service "root@$HOST:/tmp/hopp-deploy/"
+# scp, not rsync: a fresh server has no rsync before setup.sh.
+"${SSH[@]}" "root@$HOST" 'install -d -m 700 /tmp/hopp-deploy'
+scp -q -i "$KEY" -o IdentitiesOnly=yes web/deploy/Caddyfile web/deploy/hopp-feed-proxy.socket web/deploy/hopp-feed-proxy.service "root@$HOST:/tmp/hopp-deploy/"
 if [[ -n $SETUP ]]; then
     "${SSH[@]}" "root@$HOST" 'bash -s' < web/deploy/setup.sh
 fi
