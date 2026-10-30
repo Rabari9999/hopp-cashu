@@ -71,13 +71,21 @@ sealed interface Fetched {
 
 /**
  * How a document travels: JSON, NIP-44-encrypted, in kind-30078 events whose
- * `d` tag names it. NIP-44 takes at most 65 535 bytes, so a long document goes
- * in parts (`hopp/progress`, `hopp/progress#2` …) that share a revision —
- * parts of different revisions are never mixed.
+ * `d` tag names it. A long document goes in parts (`hopp/progress`,
+ * `hopp/progress#2` …) that share a revision — parts of different revisions
+ * are never mixed.
  */
 object SyncCodec {
     const val VERSION = 1
-    const val MAX_PART_BYTES = 60_000
+    /**
+     * What one part's JSON may take. The event must stay under 64 KiB, strfry's
+     * default (nos.lol and many others; maintainer 2026-10-30: "event too large:
+     * 87839" with 60 000): NIP-44 pads this to 40 960 bytes, base64 makes it
+     * ~54 700, the event around it ~55 100.
+     */
+    const val MAX_PART_BYTES = 40_000
+    /** The event size strfry takes by default (`events.maxEventSize`). */
+    const val MAX_EVENT_BYTES = 65_536
     const val MAX_PARTS = 16
 
     @Serializable

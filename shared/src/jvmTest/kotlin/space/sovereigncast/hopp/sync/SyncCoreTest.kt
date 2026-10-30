@@ -2,10 +2,12 @@ package space.sovereigncast.hopp.sync
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.identity.IdentityRepository
+import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.LocalSigner
 import space.sovereigncast.hopp.nostr.Nip78
@@ -74,6 +76,16 @@ class SyncCoreTest {
         parts.forEach { assertTrue(SyncCodec.encode(it).encodeToByteArray().size <= SyncCodec.MAX_PART_BYTES, "a part over NIP-44's limit") }
         assertEquals(entries, SyncCodec.join(parts.associate { it.part to SyncCodec.decode(SyncCodec.encode(it)) }))
         assertEquals(listOf("hopp/progress", "hopp/progress#2"), SyncCodec.dTags("progress").take(2))
+    }
+
+    /** Maintainer 2026-10-30: nos.lol refused a progress part, "invalid: event too large: 87839". */
+    @Test
+    fun theFullestPartStaysUnderTheRelaysEventLimit() = runBlocking<Unit> {
+        val signer = LocalSigner(KeyPair.generate())
+        val fullest = "x".repeat(SyncCodec.MAX_PART_BYTES)
+        val event = signer.sign(UnsignedEvent(Nip78.KIND, signer.encryptToSelf(fullest), listOf(listOf("d", SyncCodec.dTag("subscriptions", SyncCodec.MAX_PARTS))), 1_790_000_000))
+        val size = Json.encodeToString(Event.serializer(), event).encodeToByteArray().size
+        assertTrue(size <= SyncCodec.MAX_EVENT_BYTES, "an event of $size bytes")
     }
 
     @Test

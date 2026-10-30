@@ -365,7 +365,7 @@ switches.
    documents (`hopp/subscriptions`, `hopp/progress`, `hopp/queue`,
    `hopp/settings`), each a JSON of entries with a time in milliseconds and a
    removal mark, NIP-44-sealed to the listener's key in kind-30078 parts
-   under 60 KB that share a revision. Every round reads and merges per entry
+   under 40 KB that share a revision. Every round reads and merges per entry
    before it sends; a change made here is always later than what it
    replaces, so a clock behind does not lose it. A position and a favourite
    of one episode are separate entries; positions older than 90 days are
