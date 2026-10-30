@@ -420,6 +420,7 @@ private fun CategoryTiles(mine: List<Category>, selected: Category?, onSelect: (
     LaunchedEffect(selected) { selected?.let { state.animateScrollToItem(ordered.indexOf(it).coerceAtLeast(0)) } }
     val tile = if (large) 64.dp else 52.dp
     val dot = stringResource(Res.string.discover_mine)
+    space.sovereigncast.hopp.ui.components.SideScroll(state) {
     LazyHorizontalGrid(
         GridCells.Fixed(2), Modifier.fillMaxWidth().height(tile * 2 + 8.dp), state = state,
         contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -441,6 +442,7 @@ private fun CategoryTiles(mine: List<Category>, selected: Category?, onSelect: (
             }
         }
     }
+    }
 }
 
 /** Each category's own colour, laid over the page lightly. */
@@ -457,8 +459,11 @@ private val Category.hue: Color get() = when (this) {
 /** Shows side by side, scrolled sideways. */
 @Composable
 private fun Carousel(shows: List<DirectoryShow>, key: String, card: @Composable (Int, DirectoryShow) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        itemsIndexed(shows, key = { _, it -> key + it.feedUrl }) { i, show -> card(i, show) }
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    space.sovereigncast.hopp.ui.components.SideScroll(state) {
+        LazyRow(state = state, contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            itemsIndexed(shows, key = { _, it -> key + it.feedUrl }) { i, show -> card(i, show) }
+        }
     }
 }
 

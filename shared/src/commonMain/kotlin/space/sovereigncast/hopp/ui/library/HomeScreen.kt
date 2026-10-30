@@ -475,6 +475,7 @@ private fun ShowsStrip(
     androidx.compose.runtime.LaunchedEffect(first) { if (state.firstVisibleItemIndex <= 1) state.scrollToItem(0) }
     androidx.compose.foundation.layout.BoxWithConstraints {
     val tile = if (maxWidth >= space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH) STRIP_TILE_WIDE else STRIP_TILE
+    space.sovereigncast.hopp.ui.components.SideScroll(state) {
     LazyRow(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(ordered, key = { "s${it.id}" }) { show ->
             // Only the top corners echo the cover's: rounded at the bottom too, the
@@ -498,6 +499,7 @@ private fun ShowsStrip(
                 }
             }
         }
+    }
     }
     }
 }

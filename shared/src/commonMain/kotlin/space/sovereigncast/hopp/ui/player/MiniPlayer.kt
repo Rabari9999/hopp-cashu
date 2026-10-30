@@ -39,6 +39,18 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Slider
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
+import space.sovereigncast.hopp.resources.np_open
+import space.sovereigncast.hopp.resources.np_progress
+import space.sovereigncast.hopp.resources.np_speed
+import space.sovereigncast.hopp.resources.np_mute
+import space.sovereigncast.hopp.resources.np_unmute
+import space.sovereigncast.hopp.resources.np_volume
 import space.sovereigncast.hopp.resources.np_pause
 import space.sovereigncast.hopp.resources.np_play
 import space.sovereigncast.hopp.ui.components.HoppIcons
@@ -73,6 +85,9 @@ fun MiniPlayer(model: PlayerController) {
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val track = Hopp.colors.progressTrack
     val fill = colors.onSurface
+    // A large window: a player bar instead — seek, speed and, in a browser, volume at hand (UX review 2026-10-30).
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH) { PlayerBar(model, playing, state, duration); return@BoxWithConstraints }
     Column(
         Modifier.fillMaxWidth().background(colors.surface)
             .clickable { model.expand() }
@@ -134,6 +149,99 @@ fun MiniPlayer(model: PlayerController) {
                     Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(28.dp))
                 }
             }
+        }
+    }
+    }
+}
+
+/**
+ * The player as a bar along the window's foot (UX review 2026-10-30, as music and podcast players
+ * on a desktop): what plays, the skips round play, a seek bar with the chapters and the times,
+ * the speed, the volume where the engine has one of its own (the browser), and the way up to
+ * now playing. A tap on the cover or the title opens it too.
+ */
+@Composable
+private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp.player.NowPlaying, state: PlaybackState, duration: Long) {
+    val colors = MaterialTheme.colorScheme
+    val episode = playing.item
+    val settings by model.settings.collectAsState()
+    val chapters = playing.chapters
+    val position = state.positionMs
+    Column(Modifier.fillMaxWidth().background(colors.surface)) {
+        HorizontalDivider(color = colors.outlineVariant)
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.width(300.dp).clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = stringResource(Res.string.np_open)) { model.expand() },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AsyncImage(
+                    model = chapters.imageAt(position) ?: playing.artworkUrl, contentDescription = null,
+                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(episode.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(chapters.current(position)?.title?.takeIf { it.isNotBlank() } ?: playing.podcastTitle,
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.width(20.dp))
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = model::skipBack) {
+                        Icon(HoppIcons.Replay, stringResource(Res.string.np_back15, settings.skipBackSeconds), Modifier.size(24.dp))
+                    }
+                    Box(
+                        Modifier.padding(horizontal = 12.dp).size(44.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PlayPause(state, colors.onPrimary, 22.dp)
+                    }
+                    IconButton(onClick = model::skipForward) {
+                        Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(24.dp))
+                    }
+                }
+                var dragTo by remember { mutableStateOf<Float?>(null) }
+                val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatTime(shownAt), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Spacer(Modifier.width(10.dp))
+                    space.sovereigncast.hopp.ui.components.ChapterProgressBar(
+                        fraction = if (duration > 0) position.toFloat() / duration else 0f,
+                        boundaries = chapters.boundaryFractions(duration),
+                        onSeek = { f -> model.seekTo((f * duration).toLong()) },
+                        trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.surface,
+                        label = stringResource(Res.string.np_progress),
+                        preview = { f ->
+                            val at = (f * duration).toLong()
+                            listOfNotNull(formatTime(at), chapters.current(at)?.title?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                        },
+                        onPreview = { dragTo = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.width(20.dp))
+            val speedLabel = stringResource(Res.string.np_speed)
+            val speedText = "${formatSpeed(state.speed)}×"
+            Text(
+                speedText,
+                Modifier.clip(RoundedCornerShape(50)).clickable { model.cycleSpeed() }.padding(10.dp)
+                    .semantics { contentDescription = speedLabel; stateDescription = speedText },
+                fontWeight = FontWeight.Bold,
+            )
+            model.engine.volume?.let { flow ->
+                val volume by flow.collectAsState()
+                var before by remember { mutableStateOf(1f) }
+                IconButton(onClick = { if (volume > 0f) { before = volume; model.engine.setVolume(0f) } else model.engine.setVolume(before.takeIf { it > 0f } ?: 1f) }) {
+                    Icon(if (volume > 0f) HoppIcons.Volume else HoppIcons.VolumeOff, stringResource(if (volume > 0f) Res.string.np_mute else Res.string.np_unmute))
+                }
+                val volumeLabel = stringResource(Res.string.np_volume)
+                Slider(volume, onValueChange = model.engine::setVolume, modifier = Modifier.width(110.dp).semantics { contentDescription = volumeLabel })
+            }
+            IconButton(onClick = model::expand) { Icon(HoppIcons.ChevronUp, stringResource(Res.string.np_open)) }
         }
     }
 }

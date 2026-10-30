@@ -1,6 +1,12 @@
 <resources>
     <string name="app_tagline">Honest open podcast player</string>
     <string name="np_close">Player schließen</string>
+    <string name="scroll_left">Nach links</string>
+    <string name="scroll_right">Nach rechts</string>
+    <string name="np_volume">Lautstärke</string>
+    <string name="np_mute">Stumm</string>
+    <string name="np_unmute">Ton an</string>
+    <string name="np_open">Player öffnen</string>
     <string name="np_chapter_of">Kapitel %1$d von %2$d · noch %3$s</string>
     <string name="np_previous_chapter">Vorheriges Kapitel</string>
     <string name="np_next_chapter">Nächstes Kapitel</string>

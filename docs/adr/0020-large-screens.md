@@ -187,8 +187,14 @@ Hopp Web at 1440×900, 1280×720 and the iPad's two sizes, the small points firs
   dp, its titles broke after two lines at 420 on a desktop), and the newest
   episode on the right until one is picked — not a step of its own, back
   still leaves the show — marked in the list like the one picked.
-- Open, larger: a player bar with seek, speed and volume on large windows;
-  arrows or a grid for Discover's rows under a mouse.
+- **A player bar** from 840 dp in place of the mini player: what plays (the
+  chapter under the title), the skips round play, a seek bar with the
+  chapters and both times, the speed, and the volume where the engine has
+  one of its own (`PlaybackEngine.volume`: the browser, not Safari on iOS,
+  which ignores it); a tap on cover or title, or the arrow, opens now playing.
+- **Rows scrolled sideways** (Discover's categories and carousels, Home's
+  shows) show arrows at their ends while a mouse is over them
+  (`SideScroll`): a wheel scrolls the page, not the row.
 
 ## Consequences
 

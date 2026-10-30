@@ -25,6 +25,11 @@ private fun setPositionState(duration: Double, rate: Double, position: Double): 
 
 private fun setPlaybackStateName(state: String): Unit = js("{ navigator.mediaSession.playbackState = state; }")
 
+/** The volume the listener left, kept in this browser only; full when none or unreadable. */
+private fun storedVolume(): Double = js("(() => { try { const v = parseFloat(localStorage.getItem('hopp-volume')); return isNaN(v) ? 1 : Math.min(1, Math.max(0, v)); } catch (e) { return 1; } })()")
+
+private fun storeVolume(level: Double): Unit = js("{ try { localStorage.setItem('hopp-volume', String(level)); } catch (e) {} }")
+
 /**
  * The web's player (ADR 0022, 8) behind the same [PlaybackEngine] as Media3
  * and AVPlayer: an `<audio>` element, which plays from any host without CORS,
@@ -38,8 +43,21 @@ class HtmlAudioPlaybackEngine(
     private val audio = document.createElement("audio") as HTMLAudioElement
     private val _state = MutableStateFlow(PlaybackState())
     override val state: StateFlow<PlaybackState> = _state
+    // Safari on iOS keeps an audio element at full volume and ignores what is set: no slider there.
+    private val ownVolume = run { audio.volume = 0.5; val takes = audio.volume == 0.5; audio.volume = 1.0; takes }
+    private val _volume = MutableStateFlow(storedVolume().toFloat())
+    override val volume: StateFlow<Float>? = if (ownVolume) _volume else null
+
+    override fun setVolume(level: Float) {
+        if (!ownVolume) return
+        val v = level.coerceIn(0f, 1f)
+        audio.volume = v.toDouble()
+        _volume.value = v
+        storeVolume(v.toDouble())
+    }
 
     init {
+        if (ownVolume) audio.volume = _volume.value.toDouble()
         audio.preload = "metadata"
         listOf("timeupdate", "durationchange", "play", "pause", "playing", "waiting", "ratechange", "ended").forEach { event ->
             audio.addEventListener(event, { publish() })
