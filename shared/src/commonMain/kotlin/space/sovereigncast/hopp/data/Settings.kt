@@ -68,6 +68,8 @@ data class Settings(
     val libraryAsList: Boolean = false,
     /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
     val librarySort: String = SORT_NEWEST,
+    /** Light, dark or as the system (the browser) says (maintainer 2026-10-30) — this device's, not synced. */
+    val theme: String = THEME_SYSTEM,
     /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
      *  or empty for the device's (device feedback 2026-10-19). */
     val discoverLanguage: String = "",
@@ -131,6 +133,10 @@ data class Settings(
         const val SORT_TITLE = "title"
         const val SORT_UNHEARD = "unheard"
         val sortChoices = listOf(SORT_NEWEST, SORT_TITLE, SORT_UNHEARD)
+        const val THEME_SYSTEM = "system"
+        const val THEME_LIGHT = "light"
+        const val THEME_DARK = "dark"
+        val themeChoices = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"
@@ -180,6 +186,7 @@ data class Settings(
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
+                theme = values["theme"]?.takeIf { it in themeChoices } ?: d.theme,
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
@@ -238,6 +245,7 @@ data class Settings(
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,
+        "theme" to theme,
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),

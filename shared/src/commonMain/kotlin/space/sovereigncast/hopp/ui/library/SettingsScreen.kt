@@ -98,6 +98,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 /** The pages behind the settings overview (device feedback 2026-10-10). */
 enum class SettingsPage(val title: StringResource) {
     Playback(Res.string.settings_playback),
+    Appearance(Res.string.settings_appearance),
     PerShow(Res.string.per_show_title),
     Home(Res.string.home_customize),
     Downloads(Res.string.settings_downloads_refresh),
@@ -141,6 +142,7 @@ fun SettingsScreen(
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
         Entry(Icons.Rounded.Home, stringResource(Res.string.settings_home), stringResource(Res.string.settings_home_note)) { onPage(SettingsPage.Home) }
+        Entry(HoppIcons.Contrast, stringResource(Res.string.settings_appearance), stringResource(Res.string.settings_appearance_note)) { onPage(SettingsPage.Appearance) }
         if (actions.canDownload) Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
         else Entry(Icons.Rounded.Refresh, stringResource(Res.string.settings_updates), stringResource(Res.string.settings_updates_note)) { onPage(SettingsPage.Downloads) }
         if (actions.canPay) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
@@ -333,6 +335,17 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 OutlinedButton(onClick = { actions.openNotificationSettings() }) {
                     Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
                 }
+            }
+            // Light or dark, or as the system says (maintainer 2026-10-30: not to be chosen in Hopp Web).
+            SettingsPage.Appearance -> {
+                Section(stringResource(Res.string.settings_theme))
+                Choices(Settings.themeChoices, s.theme, { t ->
+                    stringResource(when (t) {
+                        Settings.THEME_LIGHT -> Res.string.settings_theme_light
+                        Settings.THEME_DARK -> Res.string.settings_theme_dark
+                        else -> Res.string.settings_theme_system
+                    })
+                }) { v -> vm.update { it.copy(theme = v) } }
             }
             SettingsPage.Directories -> {
                 Note(stringResource(Res.string.settings_pi_note))

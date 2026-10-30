@@ -424,6 +424,12 @@
     <string name="settings_downloads_note">Speicherplatz, Suche nach neuen Folgen</string>
     <string name="settings_updates">Aktualisierung</string>
     <string name="settings_updates_note">Suche nach neuen Folgen</string>
+    <string name="settings_appearance">Darstellung</string>
+    <string name="settings_appearance_note">Hell, dunkel oder wie das System</string>
+    <string name="settings_theme">Design</string>
+    <string name="settings_theme_system">Wie das System</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
     <string name="settings_notifications">Benachrichtigungen</string>
     <string name="settings_notifications_note">Was Boosts und Zaps melden</string>
     <string name="settings_language">Sprache</string>

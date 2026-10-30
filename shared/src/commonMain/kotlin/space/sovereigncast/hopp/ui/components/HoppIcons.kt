@@ -109,6 +109,13 @@ object HoppIcons {
             moveTo(8.5f, 9f); lineTo(15.5f, 9f); moveTo(8.5f, 12f); lineTo(13f, 12f)
         }
     }
+    /** A circle half filled: light or dark (Settings → Appearance). */
+    val Contrast = icon("contrast") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f) {
+            moveTo(12f, 4f); arcTo(8f, 8f, 0f, true, true, 12f, 20f); arcTo(8f, 8f, 0f, true, true, 12f, 4f); close()
+        }
+        path(fill = SolidColor(Color.Black)) { moveTo(12f, 4f); arcTo(8f, 8f, 0f, false, true, 12f, 20f); close() }
+    }
     /** Three sliders: arranging something (Home's sections). */
     val Tune = icon("tune") {
         path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
