@@ -35,10 +35,19 @@ class ProgressDocument(
     override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         val since = nowSeconds() - KEPT.inWholeSeconds
         buildMap {
+            for (p in db.podcastQueries.selectAll().awaitAsList()) {
+                val before = p.played_through ?: continue
+                val show = SyncDocs.showKey(p.podcast_guid, p.feed_url)
+                val at = p.played_through_at ?: 0
+                put(SyncDocs.playedThroughKey(show), SyncEntry(at * 1000, d = SyncDocs.playedThrough(show, before, at)))
+            }
             for (r in db.episodeQueries.progressForSync(since).awaitAsList()) {
                 val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
                 val heard = maxOf(r.last_played_at ?: 0, r.played_at ?: 0)
-                if (heard > 0 || r.position_ms > 0) {
+                // Heard by "heard up to": that one entry says it.
+                val covered = r.played == 1L && r.position_ms == 0L && r.published_at != null && r.played_through != null &&
+                    r.published_at <= r.played_through && (r.played_at ?: 0) <= (r.played_through_at ?: 0)
+                if (!covered && (heard > 0 || r.position_ms > 0)) {
                     put(SyncDocs.progressKey(show, r.guid), SyncEntry(heard * 1000, d = SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, heard)))
                 }
                 r.favorite_at?.let { at -> put(SyncDocs.favoriteKey(show, r.guid), SyncEntry(at * 1000, d = SyncDocs.favorite(show, r.guid, at))) }
@@ -49,7 +58,19 @@ class ProgressDocument(
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
         val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
-        for ((key, e) in entries) {
+        // "Heard up to" first: an episode's own entry, newer, wins after it — "unheard" on one after "all" elsewhere.
+        for ((key, e) in entries.entries.sortedBy { if (it.key.startsWith(UPTO)) 0 else 1 }) {
+            if (key.startsWith(UPTO)) {
+                val show = e.d.text("show")
+                val before = e.d.long("before")
+                val podcast = show?.let { s -> shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == s } ?: shows.firstOrNull { "url:${it.feed_url}" == s } }
+                when {
+                    show == null || before == null || e.del -> done += key
+                    // A show not subscribed here: next time.
+                    podcast != null -> { episodes.applyPlayedThrough(podcast.id, before, e.d.long("at")?.coerceAtLeast(0) ?: (e.t / 1000)); done += key }
+                }
+                continue
+            }
             val show = e.d.text("show")
             val guid = e.d.text("guid")
             // Unreadable: nothing to wait for.
@@ -78,5 +99,6 @@ class ProgressDocument(
 
     companion object {
         val KEPT = 90.days
+        private const val UPTO = "upto\n"
     }
 }

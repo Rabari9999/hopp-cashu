@@ -12,6 +12,8 @@ import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.NostrSigner
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** Too few relays took a document ([took] of [asked]): it stays unpublished and goes out on the next sync. */
@@ -84,6 +86,8 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         val now = maxOf(nowSeconds(), (lastSent[doc] ?: 0) + 1, notBefore + 1).also { lastSent[doc] = it }
         var took: Set<String>? = null
         for (part in parts) {
+            // A breath between parts: relays count events per moment (maintainer 2026-10-30).
+            if (part.part > 1) delay(PART_PAUSE)
             val content = signer.encryptToSelf(SyncCodec.encode(part))
             val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", SyncCodec.dTag(doc, part.part))), now))
             val ok = publisher.publish(event, relays)
@@ -91,5 +95,9 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         }
         if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size)
         return took
+    }
+
+    private companion object {
+        val PART_PAUSE = 500.milliseconds
     }
 }

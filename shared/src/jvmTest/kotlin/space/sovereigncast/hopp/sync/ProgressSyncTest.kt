@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.KeyPair
@@ -66,6 +67,73 @@ class ProgressSyncTest {
         phone.sync.syncNow()
         assertEquals(900_000, phone.episode(feed, a).position_ms)
         assertNull(phone.episode(feed, b).favorite_at)
+    }
+
+    /**
+     * Maintainer 2026-10-30: "this and older" on a show of hundreds of episodes made one entry each —
+     * a progress document several events long, sent again with every change. Now one entry says it;
+     * the other device marks the same episodes, the one started there too, and one taken back
+     * afterwards stays taken back.
+     */
+    @Test
+    fun thisAndOlderHeardGoesAsOneEntry() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val list = phone.episodes.ofPodcast(phone.row(feed).id).first().sortedByDescending { it.publishedAt }
+        assertTrue(list.size > 300, "the test feed has ${list.size} episodes")
+        val started = list[5]
+        phone.ms += 60_000
+        phone.episodes.savePosition(started.id, 120_000, paused = true)
+        phone.sync.syncNow()
+        tablet.ms += 1_000
+        tablet.sync.syncNow()
+        assertEquals(120_000, tablet.episode(feed, started.guid).position_ms)
+
+        phone.ms += 60_000
+        phone.episodes.setPlayedUpTo(list[1])
+        assertEquals(null, phone.sync.syncNow().problem)
+        val sent = phone.store.entries(SyncDocs.PROGRESS)
+        assertTrue(sent.size <= 3, "one entry for all, one for the episode started: ${sent.keys}")
+        assertTrue(sent.keys.any { it.startsWith("upto\n") })
+
+        tablet.ms += 120_000
+        tablet.sync.syncNow()
+        val heard = tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).awaitAsList().filter { it.played == 1L }.map { it.guid }.toSet()
+        assertEquals(list.drop(1).map { it.guid }.toSet(), heard)
+        assertEquals(0L, tablet.episode(feed, list[0].guid).played)
+        assertEquals(0L, tablet.episode(feed, started.guid).position_ms)
+
+        // Taken back on the tablet afterwards: unheard on the phone too, not heard again by the entry for all.
+        tablet.ms += 60_000
+        tablet.episodes.setPlayed(tablet.episode(feed, list[3].guid).id, false)
+        tablet.sync.syncNow()
+        phone.ms += 300_000
+        phone.sync.syncNow()
+        assertEquals(0L, phone.episode(feed, list[3].guid).played)
+        assertEquals(1L, phone.episode(feed, list[4].guid).played)
+
+        // A third device, new, takes it all from the one entry.
+        val laptop = SyncDevice(relay, scope, nsec)
+        laptop.ms = phone.ms + 1_000
+        laptop.podcasts.subscribe(feed)
+        laptop.sync.enable()
+        assertEquals(1L, laptop.episode(feed, list[4].guid).played)
+        assertEquals(0L, laptop.episode(feed, list[3].guid).played)
+        assertEquals(0L, laptop.episode(feed, list[0].guid).played)
+    }
+
+    /** All heard before sync was on: it goes out as the one entry, not as one per episode. */
+    @Test
+    fun allHeardBeforeSyncGoesOutAsOneEntry() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.episodes.setShowPlayed(phone.row(feed).id)
+        phone.sync.enable()
+        assertTrue(phone.store.entries(SyncDocs.PROGRESS).size <= 2, "${phone.store.entries(SyncDocs.PROGRESS).keys}")
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.podcasts.subscribe(feed)
+        tablet.sync.enable()
+        assertTrue(tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).awaitAsList().all { it.played == 1L })
     }
 
     @Test

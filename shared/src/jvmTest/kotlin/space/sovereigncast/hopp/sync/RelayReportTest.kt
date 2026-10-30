@@ -99,6 +99,28 @@ class RelayReportTest {
         assertEquals(listOf(true, false), status.relayHistory[limited])
     }
 
+    /** Maintainer 2026-10-30: a relay that says "too fast" gets the event once more after a pause, and counts as taking it. */
+    @Test
+    fun aRateLimitedRelayIsAskedOnceMore() = runBlocking {
+        var refusals = 1
+        val once = RelayConnector { url ->
+            val s = relay.connect(url)
+            object : RelaySession {
+                override val incoming = s.incoming.map { m ->
+                    if (m.contains(",true,") && refusals > 0) { refusals--; m.replace(""",true,""]""", """,false,"rate-limited: slow down"]""") } else m
+                }
+                override suspend fun send(message: String) = s.send(message)
+                override suspend fun close() = s.close()
+            }
+        }
+        val log = RelayLog()
+        val event = Event.sign(KeyPair.generate(), 1, "hi", emptyList(), 1_790_000_000)
+        val took = withContext(log) { RelayPublisher(once, timeout = 2.seconds).publish(event, listOf(fine)) }
+        assertEquals(setOf(fine), took)
+        assertIs<RelayAnswer.Ok>(log.notes().single().answer)
+        assertEquals(0, refusals)
+    }
+
     @Test
     fun theWorstAnswerIsTheOneThatSaysWhy() {
         val r = RelayRound("wss://r.test", mapOf("a" to RelayAnswer.Silent), mapOf("a" to RelayAnswer.Refused("blocked: no"), "b" to RelayAnswer.Ok(5)))

@@ -25,7 +25,11 @@ CREATE TABLE podcast (
     categories TEXT NOT NULL DEFAULT '',
     -- Version 15 (migrations/14.sqm): seconds skipped at an episode's start and end, 0 for none.
     skip_intro_seconds INTEGER NOT NULL DEFAULT 0,
-    skip_outro_seconds INTEGER NOT NULL DEFAULT 0
+    skip_outro_seconds INTEGER NOT NULL DEFAULT 0,
+    -- Version 17 (migrations/16.sqm): every episode published up to this time (seconds) heard,
+    -- as of played_through_at — "this and older" or "all" in one, for sync (maintainer 2026-10-30).
+    played_through INTEGER,
+    played_through_at INTEGER
 );
 
 CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
@@ -42,6 +46,13 @@ SELECT * FROM podcast ORDER BY title COLLATE NOCASE;
 
 selectById:
 SELECT * FROM podcast WHERE id = ?;
+
+-- Never back to an earlier time: "this and older" on an old episode after "all" keeps "all".
+setPlayedThrough:
+UPDATE podcast SET played_through = MAX(COALESCE(played_through, 0), :before), played_through_at = :at WHERE id = :id;
+
+playedThroughOf:
+SELECT played_through, played_through_at FROM podcast WHERE id = ?;
 
 selectByFeedUrl:
 SELECT * FROM podcast WHERE feed_url = ?;

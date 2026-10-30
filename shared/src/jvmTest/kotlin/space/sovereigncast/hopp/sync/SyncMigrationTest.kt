@@ -18,8 +18,15 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
-    /** Version 15 from the current schema: no listening statistics yet. */
+    /** Version 16 from the current schema: no "heard up to" per show yet. */
+    private fun version16(driver: JdbcSqliteDriver) {
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through", 0)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through_at", 0)
+    }
+
+    /** Version 15: no listening statistics yet either. */
     private fun version15(driver: JdbcSqliteDriver) {
+        version16(driver)
         listOf("listen_day", "listen_show", "listen_episode", "listen_count").forEach { driver.execute(null, "DROP TABLE $it", 0) }
     }
 
@@ -28,6 +35,16 @@ class SyncMigrationTest {
         version15(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_intro_seconds", 0)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_outro_seconds", 0)
+    }
+
+    /** Maintainer 2026-10-30: "heard up to" per show; after the update no show has one. */
+    @Test
+    fun noShowIsHeardUpToAfterTheUpdate() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.synchronous().create(it); version16(it) }
+        driver.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at) VALUES ('https://pod.test/feed.xml', 'Show', '{}', 1)", 0)
+        HoppDatabase.Schema.synchronous().migrate(driver, 16, HoppDatabase.Schema.version)
+        val show = HoppDatabase(driver).podcastQueries.selectAll().executeAsOne()
+        assertEquals(null to null, show.played_through to show.played_through_at)
     }
 
     /** Maintainer 2026-10-26: a show's skipped start and end; after the update every show skips nothing. */

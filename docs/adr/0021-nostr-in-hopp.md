@@ -606,6 +606,22 @@ switches.
      up across devices and are never merged over each other. Noted at most
      every 30 minutes while listening, on a pause after 5 and when the app
      goes to the background; never a round of its own.
+   *Amended a tenth time 2026-10-30 (0.3.2, maintainer: relays refusing a long
+   progress document):*
+   - **"Heard up to" per show** (`upto\n<show>`: `before`, `at` in seconds):
+     "this and older" and "all heard" go as one entry instead of one per
+     episode — 324 entries of the test feed were 2 events, sent again with
+     every change. An episode that sync already held an entry for, or one
+     without a date, still gets its own. Applied before the episode
+     entries of the same read, so a later "unheard" of one episode wins;
+     it marks only what was not listened to since `at`. Kept in
+     `podcast.played_through` (version 17), never expired. Hopp before
+     0.3.2 passes over it: there those episodes stay unheard.
+   - **Gentler sending:** half a second between the parts of a document,
+     and a relay that answers `rate-limited` gets the event once more
+     after 3 s. What each relay answered is kept per round and shown on
+     the sync sheet.
+     Tests: `ProgressSyncTest`, `RelayReportTest`, `SyncMigrationTest`.
 
 ## Consequences
 

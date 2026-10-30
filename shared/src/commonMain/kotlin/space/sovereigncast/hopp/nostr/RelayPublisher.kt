@@ -7,6 +7,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withContext
@@ -216,6 +217,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         /** What answers a subscription. */
         private val ANSWERS = setOf("EVENT", "EOSE", "CLOSED")
         private val CLOSE_WAIT = 1.seconds
+        /** How long a relay that said "rate-limited" is given before the event goes to it once more. */
+        val RATE_LIMIT_WAIT = 3.seconds
     }
 
     /** Whether [url] takes a connection and answers a request at all. */
@@ -268,6 +271,18 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     }
 
     private suspend fun publishTo(event: Event, url: String): Boolean {
+        var answer = publishOnce(event, url)
+        // Turned away for sending too fast: once more after a pause (maintainer 2026-10-30, relays
+        // refusing a long document's parts sent one after another).
+        if (answer is RelayAnswer.Refused && Refusal.of(answer.reason) == Refusal.RateLimited) {
+            delay(RATE_LIMIT_WAIT)
+            answer = publishOnce(event, url)
+        }
+        noteAnswer(url, RelayOp.Send, answer)
+        return answer is RelayAnswer.Ok
+    }
+
+    private suspend fun publishOnce(event: Event, url: String): RelayAnswer {
         val started = TimeSource.Monotonic.markNow()
         var reached = false
         var answer: RelayAnswer? = null
@@ -302,8 +317,6 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 runCatching { session.close() }
             }
         }
-        val got = answer ?: if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)
-        noteAnswer(url, RelayOp.Send, got)
-        return got is RelayAnswer.Ok
+        return answer ?: if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)
     }
 }

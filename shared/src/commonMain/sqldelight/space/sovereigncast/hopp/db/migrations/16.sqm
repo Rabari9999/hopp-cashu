@@ -1,0 +1,3 @@
+-- Version 16 → 17 (maintainer 2026-10-30): "heard up to" per show, one sync entry for many episodes.
+ALTER TABLE podcast ADD COLUMN played_through INTEGER;
+ALTER TABLE podcast ADD COLUMN played_through_at INTEGER;

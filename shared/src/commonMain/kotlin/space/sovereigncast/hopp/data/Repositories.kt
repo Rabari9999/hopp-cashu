@@ -435,24 +435,56 @@ class EpisodeRepository(
 
     /** Every episode of a show heard. */
     suspend fun setShowPlayed(podcastId: Long) = withContext(ioDispatcher) {
+        val now = clock.now()
         val (ids, left) = db.transactionWithResult {
             val ids = eq.unplayedOfShow(podcastId).awaitAsList()
-            eq.markShowPlayed(clock.now(), podcastId)
+            eq.markShowPlayed(now, podcastId)
+            eq.latestPublishedOf(podcastId).awaitAsOneOrNull()?.MAX?.let { db.podcastQueries.setPlayedThrough(it, now, podcastId) }
             ids to leaveQueue(ids)
         }
-        ids.forEach { noteProgress(it) }
+        notePlayedThrough(podcastId, ids)
         noteLeft(left)
     }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(ioDispatcher) {
+        val now = clock.now()
         val (ids, left) = db.transactionWithResult {
             val ids = eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).awaitAsList()
-            eq.markPlayedUpTo(clock.now(), item.podcastId, item.id, item.publishedAt)
+            eq.markPlayedUpTo(now, item.podcastId, item.id, item.publishedAt)
+            item.publishedAt?.let { db.podcastQueries.setPlayedThrough(it, now, item.podcastId) }
             ids to leaveQueue(ids)
         }
-        ids.forEach { noteProgress(it) }
+        notePlayedThrough(item.podcastId, ids)
         noteLeft(left)
+    }
+
+    /**
+     * Many episodes heard at once, for sync: the show's "heard up to" as one entry
+     * (maintainer 2026-10-30), single entries only for an episode it does not cover
+     * (no date) or one sync already holds an entry for — that entry would say otherwise.
+     */
+    private suspend fun notePlayedThrough(podcastId: Long, ids: List<Long>) {
+        if (!journal.enabled) return
+        val p = db.podcastQueries.selectById(podcastId).awaitAsOneOrNull() ?: return
+        val before = p.played_through
+        val show = SyncDocs.showKey(p.podcast_guid, p.feed_url)
+        if (before != null) journal.record(SyncDocs.PROGRESS, SyncDocs.playedThroughKey(show), SyncDocs.playedThrough(show, before, p.played_through_at ?: clock.now()))
+        for (id in ids) {
+            val r = eq.syncKeysOf(id).awaitAsOneOrNull() ?: continue
+            val covered = before != null && r.published_at != null && r.published_at <= before
+            if (!covered || journal.current(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid)) != null) noteProgress(id)
+        }
+    }
+
+    /** "Heard up to" from another device (sync): applied, not noted again; out of "Up next" too. */
+    suspend fun applyPlayedThrough(podcastId: Long, beforeSeconds: Long, atSeconds: Long) = withContext(ioDispatcher) {
+        db.transaction {
+            val ids = eq.unplayedThrough(podcastId, beforeSeconds, atSeconds).awaitAsList()
+            eq.markPlayedThrough(atSeconds, podcastId, beforeSeconds)
+            db.podcastQueries.setPlayedThrough(beforeSeconds, atSeconds, podcastId)
+            leaveQueue(ids)
+        }
     }
 
     /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
