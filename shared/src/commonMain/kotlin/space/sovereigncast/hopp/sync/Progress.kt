@@ -35,6 +35,31 @@ class ProgressDocument(
     // The shows heard from their oldest episode on get their "heard up to" — once per start.
     override suspend fun prepare() { episodes.deriveHeardUpToOnce() }
 
+    override suspend fun describe(entries: Map<String, SyncEntry>): String = withContext(ioDispatcher) {
+        val live = entries.filterValues { !it.del }
+        val marks = live.filterKeys { it.startsWith(UPTO) }
+        val favs = live.count { it.key.startsWith("fav\n") }
+        val pos = live.filter { it.key.startsWith("pos\n") }
+        val placed = pos.count { (it.value.d.long("pos") ?: 0) > 0 }
+        val unheard = pos.count { (it.value.d.long("pos") ?: 0) == 0L && it.value.d.bool("played") != true }
+        val heard = pos.filter { (it.value.d.long("pos") ?: 0) == 0L && it.value.d.bool("played") == true }
+        val markShows = marks.values.mapNotNull { it.d.text("show") }.toSet()
+        val shows = db.podcastQueries.selectAll().awaitAsList()
+        val byShow = heard.values.groupBy { it.d.text("show") }
+        var noMark = 0; var notSubscribed = 0; var unknown = 0; var notCovered = 0
+        val covered = redundant(live).size
+        for ((show, list) in byShow) {
+            val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show } ?: shows.firstOrNull { "url:${it.feed_url}" == show }
+            if (podcast == null) { notSubscribed += list.size; continue }
+            if (show !in markShows) { noMark += list.size; continue }
+            val dates = db.episodeQueries.publishedOf(podcast.id).awaitAsList().associate { it.guid to it.published_at }
+            list.forEach { e -> if (dates[e.d.text("guid")] == null) unknown++ else notCovered++ }
+        }
+        notCovered -= covered
+        "${marks.size} heard-up-to, ${favs} favourites, $placed with a position, $unheard unheard, ${heard.size} heard " +
+            "(${byShow.size} shows: $covered covered, $noMark without a mark, $notSubscribed not subscribed, $unknown not in the feed here, ${notCovered.coerceAtLeast(0)} newer or after the mark)"
+    }
+
     /**
      * An episode's "heard" entry its show's "heard up to" says already (maintainer 2026-10-30: the
      * single entries of marking before 0.3.2 made the document too large for relays): heard, at its

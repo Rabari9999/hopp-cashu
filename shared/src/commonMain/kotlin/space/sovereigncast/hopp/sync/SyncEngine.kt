@@ -38,6 +38,10 @@ interface SyncedDocument {
     /** Of [entries] (this device's and the relays', the newer per key), those another entry already
      *  says — left out of the store, the round and what goes out, without a removal marker. */
     suspend fun redundant(entries: Map<String, SyncEntry>): Set<String> = emptySet()
+
+    /** For the sync report: what [entries] are, in numbers — no titles (maintainer 2026-10-30: a document
+     *  too large, and nothing said what made it so). */
+    suspend fun describe(entries: Map<String, SyncEntry>): String? = null
 }
 
 sealed interface SyncOutcome {

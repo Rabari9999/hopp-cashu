@@ -386,6 +386,7 @@ private fun report(status: SyncStatus, nowMs: Long): String = buildString {
         status.relayHistory[r.url]?.let { h -> appendLine("  last rounds: " + h.joinToString("") { if (it) "✓" else "✗" }) }
     }
     if (status.toSend > 0) appendLine("Waiting to send: ${status.toSend}")
+    status.documents.forEach { (doc, what) -> appendLine("$doc: $what") }
 }
 
 private fun text(a: RelayAnswer) = when (a) {

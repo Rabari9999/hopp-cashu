@@ -46,6 +46,8 @@ data class SyncStatus(
     val relayRounds: List<RelayRound> = emptyList(),
     /** Per relay, its last rounds since the start, oldest first: true where it answered everything. */
     val relayHistory: Map<String, List<Boolean>> = emptyMap(),
+    /** Per document, what this device holds of it, in numbers — for the report. */
+    val documents: Map<String, String> = emptyMap(),
 )
 
 /** What renewing the sync key came to (delta audit 2026-10-22, HN-06/MN-10). */
@@ -236,8 +238,14 @@ class SyncManager(
             // waits for its time included (delta audit 2026-10-22 and 2, HN-06/MN-02).
             val readBack = problem == null && pending == 0 && sent == 0 && engine.keyGeneration() == generation && engine.toSend() == 0
             if (readBack && engine.movedPending()) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
+            // How large each document is here, and what it holds — what a relay's limit would meet.
+            val sizes = docs.associate { d ->
+                val entries = runCatching { store.entries(d.name) }.getOrDefault(emptyMap())
+                val bytes = entries.entries.sumOf { (k, e) -> k.length + 40 + e.d.toString().length }
+                d.name to ("${entries.size} entries, ~${(bytes + 1023) / 1024} KB" + (runCatching { d.describe(entries) }.getOrNull()?.let { "; $it" } ?: ""))
+            }
             _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
-                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0), rounds, history.toMap())
+                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0), rounds, history.toMap(), sizes)
             _status.value
         } finally {
             // Cut off (the app closed, sync turned off): not "running" for ever (MN-07).
