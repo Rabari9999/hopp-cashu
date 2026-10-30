@@ -176,9 +176,16 @@ Hopp Web at 1440×900, 1280×720 and the iPad's two sizes, the small points firs
   (`GRID_WIDTH`); Home's show tiles 128 dp from 600 dp wide.
 - **The tour** on a large window as one column of at most 600 × 800 dp,
   "Skip" at its corner.
+- **Now playing with room below** (a column of at least 800 dp in height, a
+  tablet upright): the cover beside the title, and show notes, chapters,
+  transcript, people, community and comments as tabs under the controls,
+  open while listening, instead of chips that open sheets. Their chips wrap
+  rather than scroll; elsewhere off a phone the player's chips wrap too, so
+  none runs off the edge where a mouse cannot reach it. On a cover under
+  280 dp the chapter band names the chapter only.
 - Open, larger: a player bar with seek, speed and volume on large windows;
-  now playing's sheets as tabs in its column; the show page's empty detail
-  pane; arrows or a grid for Discover's rows under a mouse.
+  the show page's empty detail pane; arrows or a grid for Discover's rows
+  under a mouse.
 
 ## Consequences
 
