@@ -1,7 +1,7 @@
 // Compresses a built site once, beside each file (x.br, x.gz), for Caddy's precompressed file
 // server: node pack.mjs <dir>. Only what compresses — fonts and wasm do, images do not.
 import fs from 'node:fs'; import path from 'node:path'; import zlib from 'node:zlib';
-const packable = /\.(wasm|js|mjs|css|html|json|xml|ttf|otf|svg|txt)$/;
+const packable = /\.(wasm|js|mjs|css|html|json|webmanifest|xml|ttf|otf|svg|txt)$/;
 let raw = 0, br = 0;
 function walk(dir) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

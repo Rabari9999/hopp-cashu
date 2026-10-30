@@ -22,7 +22,7 @@ function serverHeaders() {
   h['content-security-policy'] = h['content-security-policy'].replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:8643");
   return h;
 }
-const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json',
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
   '.map': 'application/json', '.xml': 'application/xml', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.md': 'text/plain' };
 
 const packed = new Map(); // path → { tag, br, gz }, made once per build

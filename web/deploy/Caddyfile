@@ -32,6 +32,8 @@ play.sovereigncast.space {
 	@unhashed not path_regexp ^/[0-9a-f]{20}\.(wasm|js)$
 	header @hashed Cache-Control "public, max-age=31536000, immutable"
 	header @unhashed Cache-Control "no-cache"
+	@manifest path *.webmanifest
+	header @manifest Content-Type "application/manifest+json"
 	# Compressed once at build time (web/deploy/build.sh), not per request.
 	file_server {
 		precompressed br gzip

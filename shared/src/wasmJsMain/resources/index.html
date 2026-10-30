@@ -7,6 +7,13 @@
     <!-- Where feeds and images are fetched through (ADR 0022, 6, web/proxy): set where Hopp is served. -->
     <meta name="hopp-feed-proxy" content="http://127.0.0.1:8643/">
     <link rel="stylesheet" href="splash.css">
+    <!-- The tab's icon, the home screen's (iOS takes only a PNG) and the installed app's. -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 </head>
 <body>
 <div id="hopp-splash" role="img" aria-label="Hopp">
