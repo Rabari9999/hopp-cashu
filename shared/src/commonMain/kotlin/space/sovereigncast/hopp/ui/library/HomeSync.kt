@@ -175,9 +175,11 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
             if (failing && status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             // A document the relays hold only in part (maintainer 2026-10-30: "Incomplete" for good): when Hopp
             // writes it anew by itself, and the way to have it done now, from what this device has.
-            (problem as? SyncOutcome.Incomplete)?.doc?.takeIf { it in AREAS }?.let { doc ->
+            // Offered only where a majority read it to the end (review 2026-10-31): a relay that did not answer may hold more.
+            (problem as? SyncOutcome.Incomplete)?.takeIf { it.canRewrite && it.doc in AREAS }?.let { incomplete ->
+                val doc = incomplete.doc!!
                 val name = areaName(doc)
-                problem.rewriteInMs?.let { ms ->
+                incomplete.rewriteInMs?.let { ms ->
                     Text(stringResource(Res.string.sync_rewrite_in, name, ((ms + 59_999) / 60_000).coerceAtLeast(1)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
                 Text(stringResource(Res.string.sync_rewrite_note), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)

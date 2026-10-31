@@ -50,8 +50,15 @@ sealed interface SyncOutcome {
     data class Done(val applied: Int, val published: Boolean, val pending: Int = 0) : SyncOutcome
     /** The relays gave the document only in part: [applied] of it taken, nothing sent (audit 2026-10-22, H-02). */
     /** [doc]: which document came in part (the sync page's report names it); [found]: what the read
-     *  found, and [rewriteInMs] how long until a gap that stays is written over, for the report. */
-    data class Incomplete(val applied: Int, val doc: String? = null, val found: String? = null, val rewriteInMs: Long? = null) : SyncOutcome
+     *  found, and [rewriteInMs] how long until a gap that stays is written over, for the report.
+     *  [canRewrite]: a majority read it to the end — only then may the listener have it written anew. */
+    data class Incomplete(
+        val applied: Int,
+        val doc: String? = null,
+        val found: String? = null,
+        val rewriteInMs: Long? = null,
+        val canRewrite: Boolean = false,
+    ) : SyncOutcome
     data object NoIdentity : SyncOutcome
     /** The signer app would have to ask the listener — sync waits for the app to be open. */
     data object WaitsForSigner : SyncOutcome
@@ -103,8 +110,10 @@ class SyncEngine(
                 else store.markStuck(doc.name, fetched.newestRev, now)
                 if (!repair) rewriteIn = STUCK_FOR.inWholeMilliseconds - (now - (since?.takeIf { rev == fetched.newestRev } ?: now))
             }
-            // The listener's own word on the sync page: this device's copy, whole, over whatever came in part.
-            if (fetched is Fetched.Incomplete && rewrite) repair = true
+            // The listener's own word on the sync page: this device's copy, whole, over whatever came in part —
+            // as the waits above, only with a majority read to the end: a relay that did not answer may hold a
+            // newer version whole, and written over it would be gone from the relays (review 2026-10-31).
+            if (fetched is Fetched.Incomplete && fetched.settled && rewrite) repair = true
             if (fetched is Fetched.Complete) store.markStuck(doc.name, null, null)
             val (read, notBefore) = when (fetched) {
                 is Fetched.Complete -> fetched.entries to fetched.newestAt
@@ -139,7 +148,7 @@ class SyncEngine(
             hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
             repair(doc, now, skip = merged.fromThem.keys)
-            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name, fetched.found, rewriteIn)
+            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name, fetched.found, rewriteIn, canRewrite = fetched.settled)
             store.markFetched(doc.name, nowMs())
             // The gap goes under a whole version, even when the relays lack nothing of ours.
             val publish = merged.theyLack || repair || compact

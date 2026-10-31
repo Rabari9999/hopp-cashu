@@ -96,7 +96,7 @@ class SyncAuditTest {
     /** The maintainer's relays on 2026-10-30, two answering: an old version whole on one, its first two parts
      *  only on the other; a newer, larger one cut off after its second part on both; nothing kept of it. */
     @Test
-    fun theMaintainersCutOffVersionIsWrittenOverAfterTenMinutes() = runBlocking<Unit> {
+    fun theMaintainersCutOffVersionIsWrittenOverAfterAWhile() = runBlocking<Unit> {
         val relays = Relays()
         relays.down += relays[2]
         val phone = Device(relays)
@@ -153,7 +153,9 @@ class SyncAuditTest {
         relays.byUrl.values.forEach { r -> r.refuse = { false } }
         phone.store.markBroken("test", null)
         val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
-        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(tablet.doc, interactive = true))
+        val read = tablet.engine.sync(tablet.doc, interactive = true)
+        assertIs<SyncOutcome.Incomplete>(read)
+        assertTrue(read.canRewrite, "every relay read to the end: offered")
         assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, rewrite = true))
         // The phone's entries the missing parts held come back from the phone.
         phone.ms = tablet.ms + 1_000
@@ -161,6 +163,31 @@ class SyncAuditTest {
         val third = Device(relays).also { it.ms = phone.ms + 1_000 }
         assertIs<SyncOutcome.Done>(third.engine.sync(third.doc, interactive = true))
         assertEquals(100, third.doc.applied.size)
+    }
+
+    /** Review 2026-10-31: "write anew" with only one relay of three answering — the two silent ones may hold
+     *  a newer version whole. Not offered, and not done when asked. */
+    @Test
+    fun aDocumentReadByAMinorityIsNotWrittenAnew() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 2 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+        val before = relays.all().size
+        relays.byUrl.getValue(relays[1]).readsFail = true
+        relays.byUrl.getValue(relays[2]).readsFail = true
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        val read = tablet.engine.sync(tablet.doc, interactive = true)
+        assertIs<SyncOutcome.Incomplete>(read)
+        assertEquals(false, read.canRewrite)
+        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(tablet.doc, rewrite = true))
+        relays.byUrl.values.forEach { it.readsFail = false }
+        assertEquals(before, relays.all().size, "nothing sent")
     }
 
     // ── H-01 ────────────────────────────────────────────────────────────────
