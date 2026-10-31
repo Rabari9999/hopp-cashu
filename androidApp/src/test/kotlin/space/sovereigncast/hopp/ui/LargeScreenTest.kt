@@ -104,7 +104,7 @@ class LargeScreenTest {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
         // The notes' own text twice: on the episode's page, and in the player's notes tab, which a
-        // column of 800 dp has the height for (UX review 2026-10-30).
+        // tablet's column has the height for (UX review 2026-10-30).
         check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
         check(!has("✓ Subscribed")) { "the show took the episode's place" }
     }
@@ -116,6 +116,14 @@ class LargeScreenTest {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
         // The notes on the episode's page and in the player's notes tab.
+        check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
+    }
+
+    /** A Pixel Tablet on its side as the device has it, its bars drawn (Robolectric draws none): the tabs
+     *  there too, and every control still on screen (review 2026-10-31). */
+    @Test @Config(qualifiers = "en-w1280dp-h736dp-land")
+    fun nowPlayingKeepsItsTabsWithATabletsBarsDrawn() {
+        openPlayer(); controlsOnScreen()
         check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
     }
 

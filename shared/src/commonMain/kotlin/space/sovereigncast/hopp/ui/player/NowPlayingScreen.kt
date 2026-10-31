@@ -94,6 +94,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -229,6 +230,10 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     ) {
         // The cover's chapter swipe, kept while the layout switches.
         var dragX by remember { mutableStateOf(0f) }
+        // The section shown as a tab where now playing has the height; the chapter's name on the cover opens
+        // its tab there, not a sheet over the tabs (review 2026-10-31).
+        var pickedSection by rememberSaveable(episode.id) { mutableStateOf(PlayerSection.Notes.name) }
+        var sectionsAsTabs by remember { mutableStateOf(false) }
         val cover: @Composable (Modifier) -> Unit = { m ->
             // Cover — the chapter image replaces it while a chapter has one; whole, not cut
             // to the square, and full screen on a tap (device feedback 2026-10-17).
@@ -260,7 +265,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ChapterButton(HoppIcons.ChevronLeft, stringResource(Res.string.np_previous_chapter), model::previousChapter)
-                        Column(Modifier.weight(1f).clickable { showChapters = true }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.weight(1f).clickable { if (sectionsAsTabs) pickedSection = PlayerSection.Chapters.name else showChapters = true }, horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(current.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (!compact) Text(
                                 stringResource(Res.string.np_chapter_of, chapters.currentIndex(position) + 1, chapters.stops.size, formatTime(chapters.remainingInChapterMs(position, duration))),
@@ -377,15 +382,14 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         // Below the controls where the height allows: what the chips open, as tabs that stay open
         // while listening — a column beside the content, a tablet upright (UX review 2026-10-30).
         val sectionTabs: @Composable (Modifier) -> Unit = { m ->
-            var picked by rememberSaveable(episode.id) { mutableStateOf(PlayerSection.Notes.name) }
-            val at = sections.indexOfFirst { it.name == picked }.coerceAtLeast(0)
+            val at = sections.indexOfFirst { it.name == pickedSection }.coerceAtLeast(0)
             val section = sections[at]
             Column(m) {
                 // Chips that wrap rather than a tab row that scrolls: six did not fit a column
                 // beside the content, and a mouse could not reach the last one.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     sections.forEach { s ->
-                        FilterChip(selected = s == section, onClick = { picked = s.name }, label = { Text(stringResource(s.label), maxLines = 1) })
+                        FilterChip(selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) })
                     }
                 }
                 val body = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)
@@ -417,8 +421,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             val wide = maxWidth > maxHeight && maxWidth >= 480.dp
             val short = wide && maxHeight < 480.dp
-            // Height enough for the sections as tabs below the controls (UX review 2026-10-30).
-            val tabbed = !wide && maxHeight >= 800.dp && (inPane || maxWidth >= 600.dp)
+            // Height enough for the sections as tabs below the controls (UX review 2026-10-30). 720, not 800: a
+            // tablet's 800 dp on its side leave ~730–775 once its bars are drawn, and the tabs never came there
+            // though the tests at 800 showed them (review 2026-10-31).
+            val tabbed = !wide && maxHeight >= 720.dp && (inPane || maxWidth >= 600.dp)
+            SideEffect { sectionsAsTabs = tabbed }
             val smallCover = if (maxHeight >= 1000.dp) 240.dp else 200.dp
             val coverSide = minOf(maxHeight - 64.dp, maxWidth * 0.45f)
             Column(Modifier.fillMaxSize()) {

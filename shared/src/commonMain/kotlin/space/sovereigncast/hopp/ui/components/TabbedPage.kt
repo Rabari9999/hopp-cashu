@@ -63,8 +63,10 @@ fun TabbedPage(
     if (title != null) {
         val pageTitle = LocalPageTitle.current
         val gone by remember { derivedStateOf { headerHeight > 0 && offset <= -headerHeight * 0.6f } }
+        // Set only while the header is away; taken back only if still ours — the page title is shared, and a
+        // second titled page in the frame (a pane) would otherwise clear the other's (review 2026-10-31).
         DisposableEffect(gone, title) {
-            pageTitle.text = title.takeIf { gone }
+            if (gone) pageTitle.text = title
             onDispose { if (pageTitle.text == title) pageTitle.text = null }
         }
     }

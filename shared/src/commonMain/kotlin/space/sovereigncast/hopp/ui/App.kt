@@ -358,6 +358,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
 
     // The listener's choice, else the system's — the browser's in Hopp Web (maintainer 2026-10-30).
+    // Nothing drawn before the listener's theme is known (review 2026-10-31): drawn in the system's first,
+    // the whole app turned to the chosen one a moment later on every start. The settings come in a few ms.
+    if (appSettings == null) return
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val chosenDark = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> null }
     LaunchedEffect(chosenDark) { platformActions.themeChosen(chosenDark) }
@@ -414,7 +417,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         NavigationRailItem(
                             selected = inSettings,
-                            onClick = { if (destination?.hasRoute(SettingsRoute::class) != true) nav.navigate(SettingsRoute) },
+                            // From one of its pages: back to Settings itself, not a second one on top (review 2026-10-31).
+                            onClick = {
+                                if (destination?.hasRoute(SettingsRoute::class) != true && !nav.popBackStack(SettingsRoute, inclusive = false)) nav.navigate(SettingsRoute)
+                            },
                             icon = { Icon(Icons.Rounded.Settings, null) },
                             label = { Text(stringResource(Res.string.settings)) },
                         )
