@@ -273,8 +273,9 @@ class PodcastRepository(
     suspend fun unsubscribe(id: Long, sync: Boolean = true, onlyIf: suspend () -> Boolean = { true }): Boolean = withContext(ioDispatcher) {
         val paths = db.transactionWithResult<List<String>?> {
             if (!onlyIf()) return@transactionWithResult null
+            // Noted in the transaction, with the show going; sync told once it is through (SyncJournal.record).
             if (sync) q.selectById(id).awaitAsOneOrNull()?.let { r ->
-                journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true)
+                journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url), SyncDocs.show(r.feed_url, r.title, null, null, true), deleted = true, notify = false)
             }
             val paths = eq.downloadPathsOfPodcast(id).awaitAsList().filterNotNull()
             db.chapterCacheQueries.deleteByPodcast(id)
@@ -285,6 +286,7 @@ class PodcastRepository(
             q.delete(id)
             paths
         } ?: return@withContext false
+        if (sync) journal.changed(SyncDocs.SUBSCRIPTIONS)
         // The files only once the show is gone.
         paths.forEach { files?.delete(it) }
         true
@@ -306,18 +308,20 @@ class PodcastRepository(
 
     /** [speed] null: the show follows the default speed again. */
     /** The change and its note for sync in one transaction: sync never sees one without the other (HN-07). */
-    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(ioDispatcher) { db.transaction { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) } }
-    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { db.transaction { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) } }
+    // Noted after the change, outside its transaction (SyncJournal.record): the note reads the show as it is then.
+    suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(ioDispatcher) { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) }
+    suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
     /** Seconds skipped at the start and the end of each episode of show [id]; 0 for none, null: as it is —
      *  read in the same transaction, so a change to one never puts back an old value of the other. */
     suspend fun setSkip(id: Long, introSeconds: Int? = null, outroSeconds: Int? = null, sync: Boolean = true) = withContext(ioDispatcher) {
-        db.transaction {
-            val r = q.selectById(id).awaitAsOneOrNull() ?: return@transaction
+        val changed = db.transactionWithResult {
+            val r = q.selectById(id).awaitAsOneOrNull() ?: return@transactionWithResult false
             val intro = introSeconds?.toLong() ?: r.skip_intro_seconds
             val outro = outroSeconds?.toLong() ?: r.skip_outro_seconds
             q.setSkip(intro.coerceIn(0, MAX_SKIP_SECONDS.toLong()), outro.coerceIn(0, MAX_SKIP_SECONDS.toLong()), id)
-            noteShow(id, sync)
+            true
         }
+        if (changed) noteShow(id, sync)
     }
 
     /** New in "New" means: downloaded too, on Wi-Fi, if the show wants it (ADR 0012). */

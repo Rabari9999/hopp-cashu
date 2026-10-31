@@ -20,10 +20,18 @@ class SyncJournal(private val store: SyncStore?) {
     /** What sync holds for [key] now — to note only what changed (the listening statistics). */
     suspend fun current(doc: String, key: String): SyncEntry? = if (enabled) store?.entry(doc, key) else null
 
-    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true) {
+    /** [notify] false inside a database transaction, and [changed] once it is through: [onChange] may
+     *  suspend, and on the apps' drivers a transaction belongs to its thread — resumed on another, the rest
+     *  of it would run outside it (review 2026-10-31). */
+    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, urgent: Boolean = true, notify: Boolean = true) {
         if (!enabled || store == null) return
         store.record(doc, key, data, deleted)
-        onChange(doc, urgent)
+        if (notify) onChange(doc, urgent)
+    }
+
+    /** What [record] with notify false did not say yet. */
+    suspend fun changed(doc: String, urgent: Boolean = true) {
+        if (enabled && store != null) onChange(doc, urgent)
     }
 
     companion object {
