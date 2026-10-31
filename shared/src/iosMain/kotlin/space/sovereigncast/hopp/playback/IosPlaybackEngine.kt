@@ -167,6 +167,15 @@ class IosPlaybackEngine(private val userAgent: String) : PlaybackEngine {
         publish()
     }
 
+    override fun unload() {
+        playWhenReady = false
+        player.pause()
+        player.replaceCurrentItemWithPlayerItem(null)
+        current = null
+        MPNowPlayingInfoCenter.defaultCenter().nowPlayingInfo = null
+        publish()
+    }
+
     override fun release() {
         player.pause()
     }

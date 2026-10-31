@@ -51,6 +51,8 @@ class RecordingEngine : PlaybackEngine {
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { seeks += positionMs; s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { lastSpeed = speed; s.value = s.value.copy(speed = speed) }
+    var unloaded = 0
+    override fun unload() { unloaded++; s.value = PlaybackState(speed = s.value.speed) }
     override fun release() = Unit
     fun at(ms: Long, playing: Boolean = true) { s.value = s.value.copy(positionMs = ms, isPlaying = playing) }
     fun end() { s.value = s.value.copy(positionMs = s.value.durationMs, isPlaying = false) }
@@ -175,6 +177,45 @@ class PlayerControllerTest {
         again.togglePlay()
         until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
         assertEquals(180_000L, episodes.item(e1.id)!!.positionMs)
+    }
+
+    /** Maintainer 2026-10-31: paused here, heard to its end on another device — gone from "new" there, but
+     *  still in the player here. It leaves the player, and the player goes; one playing here stays. */
+    @Test
+    fun anEpisodeHeardToItsEndElsewhereLeavesThePlayer() = test {
+        val (e1, e2, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        episodes.applyProgress(e1.id, 0, true, clockMs / 1000)
+        player.adoptProgress(e1.id, 0, true)
+        assertEquals(null, player.current.value, "nothing in the player")
+        assertEquals(1, engine.unloaded)
+        assertEquals(null, engine.state.value.itemId)
+        assertTrue(episodes.item(e1.id)!!.played)
+        // Playing here: left alone.
+        start(e2)
+        at(30_000)
+        player.adoptProgress(e2.id, 0, true)
+        assertEquals(e2.id, player.current.value?.item?.id)
+        assertEquals(1, engine.unloaded)
+    }
+
+    /** Maintainer 2026-10-31: after a reload the player said 1× for a show of its own speed, until played. */
+    @Test
+    fun aRestoredEpisodeShowsItsShowsSpeed() = test {
+        val (e1, _, _) = episodes()
+        podcasts.setSpeed(e1.podcastId, 1.5f)
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        until("at the show's speed") { again.state.value.speed == 1.5f }
+        again.togglePlay()
+        until("played at it") { fresh.lastSpeed == 1.5f }
     }
 
     /** ND-03, the other way: the position arrives in the database only (the player not told) — still played from there. */

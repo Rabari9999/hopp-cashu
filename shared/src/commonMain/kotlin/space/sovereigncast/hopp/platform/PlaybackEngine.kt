@@ -35,6 +35,9 @@ interface PlaybackEngine {
     fun pause()
     fun seekTo(positionMs: Long)
     fun setSpeed(speed: Float)
+    /** Nothing loaded any more: the item, and what the system shows of it (lock screen,
+     *  notification, Media Session), gone; [state] reports no item. */
+    fun unload()
     fun release()
     /** ExoPlayer has it built in; on iOS it needs own audio processing
      *  (ADR 0012) — the setting is hidden there. */

@@ -35,6 +35,9 @@ data class NowPlaying(
     val artworkUrl: String?,
     val persons: List<Person> = emptyList(),
     val chapters: ChapterIndex = ChapterIndex(emptyList()),
+    /** The show's speed, or the default: what the player says while the episode is shown and not
+     *  loaded yet (after a restart) — the engine knows no speed then and said 1×. */
+    val speed: Float? = null,
 )
 
 /**
@@ -92,7 +95,7 @@ class PlayerController(
     val state: StateFlow<PlaybackState> = kotlinx.coroutines.flow.combine(engine.state, _current) { s, c ->
         val item = c?.item
         if (item == null || s.itemId != null) s
-        else PlaybackState(positionMs = item.positionMs, durationMs = (item.durationSeconds ?: 0) * 1000L, speed = s.speed)
+        else PlaybackState(positionMs = item.positionMs, durationMs = (item.durationSeconds ?: 0) * 1000L, speed = c.speed ?: s.speed)
     }.stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Eagerly, engine.state.value)
 
     private var lastSaved = 0L
@@ -370,7 +373,8 @@ class PlayerController(
         watchShow(item.podcastId, show)
         val details = episodes.details(item.id)
         val artwork = item.imageUrl ?: meta?.imageUrl
-        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() })
+        val speed = show?.playbackSpeed ?: settingsRepository.current().defaultSpeed
+        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() }, speed = speed)
         lastChapter = -1
         if (load) {
             val url = item.playableUrl ?: return
@@ -387,7 +391,7 @@ class PlayerController(
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
             // Each show keeps its speed (ADR 0012); one never set follows the default.
-            engine.setSpeed(show?.playbackSpeed ?: settingsRepository.current().defaultSpeed)
+            engine.setSpeed(speed)
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
@@ -405,6 +409,7 @@ class PlayerController(
                 show = s
                 val loaded = _current.value?.item?.takeIf { it.podcastId == podcastId }?.id?.toString() == engine.state.value.itemId
                 if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded) engine.setSpeed(s.playbackSpeed ?: _settings.value.defaultSpeed)
+                if (s != null) _current.update { if (it?.item?.podcastId == podcastId) it.copy(speed = s.playbackSpeed ?: _settings.value.defaultSpeed) else it }
             }
         }
     }
@@ -488,9 +493,23 @@ class PlayerController(
         if (loaded && s.isPlaying) return
         val shown = _current.value?.takeIf { it.item.id == id }
         if (!loaded && shown == null) return
-        val at = if (played) 0 else positionMs
-        if (loaded) { engine.seekTo(at); lastSaved = at }
-        shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
+        // Heard to its end there (maintainer 2026-10-31: gone from "new", still in the player here): out of
+        // the player too, and the player away. What comes next from "Up next" is the listener's to start.
+        if (played) { close(); return }
+        if (loaded) { engine.seekTo(positionMs); lastSaved = positionMs }
+        shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = positionMs, played = false)) }
+    }
+
+    /** Nothing in the player: the episode unloaded, the bar and the screen gone. */
+    private fun close() {
+        expectedId = null
+        clip = null
+        introUnchecked = null
+        lastSaved = 0
+        if (_sleep.value == SleepTimer.EndOfEpisode || _sleep.value == SleepTimer.EndOfChapter) _sleep.value = SleepTimer.Off
+        engine.unload()
+        _current.value = null
+        _expanded.value = false
     }
 
     fun seekTo(ms: Long) {
@@ -545,7 +564,9 @@ class PlayerController(
     /** The next faster of all [SPEED_CHOICES] — the ones the long press offers
      *  too (device feedback 2026-10-19) — and after the fastest the slowest. */
     fun cycleSpeed() {
-        val now = engine.state.value.speed
+        // Not loaded yet (after a restart): from the show's speed the player shows, not the engine's 1×.
+        val e = engine.state.value
+        val now = if (e.itemId == null) _current.value?.speed ?: e.speed else e.speed
         setSpeed(SPEED_CHOICES.firstOrNull { it > now + 0.01f } ?: SPEED_CHOICES.first())
     }
 

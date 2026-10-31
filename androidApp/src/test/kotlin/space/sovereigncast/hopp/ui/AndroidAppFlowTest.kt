@@ -81,6 +81,7 @@ private class FakeEngine : PlaybackEngine {
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { s.value = s.value.copy(speed = speed) }
+    override fun unload() { s.value = PlaybackState(speed = s.value.speed) }
     override fun release() = Unit
     // As Android's engine: the switches for both show (ExoPlayer, LoudnessEnhancer).
     override val supportsSkipSilence = true

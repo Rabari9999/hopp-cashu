@@ -25,6 +25,8 @@ private fun setPositionState(duration: Double, rate: Double, position: Double): 
 
 private fun setPlaybackStateName(state: String): Unit = js("{ navigator.mediaSession.playbackState = state; }")
 
+private fun clearMediaSession(): Unit = js("{ try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch (e) {} }")
+
 /** The volume the listener left, kept in this browser only; full when none or unreadable. */
 private fun storedVolume(): Double = js("(() => { try { const v = parseFloat(localStorage.getItem('hopp-volume')); return isNaN(v) ? 1 : Math.min(1, Math.max(0, v)); } catch (e) { return 1; } })()")
 
@@ -56,9 +58,17 @@ class HtmlAudioPlaybackEngine(
         storeVolume(v.toDouble())
     }
 
+    /** The speed asked for. A new source puts the element back to its default rate, and Safari drops
+     *  one set before the file's metadata is in (maintainer 2026-10-31: every show played at 1×): it
+     *  is the default too, and set again once the file can play. */
+    private var speed = 1.0
+
+    private fun keepSpeed() { if (kotlin.math.abs(audio.playbackRate - speed) > 0.001) audio.playbackRate = speed }
+
     init {
         if (ownVolume) audio.volume = _volume.value.toDouble()
         audio.preload = "metadata"
+        listOf("loadedmetadata", "canplay", "play").forEach { event -> audio.addEventListener(event, { keepSpeed() }) }
         listOf("timeupdate", "durationchange", "play", "pause", "playing", "waiting", "ratechange", "ended").forEach { event ->
             audio.addEventListener(event, { publish() })
         }
@@ -104,7 +114,17 @@ class HtmlAudioPlaybackEngine(
     override fun play() { audio.play() }
     override fun pause() = audio.pause()
     override fun seekTo(positionMs: Long) { audio.currentTime = positionMs.coerceAtLeast(0) / 1000.0; publish() }
-    override fun setSpeed(speed: Float) { audio.playbackRate = speed.toDouble() }
+    override fun setSpeed(speed: Float) {
+        this.speed = speed.toDouble()
+        audio.defaultPlaybackRate = this.speed
+        audio.playbackRate = this.speed
+    }
+    override fun unload() {
+        _state.value = PlaybackState(speed = speed.toFloat())
+        audio.pause(); audio.removeAttribute("src"); audio.load()
+        _state.value = PlaybackState(speed = speed.toFloat())
+        if (hasMediaSession()) clearMediaSession()
+    }
     override fun release() { audio.pause(); audio.removeAttribute("src"); audio.load() }
     override fun setSkipIntervals(backSeconds: Int, forwardSeconds: Int) {
         skipBackSeconds = backSeconds; skipForwardSeconds = forwardSeconds
