@@ -33,14 +33,21 @@ async function device(name, ext = {}) {
     .flatMap(n => n.shadowRoot ? [...n.shadowRoot.querySelectorAll(sel)] : []).map(b => b.textContent.trim()).filter(Boolean), selector);
   const buttons = () => mirrored('[role=button]');
   const has = async (text) => (await buttons()).some(b => b.includes(text));
+  // The button of that name, else the first whose name holds it: "Home" is the tab, not "Customize Home".
   const press = async (name, wait = 3000) => {
-    await page.getByRole('button', { name, exact: false }).first().dispatchEvent('click', {}, { timeout: 10_000 }).catch(() => {});
+    const exact = page.getByRole('button', { name, exact: true });
+    const button = (await exact.count()) > 0 ? exact : page.getByRole('button', { name, exact: false });
+    await button.first().dispatchEvent('click', {}, { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(wait);
   };
   const shot = (n) => page.screenshot({ path: `out/${name}-${n}.png` });
+  // A menu or dialog closed leaves Compose's mirror for screen readers frozen on it until the page
+  // is reloaded (Compose Multiplatform 1.11/1.12, fixed in 1.13 — docs/tasks/web-client.md): the
+  // checks reload after each one, as a screen reader's user would have to.
+  const reload = async () => { await page.reload(); await page.waitForTimeout(8000); };
   await page.goto(url);
   await page.waitForTimeout(8000);
-  return { ctx, page, extension, errors, refused, mirrored, buttons, has, press, shot };
+  return { ctx, page, extension, errors, refused, mirrored, buttons, has, press, shot, reload };
 }
 
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
@@ -88,6 +95,7 @@ const opened = new Promise(ok => { a.ctx.once('page', p => ok(p.url())); setTime
 await a.press('More', 1500);
 await a.press('Save audio file', 1000);
 check(!!(await opened), "Save audio file hands the episode's audio to the browser");
+await a.reload();
 
 // 1c. Hopp's own language, apart from the browser's.
 await a.press('Home', 2000); await a.press('Settings', 2000);
@@ -109,6 +117,9 @@ await a.press('Show a code for your signer', 3000);
 check((await a.mirrored('*')).some(t => t === 'QR code for your signer') || await a.page.evaluate(() =>
   [...document.querySelectorAll('*')].some(n => n.shadowRoot && n.shadowRoot.innerHTML.includes('QR code for your signer'))), 'the connect code is shown as a QR code');
 await a.press('Cancel', 1500);
+await a.reload();
+await a.press('Settings', 2000);
+await a.press('Nostr identity', 3000);
 await a.press('Sign in with your browser extension', 6000);
 check(await a.has('Sign out of Hopp'), 'signed in with the extension');
 await a.page.reload(); await a.page.waitForTimeout(8000);
@@ -129,6 +140,9 @@ await a.press('Sign out', 12_000);
 check(await a.has('Skip'), 'after signing out Hopp starts afresh');
 const left = await a.page.evaluate(() => new Promise(ok => { const r = indexedDB.open('hopp-secrets'); r.onsuccess = () => { const s = r.result.transaction('kv').objectStore('kv').getAllKeys(); s.onsuccess = () => ok(s.result.filter(k => k !== '__key').length); }; }));
 check(left === 0, 'no secrets left after signing out');
+// The library went too: the database opened afresh, nothing of the show subscribed before.
+await a.press('Skip', 4000); await a.press('Library', 3000);
+check(!(await a.mirrored('*')).some(t => t.includes('Nodesignal')), 'no library left after signing out');
 
 // 4b. "This is not my device": the library so far moves into memory, nothing stays stored, and a
 // reload starts afresh.

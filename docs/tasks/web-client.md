@@ -115,8 +115,11 @@ How to run and check it: [web/README.md](../../web/README.md).
       locally the same day: it needs Kotlin 2.4.20+ and `hopp.js` loaded as
       a module, and then the app threw `NoSuchElementException` early and
       most checks failed — an upgrade of its own, once 1.13 is stable, not
-      for 0.3.2. Until then `run.mjs` is red from its language check on;
-      each later step passes alone.
+      for 0.3.2. Until then `run.mjs` reloads the page after each menu or
+      dialog, as a screen reader's user would have to (2026-10-31; it was
+      red from its language check on — "Home" also matched "Customize
+      Home", whose sheet froze the mirror; a button's exact name now goes
+      first).
 
 ## Not in 0.3.2
 
