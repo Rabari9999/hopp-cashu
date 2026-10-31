@@ -40,7 +40,13 @@ rsync -a -e "${SSH[*]}" "$REL/proxy" "root@$HOST:/tmp/hopp-deploy/proxy"
     cmp -s proxy /opt/hopp-feed-proxy/proxy || { install -m 755 proxy /opt/hopp-feed-proxy/proxy; changed=1; }
     for u in hopp-feed-proxy.socket hopp-feed-proxy.service; do cmp -s $u /etc/systemd/system/$u || { cp $u /etc/systemd/system/; changed=1; }; done
     systemctl daemon-reload
-    [ -n "$changed" ] && systemctl restart hopp-feed-proxy.service 2>/dev/null || true
+    # The running proxy holds the old binary or unit: stopped, the socket restarted (a changed .socket
+    # takes effect only so), and the next request starts the new one. A failure here fails the deploy.
+    if [ -n "$changed" ]; then
+        systemctl stop hopp-feed-proxy.service
+        systemctl restart hopp-feed-proxy.socket
+    fi
+    systemctl is-active -q hopp-feed-proxy.socket || { echo "the proxy socket is not active" >&2; exit 1; }
     cmp -s Caddyfile /etc/caddy/Caddyfile || { caddy validate --config Caddyfile --adapter caddyfile && cp Caddyfile /etc/caddy/Caddyfile && systemctl reload caddy; }
     echo "proxy: $(systemctl is-active hopp-feed-proxy.socket) socket, $([ -n "$changed" ] && echo replaced || echo unchanged)"'
 echo "== live: https://play.sovereigncast.space/version.txt → $VERSION"

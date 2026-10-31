@@ -4,10 +4,11 @@ import kotlinx.coroutines.await
 import kotlin.js.Promise
 
 private fun hasNostr(): Boolean = js("typeof window !== 'undefined' && !!window.nostr")
+private fun hasNip44(): Boolean = js("typeof window !== 'undefined' && !!window.nostr && !!window.nostr.nip44")
 private fun getPublicKey(): Promise<JsString> = js("window.nostr.getPublicKey()")
 private fun signEvent(json: String): Promise<JsString> = js("window.nostr.signEvent(JSON.parse(json)).then(e => JSON.stringify(e))")
 private fun nip44(encrypt: Boolean, peer: String, text: String): Promise<JsString> =
-    js("window.nostr.nip44 ? (encrypt ? window.nostr.nip44.encrypt(peer, text) : window.nostr.nip44.decrypt(peer, text)) : Promise.reject(new Error('this extension has no NIP-44'))")
+    js("encrypt ? window.nostr.nip44.encrypt(peer, text) : window.nostr.nip44.decrypt(peer, text)")
 
 /**
  * A Nostr extension in the browser (NIP-07: Alby, nos2x …) as Hopp's external
@@ -29,8 +30,11 @@ class Nip07Signer : ExternalSigner {
     override suspend fun signEvent(signerPackage: String, eventJson: String, eventId: String, currentUser: String, interactive: Boolean): SignerResult =
         SignerResult(call { signEvent(eventJson) }, null)
 
-    override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String =
-        call { nip44(encrypt, peer, text) }
+    override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
+        // Said as what it is, not as the listener's "no" (review 2026-10-31): sync's key needs NIP-44.
+        if (hasNostr() && !hasNip44()) throw SignerUnavailable("this extension has no NIP-44, which sync needs — Alby and nos2x have it")
+        return call { nip44(encrypt, peer, text) }
+    }
 
     /** A JS rejection is no kotlin.Exception (docs/spikes/06-web.md, 3): the listener's "no" becomes [SignerRejected]. */
     private suspend fun call(block: () -> Promise<JsString>): String {

@@ -8,11 +8,12 @@
 # web/e2e/run.mjs's "nothing refused by the CSP" until the hash here is the new one.
 # worker-src blob: is Coil's, which decodes covers in a worker made from a blob (only code
 # already running in the page can make one); img-src https: is the cover the Media Session
-# hands to the lock screen, loaded by the browser from the show's host.
+# hands to the lock screen, loaded by the browser from the show's host. HSTS without preload: the
+# preload list takes only a whole domain (sovereigncast.space, which GitLab Pages serves), not these.
 (hopp_web_headers) {
 	header {
 		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'sha256-+bHRyQ0Z1/Lb6dgSILtTESBRCIFl8jkBb/dPQA4Pdnw='; img-src 'self' data: blob: https:; font-src 'self'; media-src https: http: blob:; connect-src 'self' https: wss:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-		Strict-Transport-Security "max-age=63072000"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
 		Cross-Origin-Opener-Policy "same-origin"
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
@@ -50,7 +51,7 @@ play.sovereigncast.space {
 
 feeds.sovereigncast.space {
 	header {
-		Strict-Transport-Security "max-age=63072000"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
 		X-Robots-Tag "noindex, nofollow"
 		-Server
 	}

@@ -20,6 +20,9 @@ internal fun tabOnlyMarked(): Boolean = marked()
  * "This is not my device" in the browser (ADR 0022, 2): the database moves into the worker's
  * memory and its file in OPFS is deleted, the secrets stay in memory and their IndexedDB store is
  * deleted. The library and the sign-in carry on in this tab and are gone when it closes.
+ * Whatever the browser held is taken along — the listener's own library from before signing in
+ * (web/e2e: "the library carried over"), and on a browser others share, theirs: it is in this tab's
+ * memory now, no longer stored (review 2026-10-31; by design, the page says it keeps nothing).
  */
 class WebTabOnly(private val driver: SqlDriver, private val secrets: SecretStore, on: Boolean) : TabOnly {
     private val _active = MutableStateFlow(on)

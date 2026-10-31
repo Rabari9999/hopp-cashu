@@ -63,8 +63,9 @@ private fun wipeIfMarked(): Promise<JsString> = js("""(async () => {
 private fun mark(name: String): Unit = js("{ try { performance.mark(name); } catch (e) {} }")
 private fun hideSplash(): Unit = js("""{ const s = document.getElementById('hopp-splash'); if (s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 250); } }""")
 
-// A tab that keeps nothing stored nothing: a reload starts it afresh, and what is stored in the
-// browser — another listener's — stays.
+// Signing out in a tab that keeps nothing: a reload starts it afresh. What the browser held when
+// "This is not my device" was chosen went into that tab's memory then, and its files were deleted
+// (WebTabOnly) — so nothing of it is left to wipe here.
 internal fun wipeOnNextStart() = if (tabOnlyMarked()) reload() else markWipe()
 
 /** Hopp in the browser (ADR 0022, stage W2): the database first, then the app as on the phone. */

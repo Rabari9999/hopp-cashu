@@ -6,12 +6,13 @@ import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
 import kotlinx.coroutines.await
-import space.sovereigncast.hopp.crypto.Uint8Array
-import space.sovereigncast.hopp.crypto.toByteArray
 import kotlin.js.Promise
 
-private fun fetchBytes(url: String): Promise<Uint8Array> =
-    js("fetch(url).then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error('' + r.status))).then(b => new Uint8Array(b))")
+// The file as one string, a character per byte (latin1): one hand-over to Kotlin instead of one call
+// per byte — ~2 million for the emoji font, on the main thread right after the first frame (review 2026-10-31).
+private fun fetchLatin1(url: String): Promise<JsString> = js("""fetch(url)
+  .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error('' + r.status)))
+  .then(b => { const a = new Uint8Array(b); let s = ''; for (let i = 0; i < a.length; i += 32768) s += String.fromCharCode.apply(null, a.subarray(i, i + 32768)); return s; })""")
 
 private val FONTS = listOf("hopp_fallback_symbols", "hopp_fallback_math", "hopp_fallback_cjk", "hopp_fallback_emoji")
 
@@ -24,7 +25,8 @@ fun FallbackFonts() {
     val resolver = LocalFontFamilyResolver.current
     LaunchedEffect(Unit) {
         for (name in FONTS) runCatching {
-            val bytes = fetchBytes("fonts/$name.ttf").await<Uint8Array>().toByteArray()
+            val text = fetchLatin1("fonts/$name.ttf").await<JsString>().toString()
+            val bytes = ByteArray(text.length) { text[it].code.toByte() }
             resolver.preload(FontFamily(Font(name, bytes)))
         }
     }

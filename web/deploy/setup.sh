@@ -2,14 +2,19 @@
 # Sets up Hopp Web's server once (ADR 0022, 5–6), on a fresh Debian 13, as root — and again
 # at any time: every step only brings the machine to the state described here.
 #
-#   ssh root@<server> 'bash -s' < web/deploy/setup.sh
-#   then web/deploy/deploy.sh <server> to put the client and the proxy on it.
+#   web/deploy/deploy.sh <server> --setup
+#
+# deploy.sh copies the server files (Caddyfile, the proxy's units) to /tmp/hopp-deploy first and runs
+# this as root, then puts the client and the proxy on it. Run alone, it stops before it changes anything.
 #
 # What it does: updates, security updates by themselves, a firewall (SSH, HTTP, HTTPS), SSH by
 # key only, Caddy from its own repository, the feed proxy's socket and service, and a user
 # "deploy" that may only write the site's files. Nothing about listeners is stored here.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+for f in Caddyfile hopp-feed-proxy.socket hopp-feed-proxy.service; do
+    [[ -f /tmp/hopp-deploy/$f ]] || { echo "no /tmp/hopp-deploy/$f: run web/deploy/deploy.sh <server> --setup" >&2; exit 1; }
+done
 . /etc/os-release
 [[ $ID == debian && ${VERSION_ID%%.*} -ge 13 ]] || { echo "expects Debian 13 or later, found $PRETTY_NAME" >&2; exit 1; }
 
