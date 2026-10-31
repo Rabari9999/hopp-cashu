@@ -18,8 +18,14 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
-    /** Version 18 from the current schema: no gap kept that every relay showed. */
+    /** Version 19 from the current schema: a "heard up to" from the first episode always. */
+    private fun version19(driver: JdbcSqliteDriver) {
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through_from", 0)
+    }
+
+    /** Version 18: no gap kept that every relay showed either. */
     private fun version18(driver: JdbcSqliteDriver) {
+        version19(driver)
         driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN stuck_rev", 0)
         driver.execute(null, "ALTER TABLE sync_doc DROP COLUMN stuck_since", 0)
     }
@@ -48,6 +54,16 @@ class SyncMigrationTest {
         version15(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_intro_seconds", 0)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN skip_outro_seconds", 0)
+    }
+
+    /** Review 2026-10-31: a "heard up to" kept before its start was kept still covers from the first episode. */
+    @Test
+    fun aMarkFromBeforeTheUpdateStartsAtTheFirstEpisode() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.synchronous().create(it); version19(it) }
+        driver.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at, played_through, played_through_at) VALUES ('https://pod.test/feed.xml', 'Show', '{}', 1, 500, 600)", 0)
+        HoppDatabase.Schema.synchronous().migrate(driver, 19, HoppDatabase.Schema.version)
+        val show = HoppDatabase(driver).podcastQueries.selectAll().executeAsOne()
+        assertEquals(Triple(500L, null, 600L), Triple(show.played_through, show.played_through_from, show.played_through_at))
     }
 
     /** Maintainer 2026-10-30: "heard up to" per show; after the update no show has one. */

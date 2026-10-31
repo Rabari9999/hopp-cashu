@@ -7,8 +7,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.AsyncOnlyDriver
+import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.KeyPair
+import space.sovereigncast.hopp.schemaDriver
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -183,6 +186,115 @@ class ProgressSyncTest {
         // The 150 before the gap in one mark; the 149 after it as they were.
         assertEquals(149, kept.count { it.startsWith("pos\n") })
         assertEquals(0L, phone.episode(feed, gap.guid).played)
+    }
+
+    /**
+     * Review 2026-10-31: an episode taken back on the tablet after the phone's "this and older", before the
+     * tablet heard of it — the mark made it heard there again (taking back leaves no time in the episode),
+     * and the two devices stayed apart. The tablet's own entry is newer: it stands.
+     */
+    @Test
+    fun takenBackAfterTheMarkWasMadeElsewhereStaysTakenBack() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val list = phone.episodes.ofPodcast(phone.row(feed).id).first().sortedByDescending { it.publishedAt }
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, list[3].guid).id, true)
+        phone.sync.syncNow()
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertEquals(1L, tablet.episode(feed, list[3].guid).played)
+
+        phone.ms = tablet.ms + 60_000
+        phone.episodes.setPlayedUpTo(list[1])
+        phone.sync.syncNow()
+        tablet.ms = phone.ms + 30_000
+        tablet.episodes.setPlayed(tablet.episode(feed, list[3].guid).id, false)
+        tablet.sync.syncNow()
+        assertEquals(0L, tablet.episode(feed, list[3].guid).played, "taken back after the mark")
+        assertEquals(1L, tablet.episode(feed, list[4].guid).played)
+
+        phone.ms = tablet.ms + 60_000
+        phone.sync.syncNow()
+        assertEquals(0L, phone.episode(feed, list[3].guid).played)
+        assertEquals(1L, phone.episode(feed, list[4].guid).played)
+    }
+
+    /**
+     * Review 2026-10-31: "this and older" on an old episode after "all" re-dated the whole mark — the
+     * other device then heard again an episode taken back in between, which the phone itself left unheard.
+     * The mark stays as it was; what was heard now goes out one by one.
+     */
+    @Test
+    fun thisAndOlderOnAnOldEpisodeAfterAllLeavesANewerOneTakenBack() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val list = phone.episodes.ofPodcast(phone.row(feed).id).first().sortedByDescending { it.publishedAt }
+        phone.ms += 60_000
+        phone.episodes.setShowPlayed(phone.row(feed).id)
+        phone.sync.syncNow()
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+
+        phone.ms = tablet.ms + 60_000
+        phone.episodes.setPlayed(phone.episode(feed, list[2].guid).id, false)
+        phone.episodes.setPlayed(phone.episode(feed, list[12].guid).id, false)
+        phone.sync.syncNow()
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertEquals(0L, tablet.episode(feed, list[2].guid).played)
+        assertEquals(0L, tablet.episode(feed, list[12].guid).played)
+
+        phone.ms = tablet.ms + 60_000
+        val before = phone.row(feed).played_through_at
+        phone.episodes.setPlayedUpTo(list[10])
+        assertEquals(before, phone.row(feed).played_through_at, "the mark as it was")
+        phone.sync.syncNow()
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertEquals(0L, phone.episode(feed, list[2].guid).played)
+        assertEquals(0L, tablet.episode(feed, list[2].guid).played, "newer than the episode marked: stays unheard")
+        assertEquals(1L, tablet.episode(feed, list[12].guid).played, "older: heard, as on the phone")
+    }
+
+    /**
+     * Review 2026-10-31: a mark found from the phone's copy of the feed — its newest 100, all heard — made
+     * the tablet, subscribed long before and holding every episode, hear the older ones it never played.
+     * The mark covers from where the phone's copy starts.
+     */
+    @Test
+    fun aMarkFoundFromAShortCopyOfTheFeedCoversOnlyWhatThatCopyHeld() = runBlocking<Unit> {
+        val raw = schemaDriver()
+        val phone = SyncDevice(relay, scope, nsec, db = HoppDatabase(AsyncOnlyDriver(raw)))
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        val all = tablet.episodes.ofPodcast(tablet.row(feed).id).first().sortedByDescending { it.publishedAt }
+        // The phone's copy: the newest 100, as a feed that gives only those.
+        raw.execute(null, "DELETE FROM episode WHERE published_at < ${all[99].publishedAt}", 0)
+        val kept = phone.episodes.ofPodcast(phone.row(feed).id).first()
+        assertTrue(kept.size in 100 until all.size, "${kept.size} of ${all.size}")
+
+        // Heard one by one, as before 0.3.2; at the next start the phone finds its mark.
+        phone.ms += 60_000
+        kept.forEach { phone.episodes.setPlayed(it.id, true) }
+        phone.sync.syncNow()
+        phone.ms += 60_000
+        assertEquals(1, phone.episodes.deriveHeardUpTo())
+        assertEquals(null, phone.sync.syncNow().problem)
+
+        val heard = kept.map { it.guid }.toSet()
+        suspend fun heardOn(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).awaitAsList().filter { it.played == 1L }.map { it.guid }.toSet()
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        assertEquals(heard, heardOn(tablet))
+
+        // A new device with the whole feed: the same.
+        val laptop = SyncDevice(relay, scope, nsec)
+        laptop.ms = tablet.ms + 1_000
+        laptop.podcasts.subscribe(feed)
+        laptop.sync.enable()
+        assertEquals(heard, heardOn(laptop))
     }
 
     @Test

@@ -1,0 +1,2 @@
+-- Version 19 → 20 (review 2026-10-31): where a "heard up to" found from this device's feed starts.
+ALTER TABLE podcast ADD COLUMN played_through_from INTEGER;

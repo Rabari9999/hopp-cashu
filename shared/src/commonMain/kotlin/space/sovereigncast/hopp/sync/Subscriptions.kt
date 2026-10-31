@@ -59,12 +59,13 @@ object SyncDocs {
      * Every episode of a show published up to [beforeSeconds] heard, as of [atSeconds] — "this and older"
      * or "all" as one entry instead of one per episode (maintainer 2026-10-30: hundreds of entries made
      * the progress document several events long, sent again with every change). Hopp before 0.3.2
-     * passes over it.
+     * passes over it. [fromSeconds]: one found from a device's copy of the feed covers only what that
+     * copy held — from its oldest episode on (review 2026-10-31); without it, from the first.
      */
     fun playedThroughKey(show: String) = "upto\n$show"
 
-    fun playedThrough(show: String, beforeSeconds: Long, atSeconds: Long): JsonObject = buildJsonObject {
-        put("show", show); put("before", beforeSeconds); put("at", atSeconds)
+    fun playedThrough(show: String, beforeSeconds: Long, atSeconds: Long, fromSeconds: Long? = null): JsonObject = buildJsonObject {
+        put("show", show); put("before", beforeSeconds); put("at", atSeconds); fromSeconds?.let { put("from", it) }
     }
 
     /** [atSeconds] null: no favourite (any more). */

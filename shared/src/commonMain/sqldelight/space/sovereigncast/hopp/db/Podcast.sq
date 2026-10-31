@@ -29,7 +29,10 @@ CREATE TABLE podcast (
     -- Version 17 (migrations/16.sqm): every episode published up to this time (seconds) heard,
     -- as of played_through_at — "this and older" or "all" in one, for sync (maintainer 2026-10-30).
     played_through INTEGER,
-    played_through_at INTEGER
+    played_through_at INTEGER,
+    -- Version 20 (migrations/19.sqm): where a "heard up to" found from this device's copy of the feed
+    -- starts — another device's may reach further back (review 2026-10-31). Null: from the first.
+    played_through_from INTEGER
 );
 
 CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
@@ -47,12 +50,12 @@ SELECT * FROM podcast ORDER BY title COLLATE NOCASE;
 selectById:
 SELECT * FROM podcast WHERE id = ?;
 
--- Never back to an earlier time: "this and older" on an old episode after "all" keeps "all".
+-- Whether it may move is decided where it is set (EpisodeRepository): the three go together.
 setPlayedThrough:
-UPDATE podcast SET played_through = MAX(COALESCE(played_through, 0), :before), played_through_at = :at WHERE id = :id;
+UPDATE podcast SET played_through = :before, played_through_from = :from, played_through_at = :at WHERE id = :id;
 
 playedThroughOf:
-SELECT played_through, played_through_at FROM podcast WHERE id = ?;
+SELECT played_through, played_through_from, played_through_at FROM podcast WHERE id = ?;
 
 selectByFeedUrl:
 SELECT * FROM podcast WHERE feed_url = ?;

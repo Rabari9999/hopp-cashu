@@ -439,43 +439,58 @@ class EpisodeRepository(
     /** Every episode of a show heard. */
     suspend fun setShowPlayed(podcastId: Long) = withContext(ioDispatcher) {
         val now = clock.now()
-        val (ids, left) = db.transactionWithResult {
+        val (ids, left, marked) = db.transactionWithResult {
             val ids = eq.unplayedOfShow(podcastId).awaitAsList()
             eq.markShowPlayed(now, podcastId)
-            eq.latestPublishedOf(podcastId).awaitAsOneOrNull()?.MAX?.let { db.podcastQueries.setPlayedThrough(it, now, podcastId) }
-            ids to leaveQueue(ids)
+            val marked = eq.latestPublishedOf(podcastId).awaitAsOneOrNull()?.MAX?.let { raisePlayedThrough(podcastId, it, now) } ?: false
+            Triple(ids, leaveQueue(ids), marked)
         }
-        notePlayedThrough(podcastId, ids)
+        notePlayedThrough(podcastId, ids, marked)
         noteLeft(left)
     }
 
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(ioDispatcher) {
         val now = clock.now()
-        val (ids, left) = db.transactionWithResult {
+        val (ids, left, marked) = db.transactionWithResult {
             val ids = eq.unplayedUpTo(item.podcastId, item.id, item.publishedAt).awaitAsList()
             eq.markPlayedUpTo(now, item.podcastId, item.id, item.publishedAt)
-            item.publishedAt?.let { db.podcastQueries.setPlayedThrough(it, now, item.podcastId) }
-            ids to leaveQueue(ids)
+            val marked = item.publishedAt?.let { raisePlayedThrough(item.podcastId, it, now) } ?: false
+            Triple(ids, leaveQueue(ids), marked)
         }
-        notePlayedThrough(item.podcastId, ids)
+        notePlayedThrough(item.podcastId, ids, marked)
         noteLeft(left)
+    }
+
+    /**
+     * The listener's "heard up to" [before], as of [now] — only where it reaches at least as far as the
+     * show's mark: the mark says *everything* up to it as of its time, and "this and older" on an old
+     * episode after "all" did not make the newer ones heard again (review 2026-10-31: re-dated, the old
+     * mark marked an episode taken back since heard on the other devices). Whether it moved.
+     */
+    private suspend fun raisePlayedThrough(podcastId: Long, before: Long, now: Long): Boolean {
+        val old = db.podcastQueries.playedThroughOf(podcastId).awaitAsOneOrNull()?.played_through
+        if (old != null && before < old) return false
+        db.podcastQueries.setPlayedThrough(before, null, now, podcastId)
+        return true
     }
 
     /**
      * Many episodes heard at once, for sync: the show's "heard up to" as one entry
      * (maintainer 2026-10-30), single entries only for an episode it does not cover
-     * (no date) or one sync already holds an entry for — that entry would say otherwise.
+     * (no date, before its start) or one sync already holds an entry for — that entry would say
+     * otherwise. Not [marked] (the mark reaches further already): every one its own entry.
      */
-    private suspend fun notePlayedThrough(podcastId: Long, ids: List<Long>) {
+    private suspend fun notePlayedThrough(podcastId: Long, ids: List<Long>, marked: Boolean = true) {
         if (!journal.enabled) return
         val p = db.podcastQueries.selectById(podcastId).awaitAsOneOrNull() ?: return
-        val before = p.played_through
+        val before = p.played_through.takeIf { marked }
+        val from = p.played_through_from
         val show = SyncDocs.showKey(p.podcast_guid, p.feed_url)
-        if (before != null) journal.record(SyncDocs.PROGRESS, SyncDocs.playedThroughKey(show), SyncDocs.playedThrough(show, before, p.played_through_at ?: clock.now()))
+        if (before != null) journal.record(SyncDocs.PROGRESS, SyncDocs.playedThroughKey(show), SyncDocs.playedThrough(show, before, p.played_through_at ?: clock.now(), from))
         for (id in ids) {
             val r = eq.syncKeysOf(id).awaitAsOneOrNull() ?: continue
-            val covered = before != null && r.published_at != null && r.published_at <= before
+            val covered = before != null && r.published_at != null && r.published_at <= before && (from == null || r.published_at >= from)
             if (!covered || journal.current(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid)) != null) noteProgress(id)
         }
     }
@@ -487,6 +502,11 @@ class EpisodeRepository(
      * the last of them was heard, so a device that listened to one of them since keeps that. Nothing
      * here changes but the show's mark; sync then leaves out the single entries it covers. The shows
      * given one.
+     *
+     * "The oldest" is the oldest this device's copy of the feed holds: feeds give their newest 50 or
+     * 100, so a device subscribed for years holds older ones the run never saw (review 2026-10-31: they
+     * were marked heard there). The mark starts where the run does, and joins one the show has only
+     * where the two meet.
      */
     suspend fun deriveHeardUpToOnce() {
         if (heardUpToDerived) return
@@ -499,6 +519,7 @@ class EpisodeRepository(
     suspend fun deriveHeardUpTo(): Int = withContext(ioDispatcher) {
         var given = 0
         for (p in db.podcastQueries.selectAll().awaitAsList()) {
+            var first: Long? = null
             var through: Long? = null
             var earlier: Long? = null
             var at = 0L
@@ -511,23 +532,39 @@ class EpisodeRepository(
                     break
                 }
                 if (published != through) earlier = through
+                if (first == null) first = published
                 through = published; at = maxOf(at, r.played_at ?: 0); run++
             }
             val before = through ?: continue
-            if (run < MIN_RUN || before <= (p.played_through ?: 0)) continue
-            db.podcastQueries.setPlayedThrough(before, at.takeIf { it > 0 } ?: clock.now(), p.id)
+            val old = p.played_through
+            if (run < MIN_RUN || before <= (old ?: 0)) continue
+            // A mark the run does not reach (it ends before the run starts): what lies between is not known heard.
+            if (old != null && old < first!!) continue
+            val from = if (old != null && p.played_through_from == null) null else minOf(first!!, p.played_through_from ?: first)
+            val heardAt = maxOf(at, p.played_through_at ?: 0).takeIf { it > 0 } ?: clock.now()
+            db.podcastQueries.setPlayedThrough(before, from, heardAt, p.id)
             notePlayedThrough(p.id, emptyList())
             given++
         }
         given
     }
 
-    /** "Heard up to" from another device (sync): applied, not noted again; out of "Up next" too. */
-    suspend fun applyPlayedThrough(podcastId: Long, beforeSeconds: Long, atSeconds: Long) = withContext(ioDispatcher) {
+    /**
+     * "Heard up to" from another device (sync): applied, not noted again; out of "Up next" too. An
+     * episode sync holds an entry for newer than [atSeconds] keeps what that says (review 2026-10-31:
+     * taken back here after the mark was made elsewhere, the mark made it heard again — the entry only
+     * comes back with the next change, and the two devices stayed apart).
+     */
+    suspend fun applyPlayedThrough(podcastId: Long, beforeSeconds: Long, fromSeconds: Long?, atSeconds: Long) = withContext(ioDispatcher) {
+        val p = db.podcastQueries.selectById(podcastId).awaitAsOneOrNull() ?: return@withContext
+        val show = SyncDocs.showKey(p.podcast_guid, p.feed_url)
+        val newer = eq.unplayedThrough(podcastId, beforeSeconds, fromSeconds, atSeconds).awaitAsList().filterTo(mutableSetOf()) { r ->
+            (journal.current(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid))?.t ?: 0) > atSeconds * 1000
+        }.mapTo(mutableSetOf()) { it.guid }
         db.transaction {
-            val ids = eq.unplayedThrough(podcastId, beforeSeconds, atSeconds).awaitAsList()
-            eq.markPlayedThrough(atSeconds, podcastId, beforeSeconds)
-            db.podcastQueries.setPlayedThrough(beforeSeconds, atSeconds, podcastId)
+            val ids = eq.unplayedThrough(podcastId, beforeSeconds, fromSeconds, atSeconds).awaitAsList().filter { it.guid !in newer }.map { it.id }
+            ids.forEach { eq.markPlayed(atSeconds, it) }
+            db.podcastQueries.setPlayedThrough(beforeSeconds, fromSeconds, atSeconds, podcastId)
             leaveQueue(ids)
         }
     }

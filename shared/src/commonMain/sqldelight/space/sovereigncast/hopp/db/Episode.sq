@@ -127,16 +127,11 @@ markShowPlayed:
 UPDATE episode SET played = 1, played_at = :now, position_ms = 0, in_inbox = 0
 WHERE podcast_id = :podcastId AND played = 0;
 
--- "Heard up to" from another device (sync): what is unheard and dated up to [before], unless
--- listened to here since [at]; their ids first, for "Up next".
+-- "Heard up to" from another device (sync): what is unheard and dated from [from] (null: the first)
+-- up to [before], unless listened to here since [at] — each then marked heard with markPlayed.
 unplayedThrough:
-SELECT id FROM episode WHERE podcast_id = :podcastId AND played = 0 AND published_at IS NOT NULL AND published_at <= :before
-    AND COALESCE(last_played_at, 0) <= :at;
-
-markPlayedThrough:
-UPDATE episode SET played = 1, played_at = :at, position_ms = 0, in_inbox = 0
-WHERE podcast_id = :podcastId AND played = 0 AND published_at IS NOT NULL AND published_at <= :before
-    AND COALESCE(last_played_at, 0) <= :at;
+SELECT id, guid FROM episode WHERE podcast_id = :podcastId AND played = 0 AND published_at IS NOT NULL AND published_at <= :before
+    AND (:from IS NULL OR published_at >= :from) AND COALESCE(last_played_at, 0) <= :at;
 
 latestPublishedOf:
 SELECT MAX(published_at) FROM episode WHERE podcast_id = ?;
@@ -255,7 +250,7 @@ FROM episode e JOIN podcast p ON p.id = e.podcast_id WHERE e.id = ?;
 
 progressForSync:
 SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.played_at, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url,
-       p.played_through, p.played_through_at
+       p.played_through, p.played_through_at, p.played_through_from
 FROM episode e JOIN podcast p ON p.id = e.podcast_id
 WHERE e.favorite_at IS NOT NULL OR e.position_ms > 0
    OR COALESCE(e.last_played_at, 0) >= :since OR COALESCE(e.played_at, 0) >= :since;

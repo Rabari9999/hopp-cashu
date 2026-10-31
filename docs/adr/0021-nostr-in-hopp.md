@@ -673,6 +673,26 @@ switches.
      version — same revision and time, past its part count, so every Hopp
      passes it over — a few hundred bytes each; best effort.
 
+   *Amended a twelfth time 2026-10-31 (0.3.2, review of the branch: "heard up
+   to" passed over what the single entries had kept apart):*
+   - **A mark found from a device's feed starts where that feed does**
+     (`from` in seconds, `podcast.played_through_from`, version 20). Feeds
+     give their newest 50 or 100: a device subscribed for years holds older
+     episodes the run never saw, and the mark made them heard there. Applied
+     and counted as covering only from `from` on; a mark without it (the
+     listener's "this and older" or "all") from the first episode. One found
+     joins the show's mark only where the two meet.
+   - **An entry newer than the mark stands.** Taking an episode back leaves
+     no time in the episode, so a mark made elsewhere before it, read
+     after, made it heard again — and only that device. Where sync holds an
+     entry for the episode newer than the mark's `at`, the mark passes it
+     over.
+   - **"This and older" short of the mark leaves the mark as it was.** It
+     says *everything* up to it as of its time; re-dated, an episode taken
+     back since was heard again on the other devices, not on this one. The
+     episodes heard now go out one by one instead.
+     Tests: `ProgressSyncTest`, `SyncMigrationTest`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode
