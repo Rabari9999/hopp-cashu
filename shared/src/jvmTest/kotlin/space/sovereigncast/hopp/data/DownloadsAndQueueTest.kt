@@ -80,6 +80,59 @@ class DownloadsAndQueueTest {
     private suspend fun subscribe() = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
     private suspend fun byTitle(podcastId: Long, title: String) = episodes.ofPodcast(podcastId).first().single { it.title == title }
 
+    /**
+     * Review 2026-10-31: the migrations as a whole, against the schema a new install gets — every table's
+     * columns in their order (the generated `SELECT *` reads them by position), types, NOT NULL, defaults
+     * and keys, and every index and trigger. A `.sqm` that drifted from its `.sq` failed nowhere before.
+     */
+    @Test
+    fun aDatabaseMigratedFromVersionOneHasANewOnesSchema() {
+        val migrated = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        V1_SCHEMA.split(";").map(String::trim).filter(String::isNotEmpty).forEach { migrated.execute(null, it, 0) }
+        HoppDatabase.Schema.synchronous().migrate(migrated, 1, HoppDatabase.Schema.version)
+        val fresh = schemaDriver()
+        fun JdbcSqliteDriver.rows(sql: String, columns: Int): List<List<String?>> = executeQuery(null, sql, { c ->
+            val out = mutableListOf<List<String?>>()
+            while (c.next().value) out += (0 until columns).map { c.getString(it) }
+            app.cash.sqldelight.db.QueryResult.Value(out)
+        }, 0).value
+        fun JdbcSqliteDriver.schema(): Map<String, Any> {
+            val tables = rows("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", 1).map { it[0]!! }
+            val normal = { sql: String? -> sql?.lowercase()?.replace(Regex("\\s+"), " ")?.replace("( ", "(")?.replace(" )", ")")?.trim() }
+            return tables.associateWith { t -> rows("PRAGMA table_info('$t')", 6) } +
+                rows("SELECT type, name, sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY name", 3)
+                    .associate { (type, name, sql) -> "$type $name" to normal(sql)!! }
+        }
+        val want = fresh.schema()
+        val got = migrated.schema()
+        assertEquals(want.keys, got.keys, "tables, indexes and triggers")
+        val differ = want.keys.filter { want[it] != got[it] }.map { "$it:\n  new      ${want[it]}\n  migrated ${got[it]}" }
+        assertTrue(differ.isEmpty(), "after the migrations:\n" + differ.joinToString("\n"))
+    }
+
+    /** Review 2026-10-31: installed before version 5, the payment log had results_json before fees_msat and
+     *  unknown_msat — read by position, each from another's column, and a reason set on a payment emptied
+     *  its lines. Version 21 puts them in order, every value kept, no id handed out twice. */
+    @Test
+    fun thePaymentLogOfAnEarlyInstallIsReadRightAfterTheUpdate() = test {
+        val driver = schemaDriver()
+        driver.execute(null, "DROP TABLE payment", 0)
+        driver.execute(null, """CREATE TABLE payment (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, kind TEXT NOT NULL,
+            podcast_id INTEGER, episode_id INTEGER, podcast_title TEXT, episode_title TEXT, amount_msat INTEGER NOT NULL, message TEXT,
+            results_json TEXT NOT NULL, fees_msat INTEGER NOT NULL DEFAULT 0, unknown_msat INTEGER NOT NULL DEFAULT 0)""", 0)
+        driver.execute(null, "INSERT INTO payment (id, created_at, kind, amount_msat, message, results_json, fees_msat, unknown_msat) VALUES (5, 1, 'boost', 21000, 'Hi', '[{\"name\":\"Host\"}]', 300, 7000)", 0)
+        // A later payment, gone since: its id is not handed out again.
+        driver.execute(null, "INSERT INTO payment (id, created_at, kind, amount_msat, results_json) VALUES (9, 2, 'stream', 1, '[]')", 0)
+        driver.execute(null, "DELETE FROM payment WHERE id = 9", 0)
+        HoppDatabase.Schema.synchronous().migrate(driver, 20, HoppDatabase.Schema.version)
+        val db = HoppDatabase(driver)
+        val row = db.paymentQueries.selectById(5).executeAsOne()
+        assertEquals(listOf<Any?>(21000L, "Hi", 300L, 7000L, "[{\"name\":\"Host\"}]"),
+            listOf(row.amount_msat, row.message, row.fees_msat, row.unknown_msat, row.results_json))
+        db.paymentQueries.insert(3, "boost", null, null, null, null, 1, null, 0, 0, "[]")
+        assertEquals(10L, db.paymentQueries.lastInsertId().executeAsOne())
+    }
+
     @Test
     fun aVersionOneDatabaseIsMigrated() = test {
         val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)

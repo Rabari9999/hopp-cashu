@@ -1,0 +1,27 @@
+-- Version 20 → 21 (review 2026-10-31): the payment log in the column order a new install has.
+-- Installed before version 5, its fees_msat and unknown_msat came after results_json (ALTER TABLE
+-- appends), while Payment.sq has them before it — and `SELECT * FROM payment` reads by position:
+-- fees, unknown outcomes and each recipient's line were read from one another's columns. Rebuilt,
+-- every value taken over by its name; its AUTOINCREMENT counter kept, so no id is handed out twice.
+CREATE TABLE payment_ordered (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    podcast_id INTEGER,
+    episode_id INTEGER,
+    podcast_title TEXT,
+    episode_title TEXT,
+    amount_msat INTEGER NOT NULL,
+    message TEXT,
+    fees_msat INTEGER NOT NULL DEFAULT 0,
+    unknown_msat INTEGER NOT NULL DEFAULT 0,
+    results_json TEXT NOT NULL
+);
+INSERT INTO payment_ordered (id, created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, unknown_msat, results_json)
+SELECT id, created_at, kind, podcast_id, episode_id, podcast_title, episode_title, amount_msat, message, fees_msat, unknown_msat, results_json FROM payment;
+INSERT INTO sqlite_sequence (name, seq) SELECT 'payment_ordered', 0 WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'payment_ordered');
+UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'payment'), 0)) WHERE name = 'payment_ordered';
+DROP TABLE payment;
+ALTER TABLE payment_ordered RENAME TO payment;
+CREATE INDEX payment_created_idx ON payment(created_at);
+CREATE INDEX payment_episode_idx ON payment(episode_id);

@@ -522,35 +522,44 @@ class EpisodeRepository(
 
     suspend fun deriveHeardUpTo(): Int = withContext(ioDispatcher) {
         var given = 0
-        for (p in db.podcastQueries.selectAll().awaitAsList()) {
-            var first: Long? = null
-            var through: Long? = null
-            var earlier: Long? = null
-            var at = 0L
-            var run = 0
-            for (r in eq.heardRunOf(p.id).awaitAsList()) {
-                val published = r.published_at ?: continue
-                if (r.played != 1L || r.position_ms != 0L) {
-                    // An unheard one of the same second as the last heard: that second is not wholly heard.
-                    if (through == published) through = earlier
-                    break
-                }
-                if (published != through) earlier = through
-                if (first == null) first = published
-                through = published; at = maxOf(at, r.played_at ?: 0); run++
+        for (id in db.podcastQueries.selectAll().awaitAsList().map { it.id }) {
+            // Read and set in one transaction: in the browser a sync round may run between (review 2026-10-31).
+            // Noted for sync after it, outside (SyncJournal.record).
+            if (db.transactionWithResult { deriveFor(id) }) {
+                notePlayedThrough(id, emptyList())
+                given++
             }
-            val before = through ?: continue
-            val old = p.played_through
-            if (run < MIN_RUN || before <= (old ?: 0)) continue
-            // A mark the run does not reach (it ends before the run starts): what lies between is not known heard.
-            if (old != null && old < first!!) continue
-            val from = if (old != null && p.played_through_from == null) null else minOf(first!!, p.played_through_from ?: first)
-            val heardAt = maxOf(at, p.played_through_at ?: 0).takeIf { it > 0 } ?: clock.now()
-            db.podcastQueries.setPlayedThrough(before, from, heardAt, p.id)
-            notePlayedThrough(p.id, emptyList())
-            given++
         }
         given
+    }
+
+    private suspend fun deriveFor(podcastId: Long): Boolean {
+        val p = db.podcastQueries.selectById(podcastId).awaitAsOneOrNull() ?: return false
+        var first: Long? = null
+        var through: Long? = null
+        var earlier: Long? = null
+        var at = 0L
+        var run = 0
+        for (r in eq.heardRunOf(p.id).awaitAsList()) {
+            val published = r.published_at ?: continue
+            if (r.played != 1L || r.position_ms != 0L) {
+                // An unheard one of the same second as the last heard: that second is not wholly heard.
+                if (through == published) through = earlier
+                break
+            }
+            if (published != through) earlier = through
+            if (first == null) first = published
+            through = published; at = maxOf(at, r.played_at ?: 0); run++
+        }
+        val before = through ?: return false
+        val old = p.played_through
+        if (run < MIN_RUN || before <= (old ?: 0)) return false
+        // A mark the run does not reach (it ends before the run starts): what lies between is not known heard.
+        if (old != null && old < first!!) return false
+        val from = if (old != null && p.played_through_from == null) null else minOf(first!!, p.played_through_from ?: first)
+        val heardAt = maxOf(at, p.played_through_at ?: 0).takeIf { it > 0 } ?: clock.now()
+        db.podcastQueries.setPlayedThrough(before, from, heardAt, p.id)
+        return true
     }
 
     /**

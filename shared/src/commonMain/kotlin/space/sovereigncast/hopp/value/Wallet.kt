@@ -86,7 +86,7 @@ class WalletRepository(
     fun client(wait: Duration = timeout): WalletClient? {
         if (!enabled) return null
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
-        return NwcClient(connection, connector, { clock.now() }, wait)
+        return ProvenWallet(NwcClient(connection, connector, { clock.now() }, wait))
     }
 
     /** Checks the string, asks the wallet what it can, and only then keeps it.

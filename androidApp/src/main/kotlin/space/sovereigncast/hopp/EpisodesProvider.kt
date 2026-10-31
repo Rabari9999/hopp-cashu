@@ -13,6 +13,8 @@ import space.sovereigncast.hopp.data.DownloadFiles
 import space.sovereigncast.hopp.db.HoppDatabase
 import java.io.File
 import java.io.FileNotFoundException
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import kotlinx.coroutines.runBlocking
 
 /**
  * Hopp's downloaded episodes as a place in the system's Files app (device
@@ -31,7 +33,8 @@ class EpisodesProvider : DocumentsProvider() {
 
     /** Downloaded episodes by file name: show and title. */
     private fun files(): List<Pair<File, String>> {
-        val rows = KoinPlatform.getKoin().get<HoppDatabase>().episodeQueries.downloadedFile().executeAsList()
+        // The provider answers the system synchronously, on its binder thread; the queries are asynchronous (CLAUDE.md).
+        val rows = runBlocking { KoinPlatform.getKoin().get<HoppDatabase>().episodeQueries.downloadedFile().awaitAsList() }
         return rows.mapNotNull { r ->
             val file = r.download_path?.let(::File)?.takeIf { it.isFile && it.parentFile == dir } ?: return@mapNotNull null
             file to displayName(r.podcast_title.orEmpty(), r.title.orEmpty(), file.extension)
