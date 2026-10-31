@@ -21,12 +21,22 @@ private fun openAll(): Promise<JsString> = js("""(async () => {
     key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
     await req('readwrite', s => s.put(key, '__key'));
   }
-  let chain = Promise.resolve();
-  globalThis.__hoppSecrets = (name, value) => (chain = chain.then(async () => {
+  const work = async (name, value) => {
     if (value === null) return req('readwrite', s => s.delete(name));
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(value));
     return req('readwrite', s => s.put({ iv, ct }, name));
+  };
+  // A write that fails is tried once more, then said in the console — and the chain goes on (review
+  // 2026-10-31: one rejected write left it rejected, and every later write, and the deletion of "This
+  // is not my device", was skipped for the rest of the session without a word).
+  let chain = Promise.resolve();
+  globalThis.__hoppSecrets = (name, value) => (chain = chain.then(async () => {
+    try { await work(name, value); } catch (e) {
+      try { await work(name, value); } catch (again) {
+        console.error('Hopp: the secret "' + name + '" was not ' + (value === null ? 'deleted' : 'stored'), again);
+      }
+    }
   }));
   // "This is not my device": after the writes under way, the store and its key deleted.
   globalThis.__hoppSecretsForget = () => (chain = chain.then(() => new Promise(ok => {
