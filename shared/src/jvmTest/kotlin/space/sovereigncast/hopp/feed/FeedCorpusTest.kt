@@ -82,6 +82,17 @@ class FeedCorpusTest {
         assertEquals("Fragen & Antworten", feed.episodes.single().title)
     }
 
+    /** Review 2026-10-31: an episode's audio is a web address, nothing else — the web client clicks it as a link. */
+    @Test
+    fun anEnclosureThatIsNoWebAddressIsNone() {
+        val feed = FeedParser.parse("""<?xml version="1.0"?><rss version="2.0"><channel><title>T</title>
+            <item><guid>1</guid><enclosure url="javascript:alert(1)" type="audio/mpeg"/></item>
+            <item><guid>2</guid><enclosure url="data:audio/mpeg;base64,AAAA" type="audio/mpeg"/></item>
+            <item><guid>3</guid><enclosure url="HTTPS://cdn.test/3.mp3" type="audio/mpeg"/></item>
+            <item><guid>4</guid><enclosure url="http://cdn.test/4.mp3" type="audio/mpeg"/></item></channel></rss>""")
+        assertEquals(listOf(null, null, "HTTPS://cdn.test/3.mp3", "http://cdn.test/4.mp3"), feed.episodes.map { it.enclosure?.url })
+    }
+
     @Test
     fun parsingTheBigFeedAgainIsFast() {
         val bytes = load("nodesignal-podhome.xml")

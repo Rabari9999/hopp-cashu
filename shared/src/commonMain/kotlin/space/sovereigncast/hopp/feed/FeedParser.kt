@@ -159,7 +159,9 @@ object FeedParser {
                     }
                     "podping" -> podcast.usesPodping = attrs["usesPodping"].equals("true", ignoreCase = true)
                 }
-                el.ns == Ns.NONE && el.name == "enclosure" && inItem -> attrs["url"]?.takeIf { it.isNotEmpty() }?.let {
+                // A web address only (review 2026-10-31): the players load it, and on the web "Save audio file"
+                // hands it to the browser as a link — `javascript:` or `data:` from a feed has no place there.
+                el.ns == Ns.NONE && el.name == "enclosure" && inItem -> attrs["url"]?.takeIf { it.trim().let { u -> u.startsWith("https://", true) || u.startsWith("http://", true) } }?.let {
                     episode!!.enclosure = Enclosure(it, attrs["length"]?.toLongOrNull()?.takeIf { n -> n > 0 }, attrs["type"]?.ifEmpty { null })
                 }
                 el.ns == Ns.ITUNES && el.name == "category" && !inItem -> attrs["text"]?.takeIf { it.isNotEmpty() }?.let {
