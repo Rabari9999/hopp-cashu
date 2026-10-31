@@ -74,6 +74,9 @@ class SyncAuditTest {
         /** Entries no device needs any more. */
         var expire: (String) -> Boolean = { false }
         override fun expired(key: String, entry: SyncEntry, nowMs: Long) = expire(key)
+        /** Entries another one says already, as "heard up to" its episodes. */
+        var covers: (String) -> Boolean = { false }
+        override suspend fun redundant(entries: Map<String, SyncEntry>) = entries.keys.filterTo(mutableSetOf()) { covers(it) }
     }
 
     /** [secrets]: another's — the same device started again. */
@@ -146,6 +149,29 @@ class SyncAuditTest {
         phone.change("k0", "smaller")
         assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
         assertEquals(sentBefore, leftovers(), "no empty parts sent again")
+    }
+
+    /** Review 2026-10-31: a device on 0.3.2 drops covered entries, one before puts them back — and each round
+     *  both sent a version. The smaller one goes out for its own sake at most every few hours. */
+    @Test
+    fun compactionAgainstAnOlderHoppDoesNotGoOutEveryRound() = runBlocking<Unit> {
+        val relays = Relays()
+        val old = Device(relays)
+        repeat(60) { old.record("c$it", "heard") }
+        old.record("x", "own")
+        assertIs<SyncOutcome.Done>(old.engine.sync(old.doc, interactive = true))
+        val new = Device(relays).also { it.ms = old.ms + 1_000; it.doc.covers = { k -> k.startsWith("c") } }
+        val first = new.engine.sync(new.doc, interactive = true)
+        assertTrue(first is SyncOutcome.Done && first.published, "the smaller version goes out: $first")
+        old.ms = new.ms + 1_000
+        val back = old.engine.sync(old.doc)
+        assertTrue(back is SyncOutcome.Done && back.published, "the older Hopp puts them back: $back")
+        new.ms = old.ms + 60_000
+        val again = new.engine.sync(new.doc)
+        assertTrue(again is SyncOutcome.Done && !again.published, "not again within the hours: $again")
+        new.ms += SyncEngine.COMPACT_EVERY.inWholeMilliseconds
+        val later = new.engine.sync(new.doc)
+        assertTrue(later is SyncOutcome.Done && later.published, "after them, once more: $later")
     }
 
     /** "Write anew from this device" on the sync page: at once, whatever the read found. */

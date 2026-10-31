@@ -691,7 +691,12 @@ switches.
      says *everything* up to it as of its time; re-dated, an episode taken
      back since was heard again on the other devices, not on this one. The
      episodes heard now go out one by one instead.
-     Tests: `ProgressSyncTest`, `SyncMigrationTest`.
+   - **A smaller version for its own sake at most every six hours.** A
+     Hopp before 0.3.2 puts the covered entries back each round, and the
+     0.3.2 device took them out again: both sent a version every round for
+     as long as both were in use. With something else to send it still
+     goes along at once.
+     Tests: `ProgressSyncTest`, `SyncMigrationTest`, `SyncAuditTest`.
 
 ## Consequences
 

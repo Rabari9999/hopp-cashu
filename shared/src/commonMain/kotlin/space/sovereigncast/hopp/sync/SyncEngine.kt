@@ -6,6 +6,7 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.SignerNeedsListener
 import space.sovereigncast.hopp.nostr.SignerRejected
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /** A document sync keeps in step: subscriptions, progress, "Up next", settings. */
@@ -82,6 +83,8 @@ class SyncEngine(
     private val nowMs: () -> Long,
 ) {
     private val lock = Mutex()
+    /** When each document last went out for its compaction alone ([COMPACT_EVERY]); this run only. */
+    private val compactedAt = mutableMapOf<String, Long>()
 
     /** One round for [doc]. What this device had when sync was turned on without a time (settings, the
      *  queue's order) waits in the store as seeds ([SyncStore.seed]), taken only where the relays have nothing. */
@@ -150,8 +153,12 @@ class SyncEngine(
             repair(doc, now, skip = merged.fromThem.keys)
             if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name, fetched.found, rewriteIn, canRewrite = fetched.settled)
             store.markFetched(doc.name, nowMs())
-            // The gap goes under a whole version, even when the relays lack nothing of ours.
-            val publish = merged.theyLack || repair || compact
+            // The gap goes under a whole version, even when the relays lack nothing of ours. A smaller version
+            // for its own sake at most every [COMPACT_EVERY]: a Hopp before 0.3.2 puts the covered entries back
+            // each round, and the two would answer each other for as long as both are in use (review 2026-10-31).
+            val compactOnly = compact && !merged.theyLack && !repair
+            val publish = merged.theyLack || repair ||
+                (compactOnly && compactedAt[doc.name]?.let { now - it >= COMPACT_EVERY.inWholeMilliseconds } != false)
             // A removal made here goes out with the time it goes out (HN-05).
             val pendingHere = store.pendingKeys(doc.name)
             val all = merged.all.mapValues { (k, e) -> if (e.del && k in pendingHere) e.copy(out = now) else e }
@@ -161,6 +168,7 @@ class SyncEngine(
                 val rev = SyncRelays.newRev()
                 store.markBroken(doc.name, rev)
                 relays.publish(signer, doc.name, all, urls, notBefore, rev)
+                if (compactOnly) compactedAt[doc.name] = now
                 store.markBroken(doc.name, null)
                 store.markStuck(doc.name, null, null)
             }
@@ -324,6 +332,8 @@ class SyncEngine(
         val STUCK_FOR = 3.minutes
         /** This many covered entries on the relays: a smaller version goes out though nothing changed. */
         const val COMPACT_AT = 50
+        /** A smaller version with nothing else to send goes out at most this often. */
+        val COMPACT_EVERY = 6.hours
         private const val REASSERT_TRIES = 3
     }
 }
