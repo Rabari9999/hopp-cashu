@@ -124,11 +124,21 @@ class PlayerController(
     /** The show of the episode loaded, as it is now: its speed and what it skips. */
     private var show: Show? = null
     private var showWatch: kotlinx.coroutines.Job? = null
+    /** The speed this player last gave the engine. A show's speed saved later is taken over only when the
+     *  player was at the one saved before — a change made elsewhere (the show's page, sync); its own taps
+     *  arrive back from the database late, and one from before the last tap set the engine back (review
+     *  2026-10-31: CI saw 1.1, 1.1, 1.1 … for ten taps). */
+    private var wantedSpeed = 1f
+    private fun speedTo(speed: Float) { wantedSpeed = speed; engine.setSpeed(speed) }
+    /** A show's speed to save, the newest only, one write at a time: each tap launched its own, and the
+     *  one that came last was not always the last tap's (review 2026-10-31). */
+    private val speedSaves = kotlinx.coroutines.channels.Channel<Pair<Long, Float?>>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private val _skipped = kotlinx.coroutines.flow.MutableSharedFlow<Skipped>(extraBufferCapacity = 4)
     /** A start or end skipped (maintainer 2026-10-26): the player says so, with a way back. */
     val skipped: kotlinx.coroutines.flow.SharedFlow<Skipped> = _skipped
 
     init {
+        scope.launch { for ((podcastId, speed) in speedSaves) podcasts.setSpeed(podcastId, speed) }
         scope.launch {
             settingsRepository.settings.collect {
                 val before = _settings.value.defaultSpeed
@@ -137,7 +147,7 @@ class PlayerController(
                 // A new default speed counts at once for the show playing, unless it has its own.
                 val podcastId = _current.value?.item?.podcastId
                 if (it.defaultSpeed != before && podcastId != null && podcasts.show(podcastId).first()?.playbackSpeed == null) {
-                    engine.setSpeed(it.defaultSpeed)
+                    speedTo(it.defaultSpeed)
                 }
             }
         }
@@ -391,7 +401,7 @@ class PlayerController(
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
             // Each show keeps its speed (ADR 0012); one never set follows the default.
-            engine.setSpeed(speed)
+            speedTo(speed)
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
@@ -408,7 +418,10 @@ class PlayerController(
                 val before = show
                 show = s
                 val loaded = _current.value?.item?.takeIf { it.podcastId == podcastId }?.id?.toString() == engine.state.value.itemId
-                if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded) engine.setSpeed(s.playbackSpeed ?: _settings.value.defaultSpeed)
+                val beforeSpeed = before?.playbackSpeed ?: _settings.value.defaultSpeed
+                if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded && abs(beforeSpeed - wantedSpeed) < 0.01f) {
+                    speedTo(s.playbackSpeed ?: _settings.value.defaultSpeed)
+                }
                 if (s != null) _current.update { if (it?.item?.podcastId == podcastId) it.copy(speed = s.playbackSpeed ?: _settings.value.defaultSpeed) else it }
             }
         }
@@ -556,9 +569,9 @@ class PlayerController(
     /** The speed for the show playing; the default speed means: none of its own,
      *  so it follows the default when that changes. */
     fun setSpeed(speed: Float) {
-        engine.setSpeed(speed)
+        speedTo(speed)
         val own = speed.takeUnless { abs(it - _settings.value.defaultSpeed) < 0.01f }
-        _current.value?.item?.podcastId?.let { scope.launch { podcasts.setSpeed(it, own) } }
+        _current.value?.item?.podcastId?.let { speedSaves.trySend(it to own) }
     }
 
     /** The next faster of all [SPEED_CHOICES] — the ones the long press offers

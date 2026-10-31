@@ -480,6 +480,21 @@ class PlayerControllerTest {
     }
 
     /** Device feedback 2026-10-19: a tap steps through every speed the long press offers. */
+    /** The speed changed on the show's page while it plays counts at once; taps in the player arriving
+     *  back from the database late never set it back (review 2026-10-31). */
+    @Test
+    fun aSpeedSetOnTheShowsPageCountsAtOnce() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        repeat(5) { player.cycleSpeed() }
+        assertEquals(1.8f, engine.lastSpeed)
+        until("saved") { podcasts.show(e1.podcastId).first()?.playbackSpeed == 1.8f }
+        delay(100)
+        assertEquals(1.8f, engine.lastSpeed, "no tap undone")
+        podcasts.setSpeed(e1.podcastId, 1.3f)
+        until("taken over") { engine.lastSpeed == 1.3f }
+    }
+
     @Test
     fun aTapStepsThroughEverySpeed() = test {
         val (e1, _, _) = episodes()
