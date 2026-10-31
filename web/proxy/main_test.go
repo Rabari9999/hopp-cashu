@@ -86,6 +86,26 @@ func TestAFeedComesThroughWithCorsAndNothingOfTheListeners(t *testing.T) {
 	}
 }
 
+func TestAFetchThroughTheProxyItselfIsRefused(t *testing.T) {
+	hits := 0
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { hits++; w.Write([]byte("<rss/>")) }))
+	defer feed.Close()
+	self := httptest.NewServer(proxy(onlyFirstLoopback))
+	defer self.Close()
+	w := get(proxy(onlyFirstLoopback), self.URL+"/fetch?url="+url.QueryEscape(feed.URL), nil)
+	if hits != 0 || w.Code == http.StatusOK {
+		t.Fatalf("passed on: %d hits, %d %q", hits, w.Code, w.Body.String())
+	}
+	// The mark goes with every fetch.
+	var seen string
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = r.Header.Get("Via"); w.Write([]byte("x")) }))
+	defer up.Close()
+	get(proxy(onlyFirstLoopback), up.URL, nil)
+	if !strings.Contains(seen, "hopp-feed-proxy") {
+		t.Fatalf("Via %q", seen)
+	}
+}
+
 func TestAnotherOriginGetsNoCors(t *testing.T) {
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("x")) }))
 	defer up.Close()
@@ -95,6 +115,9 @@ func TestAnotherOriginGetsNoCors(t *testing.T) {
 	proxy(onlyFirstLoopback).ServeHTTP(w, r)
 	if w.Header().Get("Access-Control-Allow-Origin") != "" {
 		t.Fatal("CORS for a foreign origin")
+	}
+	if w.Header().Get("Vary") != "Origin" {
+		t.Fatal("no Vary: a browser could reuse this answer for the web client's origin")
 	}
 }
 

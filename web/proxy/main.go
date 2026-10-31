@@ -39,6 +39,10 @@ const (
 	// the client itself (ETag), so they are kept only briefly.
 	imageMaxAge = 24 * time.Hour
 	userAgent   = "Hopp (Web; feed proxy)"
+	// Sent with every fetch, refused on every request: a URL pointing back at the proxy — under
+	// any of its names or addresses — would hold a slot per level and pass the limit by the
+	// web server's own address (review 2026-10-31).
+	via = "1.1 hopp-feed-proxy"
 )
 
 // Proxy answers /fetch. Origins: the web client's, allowed by CORS.
@@ -163,9 +167,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("Referrer-Policy", "no-referrer")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	h.Set("Cross-Origin-Resource-Policy", "cross-origin")
+	// Always: a cover first fetched without CORS must not be taken from the cache for one with it.
+	h.Set("Vary", "Origin")
 	if o := r.Header.Get("Origin"); o != "" && p.Origins[o] {
 		h.Set("Access-Control-Allow-Origin", o)
-		h.Set("Vary", "Origin")
 		h.Set("Access-Control-Expose-Headers", "ETag, Last-Modified")
 	}
 	switch {
@@ -183,6 +188,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case r.Method != http.MethodGet:
 		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+	if strings.Contains(strings.Join(r.Header.Values("Via"), ","), "hopp-feed-proxy") {
+		http.Error(w, "a fetch through the proxy itself", http.StatusLoopDetected)
 		return
 	}
 	if !p.Limiter.Allow(p.clientIP(r)) {
@@ -228,6 +237,7 @@ func (p *Proxy) fetch(w http.ResponseWriter, r *http.Request, target *url.URL) {
 		}
 		// Only what makes a fetch cheaper; never the listener's cookies or credentials.
 		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("Via", via)
 		req.Header.Set("Accept", orDefault(r.Header.Get("Accept"), "*/*"))
 		for _, k := range []string{"If-None-Match", "If-Modified-Since"} {
 			if v := r.Header.Get(k); v != "" {
