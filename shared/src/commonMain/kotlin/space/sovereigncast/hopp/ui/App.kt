@@ -359,7 +359,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
 
     // The listener's choice, else the system's — the browser's in Hopp Web (maintainer 2026-10-30).
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    HoppTheme(darkTheme = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> systemDark }) {
+    val chosenDark = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> null }
+    LaunchedEffect(chosenDark) { platformActions.themeChosen(chosenDark) }
+    HoppTheme(darkTheme = chosenDark ?: systemDark) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,

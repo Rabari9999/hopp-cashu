@@ -61,6 +61,10 @@ interface PlatformActions {
     val tabOnly: space.sovereigncast.hopp.platform.TabOnly? get() = null
     /** Copies a secret: marked sensitive, gone from the clipboard after a minute, not sent to other devices. */
     fun copySecret(text: String, label: String) = copyText(text, label)
+    /** The listener's choice: light (false), dark (true) or the system's (null) — for what the system draws
+     *  around Hopp, the status bar's icons (review 2026-10-31: they followed the system's, unreadable on a
+     *  theme chosen against it). */
+    fun themeChosen(dark: Boolean?) = Unit
 }
 
 object NoPlatformActions : PlatformActions {
