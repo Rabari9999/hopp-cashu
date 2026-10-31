@@ -2,8 +2,10 @@ package space.sovereigncast.hopp
 
 import app.cash.sqldelight.db.SqlDriver
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpSend
 import io.ktor.client.plugins.plugin
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 import space.sovereigncast.hopp.data.DownloadScheduler
@@ -38,7 +40,21 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     override suspend fun signedOut() = wipeOnNextStart()
     override fun externalSigner(): ExternalSigner = Nip07Signer()
 
-    override fun httpClient(): HttpClient = createHttpClient(app) { install(FeedProxy) { base = feedProxyBase() } }.also { client ->
+    override fun httpClient(): HttpClient = createHttpClient(app) {
+        val proxy = feedProxyBase()
+        install(FeedProxy) { base = proxy }
+        // The proxy's "not now" — its share per listener used up (429) or every slot busy (503) — asked
+        // again when it says (review 2026-10-31: a library restored at once ran into the limit, and
+        // its feeds and covers simply failed). Only the proxy's: a host's own 503 stays an answer.
+        install(HttpRequestRetry) {
+            retryIf(maxRetries = 3) { request, response ->
+                proxy.isNotEmpty() && request.url.toString().startsWith(proxy.trimEnd('/')) &&
+                    (response.status == HttpStatusCode.TooManyRequests || response.status == HttpStatusCode.ServiceUnavailable)
+            }
+            retryOnExceptionIf { _, _ -> false }
+            delayMillis(respectRetryAfterHeader = true) { retry -> retry * 1_000L }
+        }
+    }.also { client ->
         // Ktor's browser engine reports a failed fetch (offline, CORS, a refused connection) as a
         // kotlin.Error, which Hopp's `catch (e: Exception)` would not see: an IOException, as elsewhere.
         client.plugin(HttpSend).intercept { request ->

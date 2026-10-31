@@ -19,7 +19,7 @@ const origin = "http://127.0.0.1:8642"
 func onlyFirstLoopback(a netip.Addr) bool { return a.Unmap() == netip.MustParseAddr("127.0.0.1") }
 
 func proxy(allowed func(netip.Addr) bool) *Proxy {
-	return &Proxy{Origins: map[string]bool{origin: true}, Client: NewClient(allowed), Limiter: NewLimiter(1000, time.Minute)}
+	return &Proxy{Origins: map[string]bool{origin: true}, Client: NewClient(allowed), Limiter: NewLimiter(1000, time.Minute, 1000)}
 }
 
 func get(p *Proxy, target string, hdr map[string]string) *httptest.ResponseRecorder {
@@ -215,7 +215,7 @@ func TestGetOnlyAndARateLimit(t *testing.T) {
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST: %d", w.Code)
 	}
-	p.Limiter = NewLimiter(2, time.Minute)
+	p.Limiter = NewLimiter(2, time.Minute, 2)
 	codes := []int{}
 	for i := 0; i < 3; i++ {
 		codes = append(codes, get(p, "", nil).Code)
@@ -225,10 +225,34 @@ func TestGetOnlyAndARateLimit(t *testing.T) {
 	}
 }
 
+// Many at once within the burst, then one per share of the window — and Retry-After says when.
+func TestABurstGoesThroughAndTheNextWaitsItsTurn(t *testing.T) {
+	l := NewLimiter(60, time.Minute, 5)
+	for i := 0; i < 5; i++ {
+		if ok, _ := l.Allow("a"); !ok {
+			t.Fatalf("request %d of the burst refused", i+1)
+		}
+	}
+	ok, wait := l.Allow("a")
+	if ok || wait <= 0 || wait > time.Second {
+		t.Fatalf("sixth: %v, wait %v", ok, wait)
+	}
+	if ok, _ := l.Allow("b"); !ok {
+		t.Fatal("another address shares nothing")
+	}
+	p := proxy(onlyFirstLoopback)
+	p.Limiter = NewLimiter(60, time.Minute, 1)
+	get(p, "", nil)
+	w := get(p, "", nil)
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") != "1" {
+		t.Fatalf("%d, Retry-After %q", w.Code, w.Header().Get("Retry-After"))
+	}
+}
+
 // Behind the web server every request comes from it; the limit counts each listener on their own.
 func TestBehindAWebServerTheLimitIsPerListener(t *testing.T) {
 	p := proxy(onlyFirstLoopback)
-	p.Limiter = NewLimiter(1, time.Minute)
+	p.Limiter = NewLimiter(1, time.Minute, 1)
 	p.TrustForwarded = true
 	codes := []int{}
 	for _, from := range []string{"203.0.113.9", "198.51.100.7", "203.0.113.9"} {
@@ -240,7 +264,7 @@ func TestBehindAWebServerTheLimitIsPerListener(t *testing.T) {
 	}
 	// Not behind one: the header is the listener's to set, so it counts for nothing.
 	p.TrustForwarded = false
-	p.Limiter = NewLimiter(1, time.Minute)
+	p.Limiter = NewLimiter(1, time.Minute, 1)
 	a := get(p, "", map[string]string{"X-Forwarded-For": "203.0.113.1"}).Code
 	b := get(p, "", map[string]string{"X-Forwarded-For": "203.0.113.2"}).Code
 	if a != 400 || b != 429 {

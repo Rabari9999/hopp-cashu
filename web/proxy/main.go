@@ -15,6 +15,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/netip"
@@ -66,7 +67,9 @@ func main() {
 		}
 	}
 	p := &Proxy{
-		Origins: origins, Client: NewClient(PublicOnly), Limiter: NewLimiter(120, time.Minute),
+		// 120 a minute, with room for 300 at once: a library restored in the browser asks for every
+		// feed and cover in a few seconds (review 2026-10-31: 60 shows were the whole minute's share).
+		Origins: origins, Client: NewClient(PublicOnly), Limiter: NewLimiter(120, time.Minute, 300),
 		TrustForwarded: os.Getenv("HOPP_PROXY_TRUST_FORWARDED") == "1",
 		slots:          make(chan struct{}, maxInFlight),
 	}
@@ -171,7 +174,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Set("Vary", "Origin")
 	if o := r.Header.Get("Origin"); o != "" && p.Origins[o] {
 		h.Set("Access-Control-Allow-Origin", o)
-		h.Set("Access-Control-Expose-Headers", "ETag, Last-Modified")
+		h.Set("Access-Control-Expose-Headers", "ETag, Last-Modified, Retry-After")
 	}
 	switch {
 	case r.URL.Path == "/healthz":
@@ -194,8 +197,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "a fetch through the proxy itself", http.StatusLoopDetected)
 		return
 	}
-	if !p.Limiter.Allow(p.clientIP(r)) {
-		h.Set("Retry-After", "60")
+	if ok, wait := p.Limiter.Allow(p.clientIP(r)); !ok {
+		// When the next one goes through, so the web client may ask again then.
+		h.Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
 		http.Error(w, "too many requests", http.StatusTooManyRequests)
 		return
 	}
@@ -349,39 +353,47 @@ func (p *Proxy) clientIP(r *http.Request) string {
 	return host
 }
 
-// Limiter: at most n requests per window and address. No logs, no history.
+// Limiter: per address, n requests per window on average and up to burst at once (a token
+// bucket). No logs, no history.
 type Limiter struct {
-	mu     sync.Mutex
-	n      int
-	window time.Duration
-	seen   map[string]*bucket
+	mu    sync.Mutex
+	rate  float64 // tokens per second
+	burst float64
+	seen  map[string]*bucket
 }
 
 type bucket struct {
-	start time.Time
-	count int
+	tokens float64
+	at     time.Time
 }
 
-func NewLimiter(n int, window time.Duration) *Limiter {
-	return &Limiter{n: n, window: window, seen: map[string]*bucket{}}
+func NewLimiter(n int, window time.Duration, burst int) *Limiter {
+	return &Limiter{rate: float64(n) / window.Seconds(), burst: float64(burst), seen: map[string]*bucket{}}
 }
 
-func (l *Limiter) Allow(key string) bool {
+// Allow takes one token for [key]; without one, how long until the next.
+func (l *Limiter) Allow(key string) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
+	full := time.Duration(l.burst / l.rate * float64(time.Second))
 	if len(l.seen) > 10_000 {
 		for k, b := range l.seen {
-			if now.Sub(b.start) > l.window {
+			if now.Sub(b.at) >= full {
 				delete(l.seen, k)
 			}
 		}
 	}
 	b := l.seen[key]
-	if b == nil || now.Sub(b.start) > l.window {
-		l.seen[key] = &bucket{start: now, count: 1}
-		return true
+	if b == nil {
+		b = &bucket{tokens: l.burst, at: now}
+		l.seen[key] = b
 	}
-	b.count++
-	return b.count <= l.n
+	b.tokens = math.Min(l.burst, b.tokens+now.Sub(b.at).Seconds()*l.rate)
+	b.at = now
+	if b.tokens >= 1 {
+		b.tokens--
+		return true, 0
+	}
+	return false, time.Duration((1 - b.tokens) / l.rate * float64(time.Second))
 }
