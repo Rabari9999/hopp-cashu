@@ -138,6 +138,14 @@ class SyncAuditTest {
         val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
         assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, interactive = true))
         assertEquals(setOf("k0"), tablet.doc.applied.keys)
+
+        // Emptied once is enough (review 2026-10-31): the next version leaves them be.
+        suspend fun leftovers() = relays.all().count { it.d() in setOf("hopp/test#2", "hopp/test#3") }
+        val sentBefore = leftovers()
+        phone.ms = tablet.ms + 1_000
+        phone.change("k0", "smaller")
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        assertEquals(sentBefore, leftovers(), "no empty parts sent again")
     }
 
     /** "Write anew from this device" on the sync page: at once, whatever the read found. */

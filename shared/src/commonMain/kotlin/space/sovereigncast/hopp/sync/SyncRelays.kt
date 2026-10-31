@@ -26,7 +26,8 @@ class SyncNotPublished(val took: Int = 0, val asked: Int = 0, val rev: String? =
  */
 class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: () -> Long) {
     private val lastSent = mutableMapOf<String, Long>()
-    /** The highest part number the last read of each document found — parts a smaller version leaves over. */
+    /** The highest part number the last read of each document found holding something — parts a smaller
+     *  version leaves over. One emptied already (past its own part count, no entries) does not count. */
     private val partsSeen = mutableMapOf<String, Int>()
 
     /** How many relays answered the last read to its end, of how many asked — for the status. */
@@ -57,9 +58,11 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, events) -> events.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
         val majority = got.answered * 2 > got.asked
-        partsSeen[doc] = newest.keys.maxOrNull() ?: 0
         // Absent only with no part at all: a later part without the first is a document read in part (HN-02).
-        if (newest.isEmpty()) return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
+        if (newest.isEmpty()) {
+            partsSeen[doc] = 0
+            return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
+        }
         val at = newest.values.maxOf { it.created_at }
         // A part that does not open or read makes the read incomplete, never smaller.
         val parts = newest.mapNotNull { (n, e) ->
@@ -67,6 +70,9 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val part = try { SyncCodec.decode(text) } catch (x: SerializationException) { null } catch (x: IllegalArgumentException) { null }
             part?.let { n to it }
         }.toMap()
+        // An emptied part stays emptied: sent again with every version, it cost a pause and an event each
+        // time, for good (review 2026-10-31). One that does not open still counts.
+        partsSeen[doc] = newest.keys.filter { n -> parts[n]?.let { it.part > it.parts && it.entries.isEmpty() } != true }.maxOrNull() ?: 0
         val whole = SyncCodec.join(parts)
         // A part as new as the first, or newer, that is not of its revision: a later revision whose first
         // part did not come — the first one here is an older, smaller one (delta audit 2 2026-10-22, HN-02).
