@@ -6,6 +6,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.worker.WebWorkerDriver
 import org.w3c.dom.Worker
+import space.sovereigncast.hopp.data.SerialDriver
 import space.sovereigncast.hopp.db.HoppDatabase
 
 private fun dbMark(name: String): Unit = js("{ try { performance.mark(name); } catch (e) {} }")

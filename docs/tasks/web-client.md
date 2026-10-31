@@ -79,7 +79,9 @@ How to run and check it: [web/README.md](../../web/README.md).
       stays listed in the signer until ended there.
 - [x] Fixes after the first run on the maintainer's machine (2026-10-28):
       the connect code as a QR code; episodes under the wrong show (the
-      worker driver shared one transaction between coroutines: `SerialDriver`);
+      worker driver shared one transaction between coroutines: `SerialDriver`,
+      since 2026-10-31 with transactions of its own, so a cancelled one cannot
+      keep its lock — `SerialDriverTest` in `jvmTest`);
       Hopp's own language choice; "Save audio file"; a crash on a show with
       tabs (an empty tab label used twice as the pager's key).
 - [x] **Its own server** (maintainer 2026-10-30: apart from Nodesignal's
