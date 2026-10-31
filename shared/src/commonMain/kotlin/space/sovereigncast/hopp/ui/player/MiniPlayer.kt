@@ -232,18 +232,24 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                     .semantics { contentDescription = speedLabel; stateDescription = speedText },
                 fontWeight = FontWeight.Bold,
             )
-            model.engine.volume?.let { flow ->
-                val volume by flow.collectAsState()
-                var before by remember { mutableStateOf(1f) }
-                IconButton(onClick = { if (volume > 0f) { before = volume; model.engine.setVolume(0f) } else model.engine.setVolume(before.takeIf { it > 0f } ?: 1f) }) {
-                    Icon(if (volume > 0f) HoppIcons.Volume else HoppIcons.VolumeOff, stringResource(if (volume > 0f) Res.string.np_mute else Res.string.np_unmute))
-                }
-                val volumeLabel = stringResource(Res.string.np_volume)
-                Slider(volume, onValueChange = model.engine::setVolume, modifier = Modifier.width(110.dp).semantics { contentDescription = volumeLabel })
-            }
+            VolumeControl(model, Modifier.width(110.dp))
             IconButton(onClick = model::expand) { Icon(HoppIcons.ChevronUp, stringResource(Res.string.np_open)) }
         }
     }
+}
+
+/** The player's own volume where it has one (a browser): mute and a slider, in the bar and in the
+ *  open player alike (maintainer 2026-10-31: opened, there was no way to change it). In a Row. */
+@Composable
+internal fun VolumeControl(model: PlayerController, sliderModifier: Modifier) {
+    val flow = model.engine.volume ?: return
+    val volume by flow.collectAsState()
+    var before by remember { mutableStateOf(1f) }
+    IconButton(onClick = { if (volume > 0f) { before = volume; model.engine.setVolume(0f) } else model.engine.setVolume(before.takeIf { it > 0f } ?: 1f) }) {
+        Icon(if (volume > 0f) HoppIcons.Volume else HoppIcons.VolumeOff, stringResource(if (volume > 0f) Res.string.np_mute else Res.string.np_unmute))
+    }
+    val volumeLabel = stringResource(Res.string.np_volume)
+    Slider(volume, onValueChange = model.engine::setVolume, modifier = sliderModifier.semantics { contentDescription = volumeLabel })
 }
 
 /** A Sovereigncast clip playing (phase 2): what it is, play/pause, and closing
