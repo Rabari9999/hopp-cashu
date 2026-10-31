@@ -358,9 +358,6 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     }
 
     // The listener's choice, else the system's — the browser's in Hopp Web (maintainer 2026-10-30).
-    // Nothing drawn before the listener's theme is known (review 2026-10-31): drawn in the system's first,
-    // the whole app turned to the chosen one a moment later on every start. The settings come in a few ms.
-    if (appSettings == null) return
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val chosenDark = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> null }
     LaunchedEffect(chosenDark) { platformActions.themeChosen(chosenDark) }
