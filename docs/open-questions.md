@@ -92,3 +92,10 @@ key (ADR 0021, 5), the full Sovereigncast feature set, the address
 `https://play.sovereigncast.space`, built and tested locally first. Open:
 who runs the feed proxy and on which domain; the spike (stage W1) decides
 whether Compose on the web carries it.
+
+## 19. What friends subscribe to — decided 2026-11-01
+
+Decided → [ADR 0024](adr/0024-friends-subscriptions.md): mutual Nostr
+contacts who use Hopp see each other's subscriptions, sealed so that only
+friends open them. Sharing and seeing are separate switches, both off;
+single shows can be left out; subscriptions only for now. Not built yet.
