@@ -6,6 +6,33 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.3.2]
+
+### 🆕 New Features
+- **Library:** Mark every episode of all your shows as played at once – handy after setting Hopp up anew.
+- **Settings:** Appearance light, dark or as the system.
+- **Tablets:** A side rail with the settings at its foot, a player bar along the bottom and pages of a readable width.
+- **Player:** On tablets, show notes, chapters and people as tabs beside the player.
+- **Nostr:** The connect code as a QR code, to scan with a signer on another device.
+- **Sync:** The sync window shows every relay after each round, and what failed, with the reason.
+- **Sync:** "Write anew from this device" when the relays hold only part of a document.
+- **iPhone:** Hopp looks for new episodes in your interval while it is open.
+
+### 🐛 Fixes
+- **Player:** An episode you mark as played leaves the player – on its own, with its show or with all shows.
+- **Player:** An episode heard to its end on another device leaves the player here too.
+- **Player:** Quick taps on the speed stay on the speed you tapped.
+- **Sync:** "All played" and "this and older" go out as one entry per show – no more relays slowing Hopp down.
+- **Sync:** More reliable with relays that limit events or hold only part of them.
+- **Sync:** "Waiting here" no longer counts episodes your feed no longer has.
+- **History:** On early installs fees and outcomes stood in the wrong columns; this is repaired.
+- **Wallet:** A payment counts as made only with the wallet's proof.
+- **Appearance:** The status bar follows the theme chosen in Hopp.
+- **Library:** The count of unheard episodes is orange instead of red.
+- **Chapters:** Times stand in a column, the titles lined up beside them.
+- **Shows:** An episode without its own cover shows the show's.
+- **Nostr:** Signing in with a connect code finds your signer faster.
+
 ## [0.3.1] - 2026-10-28
 
 ### 🆕 New Features

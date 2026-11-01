@@ -1,0 +1,1 @@
+New in 0.3.2: Mark every episode of all your shows as played at once. Appearance light, dark or as the system. On tablets a side rail, a player bar and tabs beside the player. The Nostr connect code as a QR code. A clearer sync window. Also: episodes marked as played leave the player, lighter and more reliable sync, the payment history of early installs repaired.
