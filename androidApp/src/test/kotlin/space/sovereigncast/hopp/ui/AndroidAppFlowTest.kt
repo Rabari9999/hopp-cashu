@@ -1733,7 +1733,8 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Show notes")
-        tap("People")
+        // The tab comes with the episode's details, a moment after its notes (CI 2026-11-01).
+        waitFor("People"); tap("People")
         waitFor("Host · Cast")
         check(has("primal.net ↗") && !has("Thorsten")) { "the episode's own people only: ${screen()}" }
         back()
