@@ -155,6 +155,26 @@ class ProgressDocument(
         return done
     }
 
+    /**
+     * An episode's entry where its show's feed was read here, without an error, after the entry was
+     * made — and the episode is not here: the feed no longer carries it (many keep only their newest
+     * episodes; the other device had it from before). And whatever is about a show not followed here:
+     * the subscriptions were applied before this document.
+     */
+    override suspend fun beyondReach(entries: Map<String, SyncEntry>): Set<String> {
+        val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
+        return entries.filter { (key, e) ->
+            val show = e.d.text("show") ?: return@filter false
+            val podcast = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
+                ?: shows.firstOrNull { "url:${it.feed_url}" == show }
+                ?: return@filter true
+            if (key.startsWith(UPTO)) return@filter false
+            val guid = e.d.text("guid") ?: return@filter false
+            val readAfter = podcast.last_error == null && (podcast.last_checked_at ?: 0) * 1000 > e.t
+            readAfter && withContext(ioDispatcher) { db.episodeQueries.selectByGuid(podcast.id, guid).awaitAsOneOrNull() } == null
+        }.keys
+    }
+
     companion object {
         val KEPT = 90.days
         private const val UPTO = "upto\n"

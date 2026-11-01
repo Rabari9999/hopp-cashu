@@ -996,8 +996,8 @@
         <item quantity="other">%1$d changes</item>
     </plurals>
     <plurals name="home_sync_waiting_n">
-        <item quantity="one">%1$d episode (feed out of reach)</item>
-        <item quantity="other">%1$d episodes (feed out of reach)</item>
+        <item quantity="one">%1$d episode (not in its feed here yet)</item>
+        <item quantity="other">%1$d episodes (not in their feeds here yet)</item>
     </plurals>
     <plurals name="home_sync_got_shows">
         <item quantity="one">%1$d show</item>

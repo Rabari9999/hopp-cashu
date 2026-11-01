@@ -40,6 +40,11 @@ interface SyncedDocument {
      *  says — left out of the store, the round and what goes out, without a removal marker. */
     suspend fun redundant(entries: Map<String, SyncEntry>): Set<String> = emptySet()
 
+    /** Of [entries] [apply] could not do, those that will not come here: an episode the show's feed no
+     *  longer carries (maintainer 2026-11-01: "4 episodes waiting" for good). Tried again each round all
+     *  the same, but not counted as waiting. */
+    suspend fun beyondReach(entries: Map<String, SyncEntry>): Set<String> = emptySet()
+
     /** For the sync report: what [entries] are, in numbers — no titles (maintainer 2026-10-30: a document
      *  too large, and nothing said what made it so). */
     suspend fun describe(entries: Map<String, SyncEntry>): String? = null
@@ -235,7 +240,7 @@ class SyncEngine(
      * [incoming] applied where it is still newer than this device's, and taken into the store
      * where it still is after — the listener may change the same thing meanwhile (delta audit
      * 2026-10-22, HN-07): then the app holds theirs and the store ours, and ours goes back
-     * into the app. How many were taken, and how many wait (a feed out of reach).
+     * into the app. How many were taken, and how many wait (an episode its feed has not brought yet).
      */
     private suspend fun applyNewer(doc: SyncedDocument, incoming: Map<String, SyncEntry>): Pair<Int, Int> {
         val toApply = store.stillNewer(doc.name, incoming)
@@ -249,7 +254,8 @@ class SyncEngine(
         store.applied(doc.name, toApply.filterKeys { it in taken })
         store.clearUnapplied(doc.name, toApply.keys - applied)
         reassert(doc, applied - taken)
-        return taken.size to (toApply.size - applied.size)
+        val notYet = toApply.filterKeys { it !in applied }
+        return taken.size to (notYet.size - doc.beyondReach(notYet).size)
     }
 
     /** This device's own entries for [keys] into the app once more — over what another device's

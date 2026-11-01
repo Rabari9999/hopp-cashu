@@ -311,6 +311,44 @@ class ProgressSyncTest {
         assertTrue(tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).awaitAsList().all { it.played == 1L })
     }
 
+    /**
+     * Maintainer 2026-11-01: "4 episodes waiting" for good — the phone had older episodes than the
+     * feed gives now. Once this device has read the feed after the entry was made, an episode not in
+     * it is not waited for; it is still taken should the feed bring it after all.
+     */
+    @Test
+    fun anEpisodeTheFeedNoLongerCarriesIsNotWaitedFor() = runBlocking<Unit> {
+        val raw = schemaDriver()
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec, db = HoppDatabase(AsyncOnlyDriver(raw)))
+        tablet.ms += 1_000
+        tablet.podcasts.subscribe(feed)
+        tablet.sync.enable()
+        val old = phone.episodes.ofPodcast(phone.row(feed).id).first().minBy { it.publishedAt ?: 0 }.guid
+        val dropped = { raw.execute(null, "DELETE FROM episode WHERE guid = '${old.replace("'", "''")}'", 0) }
+        dropped()
+
+        phone.ms += 60_000
+        phone.episodes.savePosition(phone.episode(feed, old).id, 500_000, paused = true)
+        phone.sync.syncNow()
+
+        // The tablet read its feed before the phone listened: the episode may yet come.
+        tablet.ms = phone.ms + 1_000
+        assertEquals(1, tablet.sync.syncNow().pending)
+        // Read again since, and not in it: nothing to wait for.
+        tablet.ms += 1_000
+        tablet.podcasts.refresh(tablet.row(feed).id)
+        dropped()
+        assertEquals(0, tablet.sync.syncNow().pending)
+        // Back in the feed after all: taken.
+        tablet.ms += 1_000
+        tablet.podcasts.refresh(tablet.row(feed).id)
+        tablet.sync.syncNow()
+        assertEquals(500_000, tablet.episode(feed, old).position_ms)
+    }
+
     @Test
     fun theEpisodePlayingHereIsNotMovedUntilItPauses() = runBlocking<Unit> {
         val (phone, tablet) = pair()

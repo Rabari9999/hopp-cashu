@@ -996,8 +996,8 @@
         <item quantity="other">%1$d Änderungen</item>
     </plurals>
     <plurals name="home_sync_waiting_n">
-        <item quantity="one">%1$d Folge (Feed nicht erreichbar)</item>
-        <item quantity="other">%1$d Folgen (Feed nicht erreichbar)</item>
+        <item quantity="one">%1$d Folge (noch nicht im Feed hier)</item>
+        <item quantity="other">%1$d Folgen (noch nicht in den Feeds hier)</item>
     </plurals>
     <plurals name="home_sync_got_shows">
         <item quantity="one">%1$d Abo</item>

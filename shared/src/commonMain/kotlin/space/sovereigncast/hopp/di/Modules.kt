@@ -133,7 +133,12 @@ fun sharedModule(platform: Platform) = module {
         space.sovereigncast.hopp.data.FeedRefresh(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<Clock>()::now,
             whileOpen = !platform.backgroundRefresh,
             before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
-            after = { koin.get<SovereigncastRepository>().refresh() })
+            after = {
+                koin.get<SovereigncastRepository>().refresh()
+                // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01).
+                val sync = koin.get<space.sovereigncast.hopp.sync.SyncManager>()
+                if (sync.status.value.pending > 0) sync.syncNow()
+            })
     }
     single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }

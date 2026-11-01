@@ -697,6 +697,18 @@ switches.
      as long as both were in use. With something else to send it still
      goes along at once.
      Tests: `ProgressSyncTest`, `SyncMigrationTest`, `SyncAuditTest`.
+   *Amended a thirteenth time 2026-11-01 (maintainer: "4 episodes waiting"
+   in the sync window for good):*
+   - **What will not come is not "waiting".** An entry for an episode this
+     device does not have still waits — its feed may not have brought it
+     yet — but no longer once the show's feed was read here, without an
+     error, after the entry was made: that feed no longer carries it (older
+     episodes another device has from before). Likewise an entry for a show
+     not followed here. Such entries are still tried each round, and taken
+     if the episode turns up. The sync window says "not in the feeds here
+     yet" instead of "feed out of reach", and a feed refresh runs a sync
+     round after it when something waits — sync goes before the feeds.
+     Test: `ProgressSyncTest`.
 
 ## Consequences
 
