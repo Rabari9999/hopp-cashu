@@ -1,6 +1,7 @@
 # ADR 0024 — What friends subscribe to
 
-- **Status:** accepted — not built yet
+- **Status:** accepted by the maintainer 2026-11-01, the public friends note
+  (2) and the two separate switches (6) included — not built yet
 - **Date:** 2026-11-01
 
 ## Context
