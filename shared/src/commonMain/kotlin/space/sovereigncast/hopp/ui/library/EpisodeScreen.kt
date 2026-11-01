@@ -108,6 +108,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
     val details by vm.details.collectAsState()
     val chapters by vm.chapters.collectAsState()
     val chaptersLoaded by vm.chaptersLoaded.collectAsState()
+    val timeWidth = space.sovereigncast.hopp.ui.components.rememberChapterTimeWidth(chapters)
     val hasValue by vm.hasValue.collectAsState()
     val gone by vm.gone.collectAsState()
     LaunchedEffect(gone) { if (gone) onGone() }
@@ -254,7 +255,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     // By index: start times from a feed can repeat, and a repeated key crashes (code review 2026-10-17, H7).
                     itemsIndexed(chapters, key = { i, _ -> "ch$i" }) { _, ch ->
                         ChapterRow(ch, active = false, onSeek = { player.playAt(e, (ch.startSeconds * 1000).toLong()) }, withImages = chapters.any { it.imageUrl != null },
-                            onShare = { sharing = ShareTarget.AtChapter(e, ch) })
+                            onShare = { sharing = ShareTarget.AtChapter(e, ch) }, timeWidth = timeWidth)
                     }
                 }
                 EpisodeTab.Clips -> itemsIndexed(clips, key = { i, _ -> "clip$i" }) { _, c ->

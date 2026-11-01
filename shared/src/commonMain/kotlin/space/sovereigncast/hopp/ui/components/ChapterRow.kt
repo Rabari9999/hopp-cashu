@@ -20,6 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +47,8 @@ fun ChapterRow(
     ch: Chapter, active: Boolean, onSeek: () -> Unit, modifier: Modifier = Modifier, withImages: Boolean = ch.imageUrl != null,
     /** A long press shares the chapter (device feedback 2026-10-12). */
     onShare: (() -> Unit)? = null,
+    /** The list's widest time ([rememberChapterTimeWidth]): the times end on one line, the titles start on one. */
+    timeWidth: Dp = Dp.Unspecified,
 ) {
     val colors = MaterialTheme.colorScheme
     val uri = LocalUriHandler.current
@@ -60,18 +69,41 @@ fun ChapterRow(
             )
             if (viewing) ImageViewer(ch.imageUrl) { viewing = false }
         } else if (withImages) Spacer(Modifier.size(48.dp))
-        Column(Modifier.weight(1f)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(formatTime((ch.startSeconds * 1000).toLong()), color = Hopp.colors.valueText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                Text(ch.title, style = MaterialTheme.typography.bodyMedium, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-            }
-            val url = ch.url
-            val host = url?.let { linkHost(it) }
-            if (url != null && host != null) Text(
-                "$host ↗",
-                Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).clickable { runCatching { uri.openUri(url) } }.padding(vertical = 2.dp),
-                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurface,
+        // Times right-aligned in a column of their own, the titles beside them in one line
+        // (maintainer 2026-11-01: "1:05:10" pushed its title further in than "4:11").
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                formatTime((ch.startSeconds * 1000).toLong()),
+                Modifier.alignByBaseline().then(if (timeWidth.isSpecified) Modifier.width(timeWidth) else Modifier),
+                color = Hopp.colors.valueText, style = chapterTimeStyle(), textAlign = TextAlign.End, maxLines = 1,
             )
+            Column(Modifier.weight(1f).alignByBaseline()) {
+                Text(ch.title, style = MaterialTheme.typography.bodyMedium, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                val url = ch.url
+                val host = url?.let { linkHost(it) }
+                if (url != null && host != null) Text(
+                    "$host ↗",
+                    Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).clickable { runCatching { uri.openUri(url) } }.padding(vertical = 2.dp),
+                    style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.onSurface,
+                )
+            }
         }
+    }
+}
+
+/** A chapter's time: bold, with digits of one width so the column's times line up. */
+@Composable
+private fun chapterTimeStyle(): TextStyle =
+    MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+
+/** The width of the widest time among [chapters], for [ChapterRow]'s time column. */
+@Composable
+fun rememberChapterTimeWidth(chapters: List<Chapter>): Dp {
+    val measurer = rememberTextMeasurer()
+    val style = chapterTimeStyle()
+    val density = LocalDensity.current
+    return remember(chapters, style, density) {
+        val widest = chapters.maxOfOrNull { measurer.measure(formatTime((it.startSeconds * 1000).toLong()), style, maxLines = 1).size.width } ?: 0
+        with(density) { widest.toDp() }
     }
 }

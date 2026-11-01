@@ -198,11 +198,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         }
     }
     val chaptersContent: @Composable (Modifier, (Long) -> Unit) -> Unit = { m, onPicked ->
+        val timeWidth = space.sovereigncast.hopp.ui.components.rememberChapterTimeWidth(chapters.stops)
         LazyColumn(m) {
             itemsIndexed(chapters.stops) { i, ch ->
                 ChapterRow(ch, active = i == chapters.currentIndex(position), onSeek = {
                     model.toChapter((ch.startSeconds * 1000).toLong()); onPicked(ch.startSeconds.toLong())
-                }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null })
+                }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null }, timeWidth = timeWidth)
             }
         }
     }
