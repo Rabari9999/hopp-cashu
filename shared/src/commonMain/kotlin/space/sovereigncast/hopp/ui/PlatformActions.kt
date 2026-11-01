@@ -41,6 +41,9 @@ interface PlatformActions {
     val appLanguage: String? get() = null
     /** Chooses [code] from [appLanguages], null for the system's; Hopp starts again in it. */
     fun setAppLanguage(code: String?) = Unit
+    /** Whether the lists' refresh gets a button in the top bar: a mouse cannot pull a list down
+     *  (the browser on a desktop; maintainer 2026-11-01). */
+    val refreshButton: Boolean get() = false
     /** Keeps the screen out of screenshots and the recent-apps preview while on. */
     fun secureScreen(on: Boolean) = Unit
     /** Opens the system's VPN settings. */

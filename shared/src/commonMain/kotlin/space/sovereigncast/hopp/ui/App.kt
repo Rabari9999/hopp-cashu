@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
@@ -48,6 +49,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.size
+import space.sovereigncast.hopp.resources.refresh
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -276,6 +279,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // The listening statistics noted before that round, all of it (they otherwise go every half hour).
     val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }
+    // New episodes while Hopp is open where no background job looks for them (the browser, iOS for now).
+    val feeds: space.sovereigncast.hopp.data.FeedRefresh = koinInject()
+    if (feeds.whileOpen) LaunchedEffect(Unit) { feeds.keepFresh() }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
     /** Where the tour was left for one of its pages, to come back to. */
@@ -439,6 +445,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     }
                                 },
                                 actions = {
+                                    // Where a mouse cannot pull the lists down (maintainer 2026-11-01).
+                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
+                                        RefreshButton(feeds)
+                                    }
                                     if (onTab != null && !rail) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
                                         // A cogwheel: Hopp has no account (device feedback 2026-10-10).
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
@@ -673,3 +683,13 @@ private fun sharedAxisOut(forward: Boolean): ExitTransition =
 private val fadeThroughIn: EnterTransition = fadeIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate)) +
     scaleIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate), initialScale = 0.94f)
 private val fadeThroughOut: ExitTransition = fadeOut(tween(90, easing = EmphasizedAccelerate))
+
+/** The lists' refresh as a button, turning while it runs. */
+@Composable
+private fun RefreshButton(feeds: space.sovereigncast.hopp.data.FeedRefresh) {
+    val refreshing by feeds.refreshing.collectAsState()
+    IconButton(onClick = { feeds.now() }, enabled = !refreshing) {
+        if (refreshing) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        else Icon(Icons.Rounded.Refresh, stringResource(Res.string.refresh))
+    }
+}

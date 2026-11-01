@@ -306,10 +306,12 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         else -> stringResource(Res.string.refresh_hours, h)
                     }
                 }) { v -> vm.update { it.copy(refreshHours = v) } }
-                if (s.refreshHours > 0) Toggle(stringResource(Res.string.settings_refresh_wifi), stringResource(Res.string.settings_refresh_wifi_note), s.refreshWifiOnly) { on ->
+                // Where Hopp looks only while open, the listener chose the network themselves.
+                val whileOpen = org.koin.compose.koinInject<space.sovereigncast.hopp.data.FeedRefresh>().whileOpen
+                if (s.refreshHours > 0 && !whileOpen) Toggle(stringResource(Res.string.settings_refresh_wifi), stringResource(Res.string.settings_refresh_wifi_note), s.refreshWifiOnly) { on ->
                     vm.update { it.copy(refreshWifiOnly = on) }
                 }
-                Note(stringResource(Res.string.settings_refresh_text))
+                Note(stringResource(if (whileOpen) Res.string.settings_refresh_text_open else Res.string.settings_refresh_text))
             }
             SettingsPage.Notifications -> {
                 // Hopp has no push yet (ADR 0007): the messages are what a payment came to —

@@ -53,6 +53,7 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
     override val canPay: Boolean get() = false
     override val canSaveAudio: Boolean get() = true
+    override val refreshButton: Boolean get() = true
     override fun saveAudio(url: String, name: String) {
         // The feed's word, as a link the page clicks: a web address only, whatever the parser let through.
         if (url.startsWith("https://", true) || url.startsWith("http://", true)) saveLink(url, name)

@@ -46,6 +46,9 @@ class IosPlatform : Platform {
     // without a network check, automatic ones would use mobile data.
     override fun secretStore(): SecretStore = KeychainSecretStore()
 
+    // No BGAppRefreshTask yet (ADR 0018): the feeds are looked at while Hopp is open.
+    override val backgroundRefresh: Boolean get() = false
+
     override fun downloadScheduler() = DownloadScheduler { _ ->
         MainScope().launch { KoinPlatform.getKoin().get<DownloadRepository>().runPending(includeAuto = false) }
     }

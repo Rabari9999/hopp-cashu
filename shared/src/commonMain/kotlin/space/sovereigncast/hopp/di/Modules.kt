@@ -74,6 +74,9 @@ interface Platform {
     /** Whether a wallet may be connected and Hopp pay from it — not in the browser until its
      *  wallet has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
     val wallet: Boolean get() = true
+    /** Whether the system looks for new episodes in the background (Android's WorkManager); where not,
+     *  Hopp does while it is open ([space.sovereigncast.hopp.data.FeedRefresh.whileOpen]). */
+    val backgroundRefresh: Boolean get() = true
     /** The one HTTP client; the web's sends what it fetches through the feed proxy (ADR 0022, 6). */
     fun httpClient(): io.ktor.client.HttpClient = createHttpClient(app)
 }
@@ -125,6 +128,13 @@ fun sharedModule(platform: Platform) = module {
     single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads) }
     single { PodcastRepository(get(), get(), get(), get(), get(), get()) { platform.downloads && get<SettingsRepository>().current().autoDownloads } }
     single { EpisodeRepository(get(), get(), get(), get()) }
+    single {
+        val koin = getKoin()
+        space.sovereigncast.hopp.data.FeedRefresh(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<Clock>()::now,
+            whileOpen = !platform.backgroundRefresh,
+            before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
+            after = { koin.get<SovereigncastRepository>().refresh() })
+    }
     single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
@@ -152,7 +162,7 @@ fun sharedModule(platform: Platform) = module {
     }
     viewModel { InboxViewModel(get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.StatsViewModel(get()) }
-    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
