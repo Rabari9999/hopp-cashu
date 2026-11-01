@@ -5,7 +5,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -192,6 +195,7 @@ class PlayerController(
                             engine.pause(); _skipped.tryEmit(Skipped(id, outro, atStart = false))
                             _current.value?.item?.takeIf { it.id == id }?.let { item -> listening?.let { l -> scope.launch { l.skipped(item, outro * 1000L) } } }
                         }
+                        finishedHere = id
                         episodes.setPlayed(id, true); lastSaved = 0
                         // Heard to its end: its streamed parts of a sat go out now, rounded up.
                         value?.let { v -> scope.launch { delay(ROUND_UP_DELAY); runCatching { v.settle(roundUp = setOf(id)) } } }
@@ -378,6 +382,7 @@ class PlayerController(
 
     /** [skipIntro]: false where the listener chose the place — a time mark, a chapter, back from a clip. */
     private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean, skipIntro: Boolean = true) {
+        watchPlayed(item.id)
         val meta = podcasts.podcastMeta(item.podcastId)
         val show = podcasts.show(item.podcastId).first()
         watchShow(item.podcastId, show)
@@ -405,6 +410,25 @@ class PlayerController(
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
+        }
+    }
+
+    private var playedWatch: kotlinx.coroutines.Job? = null
+    /** The episode this player heard to its end and marked played itself — it stays until the next one. */
+    private var finishedHere: Long? = null
+
+    /**
+     * The episode in the player marked played — on its own, "this and older", a show's or every show's
+     * at once, or by sync — leaves the player, and the player goes (maintainer 2026-11-01: it stayed).
+     * "Up next" it has left already (EpisodeRepository.leaveQueue); what comes next is the listener's to start.
+     */
+    private fun watchPlayed(id: Long) {
+        finishedHere = null
+        playedWatch?.cancel()
+        playedWatch = scope.launch {
+            episodes.itemFlow(id).map { it?.played == true }.distinctUntilChanged().drop(1).collect { played ->
+                if (played && finishedHere != id && _current.value?.item?.id == id) close()
+            }
         }
     }
 
@@ -515,6 +539,7 @@ class PlayerController(
 
     /** Nothing in the player: the episode unloaded, the bar and the screen gone. */
     private fun close() {
+        playedWatch?.cancel()
         expectedId = null
         clip = null
         introUnchecked = null

@@ -201,6 +201,45 @@ class PlayerControllerTest {
         assertEquals(1, engine.unloaded)
     }
 
+    /** Maintainer 2026-11-01: the episode in the player marked played — on its own or with all of its show
+     *  or every show — leaves the player and "Up next"; one heard to its end here stays where it ended. */
+    @Test
+    fun anEpisodeMarkedPlayedLeavesThePlayer() = test {
+        val (e1, e2, e3) = episodes()
+        start(e1)
+        at(60_000)
+        episodes.setPlayed(e1.id, true)
+        until("out of the player") { player.current.value == null }
+        assertEquals(1, engine.unloaded)
+
+        // Playing on, with all of its show; the next one waiting in "Up next" goes too.
+        queue.playLast(e3.id)
+        start(e2)
+        at(30_000)
+        episodes.setShowPlayed(e2.podcastId)
+        until("out of the player") { player.current.value == null }
+        assertEquals(2, engine.unloaded)
+        assertTrue(queue.items.first().isEmpty(), "out of Up next")
+
+        // Every show at once.
+        episodes.setPlayed(e1.id, false)
+        start(e1)
+        at(10_000)
+        episodes.setAllPlayed()
+        until("out of the player") { player.current.value == null }
+        assertEquals(3, engine.unloaded)
+
+        // Heard to its end here, nothing waiting: it stays, at its end.
+        episodes.setPlayed(e3.id, false)
+        start(e3)
+        at(10_000)
+        step { end() }
+        until("marked played") { episodes.item(e3.id)!!.played }
+        delay(200)
+        assertEquals(e3.id, player.current.value?.item?.id)
+        assertEquals(3, engine.unloaded)
+    }
+
     /** Maintainer 2026-10-31: after a reload the player said 1× for a show of its own speed, until played. */
     @Test
     fun aRestoredEpisodeShowsItsShowsSpeed() = test {
