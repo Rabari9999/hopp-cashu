@@ -1,52 +1,89 @@
 // Browser checks of Hopp's web client (ADR 0022, stage W2), against what scripts/web-dev.sh serves:
-//   node run.mjs [--sync] [--url http://127.0.0.1:8642/]
+//   node run.mjs [--sync] [--webkit] [--url http://127.0.0.1:8642/]
 // Compose draws to a canvas; its accessibility layer mirrors buttons into the DOM, and the checks
 // read and press those, as a screen reader does. --sync also syncs two browsers over public relays,
-// with a throwaway key. Screenshots in ./out.
+// with a throwaway key. --webkit runs them in Playwright's WebKit, Safari's engine. Screenshots in ./out.
 import fs from 'node:fs';
-import { chromium } from 'playwright';
+import os from 'node:os';
+import path from 'node:path';
+import { chromium, webkit } from 'playwright';
 import { generateSecretKey } from 'nostr-tools/pure';
 import { installFakeExtension } from './fakeExtension.mjs';
 
 const args = process.argv.slice(2);
 const url = args.includes('--url') ? args[args.indexOf('--url') + 1] : 'http://127.0.0.1:8642/';
 const withSync = args.includes('--sync');
+const inWebKit = args.includes('--webkit');
 fs.mkdirSync('out', { recursive: true });
 
-const browser = await chromium.launch({
+const browser = inWebKit ? null : await chromium.launch({
   executablePath: process.env.CHROME_BIN || undefined,
   args: ['--autoplay-policy=no-user-gesture-required'],
 });
+// WebKit gives a page no OPFS in Playwright's throwaway contexts, and Hopp would fall back to a
+// database in memory there: each device gets a profile of its own on disk instead.
+const contexts = [];
+const profiles = [];
+async function newContext(options) {
+  const profile = inWebKit && fs.mkdtempSync(path.join(os.tmpdir(), 'hopp-webkit-'));
+  if (profile) profiles.push(profile);
+  const ctx = profile ? await webkit.launchPersistentContext(profile, options) : await browser.newContext(options);
+  contexts.push(ctx);
+  return ctx;
+}
 let failed = 0;
-const check = (ok, what) => { console.log(`${ok ? '✓' : '✗'} ${what}`); if (!ok) failed++; };
+// The last check passed or failed, so an error or a refusal says where it happened.
+let after = 'the start';
+let pressed = '';
+const check = (ok, what) => { console.log(`${ok ? '✓' : '✗'} ${what}`); if (!ok) failed++; after = what; pressed = ''; };
+const where = () => `(after "${after}"${pressed ? `, pressing "${pressed}"` : ''})`;
 
 async function device(name, ext = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'en-US' });
-  const page = await ctx.newPage();
+  const ctx = await newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'en-US' });
+  const page = ctx.pages()[0] ?? await ctx.newPage();
   const extension = await installFakeExtension(page, ext);
   const errors = [];
-  page.on('pageerror', e => errors.push(String(e)));
+  page.on('pageerror', e => errors.push({ at: Date.now(), text: `${e} ${where()}` }));
+  // WebKit fails the old page's loads still under way when it reloads (signing out, a language
+  // chosen), and they surface there as errors just before the new page comes: not the listener's.
+  if (inWebKit) page.on('framenavigated', f => {
+    if (f !== page.mainFrame()) return;
+    for (let i = errors.length - 1; i >= 0 && errors[i].at > Date.now() - 1000; i--) errors.splice(i, 1);
+  });
   // Under scripts/web-dev.sh --strict the page has the server's CSP; what it refuses shows here.
   const refused = [];
-  page.on('console', m => { if (/Content Security Policy/.test(m.text())) refused.push(m.text()); });
+  // The browser's own message names no culprit; the violation's sample shows what was refused.
+  await page.addInitScript(() => document.addEventListener('securitypolicyviolation', e => console.log(
+    `Content Security Policy refused ${e.violatedDirective}: "${e.sample}" from ${e.sourceFile || e.blockedURI}:${e.lineNumber}`), true));
+  // A screenshot in WebKit puts a <style> of Playwright's into the page, which the CSP refuses.
+  let shooting = false;
+  page.on('console', m => { if (/Content Security Policy/.test(m.text()) && !shooting) refused.push(`${m.text()} ${where()}`); });
   const mirrored = (selector) => page.evaluate((sel) => [...document.querySelectorAll('*')]
     .flatMap(n => n.shadowRoot ? [...n.shadowRoot.querySelectorAll(sel)] : []).map(b => b.textContent.trim()).filter(Boolean), selector);
   const buttons = () => mirrored('[role=button]');
   const has = async (text) => (await buttons()).some(b => b.includes(text));
   // The button of that name, else the first whose name holds it: "Home" is the tab, not "Customize Home".
   const press = async (name, wait = 3000) => {
+    pressed = name;
     const exact = page.getByRole('button', { name, exact: true });
     const button = (await exact.count()) > 0 ? exact : page.getByRole('button', { name, exact: false });
     await button.first().dispatchEvent('click', {}, { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(wait);
   };
-  const shot = (n) => page.screenshot({ path: `out/${name}-${n}.png` });
+  const shot = async (n) => {
+    shooting = true;
+    await page.screenshot({ path: `out/${inWebKit ? 'webkit-' : ''}${name}-${n}.png` });
+    await page.waitForTimeout(500);
+    shooting = false;
+  };
   // A menu or dialog closed leaves Compose's mirror for screen readers frozen on it until the page
   // is reloaded (Compose Multiplatform 1.11/1.12, fixed in 1.13 — docs/tasks/web-client.md): the
   // checks reload after each one, as a screen reader's user would have to.
   const reload = async () => { await page.reload(); await page.waitForTimeout(8000); };
   await page.goto(url);
-  await page.waitForTimeout(8000);
+  // Until the first screen is mirrored (a cold WebKit takes longer than a warm Chromium), then a moment more.
+  for (let i = 0; i < 40 && (await buttons()).length === 0; i++) await page.waitForTimeout(500);
+  await page.waitForTimeout(3000);
   return { ctx, page, extension, errors, refused, mirrored, buttons, has, press, shot, reload };
 }
 
@@ -168,7 +205,7 @@ await c.press('Library', 3000); await c.press('Library', 3000);
 check(await text('Nodesignal'), 'the library carried over into memory');
 await c.page.reload(); await c.page.waitForTimeout(8000);
 check(await c.has('Skip'), 'a reload starts afresh');
-check(c.errors.length === 0, `no uncaught errors there${c.errors.length ? ': ' + c.errors[0].slice(0, 200) : ''}`);
+check(c.errors.length === 0, `no uncaught errors there${c.errors.length ? ': ' + c.errors[0].text.slice(0, 200) : ''}`);
 await c.ctx.close();
 
 // 5. Two browsers, one key: sync (public relays; throwaway key).
@@ -191,8 +228,10 @@ if (withSync) {
   check(q.extension.calls.filter(c => c === 'dec').length === 1, 'its signer was asked to decrypt once');
 }
 
-check(a.errors.length === 0, `no uncaught errors${a.errors.length ? ': ' + a.errors[0].slice(0, 200) : ''}`);
-check(a.refused.length === 0, `nothing refused by the CSP${a.refused.length ? ': ' + a.refused[0].slice(0, 300) : ''}`);
-await browser.close();
+check(a.errors.length === 0, `no uncaught errors${a.errors.length ? ':\n  ' + a.errors.map(e => e.text.slice(0, 300)).join('\n  ') : ''}`);
+check(a.refused.length === 0, `nothing refused by the CSP${a.refused.length ? ':\n  ' + a.refused.map(e => e.slice(0, 300)).join('\n  ') : ''}`);
+for (const ctx of contexts) await ctx.close().catch(() => {});
+await browser?.close();
+for (const profile of profiles) fs.rmSync(profile, { recursive: true, force: true });
 console.log(failed ? `${failed} failed` : 'all passed');
 process.exit(failed ? 1 : 0);

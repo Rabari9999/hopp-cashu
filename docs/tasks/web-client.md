@@ -2,7 +2,7 @@
 
 - **Implements:** [ADR 0022](../adr/0022-web-client.md), stages W1 (done as
   spike 6) and W2; release 0.3.2 (maintainer, 2026-10-28).
-- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; VoiceOver, the menu bug in Compose's web accessibility and WebKit in the browser checks are left.
+- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; WebKit in the browser checks since 2026-11-01; VoiceOver and the menu bug in Compose's web accessibility are left.
 - **Reference:** the spike, branch `spike/web-wasm` (local, based on
   147a7b7 before 0.3.0), report [docs/spikes/06-web.md](../spikes/06-web.md)
   once ported. Its steps are rebuilt on the current code, not rebased.
@@ -100,7 +100,13 @@ How to run and check it: [web/README.md](../../web/README.md).
       deleted at the next start.
 - [x] Link preview (Open Graph, English) and Hopp's icon in the tab, on the
       home screen and in a web manifest (2026-10-30).
-- [ ] WebKit in the browser checks (Playwright's WebKit build).
+- [x] WebKit in the browser checks (2026-11-01, branch `0.3.3`):
+      `node run.mjs --webkit`, each browser with a profile on disk (WebKit
+      gives a throwaway context no OPFS, and Hopp ran on a database in memory
+      there). All 27 checks pass, with sync 29, against
+      `https://play.sovereigncast.space/`. WebKit found nothing of Hopp's:
+      a screenshot's own `<style>` refused by the CSP, and loads failed by a
+      reload just before the new page, are left out of the checks.
 - [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): two
       faults in Compose Multiplatform's web accessibility, 1.11.1 and still
       1.12.2 (`ComposeWebSemanticsListener`). It mirrors one semantics owner

@@ -1,9 +1,16 @@
 // The start's time, by stage: node startup.mjs [webkit|chromium] — three loads in one browser
 // context, against what scripts/web-dev.sh serves; the stages are Main.kt's performance marks.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { webkit, chromium } from 'playwright';
 const engine = process.argv[2] === 'chromium' ? chromium : webkit;
-const browser = await engine.launch(engine === chromium ? { executablePath: process.env.CHROME_BIN } : {});
-const ctx = await browser.newContext({ viewport: { width: 375, height: 635 }, deviceScaleFactor: 3, locale: 'de-DE' });
+const options = { viewport: { width: 375, height: 635 }, deviceScaleFactor: 3, locale: 'de-DE' };
+// WebKit has no OPFS in a throwaway context (the database would live in memory): a profile on disk.
+const profile = engine === webkit && fs.mkdtempSync(path.join(os.tmpdir(), 'hopp-webkit-'));
+const ctx = profile
+  ? await webkit.launchPersistentContext(profile, options)
+  : await (await chromium.launch({ executablePath: process.env.CHROME_BIN })).newContext(options);
 for (let run = 0; run < 3; run++) {
   const page = await ctx.newPage();
   page.on('console', m => { if (m.text().startsWith('[sqlite]')) console.log('  worker', m.text()); });
@@ -21,4 +28,6 @@ for (let run = 0; run < 3; run++) {
   for (const r of perf.res) console.log('  ', r.join('  '));
   await page.close();
 }
-await browser.close();
+await ctx.close();
+await ctx.browser()?.close();
+if (profile) fs.rmSync(profile, { recursive: true, force: true });
