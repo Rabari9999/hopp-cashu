@@ -157,7 +157,11 @@ downloadAllNow:
 UPDATE episode SET download_manual = 1 WHERE download_state IN (1, 2);
 
 waitingCount:
-SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0;
+SELECT count(*) FROM episode WHERE download_state = 1 AND download_manual = 0 AND played = 0;
+
+-- Automatic downloads of episodes heard since they were queued: not fetched.
+dropHeardAutoQueue:
+UPDATE episode SET download_state = 0, download_failures = 0 WHERE download_state = 1 AND download_manual = 0 AND played = 1;
 
 -- Automatic downloads turned off: what waits for Wi-Fi without being asked for goes (device feedback 2026-10-22).
 dropAutoQueue:
@@ -183,9 +187,11 @@ resetInterrupted:
 UPDATE episode SET download_state = 1 WHERE download_state = 2;
 
 -- What to fetch next: requested ones first, then the newest.
+-- An automatic one only for an episode not heard: a restore queues each show's newest, and sync
+-- marks it heard a moment later (maintainer 2026-11-01). One asked for is fetched all the same.
 nextDownload:
 SELECT * FROM episode
-WHERE download_state = 1 AND enclosure_url IS NOT NULL AND (download_manual = 1 OR :includeAuto = 1)
+WHERE download_state = 1 AND enclosure_url IS NOT NULL AND (download_manual = 1 OR (:includeAuto = 1 AND played = 0))
 ORDER BY download_manual DESC, published_at DESC
 LIMIT 1;
 

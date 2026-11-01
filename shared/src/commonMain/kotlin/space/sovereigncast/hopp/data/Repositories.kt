@@ -206,8 +206,20 @@ class PodcastRepository(
                 id
             }?.also { noteShow(it, sync) }
         } ?: return SubscribeResult.AlreadySubscribed(withContext(ioDispatcher) { q.selectByFeedUrl(feedUrl).awaitAsOne().id })
-        if (fetch) downloads.schedule(manual = false)
+        // Subscribed by sync: held until its round is through ([releaseHeldDownloads]) — by then the
+        // progress from the other devices is in, and a newest episode heard there is not fetched.
+        if (fetch) { if (sync) downloads.schedule(manual = false) else downloadsHeld = true }
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
+    }
+
+    private var downloadsHeld = false
+
+    /** After a sync round: the automatic downloads its subscriptions queued (maintainer 2026-11-01: a restore
+     *  downloaded the newest episode of every show, heard or not). */
+    fun releaseHeldDownloads() {
+        if (!downloadsHeld) return
+        downloadsHeld = false
+        downloads.schedule(manual = false)
     }
 
     /** Conditional fetch; new items go to "New", known ones keep the

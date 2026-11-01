@@ -81,6 +81,8 @@ class SyncManager(
     private val documents: () -> List<SyncedDocument>,
     private val nowMs: () -> Long,
     private val publishDelay: Duration = 10.seconds,
+    /** After each round, done or not: what waited for it (the downloads of shows it subscribed). */
+    private val afterRound: () -> Unit = {},
 ) {
     private val _status = MutableStateFlow(SyncStatus())
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
@@ -250,6 +252,7 @@ class SyncManager(
         } finally {
             // Cut off (the app closed, sync turned off): not "running" for ever (MN-07).
             if (_status.value.running) _status.value = _status.value.copy(running = false)
+            runCatching { afterRound() }
         }
     }
 

@@ -252,6 +252,51 @@ class DownloadsAndQueueTest {
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)
     }
 
+    /**
+     * Maintainer 2026-11-01: a restore subscribes, which queues each show's newest episode, and sync marks
+     * it heard a moment later — it was downloaded all the same. An automatic download of a heard episode is
+     * not fetched, and one heard while it runs is dropped; one asked for is fetched anyway.
+     */
+    @Test
+    fun anAutomaticDownloadOfAHeardEpisodeIsNotFetched() = test {
+        items = 3
+        val id = subscribe()
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 3").downloadState)
+        episodes.applyProgress(byTitle(id, "Ep 3").id, 0, played = true, atSeconds = now)
+        assertEquals(0L, downloads.waitingCount.first())
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 3").downloadState)
+        assertEquals(emptyList(), ranges, "nothing fetched")
+
+        // Heard while it runs: gone, no file left.
+        items = 4
+        podcasts.refresh(id)
+        val e4 = byTitle(id, "Ep 4").id
+        failAudio = { path -> if (path == "/4.mp3") runBlocking { episodes.applyProgress(e4, 0, played = true, atSeconds = now) }; false }
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)
+        assertEquals(null, byTitle(id, "Ep 4").downloadPath)
+        assertEquals(emptyList(), dir.listFiles()!!.map { it.name }, "no file left")
+        assertTrue(queue.items.first().isEmpty(), "not in Up next")
+
+        // Asked for: fetched though heard.
+        downloads.request(byTitle(id, "Ep 3").id)
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 3").downloadState)
+    }
+
+    /** A show subscribed by sync starts its automatic download only once the round is through, with the
+     *  other devices' progress in — not while the round still runs. */
+    @Test
+    fun aShowSubscribedBySyncDownloadsAfterTheRound() = test {
+        podcasts.subscribe("https://pod.test/feed.xml", sync = false)
+        assertEquals(emptyList(), scheduled, "held during the round")
+        podcasts.releaseHeldDownloads()
+        assertEquals(listOf(false), scheduled)
+        podcasts.releaseHeldDownloads()
+        assertEquals(listOf(false), scheduled, "once")
+    }
+
     /** Device feedback 2026-10-19: as in AntennaPod, a download is ready in "Up next". */
     @Test
     fun aFinishedDownloadGoesToTheEndOfTheQueue() = test {

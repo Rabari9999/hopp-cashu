@@ -25,6 +25,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** "All played" and "this and older" go out as one entry per show – no more relays slowing Hopp down.
 - **Sync:** More reliable with relays that limit events or hold only part of them.
 - **Sync:** "Waiting here" no longer counts episodes your feed no longer has.
+- **Downloads:** After restoring, Hopp no longer downloads episodes you have already heard.
 - **History:** On early installs fees and outcomes stood in the wrong columns; this is repaired.
 - **Wallet:** A payment counts as made only with the wallet's proof.
 - **Appearance:** The status bar follows the theme chosen in Hopp.

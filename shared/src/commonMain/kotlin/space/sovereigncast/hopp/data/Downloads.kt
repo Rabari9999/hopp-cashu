@@ -192,10 +192,13 @@ class DownloadRepository(
         withContext(ioDispatcher) { files.ensureDir(); eq.resetInterrupted() }
         var ok = true
         while (true) {
-            val next = withContext(ioDispatcher) { eq.nextDownload(if (includeAuto()) 1L else 0L).awaitAsOneOrNull() } ?: break
+            val next = withContext(ioDispatcher) {
+                eq.dropHeardAutoQueue()
+                eq.nextDownload(if (includeAuto()) 1L else 0L).awaitAsOneOrNull()
+            } ?: break
             cancelled.update { it - next.id }
             try {
-                download(next.id, next.enclosure_url!!)
+                download(next.id, next.enclosure_url!!, automatic = next.download_manual == 0L)
                 withContext(ioDispatcher) { eq.setDownloadFailures(0, next.id) }
             } catch (e: CancellationException) {
                 throw e
@@ -204,6 +207,8 @@ class DownloadRepository(
                 withContext(ioDispatcher) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } catch (e: DownloadCancelled) {
                 // remove() has already cleared it.
+            } catch (e: HeardMeanwhile) {
+                withContext(ioDispatcher) { files.delete(files.partial(next.id).toString()); eq.clearDownload(next.id) }
             } catch (e: Exception) {
                 // Network gone: back in the queue, the .part file stays for the retry.
                 // A host that keeps failing (down, its domain gone, an expired
@@ -230,8 +235,12 @@ class DownloadRepository(
     }
 
     private class DownloadCancelled : Exception()
+    /** An automatic download of an episode marked heard while it ran — sync after a restore (maintainer 2026-11-01). */
+    private class HeardMeanwhile : Exception()
 
-    private suspend fun download(id: Long, url: String) {
+    private suspend fun heard(id: Long) = withContext(ioDispatcher) { eq.selectById(id).awaitAsOneOrNull()?.played == 1L }
+
+    private suspend fun download(id: Long, url: String, automatic: Boolean = false) {
         withContext(ioDispatcher) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
         val part = files.partial(id)
         val have = files.size(part)
@@ -264,12 +273,15 @@ class DownloadRepository(
             val buffer = ByteArray(64 * 1024)
             var written = offset
             var reported = -1
+            var chunks = 0
             withContext(ioDispatcher) {
                 SystemFileSystem.sink(part, append = append).buffered().use { sink ->
                     while (true) {
                         val n = channel.readAvailable(buffer, 0, buffer.size)
                         if (n < 0) break
                         if (id in cancelled.value) throw DownloadCancelled()
+                        // Every 8 MB: an automatic one heard meanwhile stops.
+                        if (automatic && ++chunks % HEARD_CHECK_CHUNKS == 0 && heard(id)) throw HeardMeanwhile()
                         if (written + n > cap) throw DownloadRefused(status.value, "too large: over $cap bytes")
                         sink.write(buffer, 0, n)
                         written += n
@@ -282,6 +294,7 @@ class DownloadRepository(
             }
             if (total != null && written < total) throw IllegalStateException("incomplete: $written of $total")
         }
+        if (automatic && heard(id)) throw HeardMeanwhile()
         withContext(ioDispatcher) {
             val target = files.path(id, url)
             SystemFileSystem.atomicMove(part, target)
@@ -327,6 +340,8 @@ class DownloadRepository(
     }
 
     internal companion object {
+        /** Chunks of 64 KiB between two looks at whether an automatic download's episode was heard meanwhile. */
+        const val HEARD_CHECK_CHUNKS = 128
         /** Tries in a row before a download that keeps failing stops holding up the queue. */
         const val MAX_TRIES = 5
         /** Larger than any audio episode, room for video ones. */

@@ -118,7 +118,7 @@ fun sharedModule(platform: Platform) = module {
                 space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
                 space.sovereigncast.hopp.sync.StatsDocument(koin.get(), koin.get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
             )
-        }, { kotlin.time.Clock.System.now().toEpochMilliseconds() })
+        }, { kotlin.time.Clock.System.now().toEpochMilliseconds() }, afterRound = { koin.get<PodcastRepository>().releaseHeldDownloads() })
     }
     single { DownloadFiles(platform.downloadDir()) }
     single { platform.downloadScheduler() }

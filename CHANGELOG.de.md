@@ -25,6 +25,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sync:** „Alle gehört“ und „diese und ältere“ gehen als ein Eintrag pro Show raus – keine gebremsten Relays mehr.
 - **Sync:** Zuverlässiger mit Relays, die Ereignisse begrenzen oder nur teilweise halten.
 - **Sync:** „Wartet hier“ zählt keine Folgen mehr, die dein Feed nicht mehr hat.
+- **Downloads:** Nach dem Wiederherstellen lädt Hopp keine Folgen mehr automatisch herunter, die du schon gehört hast.
 - **Verlauf:** Bei frühen Installationen standen Gebühren und Ergebnisse in falschen Spalten; das ist repariert.
 - **Wallet:** Eine Zahlung gilt nur mit dem Nachweis der Wallet als bezahlt.
 - **Darstellung:** Die Statusleiste folgt dem in Hopp gewählten Design.
