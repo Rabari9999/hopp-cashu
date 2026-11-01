@@ -6,7 +6,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
-## [0.3.2]
+## [0.3.2] - 2026-11-01
 
 ### 🆕 New Features
 - **Library:** Mark every episode of all your shows as played at once – handy after setting Hopp up anew.

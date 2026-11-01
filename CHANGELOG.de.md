@@ -6,7 +6,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
-## [0.3.2]
+## [0.3.2] - 2026-11-01
 
 ### 🆕 New Features
 - **Bibliothek:** Alle Folgen aller Shows auf einmal als gehört markieren – praktisch nach einer Neueinrichtung.
