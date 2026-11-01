@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import space.sovereigncast.hopp.resources.downloads_title
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.theme.Hopp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -177,14 +178,15 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: Stri
 }
 
 /**
- * Episodes of a show not heard yet, as a count on red; nothing when there are
+ * Episodes of a show not heard yet, as a count on orange; nothing when there are
  * none (device feedback 2026-10-17: it counted only those in "New", and stayed
  * at 1 however many waited). Above 99 it says 99+. Device
  * feedback 2026-10-13, twice: in the primary colour — black on a light page — it
  * vanished on dark covers; then red with a ring in the page's colour it still had
  * little presence in the dark theme, where that ring is black too. Now a brighter
  * red, a white ring in both themes and a small shadow lift it off any cover — dark,
- * light or red — and the figure is a size larger.
+ * light or red — and the figure is a size larger. Since 2026-11-01 the logo's orange, the
+ * figure black on it (ADR 0019): red always looked like an error (maintainer).
  */
 @Composable
 private fun UnheardCount(n: Int) {
@@ -192,17 +194,14 @@ private fun UnheardCount(n: Int) {
     val label = stringResource(Res.string.library_unheard, n)
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(BADGE_RED)
+        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(Hopp.colors.value)
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp).padding(horizontal = 6.dp)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (n > 99) "99+" else "$n", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
+        Text(if (n > 99) "99+" else "$n", color = Hopp.colors.onValue, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
     }
 }
-
-/** A bright red that white reads on at about 4.5 : 1. */
-private val BADGE_RED = Color(0xFFE5251F)
 
 /** A show as a card: the cover fills the cell, its unheard episodes on it, title and author below. */
 @Composable

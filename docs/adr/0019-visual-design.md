@@ -39,6 +39,10 @@ streaming controls, sats amounts, the Sovereigncast payment actions — and the
 dot of the logo. Nothing else is orange, so orange on screen always means "this
 pays someone".
 
+Amended 2026-11-01 (maintainer: red always read as "error"): a show's count of
+episodes not heard yet is orange as well, the logo's orange with a black figure.
+Red stays for what failed or cannot be undone.
+
 | Role | Light | Dark |
 |---|---|---|
 | background | `#f6f5f2` | `#0a0a0a` |
@@ -213,7 +217,8 @@ the reference once the screens exist.
   Every list on Home shows at most five rows (Take part two), the rest one
   tap away. A show's count of new episodes is white on a bright red, in a
   white ring with a small shadow: black, then red in a ring of the page's
-  colour, it had little presence on dark covers.
+  colour, it had little presence on dark covers. (Since 2026-11-01 black on
+  orange in that ring, see Colour roles.)
 - **Notifications:** the quick boost's result reports nothing, only failures
   (default) or everything; a success disappears after a few seconds. Amended
   2026-10-11: the same choice covers boosts from the sheet (player, episode,
