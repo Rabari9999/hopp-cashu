@@ -102,7 +102,10 @@ class SyncKeys(
      * the listener's signer may ask them (it is needed only to open a keyring
      * this device does not hold yet, or to make the first).
      */
-    suspend fun signer(interactive: Boolean, create: Boolean = true): NostrSigner? = lock.withLock {
+    suspend fun signer(interactive: Boolean, create: Boolean = true): NostrSigner? =
+        space.sovereigncast.hopp.nostr.inRelayArea(SyncDocs.KEYRING) { signerLocked(interactive, create) }
+
+    private suspend fun signerLocked(interactive: Boolean, create: Boolean): NostrSigner? = lock.withLock {
         val me = identity.identity.value ?: return null
         val held = held(me.pubkey)
         val now = nowMs()

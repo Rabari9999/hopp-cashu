@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +20,7 @@ import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -57,7 +57,7 @@ class SyncKeysTest {
     private inner class Device(
         app: FakeSignerApp? = null, nsec: String? = null,
         val secrets: MemorySecretStore = MemorySecretStore(),
-        val db: HoppDatabase = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }),
+        val db: HoppDatabase = testDatabase(),
         signIn: Boolean = true,
     ) {
         var ms = nowSeconds * 1000
@@ -74,7 +74,7 @@ class SyncKeysTest {
                 if (nsec != null) identity.importKey(nsec)
             }
         }
-        fun record(key: String, title: String) = store.record("test", key, JsonObject(mapOf("title" to JsonPrimitive(title))))
+        suspend fun record(key: String, title: String) = store.record("test", key, JsonObject(mapOf("title" to JsonPrimitive(title))))
     }
 
     private suspend fun stored(): List<Event> =

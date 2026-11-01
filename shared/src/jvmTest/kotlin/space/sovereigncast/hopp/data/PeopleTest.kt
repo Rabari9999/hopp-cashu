@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.data
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.model.Episode
@@ -9,19 +9,20 @@ import space.sovereigncast.hopp.model.Podcast
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** The person search across the library (maintainer 2026-10-26). */
 class PeopleTest {
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val people = PeopleRepository(db)
 
-    private fun show(title: String, vararg persons: Person): Long {
+    private suspend fun show(title: String, vararg persons: Person): Long {
         db.podcastQueries.insert("https://pod.test/$title.xml", null, title, null, null,
             json.encodeToString(Podcast.serializer(), Podcast(title = title, persons = persons.toList())), null, null, 0, 0, "")
-        return db.podcastQueries.lastInsertId().executeAsOne()
+        return db.podcastQueries.lastInsertId().awaitAsOne()
     }
 
-    private fun episode(show: Long, guid: String, published: Long, vararg persons: Person) {
+    private suspend fun episode(show: Long, guid: String, published: Long, vararg persons: Person) {
         db.episodeQueries.insertIfNew(show, guid, guid, published, 600, null, "https://cdn.test/$guid.mp3", 0, null,
             json.encodeToString(Episode.serializer(), Episode(guid, guid, publishedAt = published, persons = persons.toList())), 0, 0, 0)
     }

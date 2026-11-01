@@ -7,6 +7,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withContext
@@ -121,46 +122,69 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      */
     private suspend fun queryOn(filters: List<JsonObject>, url: String, toTheEnd: Boolean = false): List<Event>? {
         val found = mutableListOf<Event>()
+        val started = TimeSource.Monotonic.markNow()
         var reached = false
         var ended = false
-        withTimeoutOrNull(timeout) {
-            val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull
-            reached = true
-            try {
-                coroutineScope {
-                    val sub = "hopp-" + secureRandomBytes(6).toHex()
-                    var bytes = 0L
-                    val done = async(start = CoroutineStart.UNDISPATCHED) {
-                        session.incoming.mapNotNull { text ->
-                            if (!text.answers(sub)) return@mapNotNull null
-                            bytes += text.length
-                            if (bytes > MAX_BYTES || found.size >= MAX_EVENTS || text.length > MAX_MESSAGE) return@mapNotNull false
-                            runCatching {
-                                val arr = json.parseToJsonElement(text).jsonArray
-                                if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
-                                when (arr[0].jsonPrimitive.content) {
-                                    "EVENT" -> {
-                                        json.decodeFromJsonElement(Event.serializer(), arr[2]).takeIf { NostrFilter.matchesAny(it, filters) }?.let(found::add)
-                                        null
+        // Why it did not end, for the sync page (RelayLog): the relay's own words, too much, or no connection.
+        var closed: String? = null
+        var cutOff = false
+        var openError: String? = null
+        var timedOut = false
+        val finished = try {
+            withTimeoutOrNull(timeout) {
+                val session = runCatching { open(url) }.onFailure { openError = it.message ?: it::class.simpleName }.getOrNull() ?: return@withTimeoutOrNull
+                reached = true
+                try {
+                    coroutineScope {
+                        val sub = "hopp-" + secureRandomBytes(6).toHex()
+                        var bytes = 0L
+                        val done = async(start = CoroutineStart.UNDISPATCHED) {
+                            session.incoming.mapNotNull { text ->
+                                if (!text.answers(sub)) return@mapNotNull null
+                                bytes += text.length
+                                if (bytes > MAX_BYTES || found.size >= MAX_EVENTS || text.length > MAX_MESSAGE) { cutOff = true; return@mapNotNull false }
+                                runCatching {
+                                    val arr = json.parseToJsonElement(text).jsonArray
+                                    if (arr.getOrNull(1)?.jsonPrimitive?.content != sub) return@runCatching null
+                                    when (arr[0].jsonPrimitive.content) {
+                                        "EVENT" -> {
+                                            json.decodeFromJsonElement(Event.serializer(), arr[2]).takeIf { NostrFilter.matchesAny(it, filters) }?.let(found::add)
+                                            null
+                                        }
+                                        "EOSE" -> true
+                                        "CLOSED" -> { closed = (arr.getOrNull(2) as? JsonPrimitive)?.content.orEmpty(); false }
+                                        else -> null
                                     }
-                                    "EOSE" -> true
-                                    "CLOSED" -> false
-                                    else -> null
-                                }
-                            }.getOrNull()
-                        }.first()
+                                }.getOrNull()
+                            }.first()
+                        }
+                        try {
+                            session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
+                            ended = done.await()
+                        } finally { session.closeSubscription(sub) }
                     }
-                    try {
-                        session.send(buildJsonArray { add(JsonPrimitive("REQ")); add(JsonPrimitive(sub)); filters.forEach { add(it) } }.toString())
-                        ended = done.await()
-                    } finally { session.closeSubscription(sub) }
+                } catch (e: Exception) {
+                    // What arrived before the failure still counts.
+                    if (e is kotlinx.coroutines.CancellationException) timedOut = true
+                } finally {
+                    runCatching { session.close() }
                 }
-            } catch (e: Exception) {
-                // What arrived before the failure still counts.
-            } finally {
-                runCatching { session.close() }
-            }
+            } != null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Left behind by the others' settle time (gather): no answer in time.
+            withContext(NonCancellable) { noteAnswer(url, RelayOp.Read, if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)) }
+            throw e
         }
+        // Noted also when the read was called off (the others' settle time): a relay left behind did not answer in time.
+        val answer = when {
+            ended -> RelayAnswer.Ok(started.elapsedNow().inWholeMilliseconds)
+            !reached -> RelayAnswer.Unreachable(openError)
+            closed != null -> RelayAnswer.Refused(closed!!.ifBlank { "closed" })
+            cutOff -> RelayAnswer.Partial
+            !finished || timedOut -> RelayAnswer.Silent
+            else -> RelayAnswer.Partial
+        }
+        withContext(NonCancellable) { noteAnswer(url, RelayOp.Read, answer) }
         return found.toList().takeIf { reached && (ended || !toTheEnd) }
     }
 
@@ -193,6 +217,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         /** What answers a subscription. */
         private val ANSWERS = setOf("EVENT", "EOSE", "CLOSED")
         private val CLOSE_WAIT = 1.seconds
+        /** How long a relay that said "rate-limited" is given before the event goes to it once more. */
+        val RATE_LIMIT_WAIT = 3.seconds
     }
 
     /** Whether [url] takes a connection and answers a request at all. */
@@ -244,28 +270,53 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         }
     }
 
-    private suspend fun publishTo(event: Event, url: String): Boolean = withTimeoutOrNull(timeout) {
-        val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull false
-        try {
-            coroutineScope {
-                // Listen before sending, so a fast OK is not missed.
-                val ok = async(start = CoroutineStart.UNDISPATCHED) {
-                    session.incoming.mapNotNull { text ->
-                        // Only this event's OK is read; the rest passed over by its head.
-                        if (RelayFrame.head(text) != ("OK" to event.id)) return@mapNotNull null
-                        runCatching {
-                            val arr = json.parseToJsonElement(text).jsonArray
-                            if (arr[0].jsonPrimitive.content == "OK" && arr[1].jsonPrimitive.content == event.id) arr[2].jsonPrimitive.content == "true" else null
-                        }.getOrNull()
-                    }.first()
-                }
-                session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
-                ok.await()
-            }
-        } catch (e: Exception) {
-            false
-        } finally {
-            runCatching { session.close() }
+    private suspend fun publishTo(event: Event, url: String): Boolean {
+        var answer = publishOnce(event, url)
+        // Turned away for sending too fast: once more after a pause (maintainer 2026-10-30, relays
+        // refusing a long document's parts sent one after another).
+        if (answer is RelayAnswer.Refused && Refusal.of(answer.reason) == Refusal.RateLimited) {
+            delay(RATE_LIMIT_WAIT)
+            answer = publishOnce(event, url)
         }
-    } ?: false
+        noteAnswer(url, RelayOp.Send, answer)
+        return answer is RelayAnswer.Ok
+    }
+
+    private suspend fun publishOnce(event: Event, url: String): RelayAnswer {
+        val started = TimeSource.Monotonic.markNow()
+        var reached = false
+        var answer: RelayAnswer? = null
+        withTimeoutOrNull(timeout) {
+            val session = runCatching { open(url) }.onFailure { answer = RelayAnswer.Unreachable(it.message ?: it::class.simpleName) }.getOrNull()
+                ?: return@withTimeoutOrNull
+            reached = true
+            try {
+                coroutineScope {
+                    // Listen before sending, so a fast OK is not missed.
+                    val ok = async(start = CoroutineStart.UNDISPATCHED) {
+                        session.incoming.mapNotNull { text ->
+                            // Only this event's OK is read; the rest passed over by its head.
+                            if (RelayFrame.head(text) != ("OK" to event.id)) return@mapNotNull null
+                            runCatching {
+                                val arr = json.parseToJsonElement(text).jsonArray
+                                if (arr[0].jsonPrimitive.content == "OK" && arr[1].jsonPrimitive.content == event.id) {
+                                    if (arr[2].jsonPrimitive.content == "true") RelayAnswer.Ok(started.elapsedNow().inWholeMilliseconds)
+                                    else RelayAnswer.Refused((arr.getOrNull(3) as? JsonPrimitive)?.content.orEmpty().ifBlank { "refused" })
+                                } else null
+                            }.getOrNull()
+                        }.first()
+                    }
+                    session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
+                    answer = ok.await()
+                }
+            } catch (e: Exception) {
+                // The connection dropped before the answer.
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                answer = RelayAnswer.Unreachable(e.message)
+            } finally {
+                runCatching { session.close() }
+            }
+        }
+        return answer ?: if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)
+    }
 }

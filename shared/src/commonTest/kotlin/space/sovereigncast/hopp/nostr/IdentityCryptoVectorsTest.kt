@@ -12,6 +12,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** The published vectors behind the Nostr identity (ADR 0021): a key's npub
  *  and its NIP-49 export must match every other Nostr client byte for byte. */
@@ -73,13 +74,13 @@ class IdentityCryptoVectorsTest {
     @Test fun nip49RoundTripsAndSaysWhenThePasswordIsWrong() {
         val secret = ByteArray(32) { (it + 3).toByte() }
         val exported = Nip49.encrypt(secret, "Pässwort", logN = 10)
-        assert(exported.startsWith("ncryptsec1"))
+        assertTrue(exported.startsWith("ncryptsec1"))
         assertContentEquals(secret, Nip49.decrypt(exported, "Pässwort"))
         assertFailsWith<Nip49Exception> { Nip49.decrypt(exported, "falsch") }
         // Security audit 2026-10-20, L-01: a log_n past what a phone's heap takes
         // (22 would be 4 GiB) is refused before scrypt allocates anything.
         val tooStrong = Bech32.encode("ncryptsec", byteArrayOf(0x02, (Nip49.MAX_LOG_N + 1).toByte()) + ByteArray(16) + ByteArray(24) + byteArrayOf(0x01) + ByteArray(48))
         val refused = assertFailsWith<Nip49Exception> { Nip49.decrypt(tooStrong, "Pässwort") }
-        assert("log_n" in refused.message!!)
+        assertTrue("log_n" in refused.message!!)
     }
 }

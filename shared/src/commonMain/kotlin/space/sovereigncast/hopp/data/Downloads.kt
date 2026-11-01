@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -16,8 +19,6 @@ import io.ktor.http.contentLength
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 object DownloadState {
     const val NONE = 0
@@ -106,6 +108,8 @@ class DownloadRepository(
     private val files: DownloadFiles,
     private val scheduler: DownloadScheduler,
     private val settings: SettingsRepository,
+    /** false in the browser: nothing is downloaded there (ADR 0022, 1). */
+    private val enabled: Boolean = true,
 ) {
     /** The episode playing — never put into "Up next"; the player sets it once it
      *  exists (a download in the background alone does not make one). */
@@ -121,27 +125,28 @@ class DownloadRepository(
     /** Episode id → 0..1 while it downloads (missing when the size is unknown). */
     val progress: StateFlow<Map<Long, Float>> = _progress.asStateFlow()
 
-    val downloads: Flow<List<EpisodeItem>> = eq.selectDownloads().asFlow().mapToList(Dispatchers.IO).map { rows ->
+    val downloads: Flow<List<EpisodeItem>> = eq.selectDownloads().asFlow().mapToList(ioDispatcher).map { rows ->
         rows.map { r ->
             episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url,
                 r.chapters_url, r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length)
         }
     }
 
-    val usedBytes: Flow<Long> = eq.downloadedBytes().asFlow().mapToOne(Dispatchers.IO)
-    val downloadedCount: Flow<Long> = eq.downloadedCount().asFlow().mapToOne(Dispatchers.IO)
+    val usedBytes: Flow<Long> = eq.downloadedBytes().asFlow().mapToOne(ioDispatcher)
+    val downloadedCount: Flow<Long> = eq.downloadedCount().asFlow().mapToOne(ioDispatcher)
 
     /** Every download — waiting, running, done or failed — and every file left
      *  in the folder (a .part of an interrupted one); running ones stop. */
-    suspend fun removeAll() = withContext(Dispatchers.IO) {
-        eq.downloadIds().executeAsList().forEach { remove(it) }
+    suspend fun removeAll() = withContext(ioDispatcher) {
+        eq.downloadIds().awaitAsList().forEach { remove(it) }
         runCatching { SystemFileSystem.list(Path(files.dir)).forEach { SystemFileSystem.delete(it, mustExist = false) } }
         Unit
     }
 
     /** The listener asked for it: any network. */
     suspend fun request(episodeId: Long) {
-        withContext(Dispatchers.IO) { eq.requestDownload(1, episodeId) }
+        if (!enabled) return
+        withContext(ioDispatcher) { eq.requestDownload(1, episodeId) }
         scheduler.schedule(manual = true)
     }
 
@@ -151,24 +156,25 @@ class DownloadRepository(
      * requested again). [episodeId] null: every one that waits.
      */
     suspend fun startNow(episodeId: Long? = null) {
-        withContext(Dispatchers.IO) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
+        if (!enabled) return
+        withContext(ioDispatcher) { if (episodeId != null) eq.downloadNow(episodeId) else eq.downloadAllNow() }
         scheduler.schedule(manual = true)
     }
 
     /** Automatic downloads turned off: those waiting for Wi-Fi are not fetched, one running stops;
      *  asked-for ones stay (device feedback 2026-10-24: a restore turned them off while the newest ran). */
-    suspend fun dropAutomatic() = withContext(Dispatchers.IO) {
+    suspend fun dropAutomatic() = withContext(ioDispatcher) {
         eq.dropAutoQueue()
-        eq.runningAutoIds().executeAsList().forEach { remove(it) }
+        eq.runningAutoIds().awaitAsList().forEach { remove(it) }
     }
 
     /** Automatic downloads still waiting for Wi-Fi. */
-    val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(Dispatchers.IO)
+    val waitingCount: Flow<Long> = eq.waitingCount().asFlow().mapToOne(ioDispatcher)
 
     /** Stops a download or removes a finished one. */
-    suspend fun remove(episodeId: Long) = withContext(Dispatchers.IO) {
+    suspend fun remove(episodeId: Long) = withContext(ioDispatcher) {
         cancelled.update { it + episodeId }
-        eq.selectById(episodeId).executeAsOneOrNull()?.download_path?.let(files::delete)
+        eq.selectById(episodeId).awaitAsOneOrNull()?.download_path?.let(files::delete)
         files.delete(files.partial(episodeId).toString())
         eq.clearDownload(episodeId)
     }
@@ -183,21 +189,26 @@ class DownloadRepository(
     /** As above, [includeAuto] asked again before each episode: a run started on Wi-Fi that goes on
      *  over mobile data takes no automatic one more (device feedback 2026-10-22). */
     suspend fun runPending(includeAuto: suspend () -> Boolean): Boolean = running.withLock {
-        withContext(Dispatchers.IO) { files.ensureDir(); eq.resetInterrupted() }
+        withContext(ioDispatcher) { files.ensureDir(); eq.resetInterrupted() }
         var ok = true
         while (true) {
-            val next = withContext(Dispatchers.IO) { eq.nextDownload(if (includeAuto()) 1L else 0L).executeAsOneOrNull() } ?: break
+            val next = withContext(ioDispatcher) {
+                eq.dropHeardAutoQueue()
+                eq.nextDownload(if (includeAuto()) 1L else 0L).awaitAsOneOrNull()
+            } ?: break
             cancelled.update { it - next.id }
             try {
-                download(next.id, next.enclosure_url!!)
-                withContext(Dispatchers.IO) { eq.setDownloadFailures(0, next.id) }
+                download(next.id, next.enclosure_url!!, automatic = next.download_manual == 0L)
+                withContext(ioDispatcher) { eq.setDownloadFailures(0, next.id) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: DownloadRefused) {
                 // Refused for good: nothing to resume, so no .part left behind either.
-                withContext(Dispatchers.IO) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
+                withContext(ioDispatcher) { files.delete(files.partial(next.id).toString()); eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } catch (e: DownloadCancelled) {
                 // remove() has already cleared it.
+            } catch (e: HeardMeanwhile) {
+                withContext(ioDispatcher) { files.delete(files.partial(next.id).toString()); eq.clearDownload(next.id) }
             } catch (e: Exception) {
                 // Network gone: back in the queue, the .part file stays for the retry.
                 // A host that keeps failing (down, its domain gone, an expired
@@ -207,14 +218,14 @@ class DownloadRepository(
                 // does not start those tries over.
                 val tries = next.download_failures.toInt() + 1
                 if (tries < MAX_TRIES) {
-                    withContext(Dispatchers.IO) {
+                    withContext(ioDispatcher) {
                         eq.setDownloadFailures(tries.toLong(), next.id)
                         eq.setDownloadState(DownloadState.QUEUED.toLong(), next.id)
                     }
                     ok = false
                     break
                 }
-                withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
+                withContext(ioDispatcher) { eq.setDownloadState(DownloadState.FAILED.toLong(), next.id) }
             } finally {
                 _progress.update { it - next.id }
             }
@@ -224,9 +235,13 @@ class DownloadRepository(
     }
 
     private class DownloadCancelled : Exception()
+    /** An automatic download of an episode marked heard while it ran — sync after a restore (maintainer 2026-11-01). */
+    private class HeardMeanwhile : Exception()
 
-    private suspend fun download(id: Long, url: String) {
-        withContext(Dispatchers.IO) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
+    private suspend fun heard(id: Long) = withContext(ioDispatcher) { eq.selectById(id).awaitAsOneOrNull()?.played == 1L }
+
+    private suspend fun download(id: Long, url: String, automatic: Boolean = false) {
+        withContext(ioDispatcher) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
         val part = files.partial(id)
         val have = files.size(part)
         client.prepareGet(url) {
@@ -258,12 +273,15 @@ class DownloadRepository(
             val buffer = ByteArray(64 * 1024)
             var written = offset
             var reported = -1
-            withContext(Dispatchers.IO) {
+            var chunks = 0
+            withContext(ioDispatcher) {
                 SystemFileSystem.sink(part, append = append).buffered().use { sink ->
                     while (true) {
                         val n = channel.readAvailable(buffer, 0, buffer.size)
                         if (n < 0) break
                         if (id in cancelled.value) throw DownloadCancelled()
+                        // Every 8 MB: an automatic one heard meanwhile stops.
+                        if (automatic && ++chunks % HEARD_CHECK_CHUNKS == 0 && heard(id)) throw HeardMeanwhile()
                         if (written + n > cap) throw DownloadRefused(status.value, "too large: over $cap bytes")
                         sink.write(buffer, 0, n)
                         written += n
@@ -276,7 +294,8 @@ class DownloadRepository(
             }
             if (total != null && written < total) throw IllegalStateException("incomplete: $written of $total")
         }
-        withContext(Dispatchers.IO) {
+        if (automatic && heard(id)) throw HeardMeanwhile()
+        withContext(ioDispatcher) {
             val target = files.path(id, url)
             SystemFileSystem.atomicMove(part, target)
             eq.setDownloaded(target.toString(), files.size(target), id)
@@ -288,8 +307,8 @@ class DownloadRepository(
      *  2026-10-19) — not one already heard, nor the one playing. */
     private suspend fun enqueue(id: Long) {
         if (!settings.current().downloadsToQueue || id == playing()) return
-        withContext(Dispatchers.IO) {
-            if (eq.selectById(id).executeAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
+        withContext(ioDispatcher) {
+            if (eq.selectById(id).awaitAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
         }
     }
 
@@ -301,16 +320,16 @@ class DownloadRepository(
 
     /** Played a day ago → gone; over the limit → the oldest unplayed go; a
      *  file that disappeared → no longer listed as downloaded. */
-    suspend fun cleanup() = withContext(Dispatchers.IO) {
+    suspend fun cleanup() = withContext(ioDispatcher) {
         val dayAgo = clock.now() - 24 * 3600
-        eq.playedDownloadsBefore(dayAgo).executeAsList().forEach { r ->
+        eq.playedDownloadsBefore(dayAgo).awaitAsList().forEach { r ->
             r.download_path?.let(files::delete); eq.clearDownload(r.id)
         }
-        val unplayed = eq.unplayedDownloadsOldestFirst().executeAsList()
+        val unplayed = eq.unplayedDownloadsOldestFirst().awaitAsList()
         unplayed.filter { r -> r.download_path?.let(files::exists) != true }.forEach { eq.clearDownload(it.id) }
         val limit = settings.current().storageLimitMb.toLong() * 1024 * 1024
         if (limit > 0) {
-            var used = eq.downloadedBytes().executeAsOne()
+            var used = eq.downloadedBytes().awaitAsOne()
             // Never the newest one — that is what the listener is about to hear.
             for (r in unplayed.dropLast(1)) {
                 if (used <= limit) break
@@ -321,6 +340,8 @@ class DownloadRepository(
     }
 
     internal companion object {
+        /** Chunks of 64 KiB between two looks at whether an automatic download's episode was heard meanwhile. */
+        const val HEARD_CHECK_CHUNKS = 128
         /** Tries in a row before a download that keeps failing stops holding up the queue. */
         const val MAX_TRIES = 5
         /** Larger than any audio episode, room for video ones. */

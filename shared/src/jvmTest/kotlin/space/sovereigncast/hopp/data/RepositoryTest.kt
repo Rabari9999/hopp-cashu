@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.data
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -17,6 +16,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** The library against an in-memory database and a scripted feed server. */
 class RepositoryTest {
@@ -42,7 +42,7 @@ class RepositoryTest {
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private var now = 1_000L
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
     private val episodes = EpisodeRepository(db, http, { now })

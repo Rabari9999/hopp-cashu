@@ -33,6 +33,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextClearance
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import io.ktor.client.HttpClient
@@ -80,6 +81,7 @@ private class FakeEngine : PlaybackEngine {
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { s.value = s.value.copy(speed = speed) }
+    override fun unload() { s.value = PlaybackState(speed = s.value.speed) }
     override fun release() = Unit
     // As Android's engine: the switches for both show (ExoPlayer, LoudnessEnhancer).
     override val supportsSkipSilence = true
@@ -152,14 +154,19 @@ internal object FakeAmber : space.sovereigncast.hopp.nostr.ExternalSigner {
 
 /** Relays that take every event at once, so publishing a profile needs no network. */
 internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
-    override suspend fun connect(url: String) = object : space.sovereigncast.hopp.nostr.RelaySession {
+    /** A relay that refuses every event, with its words; one that takes no connection — for a test that sets them. */
+    var refusing: Pair<String, String>? = null
+    var unreachable: String? = null
+
+    override suspend fun connect(url: String) = if (url == unreachable) error("connection refused") else object : space.sovereigncast.hopp.nostr.RelaySession {
         private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
         override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
         override suspend fun send(message: String) {
             // A query finds nothing here: end of stored events at once.
             Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { channel.trySend("""["EOSE","${it.groupValues[1]}"]"""); return }
             val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
-            channel.trySend("""["OK","$id",true,""]""")
+            val refused = refusing?.takeIf { it.first == url }?.second
+            channel.trySend(if (refused != null) """["OK","$id",false,"$refused"]""" else """["OK","$id",true,""]""")
         }
         override suspend fun close() { channel.close() }
     }
@@ -206,7 +213,7 @@ class TestApp : Application() {
         val platform = object : Platform {
             override val app = AppInfo("0.0.1", "Android", "Phone")
             // A file, like on the device.
-            override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema, app, "hopp.db")
+            override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), app, "hopp.db")
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
             override fun downloadDir(): String = java.io.File(app.cacheDir, "episodes").absolutePath
             override fun downloadScheduler() = space.sovereigncast.hopp.data.DownloadScheduler.None
@@ -747,7 +754,7 @@ class AndroidAppFlowTest {
         val lines = """[{"name":"Der Jack","address":"jack@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
             """{"name":"Calso","address":"calso@x.test","msat":1000,"status":"unknown","route":"lnurl","reason":"OUTCOME_UNKNOWN: no answer from the wallet within 45s"},""" +
             """{"name":"Nodesignal","address":"02aa","msat":2000,"status":"skipped","reason":"wallet cannot send keysend"}]"""
-        koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines)
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.db.HoppDatabase>().paymentQueries.insert(1_780_000_000, "stream", null, null, "Nodesignal", "E298", 0, null, 0, 2_000, lines) }
         rule.setContent { App() }
         rule.onNode(hasContentDescription("Settings")).performClick()
         tap("Payment history")
@@ -1275,7 +1282,7 @@ class AndroidAppFlowTest {
         tap("Play")
         until { koin.get<space.sovereigncast.hopp.player.PlayerController>().current.value != null }
         koin.get<space.sovereigncast.hopp.player.PlayerController>().expand()
-        waitFor("This show takes no sats — its feed names no value recipients.")
+        waitFor("This show takes no sats.")
         check(rule.onAllNodes(hasText("Boost") and hasClickAction()).fetchSemanticsNodes().isEmpty()) { "a boost button that cannot work" }
     }
 
@@ -1726,7 +1733,8 @@ class AndroidAppFlowTest {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         tap("Ep 2"); waitFor("Show notes")
-        tap("People")
+        // The tab comes with the episode's details, a moment after its notes (CI 2026-11-01).
+        waitFor("People"); tap("People")
         waitFor("Host · Cast")
         check(has("primal.net ↗") && !has("Thorsten")) { "the episode's own people only: ${screen()}" }
         back()

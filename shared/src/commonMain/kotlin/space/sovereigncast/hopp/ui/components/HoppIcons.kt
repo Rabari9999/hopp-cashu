@@ -109,6 +109,30 @@ object HoppIcons {
             moveTo(8.5f, 9f); lineTo(15.5f, 9f); moveTo(8.5f, 12f); lineTo(13f, 12f)
         }
     }
+    /** A speaker with a wave: the player's volume. */
+    val Volume = icon("volume") {
+        path(fill = SolidColor(Color.Black)) { moveTo(4f, 9f); lineTo(8f, 9f); lineTo(13f, 5f); lineTo(13f, 19f); lineTo(8f, 15f); lineTo(4f, 15f); close() }
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(16f, 9f); quadTo(18f, 12f, 16f, 15f)
+            moveTo(18.5f, 6.5f); quadTo(22.5f, 12f, 18.5f, 17.5f)
+        }
+    }
+    /** A speaker struck through: muted. */
+    val VolumeOff = icon("volume_off") {
+        path(fill = SolidColor(Color.Black)) { moveTo(4f, 9f); lineTo(8f, 9f); lineTo(13f, 5f); lineTo(13f, 19f); lineTo(8f, 15f); lineTo(4f, 15f); close() }
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) { moveTo(16f, 9.5f); lineTo(21f, 14.5f); moveTo(21f, 9.5f); lineTo(16f, 14.5f) }
+    }
+    /** A chevron up: open the player. */
+    val ChevronUp = icon("chevron_up") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2.2f, strokeLineCap = StrokeCap.Round) { moveTo(6f, 14.5f); lineTo(12f, 8.5f); lineTo(18f, 14.5f) }
+    }
+    /** A circle half filled: light or dark (Settings → Appearance). */
+    val Contrast = icon("contrast") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f) {
+            moveTo(12f, 4f); arcTo(8f, 8f, 0f, true, true, 12f, 20f); arcTo(8f, 8f, 0f, true, true, 12f, 4f); close()
+        }
+        path(fill = SolidColor(Color.Black)) { moveTo(12f, 4f); arcTo(8f, 8f, 0f, false, true, 12f, 20f); close() }
+    }
     /** Three sliders: arranging something (Home's sections). */
     val Tune = icon("tune") {
         path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {

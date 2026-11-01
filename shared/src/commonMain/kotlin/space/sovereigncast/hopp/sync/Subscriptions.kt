@@ -1,7 +1,6 @@
 package space.sovereigncast.hopp.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -20,6 +19,7 @@ import space.sovereigncast.hopp.data.MAX_SKIP_SECONDS
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.SubscribeResult
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 /** The documents' names and how their entries are keyed and filled (ADR 0021, 5). */
 object SyncDocs {
@@ -29,6 +29,8 @@ object SyncDocs {
     const val SETTINGS = "settings"
     /** Listening statistics, each device's own counts (maintainer 2026-10-26). */
     const val STATS = "stats"
+    /** Not a document: the sync key's keyring, as a [RelayRound] names its requests. */
+    const val KEYRING = "keyring"
 
     /** A show on every device: its `podcast:guid`, else its feed address. */
     fun showKey(guid: String?, feedUrl: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:$feedUrl"
@@ -51,6 +53,19 @@ object SyncDocs {
 
     fun progress(show: String, guid: String, positionMs: Long, played: Boolean, atSeconds: Long): JsonObject = buildJsonObject {
         put("show", show); put("guid", guid); put("pos", positionMs); put("played", played); put("at", atSeconds)
+    }
+
+    /**
+     * Every episode of a show published up to [beforeSeconds] heard, as of [atSeconds] — "this and older"
+     * or "all" as one entry instead of one per episode (maintainer 2026-10-30: hundreds of entries made
+     * the progress document several events long, sent again with every change). Hopp before 0.3.2
+     * passes over it. [fromSeconds]: one found from a device's copy of the feed covers only what that
+     * copy held — from its oldest episode on (review 2026-10-31); without it, from the first.
+     */
+    fun playedThroughKey(show: String) = "upto\n$show"
+
+    fun playedThrough(show: String, beforeSeconds: Long, atSeconds: Long, fromSeconds: Long? = null): JsonObject = buildJsonObject {
+        put("show", show); put("before", beforeSeconds); put("at", atSeconds); fromSeconds?.let { put("from", it) }
     }
 
     /** [atSeconds] null: no favourite (any more). */
@@ -89,15 +104,15 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
 
     private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int)
 
-    private suspend fun local(): List<Local> = withContext(Dispatchers.IO) {
-        db.podcastQueries.selectAll().executeAsList().map {
+    private suspend fun local(): List<Local> = withContext(ioDispatcher) {
+        db.podcastQueries.selectAll().awaitAsList().map {
             Local(it.id, SyncDocs.showKey(it.podcast_guid, it.feed_url), it.feed_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
                 it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt())
         }
     }
 
-    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(Dispatchers.IO) {
-        db.podcastQueries.selectAll().executeAsList().associate {
+    override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
+        db.podcastQueries.selectAll().awaitAsList().associate {
             SyncDocs.showKey(it.podcast_guid, it.feed_url) to
                 SyncEntry(it.subscribed_at * 1000, d = SyncDocs.show(it.feed_url, it.title, it.image_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
                     it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt()))
@@ -108,7 +123,7 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
 
     /** A show given up takes its episodes, progress and place in "Up next" with it: only while the
      *  removal still wins, asked in the same transaction (delta audit 2 2026-10-22, HN-07). */
-    override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (key: String, entry: SyncEntry) -> Boolean): Set<String> = coroutineScope {
+    override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: suspend (key: String, entry: SyncEntry) -> Boolean): Set<String> = coroutineScope {
         val here = local()
         val gate = Semaphore(4)
         entries.map { (key, e) ->

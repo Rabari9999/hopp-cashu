@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +27,7 @@ import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.RelaySession
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -73,24 +74,155 @@ class SyncAuditTest {
         /** Entries no device needs any more. */
         var expire: (String) -> Boolean = { false }
         override fun expired(key: String, entry: SyncEntry, nowMs: Long) = expire(key)
+        /** Entries another one says already, as "heard up to" its episodes. */
+        var covers: (String) -> Boolean = { false }
+        override suspend fun redundant(entries: Map<String, SyncEntry>) = entries.keys.filterTo(mutableSetOf()) { covers(it) }
     }
 
     /** [secrets]: another's — the same device started again. */
     private inner class Device(val relays: RelayConnector, val secrets: MemorySecretStore = MemorySecretStore()) {
         var ms = nowSeconds * 1000
         val identity = IdentityRepository(secrets, RelayPublisher(relays), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
-        val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+        val db = testDatabase()
         val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relays), secrets) { ms }
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relays)) { ms / 1000 }, identity, keys) { ms }
         val doc = Doc()
-        fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
+        suspend fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
         /** The listener changes [key] here: in the app and in the store, as the repositories do. */
-        fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
+        suspend fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
         suspend fun syncKey() = keys.signer(interactive = false, create = false)?.pubkey
     }
 
     private fun Event.d() = tags.firstOrNull { it.size >= 2 && it[0] == "d" }?.get(1)
+
+    /** The maintainer's relays on 2026-10-30, two answering: an old version whole on one, its first two parts
+     *  only on the other; a newer, larger one cut off after its second part on both; nothing kept of it. */
+    @Test
+    fun theMaintainersCutOffVersionIsWrittenOverAfterAWhile() = runBlocking<Unit> {
+        val relays = Relays()
+        relays.down += relays[2]
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(400) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.getValue(relays[1]).refuse = { partNo(it) >= 3 }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        phone.ms += 2.minutes.inWholeMilliseconds
+        repeat(160) { phone.record("n$it", blob) }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 3 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+
+        phone.ms += 1_000
+        assertIs<SyncOutcome.Incomplete>(phone.engine.sync(phone.doc))
+        phone.ms += 4.minutes.inWholeMilliseconds
+        val repaired = phone.engine.sync(phone.doc)
+        assertIs<SyncOutcome.Done>(repaired, "repaired: $repaired")
+    }
+
+    /** Maintainer 2026-10-30: progress shrank to one part of 8 KB, and 13 old parts of ~700 KB stayed and were
+     *  read every round. A smaller version overwrites the larger one's later parts with empty ones. */
+    @Test
+    fun aSmallerVersionLeavesNoLargePartsBehind() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        phone.engine.sync(phone.doc, interactive = true)
+        assertTrue(relays.all().any { it.d() == "hopp/test#3" }, "the test needs three parts")
+        phone.doc.expire = { it != "k0" }
+        phone.change("k0", "small")
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        // As a relay keeps them: the newest per part (NIP-01, replaceable by its d tag).
+        val later = relays.all().filter { it.d()?.startsWith("hopp/test#") == true }.groupBy { it.d() }.values.map { v -> v.maxBy { it.created_at } }
+        assertTrue(later.size == 2 && later.all { it.content.length < 1_000 }, "parts 2 and 3 small now: ${later.map { it.content.length }}")
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, interactive = true))
+        assertEquals(setOf("k0"), tablet.doc.applied.keys)
+
+        // Emptied once is enough (review 2026-10-31): the next version leaves them be.
+        suspend fun leftovers() = relays.all().count { it.d() in setOf("hopp/test#2", "hopp/test#3") }
+        val sentBefore = leftovers()
+        phone.ms = tablet.ms + 1_000
+        phone.change("k0", "smaller")
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        assertEquals(sentBefore, leftovers(), "no empty parts sent again")
+    }
+
+    /** Review 2026-10-31: a device on 0.3.2 drops covered entries, one before puts them back — and each round
+     *  both sent a version. The smaller one goes out for its own sake at most every few hours. */
+    @Test
+    fun compactionAgainstAnOlderHoppDoesNotGoOutEveryRound() = runBlocking<Unit> {
+        val relays = Relays()
+        val old = Device(relays)
+        repeat(60) { old.record("c$it", "heard") }
+        old.record("x", "own")
+        assertIs<SyncOutcome.Done>(old.engine.sync(old.doc, interactive = true))
+        val new = Device(relays).also { it.ms = old.ms + 1_000; it.doc.covers = { k -> k.startsWith("c") } }
+        val first = new.engine.sync(new.doc, interactive = true)
+        assertTrue(first is SyncOutcome.Done && first.published, "the smaller version goes out: $first")
+        old.ms = new.ms + 1_000
+        val back = old.engine.sync(old.doc)
+        assertTrue(back is SyncOutcome.Done && back.published, "the older Hopp puts them back: $back")
+        new.ms = old.ms + 60_000
+        val again = new.engine.sync(new.doc)
+        assertTrue(again is SyncOutcome.Done && !again.published, "not again within the hours: $again")
+        new.ms += SyncEngine.COMPACT_EVERY.inWholeMilliseconds
+        val later = new.engine.sync(new.doc)
+        assertTrue(later is SyncOutcome.Done && later.published, "after them, once more: $later")
+    }
+
+    /** "Write anew from this device" on the sync page: at once, whatever the read found. */
+    @Test
+    fun theListenerHasAPartReadDocumentWrittenAnewAtOnce() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 2 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        val read = tablet.engine.sync(tablet.doc, interactive = true)
+        assertIs<SyncOutcome.Incomplete>(read)
+        assertTrue(read.canRewrite, "every relay read to the end: offered")
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(tablet.doc, rewrite = true))
+        // The phone's entries the missing parts held come back from the phone.
+        phone.ms = tablet.ms + 1_000
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc))
+        val third = Device(relays).also { it.ms = phone.ms + 1_000 }
+        assertIs<SyncOutcome.Done>(third.engine.sync(third.doc, interactive = true))
+        assertEquals(100, third.doc.applied.size)
+    }
+
+    /** Review 2026-10-31: "write anew" with only one relay of three answering — the two silent ones may hold
+     *  a newer version whole. Not offered, and not done when asked. */
+    @Test
+    fun aDocumentReadByAMinorityIsNotWrittenAnew() = runBlocking<Unit> {
+        val relays = Relays()
+        val phone = Device(relays)
+        val blob = "x".repeat(1_000)
+        repeat(100) { phone.record("k$it", blob) }
+        val partNo = { e: Event -> e.d()?.substringAfter('#', "1")?.toIntOrNull() ?: 1 }
+        relays.byUrl.values.forEach { r -> r.refuse = { partNo(it) >= 2 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(phone.doc, interactive = true))
+        relays.byUrl.values.forEach { r -> r.refuse = { false } }
+        phone.store.markBroken("test", null)
+        val before = relays.all().size
+        relays.byUrl.getValue(relays[1]).readsFail = true
+        relays.byUrl.getValue(relays[2]).readsFail = true
+        val tablet = Device(relays).also { it.ms = phone.ms + 1_000 }
+        val read = tablet.engine.sync(tablet.doc, interactive = true)
+        assertIs<SyncOutcome.Incomplete>(read)
+        assertEquals(false, read.canRewrite)
+        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(tablet.doc, rewrite = true))
+        relays.byUrl.values.forEach { it.readsFail = false }
+        assertEquals(before, relays.all().size, "nothing sent")
+    }
 
     // ── H-01 ────────────────────────────────────────────────────────────────
 
@@ -813,7 +945,7 @@ class SyncAuditTest {
         tablet.sync.enable()
         val restored = tablet.row("https://pod.test/selfhosted.xml")
         assertEquals(0L, restored.auto_download)
-        assertEquals(0L, tablet.db.episodeQueries.selectByPodcast(restored.id).executeAsList().count { it.download_state == 1L }.toLong())
+        assertEquals(0L, tablet.db.episodeQueries.selectByPodcast(restored.id).awaitAsList().count { it.download_state == 1L }.toLong())
 
         // A speed no Hopp plays, from a device gone wrong: the show keeps its own.
         val doc = SubscriptionsDocument(tablet.db, tablet.podcasts)
@@ -899,7 +1031,7 @@ class SyncAuditTest {
         assertEquals(false, tablet.settings.current().autoDownloads)
         assertEquals(setOf("https://pod.test/nodesignal.xml"), tablet.urls())
         val row = tablet.row("https://pod.test/nodesignal.xml")
-        assertEquals(0, tablet.db.episodeQueries.selectByPodcast(row.id).executeAsList().count { it.download_state != 0L })
+        assertEquals(0, tablet.db.episodeQueries.selectByPodcast(row.id).awaitAsList().count { it.download_state != 0L })
     }
 
     // ── M-05 ────────────────────────────────────────────────────────────────
@@ -911,7 +1043,7 @@ class SyncAuditTest {
         val a = SyncDevice(relay, scope, nsec)
         val b = SyncDevice(relay, scope, nsec)
         for (d in listOf(a, b)) d.podcasts.subscribe("https://pod.test/nodesignal.xml")
-        fun ids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row("https://pod.test/nodesignal.xml").id).executeAsList().take(3).map { it.id }
+        suspend fun ids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row("https://pod.test/nodesignal.xml").id).awaitAsList().take(3).map { it.id }
         ids(a).forEach { a.queue.applySynced(it, 7) }
         ids(b).reversed().forEach { b.queue.applySynced(it, 7) }
         assertEquals(a.queueGuids(), b.queueGuids())

@@ -1,5 +1,7 @@
 package space.sovereigncast.hopp.ui.identity
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
@@ -69,6 +71,17 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
+import space.sovereigncast.hopp.resources.nostr_bunker_qr
+import space.sovereigncast.hopp.resources.nostr_extension
+import space.sovereigncast.hopp.resources.nostr_extension_failed
+import space.sovereigncast.hopp.resources.nostr_extension_rejected
+import space.sovereigncast.hopp.resources.nostr_hero_text_web
+import space.sovereigncast.hopp.resources.nostr_sign_out_text_web
+import space.sovereigncast.hopp.resources.nostr_tab_only
+import space.sovereigncast.hopp.resources.nostr_tab_only_note
+import space.sovereigncast.hopp.resources.nostr_tab_only_on
+import space.sovereigncast.hopp.resources.nostr_via_extension
+import space.sovereigncast.hopp.resources.nostr_web_note
 import space.sovereigncast.hopp.resources.stats_nostr_link
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.cancel
@@ -232,6 +245,10 @@ class NostrIdentityViewModel(
     val exported: StateFlow<String?> = _exported.asStateFlow()
     /** Whether a signer app (Amber) is on the device — then signing in with it comes first. */
     val signerApp: Boolean = runCatching { identities.externalSigner?.available() == true }.getOrDefault(false)
+    /** The signer is a browser extension (NIP-07), not an app. */
+    val signerIsExtension: Boolean = identities.externalSigner?.browserExtension == true
+    /** false in the browser: no key is made or pasted here, only signers that keep it (ADR 0022, 2). */
+    val keysInApp: Boolean = identities.keysInApp
     /** What went wrong with the signer app, for one line under its button. */
     private val _signerError = MutableStateFlow<SignerError?>(null)
     val signerError: StateFlow<SignerError?> = _signerError.asStateFlow()
@@ -434,7 +451,7 @@ class NostrIdentityViewModel(
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
-            identities.signOut()
+            identities.signOutCompletely()
         }
     }
 
@@ -488,7 +505,14 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
             androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Comment, null, Modifier.size(36.dp))
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Text(stringResource(Res.string.nostr_hero_text), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(stringResource(if (vm.keysInApp) Res.string.nostr_hero_text else Res.string.nostr_hero_text_web), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+    if (!vm.keysInApp) {
+        // The browser holds no key (ADR 0022, 2): the ways in with a signer, right here.
+        Text(stringResource(Res.string.nostr_web_note), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodyMedium)
+        LocalPlatformActions.current.tabOnly?.let { TabOnlyRow(it) }
+        SignIn(busy, vm)
+        return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
     Button(onClick = { vm.create(name) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
@@ -518,16 +542,21 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     // connection string does (code review 2026-10-17, H9).
     var text by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var bunker by rememberSaveable { mutableStateOf(false) }
+    // In the browser a signer elsewhere is one of the two ways in: open from the start.
+    var bunker by rememberSaveable { mutableStateOf(!vm.keysInApp) }
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
     if (vm.signerApp) {
-        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.nostr_amber)) }
+        val ext = vm.signerIsExtension
+        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
         signerError?.let {
-            Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_amber_rejected else Res.string.nostr_amber_failed),
+            Text(stringResource(when {
+                it == NostrIdentityViewModel.SignerError.Rejected -> if (ext) Res.string.nostr_extension_rejected else Res.string.nostr_amber_rejected
+                else -> if (ext) Res.string.nostr_extension_failed else Res.string.nostr_amber_failed
+            }),
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (vault != null) {
+    if (vault != null && vm.keysInApp) {
         val iCloud = vault.kind == space.sovereigncast.hopp.platform.KeyVault.Kind.ICloudKeychain
         val saved by vm.vaultKeys.collectAsState()
         OutlinedButton(onClick = { vm.restoreFromVault(vault) }, enabled = state != NostrIdentityViewModel.Vault.Working, modifier = Modifier.fillMaxWidth()) {
@@ -540,7 +569,7 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
         }
         if (state == NostrIdentityViewModel.Vault.NotFound) Text(stringResource(Res.string.nostr_vault_none), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
-    OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
+    if (vm.keysInApp) OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_import_hint)) },
         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
     if (locked) OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true,
         label = { Text(stringResource(Res.string.nostr_import_password)) }, visualTransformation = PasswordVisualTransformation(),
@@ -572,6 +601,9 @@ private fun BunkerLogin(vm: NostrIdentityViewModel) {
     when (val s = state) {
         is NostrIdentityViewModel.Bunker.Offer -> {
             Text(stringResource(Res.string.nostr_bunker_offer_note), style = MaterialTheme.typography.bodySmall)
+            // Scanned by a signer on the phone — the easy way from a computer (maintainer 2026-10-28).
+            space.sovereigncast.hopp.ui.components.QrImage(s.uri, stringResource(Res.string.nostr_bunker_qr),
+                Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 240.dp).padding(vertical = 4.dp))
             SelectionContainer { Text(s.uri, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { runCatching { uri.openUri(s.uri) } }) { Text(stringResource(Res.string.nostr_bunker_open)) }
@@ -639,7 +671,11 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         }
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
-    if (!me.holdsKey) Text(stringResource(Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
+    actions.tabOnly?.let { tabOnly ->
+        val active by tabOnly.active.collectAsState()
+        if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
+    }
     // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
     val openStats = LocalOpenStats.current
     OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }
@@ -661,8 +697,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (settings?.nostrSync == true) SyncStatusLine(vm)
     // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
     if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
-    SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, vm::setNostrBoosts)
-    SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, vm::setAnonymous)
+    SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
+    SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -679,7 +715,11 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (confirmSignOut) AlertDialog(
         onDismissRequest = { confirmSignOut = false },
         title = { Text(stringResource(Res.string.nostr_sign_out)) },
-        text = { Text(stringResource(if (me.holdsKey) Res.string.nostr_sign_out_text else Res.string.nostr_sign_out_text_amber)) },
+        text = { Text(stringResource(when {
+            !vm.keysInApp -> Res.string.nostr_sign_out_text_web
+            me.holdsKey -> Res.string.nostr_sign_out_text
+            else -> Res.string.nostr_sign_out_text_amber
+        })) },
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
@@ -847,19 +887,32 @@ private fun RelaysSheet(vm: NostrIdentityViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(shown?.list?.size) { if (shown != null && shown.problem == null && !shown.working) address = "" }
 }
 
+/** "This is not my device" (ADR 0022, 2): once on, until the tab closes — there is no way back to keeping. */
 @Composable
-private fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun TabOnlyRow(tabOnly: space.sovereigncast.hopp.platform.TabOnly) {
+    val active by tabOnly.active.collectAsState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var working by remember { mutableStateOf(false) }
+    SwitchRow(stringResource(Res.string.nostr_tab_only), stringResource(if (active) Res.string.nostr_tab_only_on else Res.string.nostr_tab_only_note),
+        active || working, enabled = !active && !working) {
+        working = true
+        scope.launch { try { tabOnly.begin() } finally { working = false } }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, note: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     // The whole row switches, read out as one switch with its title.
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
+            .toggleable(checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = null)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

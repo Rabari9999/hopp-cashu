@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.data
 
 import androidx.test.core.app.ApplicationProvider
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -29,7 +30,7 @@ class AndroidDriverTest {
         <item><title>Ep 1</title><guid>ep-1</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/1.mp3" type="audio/mpeg"/></item>
         </channel></rss>"""
     private val http = HttpClient(MockEngine { respond(feed) })
-    private val db = HoppDatabase(AndroidSqliteDriver(HoppDatabase.Schema, ApplicationProvider.getApplicationContext(), "test.db"))
+    private val db = HoppDatabase(AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), ApplicationProvider.getApplicationContext(), "test.db"))
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1000 })
     private val episodes = EpisodeRepository(db, http, { 1000 })
 

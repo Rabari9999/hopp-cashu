@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.playback
 
 import androidx.test.core.app.ApplicationProvider
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -34,7 +35,7 @@ class MediaTreeTest {
         </channel></rss>"""
     private val context = ApplicationProvider.getApplicationContext<android.app.Application>()
     private val http = HttpClient(MockEngine { respond(feed) })
-    private val db = HoppDatabase(AndroidSqliteDriver(HoppDatabase.Schema, context, null))
+    private val db = HoppDatabase(AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), context, null))
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1000 })
     private val episodes = EpisodeRepository(db, http, { 1000 })
     private val queue = QueueRepository(db)

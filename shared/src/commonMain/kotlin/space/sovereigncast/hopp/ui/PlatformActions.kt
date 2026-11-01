@@ -10,6 +10,15 @@ interface PlatformActions {
     fun exportOpml(text: String)
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
+    /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
+    val canDownload: Boolean get() = true
+    /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments: not in
+     *  the browser for now ([space.sovereigncast.hopp.di.Platform.wallet]). */
+    val canPay: Boolean get() = true
+    /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */
+    val canSaveAudio: Boolean get() = false
+    /** Saves the audio file at [url] as [name], as the platform can (maintainer 2026-10-28). */
+    fun saveAudio(url: String, name: String) = Unit
     /** Whether a downloaded episode can be handed on as a file (maintainer 2026-10-26). */
     val canShareFiles: Boolean get() = false
     /** Hands the downloaded file at [path] to the system's share sheet as [name] ("Show – Episode.mp3"). */
@@ -25,6 +34,16 @@ interface PlatformActions {
     val canPickLanguage: Boolean get() = false
     /** Opens the system's language choice for Hopp. */
     fun openLanguageSettings() = Unit
+    /** Where the system offers no language choice for Hopp (the browser): the languages Hopp
+     *  offers itself, by code, each in its own name; null where the system's page is the way. */
+    val appLanguages: Map<String, String>? get() = null
+    /** The language chosen in [appLanguages]; null: the system's (the browser's). */
+    val appLanguage: String? get() = null
+    /** Chooses [code] from [appLanguages], null for the system's; Hopp starts again in it. */
+    fun setAppLanguage(code: String?) = Unit
+    /** Whether the lists' refresh gets a button in the top bar: a mouse cannot pull a list down
+     *  (the browser on a desktop; maintainer 2026-11-01). */
+    val refreshButton: Boolean get() = false
     /** Keeps the screen out of screenshots and the recent-apps preview while on. */
     fun secureScreen(on: Boolean) = Unit
     /** Opens the system's VPN settings. */
@@ -41,8 +60,14 @@ interface PlatformActions {
     fun scanQr(onText: (String) -> Unit) = Unit
     /** Where the Nostr key can be kept beyond this device; null where there is none. */
     val keyVault: space.sovereigncast.hopp.platform.KeyVault? get() = null
+    /** "This is not my device" at sign-in (ADR 0022, 2); null where Hopp keeps its data anyway (the apps). */
+    val tabOnly: space.sovereigncast.hopp.platform.TabOnly? get() = null
     /** Copies a secret: marked sensitive, gone from the clipboard after a minute, not sent to other devices. */
     fun copySecret(text: String, label: String) = copyText(text, label)
+    /** The listener's choice: light (false), dark (true) or the system's (null) — for what the system draws
+     *  around Hopp, the status bar's icons (review 2026-10-31: they followed the system's, unreadable on a
+     *  theme chosen against it). */
+    fun themeChosen(dark: Boolean?) = Unit
 }
 
 object NoPlatformActions : PlatformActions {

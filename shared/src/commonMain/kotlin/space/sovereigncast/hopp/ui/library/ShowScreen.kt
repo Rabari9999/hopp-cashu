@@ -6,6 +6,7 @@ import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
 import androidx.compose.foundation.background
 import space.sovereigncast.hopp.data.Show
+import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.sovereigncast.TopEpisodeRow
 import space.sovereigncast.hopp.resources.sc_tab_top
 import space.sovereigncast.hopp.ui.sovereigncast.SuggestButton
@@ -199,7 +200,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = { vm.refresh { community.reverify() } }) {
         TabbedPage(
-            labels, pager,
+            labels, pager, title = show?.title,
             header = {
                 Column {
                     Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -222,7 +223,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(onClick = { confirm = true }) { Text("✓ " + stringResource(Res.string.show_subscribed)) }
                         // The whole show, not one episode (device feedback 2026-10-08).
-                        if (meta?.value != null) BoostPill { boosting = true }
+                        if (meta?.value != null && LocalPlatformActions.current.canPay) BoostPill { boosting = true }
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
@@ -237,7 +238,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                     // to look for a boost-capable variant — only on a tap: by
                     // itself the page would tell the index about a subscription
                     // (ADR 0015; device feedback 2026-10-16, review 2026-10-19).
-                    if (meta != null && meta?.value == null) when (val alt = vm.alternative.collectAsState().value) {
+                    if (meta != null && meta?.value == null && LocalPlatformActions.current.canPay) when (val alt = vm.alternative.collectAsState().value) {
                         ShowViewModel.Alternative.NotAsked, ShowViewModel.Alternative.Searching -> Text(
                             "⚡ " + stringResource(Res.string.show_find_boostable) + if (alt == ShowViewModel.Alternative.Searching) " …" else " ›",
                             Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(8.dp))
@@ -285,7 +286,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                 ShowTab.Episodes, null -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     item(key = "search") { EpisodeSearchField(query, vm::search, found?.size) }
                     items(found ?: episodes.orEmpty(), key = { it.id }) { item ->
-                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }) {
+                        EpisodeRow(item, showPodcast = false, onClick = { nav.open(item) }, showCover = show?.imageUrl) {
                             PlayButton(item)
                             EpisodeMenu(item)
                         }
@@ -405,7 +406,7 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
             Icon(Icons.Rounded.MoreVert, stringResource(Res.string.show_options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
+            if (LocalPlatformActions.current.canDownload) DropdownMenuItem(
                 text = { Text(stringResource(Res.string.show_auto_download)) },
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },

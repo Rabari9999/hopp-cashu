@@ -41,6 +41,10 @@ val PLAYER_PANE_MIN: Dp = 400.dp
 /** How wide a list of episodes may get: wider, the play button drifts away from the title. */
 val LIST_WIDTH: Dp = 840.dp
 
+/** How wide a grid of shows may get: centred like the other pages, its controls near its
+ *  cards — at full width the view switch sat 1 300 px from the first card (UX review 2026-10-30). */
+val GRID_WIDTH: Dp = 1200.dp
+
 /** How wide running text may get: show notes, settings, the wallet — beyond this
  *  a line is too long to read (about 80 characters). */
 val READABLE_WIDTH: Dp = 720.dp

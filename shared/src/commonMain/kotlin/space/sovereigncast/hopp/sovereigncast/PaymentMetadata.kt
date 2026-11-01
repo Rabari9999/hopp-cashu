@@ -1,10 +1,10 @@
 package space.sovereigncast.hopp.sovereigncast
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.value.BoostContext
 import space.sovereigncast.hopp.value.Share
 
@@ -20,7 +20,7 @@ class PaymentMetadataSource(private val db: HoppDatabase, private val api: Liste
 
     /** The provider for one show's boost, or null when it has no such instance. */
     suspend fun forShow(podcastId: Long, appVersion: String): (suspend (Share, Long, BoostContext) -> String?)? {
-        val row = withContext(Dispatchers.IO) { db.podcastQueries.selectSovereigncast(podcastId).executeAsOneOrNull() } ?: return null
+        val row = withContext(ioDispatcher) { db.podcastQueries.selectSovereigncast(podcastId).awaitAsOneOrNull() } ?: return null
         val base = row.sc_base_url ?: return null
         val show = row.sc_capabilities_json?.let { runCatching { json.decodeFromString(ScShow.serializer(), it) }.getOrNull() } ?: return null
         if (!show.capabilities.paymentMetadata) return null

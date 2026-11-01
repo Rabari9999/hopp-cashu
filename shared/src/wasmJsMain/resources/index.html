@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hopp — podcasts in your browser</title>
+    <meta name="description" content="The Podcasting 2.0 player, right in your browser: no account, no app store. Chapters, transcripts and your library – in sync with Hopp on your phone over Nostr.">
+    <!-- What a shared link shows (maintainer 2026-10-30): Open Graph, read by messengers, Mastodon and Nostr clients. -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Hopp">
+    <meta property="og:url" content="https://play.sovereigncast.space/">
+    <meta property="og:title" content="Hopp — podcasts in your browser">
+    <meta property="og:description" content="The Podcasting 2.0 player, right in your browser: no account, no app store. Chapters, transcripts and your library – in sync with Hopp on your phone over Nostr.">
+    <meta property="og:image" content="https://play.sovereigncast.space/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Hopp, the honest open podcast player: podcasts in your browser — Podcasting 2.0, no account, sync over Nostr">
+    <meta name="twitter:card" content="summary_large_image">
+    <!-- Where feeds and images are fetched through (ADR 0022, 6, web/proxy): set where Hopp is served. -->
+    <meta name="hopp-feed-proxy" content="http://127.0.0.1:8643/">
+    <link rel="stylesheet" href="splash.css">
+    <!-- The tab's icon, the home screen's (iOS takes only a PNG) and the installed app's. -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+</head>
+<body>
+<div id="hopp-splash" role="img" aria-label="Hopp">
+    <svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="7"><circle cx="22" cy="68" r="12"/><path d="M22 47C22 12 78 12 78 47"/></g><circle cx="78" cy="68" r="12" fill="currentColor"/></svg>
+</div>
+<script src="hopp.js"></script>
+</body>
+</html>

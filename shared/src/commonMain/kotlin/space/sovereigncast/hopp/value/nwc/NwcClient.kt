@@ -33,6 +33,7 @@ import space.sovereigncast.hopp.value.Bolt11
 import space.sovereigncast.hopp.value.TlvRecord
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import space.sovereigncast.hopp.value.WalletClient
 
 class NwcException(val code: String, message: String) : Exception("$code: $message") {
     /** The request reached the wallet, but no answer said what became of it —
@@ -73,13 +74,13 @@ class NwcClient(
     private val connector: RelayConnector,
     private val now: () -> Long,
     private val timeout: Duration = 60.seconds,
-) {
+) : WalletClient {
     private val walletKey = connection.walletPubkey.hexToBytes()
     private val conversationKey by lazy { Nip44.conversationKey(connection.clientKeys.secretKey, walletKey) }
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The wallet's capabilities, from its replaceable info event (kind 13194). */
-    suspend fun info(): WalletInfo = withSession { session ->
+    override suspend fun info(): WalletInfo = withSession { session ->
         val sub = "info"
         val filter = buildJsonObject {
             putJsonArray("kinds") { add(JsonPrimitive(13194)) }
@@ -110,7 +111,7 @@ class NwcClient(
             result["pubkey"]?.jsonPrimitive?.contentOrNull?.lowercase()?.takeIf { it.length == 66 }
     }
 
-    suspend fun payInvoice(invoice: String, amountMsat: Long? = null): PaymentResult {
+    override suspend fun payInvoice(invoice: String, amountMsat: Long?): PaymentResult {
         val paymentHash = runCatching { Bolt11.parse(invoice).paymentHash }.getOrNull()
         val result = request("pay_invoice", buildJsonObject {
             put("invoice", invoice)
@@ -119,7 +120,7 @@ class NwcClient(
         return proof(result, paymentHash)
     }
 
-    suspend fun payKeysend(amountMsat: Long, pubkey: String, tlvRecords: List<TlvRecord>): PaymentResult {
+    override suspend fun payKeysend(amountMsat: Long, pubkey: String, tlvRecords: List<TlvRecord>): PaymentResult {
         val result = request("pay_keysend", buildJsonObject {
             put("amount", amountMsat)
             put("pubkey", pubkey)
@@ -153,7 +154,7 @@ class NwcClient(
 
     private fun unknown(why: String) = NwcException(NwcException.OUTCOME_UNKNOWN, why)
 
-    suspend fun balanceMsat(): Long =
+    override suspend fun balanceMsat(): Long =
         request("get_balance", JsonObject(emptyMap()))["balance"]?.jsonPrimitive?.longOrNull
             ?: throw NwcException("BAD_RESPONSE", "no balance in response")
 

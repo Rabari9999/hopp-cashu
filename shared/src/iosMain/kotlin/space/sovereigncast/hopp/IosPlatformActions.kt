@@ -12,6 +12,7 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIPasteboard
 import platform.Foundation.dateByAddingTimeInterval
+import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
 import platform.UIKit.popoverPresentationController
 import space.sovereigncast.hopp.ui.PlatformActions
@@ -152,6 +153,17 @@ class IosPlatformActions : PlatformActions {
             pop.permittedArrowDirections = 0u
         }
         top.presentViewController(sheet, animated = true, completion = null)
+    }
+
+    /** The window's style, so the status bar follows the listener's choice; Compose reads it back as the
+     *  system's, which is what it then is for Hopp. Null: the system's again. */
+    override fun themeChosen(dark: Boolean?) {
+        @Suppress("DEPRECATION")
+        UIApplication.sharedApplication.keyWindow?.overrideUserInterfaceStyle = when (dark) {
+            true -> UIUserInterfaceStyle.UIUserInterfaceStyleDark
+            false -> UIUserInterfaceStyle.UIUserInterfaceStyleLight
+            null -> UIUserInterfaceStyle.UIUserInterfaceStyleUnspecified
+        }
     }
 
     private fun topController(): UIViewController? {

@@ -1,12 +1,12 @@
 package space.sovereigncast.hopp.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.model.Episode
 import space.sovereigncast.hopp.model.Person
 import space.sovereigncast.hopp.model.Podcast
+import space.sovereigncast.hopp.platform.ioDispatcher
 
 /** Someone the subscribed feeds name (`podcast:person`), as the listener's library knows them. */
 data class PersonMatch(
@@ -47,21 +47,21 @@ class PeopleRepository(private val db: HoppDatabase) {
         }.sortedByDescending { it.episodes }.take(max)
     }
 
-    private suspend fun scan(key: String, match: (String) -> Boolean): Map<String, List<Pair<EpisodeItem, Person>>> = withContext(Dispatchers.IO) {
+    private suspend fun scan(key: String, match: (String) -> Boolean): Map<String, List<Pair<EpisodeItem, Person>>> = withContext(ioDispatcher) {
         val pattern = "%" + sieve(key).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         val found = mutableMapOf<String, MutableList<Pair<EpisodeItem, Person>>>()
         fun add(item: EpisodeItem, persons: List<Person>) {
             persons.distinctBy { key(it.name) }.forEach { p -> key(p.name).takeIf(match)?.let { found.getOrPut(it) { mutableListOf() } += item to p } }
         }
-        eq.naming(pattern).executeAsList().forEach { r ->
+        eq.naming(pattern).awaitAsList().forEach { r ->
             val persons = runCatching { json.decodeFromString(Episode.serializer(), r.meta_json).persons }.getOrDefault(emptyList())
             add(episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url, r.chapters_url,
                 r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length), persons)
         }
-        db.podcastQueries.selectAll().executeAsList().forEach { show ->
+        db.podcastQueries.selectAll().awaitAsList().forEach { show ->
             val persons = runCatching { json.decodeFromString(Podcast.serializer(), show.meta_json).persons }.getOrDefault(emptyList())
             if (persons.none { match(key(it.name)) }) return@forEach
-            eq.namingNoOne(show.id).executeAsList().forEach { r ->
+            eq.namingNoOne(show.id).awaitAsList().forEach { r ->
                 add(episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url, r.chapters_url,
                     r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length), persons)
             }

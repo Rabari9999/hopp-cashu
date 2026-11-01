@@ -1,7 +1,6 @@
 package space.sovereigncast.hopp.directory
 
 import kotlinx.coroutines.flow.first
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -19,6 +18,7 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** Discover's sources (ADR 0008) against scripted directories. */
 class DirectoryTest {
@@ -100,7 +100,7 @@ class DirectoryTest {
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val settings = SettingsRepository(db)
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
 

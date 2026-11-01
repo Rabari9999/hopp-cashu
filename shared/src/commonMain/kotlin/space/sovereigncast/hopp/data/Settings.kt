@@ -1,14 +1,14 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.db.HoppDatabase
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 
@@ -68,6 +68,8 @@ data class Settings(
     val libraryAsList: Boolean = false,
     /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
     val librarySort: String = SORT_NEWEST,
+    /** Light, dark or as the system (the browser) says (maintainer 2026-10-30) — this device's, not synced. */
+    val theme: String = THEME_SYSTEM,
     /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
      *  or empty for the device's (device feedback 2026-10-19). */
     val discoverLanguage: String = "",
@@ -131,6 +133,10 @@ data class Settings(
         const val SORT_TITLE = "title"
         const val SORT_UNHEARD = "unheard"
         val sortChoices = listOf(SORT_NEWEST, SORT_TITLE, SORT_UNHEARD)
+        const val THEME_SYSTEM = "system"
+        const val THEME_LIGHT = "light"
+        const val THEME_DARK = "dark"
+        val themeChoices = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"
@@ -180,6 +186,7 @@ data class Settings(
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
+                theme = values["theme"]?.takeIf { it in themeChoices } ?: d.theme,
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
@@ -238,6 +245,7 @@ data class Settings(
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,
+        "theme" to theme,
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_hidden" to homeHidden.joinToString("\n"),
@@ -261,13 +269,13 @@ class SettingsRepository(
     /** Listening habits ([Settings.SYNCED]), noted for sync (ADR 0021, 5). */
     private val journal: SyncJournal = SyncJournal.Off,
 ) {
-    val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(Dispatchers.IO)
+    val settings: Flow<Settings> = db.settingQueries.selectAll().asFlow().mapToList(ioDispatcher)
         .map { rows -> Settings.from(rows.associate { it.key to it.value_ }) }
 
     suspend fun current(): Settings = settings.first()
 
-    suspend fun update(change: (Settings) -> Settings) = withContext(Dispatchers.IO) {
-        val before = Settings.from(db.settingQueries.selectAll().executeAsList().associate { it.key to it.value_ })
+    suspend fun update(change: (Settings) -> Settings) = withContext(ioDispatcher) {
+        val before = Settings.from(db.settingQueries.selectAll().awaitAsList().associate { it.key to it.value_ })
         val after = change(before)
         val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
         db.transaction { changed.forEach { (k, v) -> db.settingQueries.put(k, v) } }
@@ -275,7 +283,7 @@ class SettingsRepository(
     }
 
     /** Listening habits from another device (sync): taken as they are, not noted again. */
-    suspend fun applySynced(values: Map<String, String>) = withContext(Dispatchers.IO) {
+    suspend fun applySynced(values: Map<String, String>) = withContext(ioDispatcher) {
         db.transaction { values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) } }
     }
 

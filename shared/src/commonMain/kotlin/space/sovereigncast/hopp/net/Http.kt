@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.net
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.websocket.WebSockets
@@ -15,15 +16,18 @@ import kotlinx.io.readByteArray
 import space.sovereigncast.hopp.platform.AppInfo
 
 /** The one HTTP client: Hopp's User-Agent on every request (ADR 0015) — the
- *  default OkHttp agent would be counted as a bot by Sovereigncast. */
-fun createHttpClient(app: AppInfo): HttpClient = HttpClient {
-    install(UserAgent) { agent = app.userAgent }
+ *  default OkHttp agent would be counted as a bot by Sovereigncast. Not in the
+ *  browser, which sends its own and would ask first before each request with
+ *  another (a CORS preflight). [platform]: what a platform adds (the web's feed proxy). */
+fun createHttpClient(app: AppInfo, platform: HttpClientConfig<*>.() -> Unit = {}): HttpClient = HttpClient {
+    if (app.platform != "Web") install(UserAgent) { agent = app.userAgent }
     install(HttpTimeout) {
         connectTimeoutMillis = 15_000
         requestTimeoutMillis = 60_000
     }
     install(WebSockets)
     followRedirects = true
+    platform()
 }
 
 /** An answer larger than Hopp reads for its kind (see [Limits]). */

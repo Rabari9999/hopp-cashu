@@ -2,11 +2,18 @@ package space.sovereigncast.hopp.nostr
 
 import io.ktor.http.Url
 import io.ktor.http.encodeURLParameter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -174,7 +181,8 @@ class Nip46Client(
     private suspend fun <T> withSession(block: suspend (RelaySession) -> T): T {
         var last: Exception? = null
         for (url in relays) {
-            val session = try { connector.connect(url) } catch (e: Exception) { last = e; continue }
+            // A relay that never answers is skipped, not waited on for good.
+            val session = try { withTimeout(CONNECT_WAIT) { connector.connect(url) } } catch (e: Exception) { last = e; continue }
             try { return block(session) } finally { runCatching { session.close() } }
         }
         throw Nip46Exception("no relay of the signer reachable" + (last?.message?.let { ": $it" } ?: ""))
@@ -194,40 +202,54 @@ class Nip46Client(
             val json = Json { ignoreUnknownKeys = true }
             val since = now() - 10
             var last: Exception? = null
-            for (url in offer.relays) {
-                val session = try { connector.connect(url) } catch (e: Exception) { last = e; continue }
-                try {
-                    return coroutineScope {
-                        val found = async(start = CoroutineStart.UNDISPATCHED) {
-                            session.incoming.mapNotNull { text ->
-                                runCatching {
-                                    val arr = json.parseToJsonElement(text).jsonArray
-                                    if (arr[0].jsonPrimitive.content != "EVENT") return@runCatching null
-                                    val e = json.decodeFromJsonElement(Event.serializer(), arr[2])
-                                    if (e.kind != KIND || !e.isValid()) return@runCatching null
-                                    val key = Nip44.conversationKey(offer.clientKeys.secretKey, e.pubkey.hexToBytes())
-                                    val o = json.parseToJsonElement(Nip44.decrypt(e.content, key)).jsonObject
-                                    e.pubkey.takeIf { (o["result"] as? JsonPrimitive)?.contentOrNull == offer.secret }
-                                }.getOrNull()
-                            }.first()
+            // On every relay of the code at once (maintainer 2026-10-28: relay.nsec.app did not
+            // answer, Hopp waited there alone, and Amber's answer on nos.lol went unheard).
+            val (relay, signer) = withTimeout(wait) {
+                channelFlow {
+                    for (url in offer.relays) launch {
+                        try {
+                            val session = withTimeout(CONNECT_WAIT) { connector.connect(url) }
+                            try {
+                                val found = async(start = CoroutineStart.UNDISPATCHED) {
+                                    session.incoming.mapNotNull { text -> connectAnswer(json, text, offer) }.firstOrNull()
+                                }
+                                session.send(buildJsonArray {
+                                    add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
+                                    add(buildJsonObject {
+                                        putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
+                                        putJsonArray("#p") { add(JsonPrimitive(offer.clientKeys.publicKeyHex)) }
+                                        put("since", since)
+                                    })
+                                }.toString())
+                                found.await()?.let { send(url to it) }
+                            } finally {
+                                withContext(NonCancellable) { runCatching { session.close() } }
+                            }
+                        } catch (e: Exception) {
+                            // A relay that does not answer or drops the line: the others still listen.
+                            if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                            last = e
                         }
-                        session.send(buildJsonArray {
-                            add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
-                            add(buildJsonObject {
-                                putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
-                                putJsonArray("#p") { add(JsonPrimitive(offer.clientKeys.publicKeyHex)) }
-                                put("since", since)
-                            })
-                        }.toString())
-                        val signer = withTimeout(wait) { found.await() }
-                        Nip46Client(offer.clientKeys, signer, offer.relays, connector, now)
                     }
-                } finally {
-                    runCatching { session.close() }
-                }
-            }
-            throw Nip46Exception("no relay reachable" + (last?.message?.let { ": $it" } ?: ""))
+                }.firstOrNull()
+            } ?: throw Nip46Exception("no relay reachable" + (last?.message?.let { ": $it" } ?: ""))
+            // Further requests first where the signer answered.
+            return Nip46Client(offer.clientKeys, signer, listOf(relay) + (offer.relays - relay), connector, now)
         }
+
+        /** The signer's key, from a `connect` answer carrying the code's secret; else null. */
+        private fun connectAnswer(json: Json, text: String, offer: NostrConnectOffer): String? = runCatching {
+            val arr = json.parseToJsonElement(text).jsonArray
+            if (arr[0].jsonPrimitive.content != "EVENT") return null
+            val e = json.decodeFromJsonElement(Event.serializer(), arr[2])
+            if (e.kind != KIND || !e.isValid()) return null
+            val key = Nip44.conversationKey(offer.clientKeys.secretKey, e.pubkey.hexToBytes())
+            val o = json.parseToJsonElement(Nip44.decrypt(e.content, key)).jsonObject
+            e.pubkey.takeIf { (o["result"] as? JsonPrimitive)?.contentOrNull == offer.secret }
+        }.getOrNull()
+
+        /** How long a relay may take to open the connection before the next one is tried. */
+        private val CONNECT_WAIT = 10.seconds
     }
 }
 

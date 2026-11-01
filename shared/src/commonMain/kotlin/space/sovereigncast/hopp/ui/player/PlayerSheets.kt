@@ -62,9 +62,15 @@ import space.sovereigncast.hopp.sovereigncast.Suggestion
 fun PeopleSheet(persons: List<Person>, show: String? = null, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(stringResource(Res.string.sheet_people), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        LazyColumn(Modifier.padding(bottom = 24.dp)) {
-            items(persons) { p -> PersonRow(p, Modifier.padding(horizontal = 8.dp), show = show) }
-        }
+        PeopleList(persons, show, Modifier.padding(bottom = 24.dp))
+    }
+}
+
+/** The people of [PeopleSheet] — also a tab of now playing where it has the room (UX review 2026-10-30). */
+@Composable
+fun PeopleList(persons: List<Person>, show: String?, modifier: Modifier = Modifier) {
+    LazyColumn(modifier) {
+        items(persons) { p -> PersonRow(p, Modifier.padding(horizontal = 8.dp), show = show) }
     }
 }
 
@@ -75,6 +81,14 @@ fun PeopleSheet(persons: List<Person>, show: String? = null, onDismiss: () -> Un
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        CommunityContent(podcastId, Modifier.heightIn(max = 640.dp))
+    }
+}
+
+/** What [CommunitySheet] shows — also a tab of now playing where it has the room (UX review 2026-10-30). */
+@Composable
+fun CommunityContent(podcastId: Long, modifier: Modifier = Modifier) {
     val community: CommunityViewModel = koinViewModel(key = "community-$podcastId") { parametersOf(podcastId) }
     PollCommunity(community)
     val layer by community.layer.collectAsState()
@@ -86,30 +100,28 @@ fun CommunitySheet(podcastId: Long, onDismiss: () -> Unit) {
     var details by remember { mutableStateOf<Any?>(null) }
     val colors = MaterialTheme.colorScheme
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        LazyColumn(Modifier.heightIn(max = 640.dp)) {
-            round?.let { r -> item(key = "rb") { ReleaseBoostingCard(r, onOpen = { details = r }) { paying = ScTarget.ReleaseBoosting to r.episode.title } } }
-            itemsIndexed(unlocks.filterNot { it.unlocked }, key = { i, _ -> "b2u$i" }) { _, u ->
-                UnlockCard(u, onOpen = { details = u }) { paying = ScTarget.Boost2Unlock(u.episode.episodeGuid) to u.episode.title }
-            }
-            if (layer?.show?.capabilities?.suggestions == true) {
-                item(key = "sug-h") {
-                    Text(stringResource(Res.string.sc_suggestions), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp), style = MaterialTheme.typography.titleMedium)
-                }
-                val list = suggestions
-                when {
-                    list == null -> item(key = "sug-loading") { CircularProgressIndicator(Modifier.padding(16.dp)) }
-                    list.isEmpty() -> item(key = "sug-none") { Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant) }
-                    else -> items(list, key = { "sug" + it.id }) { sg ->
-                        val l = layer
-                        SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg },
-                            onBoost = { paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { community.vote(sg) }
-                    }
-                }
-                item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
-            }
-            item { Spacer(Modifier.height(24.dp)) }
+    LazyColumn(modifier) {
+        round?.let { r -> item(key = "rb") { ReleaseBoostingCard(r, onOpen = { details = r }) { paying = ScTarget.ReleaseBoosting to r.episode.title } } }
+        itemsIndexed(unlocks.filterNot { it.unlocked }, key = { i, _ -> "b2u$i" }) { _, u ->
+            UnlockCard(u, onOpen = { details = u }) { paying = ScTarget.Boost2Unlock(u.episode.episodeGuid) to u.episode.title }
         }
+        if (layer?.show?.capabilities?.suggestions == true) {
+            item(key = "sug-h") {
+                Text(stringResource(Res.string.sc_suggestions), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp), style = MaterialTheme.typography.titleMedium)
+            }
+            val list = suggestions
+            when {
+                list == null -> item(key = "sug-loading") { CircularProgressIndicator(Modifier.padding(16.dp)) }
+                list.isEmpty() -> item(key = "sug-none") { Text(stringResource(Res.string.sc_no_suggestions), Modifier.padding(16.dp), color = colors.onSurfaceVariant) }
+                else -> items(list, key = { "sug" + it.id }) { sg ->
+                    val l = layer
+                    SuggestionRow(sg, voted = l != null && "${l.show.podcastGuid}/${sg.id}" in votes, onOpen = { details = sg },
+                        onBoost = { paying = ScTarget.SuggestionBoost(sg.id) to sg.title }) { community.vote(sg) }
+                }
+            }
+            item(key = "sug-new") { SuggestButton { paying = ScTarget.NewSuggestion() to "" } }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
     }
 
     when (val d = details) {

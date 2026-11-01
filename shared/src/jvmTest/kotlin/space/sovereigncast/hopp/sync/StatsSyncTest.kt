@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -121,7 +122,7 @@ class StatsSyncTest {
         phone.listening.heard(phone.item(0), 10_000, 10_000)
         phone.sync.onBackground { phone.listening.flush(force = true) }
         kotlinx.coroutines.withTimeout(5_000) {
-            while (phone.db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } == 0L) kotlinx.coroutines.delay(10)
+            while (phone.db.listeningQueries.showTotals(0, 999_912).awaitAsList().sumOf { it.heard ?: 0 } == 0L) kotlinx.coroutines.delay(10)
         }
     }
 
@@ -156,10 +157,10 @@ class StatsSyncTest {
             StatsEntries.showKey("abcd", 202613, "url:x") to e("h" to 600),
             StatsEntries.dayKey("abcd", 20_000) to e("h" to 30 * 3600),
         ))
-        val shows = phone.db.listeningQueries.showsOf("abcd").executeAsList()
+        val shows = phone.db.listeningQueries.showsOf("abcd").awaitAsList()
         assertEquals(mapOf("url:x" to 600_000L, "url:y" to 0L, "url:z" to 0L), shows.associate { it.show to it.heard_ms })
         assertEquals(21_000L, shows.single { it.show == "url:x" }.boost_msat)
-        assertTrue(phone.db.listeningQueries.daysOf("abcd").executeAsList().isEmpty(), "more than a day in a day")
+        assertTrue(phone.db.listeningQueries.daysOf("abcd").awaitAsList().isEmpty(), "more than a day in a day")
     }
 
     /** Days leave sync after 400 local days, as they were noted — not by the UTC date

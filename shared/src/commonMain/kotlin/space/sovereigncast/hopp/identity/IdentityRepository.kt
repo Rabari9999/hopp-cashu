@@ -87,8 +87,12 @@ class IdentityRepository(
     private val secrets: SecretStore,
     private val publisher: RelayPublisher,
     private val clock: Clock,
-    /** A signer app on the device (Android, NIP-55); null where there is none. */
+    /** A signer app on the device (Android, NIP-55) or extension in the browser (NIP-07); null where there is none. */
     val externalSigner: ExternalSigner? = null,
+    /** false in the browser: no key is made or imported there — injected code could read it (ADR 0022, 2). */
+    val keysInApp: Boolean = true,
+    /** What else goes after signing out — in the browser, all of Hopp's data there (ADR 0022, 2). */
+    private val afterSignOut: suspend () -> Unit = {},
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -229,6 +233,7 @@ class IdentityRepository(
      */
     suspend fun create(name: String): Set<String> {
         requireReadable()
+        check(keysInApp) { "no key is made here" }
         val keys = KeyPair.generate()
         secrets.put(KEY, keys.secretKey.toHex())
         save(NostrIdentity(keys.publicKeyHex, NostrIdentity.Source.Local, name.trim().ifEmpty { null }, relays = DEFAULT_RELAYS.map { RelayEntry(it) }))
@@ -331,6 +336,7 @@ class IdentityRepository(
      */
     suspend fun importKey(text: String, password: String? = null): NostrIdentity {
         requireReadable()
+        check(keysInApp) { "no key is imported here" }
         val t = text.trim().removePrefix("nostr:")
         val secret = when {
             t.startsWith("nsec1") -> runCatching { Bech32.decode(t) }.getOrNull()?.takeIf { it.first == "nsec" && it.second.size == 32 }?.second
@@ -373,6 +379,12 @@ class IdentityRepository(
         _unreadable.value = false
     }
 
+    /** [signOut], then what the platform clears with it ([afterSignOut]). */
+    suspend fun signOutCompletely() {
+        signOut()
+        afterSignOut()
+    }
+
     private fun save(identity: NostrIdentity) {
         secrets.put(INFO, json.encodeToString(NostrIdentity.serializer(), identity))
         _identity.value = identity
@@ -389,8 +401,10 @@ class IdentityRepository(
          *  [ExternalSigner.PERMISSIONS]. */
         val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
 
-        /** Where Hopp waits for a signer that takes up a nostrconnect:// code. */
-        val CONNECT_RELAYS = listOf("wss://relay.nsec.app", "wss://nos.lol")
+        /** Where Hopp waits for a signer that takes up a nostrconnect:// code — on all at once.
+         *  Two that carry NIP-46 (2026-10-28: relay.nsec.app did not answer); each one more
+         *  makes the QR code denser. */
+        val CONNECT_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net")
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")

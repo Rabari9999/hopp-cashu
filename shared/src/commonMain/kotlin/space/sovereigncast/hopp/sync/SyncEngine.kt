@@ -6,6 +6,8 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.SignerNeedsListener
 import space.sovereigncast.hopp.nostr.SignerRejected
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 /** A document sync keeps in step: subscriptions, progress, "Up next", settings. */
 interface SyncedDocument {
@@ -19,7 +21,7 @@ interface SyncedDocument {
     /** [apply], where a step that cannot be undone (a show given up takes its episodes, progress and
      *  place in "Up next" with it) asks [stillWins] first, in the same transaction as the step: the
      *  listener may have changed the same thing a moment ago (delta audit 2 2026-10-22, HN-07). */
-    suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (key: String, entry: SyncEntry) -> Boolean): Set<String> = apply(entries)
+    suspend fun apply(entries: Map<String, SyncEntry>, stillWins: suspend (key: String, entry: SyncEntry) -> Boolean): Set<String> = apply(entries)
 
     /** What this device has, as entries with the best time it knows — merged once,
      *  when sync is turned on. An entry of time 0 has none: it joins only where the
@@ -29,6 +31,23 @@ interface SyncedDocument {
     /** An entry no device needs any more (progress older than 90 days): it is dropped
      *  everywhere alike, not marked removed. */
     fun expired(key: String, entry: SyncEntry, nowMs: Long): Boolean = false
+
+    /** Before each round: what the document may tidy here first (progress: "heard up to" found
+     *  where single entries say it, maintainer 2026-10-30). */
+    suspend fun prepare() = Unit
+
+    /** Of [entries] (this device's and the relays', the newer per key), those another entry already
+     *  says — left out of the store, the round and what goes out, without a removal marker. */
+    suspend fun redundant(entries: Map<String, SyncEntry>): Set<String> = emptySet()
+
+    /** Of [entries] [apply] could not do, those that will not come here: an episode the show's feed no
+     *  longer carries (maintainer 2026-11-01: "4 episodes waiting" for good). Tried again each round all
+     *  the same, but not counted as waiting. */
+    suspend fun beyondReach(entries: Map<String, SyncEntry>): Set<String> = emptySet()
+
+    /** For the sync report: what [entries] are, in numbers — no titles (maintainer 2026-10-30: a document
+     *  too large, and nothing said what made it so). */
+    suspend fun describe(entries: Map<String, SyncEntry>): String? = null
 }
 
 sealed interface SyncOutcome {
@@ -36,7 +55,16 @@ sealed interface SyncOutcome {
      *  entries from elsewhere not applicable yet (a feed out of reach) — tried again next time. */
     data class Done(val applied: Int, val published: Boolean, val pending: Int = 0) : SyncOutcome
     /** The relays gave the document only in part: [applied] of it taken, nothing sent (audit 2026-10-22, H-02). */
-    data class Incomplete(val applied: Int) : SyncOutcome
+    /** [doc]: which document came in part (the sync page's report names it); [found]: what the read
+     *  found, and [rewriteInMs] how long until a gap that stays is written over, for the report.
+     *  [canRewrite]: a majority read it to the end — only then may the listener have it written anew. */
+    data class Incomplete(
+        val applied: Int,
+        val doc: String? = null,
+        val found: String? = null,
+        val rewriteInMs: Long? = null,
+        val canRewrite: Boolean = false,
+    ) : SyncOutcome
     data object NoIdentity : SyncOutcome
     /** The signer app would have to ask the listener — sync waits for the app to be open. */
     data object WaitsForSigner : SyncOutcome
@@ -60,10 +88,12 @@ class SyncEngine(
     private val nowMs: () -> Long,
 ) {
     private val lock = Mutex()
+    /** When each document last went out for its compaction alone ([COMPACT_EVERY]); this run only. */
+    private val compactedAt = mutableMapOf<String, Long>()
 
     /** One round for [doc]. What this device had when sync was turned on without a time (settings, the
      *  queue's order) waits in the store as seeds ([SyncStore.seed]), taken only where the relays have nothing. */
-    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false): SyncOutcome = lock.withLock {
+    suspend fun sync(doc: SyncedDocument, interactive: Boolean = false, rewrite: Boolean = false): SyncOutcome = lock.withLock {
         if (identity.identity.value == null) return SyncOutcome.NoIdentity
         try {
             // A first keyring only with the listener there — never from a round in the background (audit 2026-10-22, H-01).
@@ -72,19 +102,47 @@ class SyncEngine(
             val now = nowMs()
             val cutoff = now - REMOVALS_KEPT.inWholeMilliseconds
             store.pruneRemoved(doc.name, cutoff)
+            doc.prepare()
             var mine = store.entries(doc.name)
             mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it); mine = mine - it }
             val fetched = relays.fetch(signer, doc.name, urls)
+            // A gap that will stay (Fetched.Incomplete): written over with everything that arrived — one this
+            // device left, one of older parts only, or one every relay has shown for [STUCK_FOR] (maintainer
+            // 2026-10-30: a version cut off by a relay slowing down, left before Hopp kept which).
+            var repair = fetched is Fetched.Incomplete && fetched.settled &&
+                (fetched.stale || (fetched.newestRev != null && fetched.newestRev == store.brokenRev(doc.name)))
+            var rewriteIn: Long? = null
+            if (fetched is Fetched.Incomplete && fetched.settled && !repair && fetched.newestRev != null) {
+                val (rev, since) = store.stuck(doc.name)
+                if (rev == fetched.newestRev && since != null) repair = now - since >= STUCK_FOR.inWholeMilliseconds
+                else store.markStuck(doc.name, fetched.newestRev, now)
+                if (!repair) rewriteIn = STUCK_FOR.inWholeMilliseconds - (now - (since?.takeIf { rev == fetched.newestRev } ?: now))
+            }
+            // The listener's own word on the sync page: this device's copy, whole, over whatever came in part —
+            // as the waits above, only with a majority read to the end: a relay that did not answer may hold a
+            // newer version whole, and written over it would be gone from the relays (review 2026-10-31).
+            if (fetched is Fetched.Incomplete && fetched.settled && rewrite) repair = true
+            if (fetched is Fetched.Complete) store.markStuck(doc.name, null, null)
             val (read, notBefore) = when (fetched) {
                 is Fetched.Complete -> fetched.entries to fetched.newestAt
-                is Fetched.Incomplete -> fetched.entries to fetched.newestAt
+                is Fetched.Incomplete -> (if (repair) fetched.all else fetched.entries) to fetched.newestAt
                 Fetched.Absent -> emptyMap<String, SyncEntry>() to 0L
                 is Fetched.Unknown -> return SyncOutcome.Failed(SyncNotReached(fetched.answered, fetched.asked))
             }
             // A removal counts from when it first went out, never later than now (HN-05): one made offline
             // and sent months later is not too old the moment it arrives.
-            val theirs = read.mapValues { (_, e) -> if (e.del) e.copy(out = e.out?.coerceAtMost(now)) else e.copy(out = null) }
+            val theirsRead = read.mapValues { (_, e) -> if (e.del) e.copy(out = e.out?.coerceAtMost(now)) else e.copy(out = null) }
                 .filter { (k, e) -> !(e.del && (e.out ?: e.t) < cutoff) && !doc.expired(k, e, now) }
+            // What another entry already says (a show's "heard up to" its old episodes, maintainer 2026-10-30):
+            // left out here and in what goes out; many of them on the relays, a smaller version goes out.
+            val newest = buildMap { putAll(mine); theirsRead.forEach { (k, e) -> val m = this[k]; if (m == null || e.winsOver(m)) put(k, e) } }
+            val covered = doc.redundant(newest)
+            if (covered.isNotEmpty()) {
+                store.remove(doc.name, covered.filterTo(mutableSetOf()) { it in mine })
+                mine = mine - covered
+            }
+            val theirs = theirsRead - covered
+            val compact = covered.count { it in theirsRead } >= COMPACT_AT
             // An entry dated more than a day ahead is a clock gone wrong: not taken into the app, but kept in
             // the store, so it goes along in what goes out — under a new key too — and into the app once its
             // time has come (delta audit 2026-10-22 and 2, MN-02).
@@ -98,13 +156,27 @@ class SyncEngine(
             hold(doc, merged.fromThem.filterKeys { it in ahead })
             val (applied, waiting) = applyNewer(doc, merged.fromThem - ahead)
             repair(doc, now, skip = merged.fromThem.keys)
-            if (fetched is Fetched.Incomplete) return SyncOutcome.Incomplete(applied)
+            if (fetched is Fetched.Incomplete && !repair) return SyncOutcome.Incomplete(applied, doc.name, fetched.found, rewriteIn, canRewrite = fetched.settled)
             store.markFetched(doc.name, nowMs())
-            val publish = merged.theyLack
+            // The gap goes under a whole version, even when the relays lack nothing of ours. A smaller version
+            // for its own sake at most every [COMPACT_EVERY]: a Hopp before 0.3.2 puts the covered entries back
+            // each round, and the two would answer each other for as long as both are in use (review 2026-10-31).
+            val compactOnly = compact && !merged.theyLack && !repair
+            val publish = merged.theyLack || repair ||
+                (compactOnly && compactedAt[doc.name]?.let { now - it >= COMPACT_EVERY.inWholeMilliseconds } != false)
             // A removal made here goes out with the time it goes out (HN-05).
             val pendingHere = store.pendingKeys(doc.name)
             val all = merged.all.mapValues { (k, e) -> if (e.del && k in pendingHere) e.copy(out = now) else e }
-            if (publish) relays.publish(signer, doc.name, all, urls, notBefore)
+            if (publish) {
+                // Kept before the first part goes, cleared once all went: however a round ends between
+                // (refused, timed out, the tab closed), this device knows the gap it may have left.
+                val rev = SyncRelays.newRev()
+                store.markBroken(doc.name, rev)
+                relays.publish(signer, doc.name, all, urls, notBefore, rev)
+                if (compactOnly) compactedAt[doc.name] = now
+                store.markBroken(doc.name, null)
+                store.markStuck(doc.name, null, null)
+            }
             // The relays hold these versions now; anything changed here since stays pending.
             store.markSent(doc.name, all)
             SyncOutcome.Done(applied, publish, pending = waiting)
@@ -145,7 +217,7 @@ class SyncEngine(
     }
 
     /** Entries dated far ahead ([MAX_AHEAD]): into the store, not the app — [repair] takes them in once their time has come. */
-    private fun hold(doc: SyncedDocument, ahead: Map<String, SyncEntry>) {
+    private suspend fun hold(doc: SyncedDocument, ahead: Map<String, SyncEntry>) {
         if (ahead.isEmpty()) return
         store.markUnapplied(doc.name, store.putIfNewer(doc.name, ahead))
     }
@@ -168,7 +240,7 @@ class SyncEngine(
      * [incoming] applied where it is still newer than this device's, and taken into the store
      * where it still is after — the listener may change the same thing meanwhile (delta audit
      * 2026-10-22, HN-07): then the app holds theirs and the store ours, and ours goes back
-     * into the app. How many were taken, and how many wait (a feed out of reach).
+     * into the app. How many were taken, and how many wait (an episode its feed has not brought yet).
      */
     private suspend fun applyNewer(doc: SyncedDocument, incoming: Map<String, SyncEntry>): Pair<Int, Int> {
         val toApply = store.stillNewer(doc.name, incoming)
@@ -182,7 +254,8 @@ class SyncEngine(
         store.applied(doc.name, toApply.filterKeys { it in taken })
         store.clearUnapplied(doc.name, toApply.keys - applied)
         reassert(doc, applied - taken)
-        return taken.size to (toApply.size - applied.size)
+        val notYet = toApply.filterKeys { it !in applied }
+        return taken.size to (notYet.size - doc.beyondReach(notYet).size)
     }
 
     /** This device's own entries for [keys] into the app once more — over what another device's
@@ -250,16 +323,23 @@ class SyncEngine(
     fun reach(): Pair<Int, Int>? = relays.lastReach
 
     /** Entries changed here the relays have not taken yet, over every document. */
-    fun toSend(): Int = store.pendingCount()
+    suspend fun toSend(): Int = store.pendingCount()
 
     /** Whether [doc] changed here since the relays last took it. */
-    fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
+    suspend fun unpublished(doc: SyncedDocument): Boolean = store.unpublished(doc.name)
 
     companion object {
         /** Removal markers stay this long; a device away longer starts from the relays' list ([rebase]). */
         val REMOVALS_KEPT = 90.days
         /** How far ahead of this device's clock an entry may be dated. */
         val MAX_AHEAD = 1.days
+        /** How long a gap must stay, every relay answering, before it is written over though no one
+         *  here knows who left it: a relay holding back a part for a moment still stops the round (HN-02). */
+        val STUCK_FOR = 3.minutes
+        /** This many covered entries on the relays: a smaller version goes out though nothing changed. */
+        const val COMPACT_AT = 50
+        /** A smaller version with nothing else to send goes out at most this often. */
+        val COMPACT_EVERY = 6.hours
         private const val REASSERT_TRIES = 3
     }
 }

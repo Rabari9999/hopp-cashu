@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.data
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -10,6 +11,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.AsyncOnlyDriver
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.net.FeedFetcher
 import java.io.File
@@ -21,6 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.schemaDriver
 
 /** Package 2: the version 1 → 2 migration, the queue, downloads (ADR 0012). */
 class DownloadsAndQueueTest {
@@ -60,8 +63,8 @@ class DownloadsAndQueueTest {
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
-    private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) }
-    private val db = HoppDatabase(driver)
+    private val driver = schemaDriver()
+    private val db = HoppDatabase(AsyncOnlyDriver(driver))
     private val dir = Files.createTempDirectory("hopp-dl").toFile()
     private val files = DownloadFiles(dir.absolutePath)
     private val scheduled = mutableListOf<Boolean>()
@@ -77,13 +80,66 @@ class DownloadsAndQueueTest {
     private suspend fun subscribe() = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
     private suspend fun byTitle(podcastId: Long, title: String) = episodes.ofPodcast(podcastId).first().single { it.title == title }
 
+    /**
+     * Review 2026-10-31: the migrations as a whole, against the schema a new install gets — every table's
+     * columns in their order (the generated `SELECT *` reads them by position), types, NOT NULL, defaults
+     * and keys, and every index and trigger. A `.sqm` that drifted from its `.sq` failed nowhere before.
+     */
+    @Test
+    fun aDatabaseMigratedFromVersionOneHasANewOnesSchema() {
+        val migrated = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        V1_SCHEMA.split(";").map(String::trim).filter(String::isNotEmpty).forEach { migrated.execute(null, it, 0) }
+        HoppDatabase.Schema.synchronous().migrate(migrated, 1, HoppDatabase.Schema.version)
+        val fresh = schemaDriver()
+        fun JdbcSqliteDriver.rows(sql: String, columns: Int): List<List<String?>> = executeQuery(null, sql, { c ->
+            val out = mutableListOf<List<String?>>()
+            while (c.next().value) out += (0 until columns).map { c.getString(it) }
+            app.cash.sqldelight.db.QueryResult.Value(out)
+        }, 0).value
+        fun JdbcSqliteDriver.schema(): Map<String, Any> {
+            val tables = rows("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", 1).map { it[0]!! }
+            val normal = { sql: String? -> sql?.lowercase()?.replace(Regex("\\s+"), " ")?.replace("( ", "(")?.replace(" )", ")")?.trim() }
+            return tables.associateWith { t -> rows("PRAGMA table_info('$t')", 6) } +
+                rows("SELECT type, name, sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY name", 3)
+                    .associate { (type, name, sql) -> "$type $name" to normal(sql)!! }
+        }
+        val want = fresh.schema()
+        val got = migrated.schema()
+        assertEquals(want.keys, got.keys, "tables, indexes and triggers")
+        val differ = want.keys.filter { want[it] != got[it] }.map { "$it:\n  new      ${want[it]}\n  migrated ${got[it]}" }
+        assertTrue(differ.isEmpty(), "after the migrations:\n" + differ.joinToString("\n"))
+    }
+
+    /** Review 2026-10-31: installed before version 5, the payment log had results_json before fees_msat and
+     *  unknown_msat — read by position, each from another's column, and a reason set on a payment emptied
+     *  its lines. Version 21 puts them in order, every value kept, no id handed out twice. */
+    @Test
+    fun thePaymentLogOfAnEarlyInstallIsReadRightAfterTheUpdate() = test {
+        val driver = schemaDriver()
+        driver.execute(null, "DROP TABLE payment", 0)
+        driver.execute(null, """CREATE TABLE payment (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, kind TEXT NOT NULL,
+            podcast_id INTEGER, episode_id INTEGER, podcast_title TEXT, episode_title TEXT, amount_msat INTEGER NOT NULL, message TEXT,
+            results_json TEXT NOT NULL, fees_msat INTEGER NOT NULL DEFAULT 0, unknown_msat INTEGER NOT NULL DEFAULT 0)""", 0)
+        driver.execute(null, "INSERT INTO payment (id, created_at, kind, amount_msat, message, results_json, fees_msat, unknown_msat) VALUES (5, 1, 'boost', 21000, 'Hi', '[{\"name\":\"Host\"}]', 300, 7000)", 0)
+        // A later payment, gone since: its id is not handed out again.
+        driver.execute(null, "INSERT INTO payment (id, created_at, kind, amount_msat, results_json) VALUES (9, 2, 'stream', 1, '[]')", 0)
+        driver.execute(null, "DELETE FROM payment WHERE id = 9", 0)
+        HoppDatabase.Schema.synchronous().migrate(driver, 20, HoppDatabase.Schema.version)
+        val db = HoppDatabase(driver)
+        val row = db.paymentQueries.selectById(5).executeAsOne()
+        assertEquals(listOf<Any?>(21000L, "Hi", 300L, 7000L, "[{\"name\":\"Host\"}]"),
+            listOf(row.amount_msat, row.message, row.fees_msat, row.unknown_msat, row.results_json))
+        db.paymentQueries.insert(3, "boost", null, null, null, null, 1, null, 0, 0, "[]")
+        assertEquals(10L, db.paymentQueries.lastInsertId().executeAsOne())
+    }
+
     @Test
     fun aVersionOneDatabaseIsMigrated() = test {
         val old = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         V1_SCHEMA.split(";").map(String::trim).filter(String::isNotEmpty).forEach { old.execute(null, it, 0) }
         old.execute(null, "INSERT INTO podcast (feed_url, title, meta_json, subscribed_at) VALUES ('https://pod.test/feed.xml', 'Old', '{}', 1)", 0)
         old.execute(null, "INSERT INTO episode (podcast_id, guid, title, meta_json, first_seen_at, position_ms) VALUES (1, 'g', 'Kept', '{\"guid\":\"g\"}', 1, 4200)", 0)
-        HoppDatabase.Schema.migrate(old, 1, HoppDatabase.Schema.version)
+        HoppDatabase.Schema.synchronous().migrate(old, 1, HoppDatabase.Schema.version)
         val migrated = HoppDatabase(old)
         // Version 11: categories, and the feed asked for in full once more to fill them.
         assertEquals("" to null, migrated.podcastQueries.selectAll().executeAsOne().let { it.categories to it.etag })
@@ -194,6 +250,51 @@ class DownloadsAndQueueTest {
         items = 4
         podcasts.refresh(id)
         assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)
+    }
+
+    /**
+     * Maintainer 2026-11-01: a restore subscribes, which queues each show's newest episode, and sync marks
+     * it heard a moment later — it was downloaded all the same. An automatic download of a heard episode is
+     * not fetched, and one heard while it runs is dropped; one asked for is fetched anyway.
+     */
+    @Test
+    fun anAutomaticDownloadOfAHeardEpisodeIsNotFetched() = test {
+        items = 3
+        val id = subscribe()
+        assertEquals(DownloadState.QUEUED, byTitle(id, "Ep 3").downloadState)
+        episodes.applyProgress(byTitle(id, "Ep 3").id, 0, played = true, atSeconds = now)
+        assertEquals(0L, downloads.waitingCount.first())
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 3").downloadState)
+        assertEquals(emptyList(), ranges, "nothing fetched")
+
+        // Heard while it runs: gone, no file left.
+        items = 4
+        podcasts.refresh(id)
+        val e4 = byTitle(id, "Ep 4").id
+        failAudio = { path -> if (path == "/4.mp3") runBlocking { episodes.applyProgress(e4, 0, played = true, atSeconds = now) }; false }
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.NONE, byTitle(id, "Ep 4").downloadState)
+        assertEquals(null, byTitle(id, "Ep 4").downloadPath)
+        assertEquals(emptyList(), dir.listFiles()!!.map { it.name }, "no file left")
+        assertTrue(queue.items.first().isEmpty(), "not in Up next")
+
+        // Asked for: fetched though heard.
+        downloads.request(byTitle(id, "Ep 3").id)
+        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(DownloadState.DONE, byTitle(id, "Ep 3").downloadState)
+    }
+
+    /** A show subscribed by sync starts its automatic download only once the round is through, with the
+     *  other devices' progress in — not while the round still runs. */
+    @Test
+    fun aShowSubscribedBySyncDownloadsAfterTheRound() = test {
+        podcasts.subscribe("https://pod.test/feed.xml", sync = false)
+        assertEquals(emptyList(), scheduled, "held during the round")
+        podcasts.releaseHeldDownloads()
+        assertEquals(listOf(false), scheduled)
+        podcasts.releaseHeldDownloads()
+        assertEquals(listOf(false), scheduled, "once")
     }
 
     /** Device feedback 2026-10-19: as in AntennaPod, a download is ready in "Up next". */

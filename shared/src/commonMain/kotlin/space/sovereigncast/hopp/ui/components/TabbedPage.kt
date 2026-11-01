@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,6 +50,9 @@ fun TabbedPage(
     pager: PagerState,
     modifier: Modifier = Modifier,
     singleLabel: Boolean = false,
+    /** The page's name for the top bar once the header has mostly scrolled away ([LocalPageTitle]):
+     *  without it, a show's page scrolled down said nowhere what it was (UX review 2026-10-30). */
+    title: String? = null,
     header: @Composable () -> Unit,
     page: @Composable (index: Int) -> Unit,
 ) {
@@ -55,6 +60,16 @@ fun TabbedPage(
     var headerHeight by remember { mutableIntStateOf(0) }
     // 0 = the header in full, -headerHeight = scrolled away.
     var offset by remember { mutableFloatStateOf(0f) }
+    if (title != null) {
+        val pageTitle = LocalPageTitle.current
+        val gone by remember { derivedStateOf { headerHeight > 0 && offset <= -headerHeight * 0.6f } }
+        // Set only while the header is away; taken back only if still ours — the page title is shared, and a
+        // second titled page in the frame (a pane) would otherwise clear the other's (review 2026-10-31).
+        DisposableEffect(gone, title) {
+            if (gone) pageTitle.text = title
+            onDispose { if (pageTitle.text == title) pageTitle.text = null }
+        }
+    }
     fun move(dy: Float): Float {
         val next = (offset + dy).coerceIn(-headerHeight.toFloat(), 0f)
         val used = next - offset
@@ -92,7 +107,12 @@ fun TabbedPage(
                     else -> Box(Modifier)
                 }
             } },
-            { HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = tabs.size > 1, key = { tabs.getOrElse(it) { "$it" } }) { page(it) } },
+            // Keyed by label, so a page keeps its state when a tab appears before it — but a label
+            // that is empty or twice (in the browser the strings arrive after the first frame, all
+            // tabs read "" for a moment) by its place: two pages with one key crashed the app.
+            { HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = tabs.size > 1, key = { i ->
+                tabs.getOrNull(i)?.takeIf { label -> label.isNotEmpty() && tabs.count { it == label } == 1 } ?: "#$i"
+            }) { page(it) } },
         ),
         modifier = modifier.fillMaxSize().clipToBounds().nestedScroll(connection),
     ) { (h, t, p), constraints ->

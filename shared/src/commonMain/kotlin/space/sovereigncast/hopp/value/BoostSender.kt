@@ -4,7 +4,6 @@ import kotlinx.coroutines.CancellationException
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.model.ValueBlock
 import space.sovereigncast.hopp.model.ValueRecipient
-import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.NwcException
 import space.sovereigncast.hopp.value.nwc.WalletInfo
 
@@ -52,7 +51,7 @@ data class BoostContext(
  * keysend of a few msat costs more in fees than it moves).
  */
 class BoostSender(
-    private val nwc: NwcClient,
+    private val nwc: WalletClient,
     private val lnAddress: LnAddressClient,
     private val wallet: WalletInfo,
     /** For a Sovereigncast show: stores a share's boost metadata at the

@@ -5,7 +5,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,6 +38,9 @@ data class NowPlaying(
     val artworkUrl: String?,
     val persons: List<Person> = emptyList(),
     val chapters: ChapterIndex = ChapterIndex(emptyList()),
+    /** The show's speed, or the default: what the player says while the episode is shown and not
+     *  loaded yet (after a restart) — the engine knows no speed then and said 1×. */
+    val speed: Float? = null,
 )
 
 /**
@@ -92,7 +98,7 @@ class PlayerController(
     val state: StateFlow<PlaybackState> = kotlinx.coroutines.flow.combine(engine.state, _current) { s, c ->
         val item = c?.item
         if (item == null || s.itemId != null) s
-        else PlaybackState(positionMs = item.positionMs, durationMs = (item.durationSeconds ?: 0) * 1000L, speed = s.speed)
+        else PlaybackState(positionMs = item.positionMs, durationMs = (item.durationSeconds ?: 0) * 1000L, speed = c.speed ?: s.speed)
     }.stateIn(scope, kotlinx.coroutines.flow.SharingStarted.Eagerly, engine.state.value)
 
     private var lastSaved = 0L
@@ -121,11 +127,21 @@ class PlayerController(
     /** The show of the episode loaded, as it is now: its speed and what it skips. */
     private var show: Show? = null
     private var showWatch: kotlinx.coroutines.Job? = null
+    /** The speed this player last gave the engine. A show's speed saved later is taken over only when the
+     *  player was at the one saved before — a change made elsewhere (the show's page, sync); its own taps
+     *  arrive back from the database late, and one from before the last tap set the engine back (review
+     *  2026-10-31: CI saw 1.1, 1.1, 1.1 … for ten taps). */
+    private var wantedSpeed = 1f
+    private fun speedTo(speed: Float) { wantedSpeed = speed; engine.setSpeed(speed) }
+    /** A show's speed to save, the newest only, one write at a time: each tap launched its own, and the
+     *  one that came last was not always the last tap's (review 2026-10-31). */
+    private val speedSaves = kotlinx.coroutines.channels.Channel<Pair<Long, Float?>>(kotlinx.coroutines.channels.Channel.CONFLATED)
     private val _skipped = kotlinx.coroutines.flow.MutableSharedFlow<Skipped>(extraBufferCapacity = 4)
     /** A start or end skipped (maintainer 2026-10-26): the player says so, with a way back. */
     val skipped: kotlinx.coroutines.flow.SharedFlow<Skipped> = _skipped
 
     init {
+        scope.launch { for ((podcastId, speed) in speedSaves) podcasts.setSpeed(podcastId, speed) }
         scope.launch {
             settingsRepository.settings.collect {
                 val before = _settings.value.defaultSpeed
@@ -134,7 +150,7 @@ class PlayerController(
                 // A new default speed counts at once for the show playing, unless it has its own.
                 val podcastId = _current.value?.item?.podcastId
                 if (it.defaultSpeed != before && podcastId != null && podcasts.show(podcastId).first()?.playbackSpeed == null) {
-                    engine.setSpeed(it.defaultSpeed)
+                    speedTo(it.defaultSpeed)
                 }
             }
         }
@@ -179,6 +195,7 @@ class PlayerController(
                             engine.pause(); _skipped.tryEmit(Skipped(id, outro, atStart = false))
                             _current.value?.item?.takeIf { it.id == id }?.let { item -> listening?.let { l -> scope.launch { l.skipped(item, outro * 1000L) } } }
                         }
+                        finishedHere = id
                         episodes.setPlayed(id, true); lastSaved = 0
                         // Heard to its end: its streamed parts of a sat go out now, rounded up.
                         value?.let { v -> scope.launch { delay(ROUND_UP_DELAY); runCatching { v.settle(roundUp = setOf(id)) } } }
@@ -365,12 +382,14 @@ class PlayerController(
 
     /** [skipIntro]: false where the listener chose the place — a time mark, a chapter, back from a clip. */
     private suspend fun open(item: EpisodeItem, load: Boolean, autoplay: Boolean, skipIntro: Boolean = true) {
+        watchPlayed(item.id)
         val meta = podcasts.podcastMeta(item.podcastId)
         val show = podcasts.show(item.podcastId).first()
         watchShow(item.podcastId, show)
         val details = episodes.details(item.id)
         val artwork = item.imageUrl ?: meta?.imageUrl
-        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() })
+        val speed = show?.playbackSpeed ?: settingsRepository.current().defaultSpeed
+        _current.value = NowPlaying(item, meta?.title ?: item.podcastTitle ?: "", artwork, details?.persons.orEmpty().ifEmpty { meta?.persons.orEmpty() }, speed = speed)
         lastChapter = -1
         if (load) {
             val url = item.playableUrl ?: return
@@ -387,10 +406,29 @@ class PlayerController(
             expectedId = item.id
             engine.load(PlaybackItem(item.id.toString(), url, item.title, meta?.title ?: "", artwork, start), autoplay)
             // Each show keeps its speed (ADR 0012); one never set follows the default.
-            engine.setSpeed(show?.playbackSpeed ?: settingsRepository.current().defaultSpeed)
+            speedTo(speed)
         }
         runCatching { episodes.chapters(item) }.getOrNull()?.let { list ->
             _current.update { if (it?.item?.id == item.id) it.copy(chapters = ChapterIndex(list)) else it }
+        }
+    }
+
+    private var playedWatch: kotlinx.coroutines.Job? = null
+    /** The episode this player heard to its end and marked played itself — it stays until the next one. */
+    private var finishedHere: Long? = null
+
+    /**
+     * The episode in the player marked played — on its own, "this and older", a show's or every show's
+     * at once, or by sync — leaves the player, and the player goes (maintainer 2026-11-01: it stayed).
+     * "Up next" it has left already (EpisodeRepository.leaveQueue); what comes next is the listener's to start.
+     */
+    private fun watchPlayed(id: Long) {
+        finishedHere = null
+        playedWatch?.cancel()
+        playedWatch = scope.launch {
+            episodes.itemFlow(id).map { it?.played == true }.distinctUntilChanged().drop(1).collect { played ->
+                if (played && finishedHere != id && _current.value?.item?.id == id) close()
+            }
         }
     }
 
@@ -404,7 +442,11 @@ class PlayerController(
                 val before = show
                 show = s
                 val loaded = _current.value?.item?.takeIf { it.podcastId == podcastId }?.id?.toString() == engine.state.value.itemId
-                if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded) engine.setSpeed(s.playbackSpeed ?: _settings.value.defaultSpeed)
+                val beforeSpeed = before?.playbackSpeed ?: _settings.value.defaultSpeed
+                if (s != null && before != null && before.playbackSpeed != s.playbackSpeed && loaded && abs(beforeSpeed - wantedSpeed) < 0.01f) {
+                    speedTo(s.playbackSpeed ?: _settings.value.defaultSpeed)
+                }
+                if (s != null) _current.update { if (it?.item?.podcastId == podcastId) it.copy(speed = s.playbackSpeed ?: _settings.value.defaultSpeed) else it }
             }
         }
     }
@@ -488,9 +530,24 @@ class PlayerController(
         if (loaded && s.isPlaying) return
         val shown = _current.value?.takeIf { it.item.id == id }
         if (!loaded && shown == null) return
-        val at = if (played) 0 else positionMs
-        if (loaded) { engine.seekTo(at); lastSaved = at }
-        shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = at, played = played)) }
+        // Heard to its end there (maintainer 2026-10-31: gone from "new", still in the player here): out of
+        // the player too, and the player away. What comes next from "Up next" is the listener's to start.
+        if (played) { close(); return }
+        if (loaded) { engine.seekTo(positionMs); lastSaved = positionMs }
+        shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = positionMs, played = false)) }
+    }
+
+    /** Nothing in the player: the episode unloaded, the bar and the screen gone. */
+    private fun close() {
+        playedWatch?.cancel()
+        expectedId = null
+        clip = null
+        introUnchecked = null
+        lastSaved = 0
+        if (_sleep.value == SleepTimer.EndOfEpisode || _sleep.value == SleepTimer.EndOfChapter) _sleep.value = SleepTimer.Off
+        engine.unload()
+        _current.value = null
+        _expanded.value = false
     }
 
     fun seekTo(ms: Long) {
@@ -537,15 +594,17 @@ class PlayerController(
     /** The speed for the show playing; the default speed means: none of its own,
      *  so it follows the default when that changes. */
     fun setSpeed(speed: Float) {
-        engine.setSpeed(speed)
+        speedTo(speed)
         val own = speed.takeUnless { abs(it - _settings.value.defaultSpeed) < 0.01f }
-        _current.value?.item?.podcastId?.let { scope.launch { podcasts.setSpeed(it, own) } }
+        _current.value?.item?.podcastId?.let { speedSaves.trySend(it to own) }
     }
 
     /** The next faster of all [SPEED_CHOICES] — the ones the long press offers
      *  too (device feedback 2026-10-19) — and after the fastest the slowest. */
     fun cycleSpeed() {
-        val now = engine.state.value.speed
+        // Not loaded yet (after a restart): from the show's speed the player shows, not the engine's 1×.
+        val e = engine.state.value
+        val now = if (e.itemId == null) _current.value?.speed ?: e.speed else e.speed
         setSpeed(SPEED_CHOICES.firstOrNull { it > now + 0.01f } ?: SPEED_CHOICES.first())
     }
 

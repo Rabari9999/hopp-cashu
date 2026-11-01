@@ -35,6 +35,9 @@ interface PlaybackEngine {
     fun pause()
     fun seekTo(positionMs: Long)
     fun setSpeed(speed: Float)
+    /** Nothing loaded any more: the item, and what the system shows of it (lock screen,
+     *  notification, Media Session), gone; [state] reports no item. */
+    fun unload()
     fun release()
     /** ExoPlayer has it built in; on iOS it needs own audio processing
      *  (ADR 0012) — the setting is hidden there. */
@@ -45,6 +48,11 @@ interface PlaybackEngine {
     /** The listener's skip intervals, for skip buttons outside the app (the
      *  lock screen, headphones) — Android's session reads them itself. */
     fun setSkipIntervals(backSeconds: Int, forwardSeconds: Int) = Unit
+    /** The player's own volume, 0–1, where it has one to offer — the browser, whose page has no
+     *  volume keys at hand (UX review 2026-10-30); null where the system's volume is the way
+     *  (the apps, Safari on iOS, which keeps an audio element at full volume). */
+    val volume: StateFlow<Float>? get() = null
+    fun setVolume(level: Float) = Unit
 }
 
 /** Identifies Hopp to feed hosts, players and APIs (ADR 0015):

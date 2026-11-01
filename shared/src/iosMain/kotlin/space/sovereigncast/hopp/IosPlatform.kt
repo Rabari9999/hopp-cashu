@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp
 
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import kotlinx.coroutines.MainScope
@@ -30,7 +31,7 @@ fun iosAppInfo() = AppInfo(
 
 class IosPlatform : Platform {
     override val app: AppInfo = iosAppInfo()
-    override fun sqlDriver(): SqlDriver = NativeSqliteDriver(HoppDatabase.Schema, "hopp.db")
+    override fun sqlDriver(): SqlDriver = NativeSqliteDriver(HoppDatabase.Schema.synchronous(), "hopp.db")
     override fun playbackEngine(): PlaybackEngine = IosPlaybackEngine(app.userAgent)
 
     // Caches is outside the iCloud backup; iOS may empty it when space runs
@@ -44,6 +45,9 @@ class IosPlatform : Platform {
     // (ADR 0018), downloads run while the app is open, and only requested ones:
     // without a network check, automatic ones would use mobile data.
     override fun secretStore(): SecretStore = KeychainSecretStore()
+
+    // No BGAppRefreshTask yet (ADR 0018): the feeds are looked at while Hopp is open.
+    override val backgroundRefresh: Boolean get() = false
 
     override fun downloadScheduler() = DownloadScheduler { _ ->
         MainScope().launch { KoinPlatform.getKoin().get<DownloadRepository>().runPending(includeAuto = false) }

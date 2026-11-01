@@ -1,7 +1,8 @@
 package space.sovereigncast.hopp.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -13,6 +14,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.platform.SecretStore
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 import space.sovereigncast.hopp.sync.StatsEntries
@@ -119,14 +121,14 @@ class ListeningRepository(
      *  [force]: the app goes to the background — sync hears of all of it now. */
     suspend fun flush(note: Boolean = true, force: Boolean = false) = lock.withLock { flushLocked(note, force) }
 
-    private suspend fun flushLocked(note: Boolean, force: Boolean = false) = withContext(Dispatchers.IO) {
+    private suspend fun flushLocked(note: Boolean, force: Boolean = false) = withContext(ioDispatcher) {
         val heard = pending.toMap()
         pending.clear(); pendingMs = 0
         val counted = counters.copyOf()
         counters.fill(0)
         if (heard.isNotEmpty() || counted.any { it != 0L }) db.transaction {
             for ((k, h) in heard) {
-                val show = db.podcastQueries.selectById(k.podcastId).executeAsOneOrNull() ?: continue
+                val show = db.podcastQueries.selectById(k.podcastId).awaitAsOneOrNull() ?: continue
                 val key = SyncDocs.showKey(show.podcast_guid, show.feed_url)
                 val month = monthOf(LocalDate.fromEpochDays(k.day))
                 lq.ensureDay(device, k.day); lq.addDay(h.heard, h.media, device, k.day)
@@ -148,7 +150,7 @@ class ListeningRepository(
 
     /** This device's counts that differ from what sync last had of them, noted — not urgent: they
      *  ride along with the next round, never one of their own (at most every [NOTE_EVERY_MS]). */
-    private fun noteChanged() {
+    private suspend fun noteChanged() {
         sats()
         val today = today()
         for ((key, data) in own()) {
@@ -160,10 +162,10 @@ class ListeningRepository(
     }
 
     /** The sats this device gave, per month and show, from the payment log — set, not added. */
-    private fun sats() = db.transaction {
+    private suspend fun sats() = db.transaction {
         val byShow = mutableMapOf<Pair<Long, String>, LongArray>()
         val titles = mutableMapOf<String, String>()
-        for (p in db.paymentQueries.forStats().executeAsList()) {
+        for (p in db.paymentQueries.forStats().awaitAsList()) {
             val key = p.feed_url?.let { SyncDocs.showKey(p.podcast_guid, it) } ?: p.podcast_title?.takeIf { it.isNotBlank() }?.let { "title:$it" } ?: continue
             p.podcast_title?.let { titles[key] = it }
             val sums = byShow.getOrPut(monthOf(dateOf(p.created_at)) to key) { LongArray(3) }
@@ -180,21 +182,21 @@ class ListeningRepository(
     }
 
     /** This device's counts as sync entries ([StatsEntries]). */
-    internal fun own(): Map<String, JsonObject> = StatsEntries.of(
-        device, lq.daysOf(device).executeAsList(), lq.showsOf(device).executeAsList(),
-        lq.episodesOf(device).executeAsList(), lq.countsOf(device).executeAsList(),
+    internal suspend fun own(): Map<String, JsonObject> = StatsEntries.of(
+        device, lq.daysOf(device).awaitAsList(), lq.showsOf(device).awaitAsList(),
+        lq.episodesOf(device).awaitAsList(), lq.countsOf(device).awaitAsList(),
     )
 
     /** For sync turned on: this device's counts so far, the sats included. */
     suspend fun snapshot(): Map<String, JsonObject> = lock.withLock {
-        withContext(Dispatchers.IO) { sats(); val today = today(); own().filterNot { (k, d) -> StatsRetention.expired(k, d, today) } }
+        withContext(ioDispatcher) { sats(); val today = today(); own().filterNot { (k, d) -> StatsRetention.expired(k, d, today) } }
     }
 
     // ── the page ─────────────────────────────────────────────────────────
 
     suspend fun stats(range: StatsRange): ListeningStats {
         flush(note = false)
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             // The sats from the payment log first: noted for sync only when it is on, they were
             // missing from the page without it (review 2026-10-27).
             sats()
@@ -204,7 +206,7 @@ class ListeningRepository(
                 StatsRange.Year -> today.year * 100L + 1 to today.year * 100L + 12
                 StatsRange.All -> 0L to 999_912L
             }
-            val shows = lq.showTotals(fromMonth, toMonth).executeAsList()
+            val shows = lq.showTotals(fromMonth, toMonth).awaitAsList()
             val titles = shows.associate { it.show to (it.title ?: "") }
             val heard = shows.sumOf { it.heard ?: 0 }
             val media = shows.sumOf { it.media ?: 0 }
@@ -212,15 +214,15 @@ class ListeningRepository(
             val bars = when (range) {
                 StatsRange.Month -> {
                     val first = LocalDate(today.year, today.month, 1)
-                    val byDay = lq.days(first.toEpochDays(), today.toEpochDays()).executeAsList().associate { it.day to (it.heard ?: 0) }
+                    val byDay = lq.days(first.toEpochDays(), today.toEpochDays()).awaitAsList().associate { it.day to (it.heard ?: 0) }
                     (1..today.day).map { d -> StatsBar(d.toString(), byDay[LocalDate(today.year, today.month, d).toEpochDays()] ?: 0) }
                 }
                 StatsRange.Year -> {
-                    val byMonth = lq.months(fromMonth, toMonth).executeAsList().associate { it.month to (it.heard ?: 0) }
+                    val byMonth = lq.months(fromMonth, toMonth).awaitAsList().associate { it.month to (it.heard ?: 0) }
                     (1..today.month.number).map { m -> StatsBar(m.toString(), byMonth[today.year * 100L + m] ?: 0) }
                 }
                 StatsRange.All -> {
-                    val byYear = lq.months(0, 999_912).executeAsList().groupBy { it.month / 100 }.mapValues { (_, l) -> l.sumOf { it.heard ?: 0 } }
+                    val byYear = lq.months(0, 999_912).awaitAsList().groupBy { it.month / 100 }.mapValues { (_, l) -> l.sumOf { it.heard ?: 0 } }
                     (byYear.keys.minOrNull() ?: today.year.toLong()).rangeTo(today.year.toLong()).map { y -> StatsBar(y.toString(), byYear[y] ?: 0) }
                 }
             }
@@ -229,22 +231,22 @@ class ListeningRepository(
                 StatsRange.Year -> LocalDate(today.year, 1, 1).toEpochDays()
                 StatsRange.All -> 0L
             }
-            val days = lq.days(streakFrom, today.toEpochDays()).executeAsList().filter { (it.heard ?: 0) >= STREAK_MIN_MS }.map { it.day }
+            val days = lq.days(streakFrom, today.toEpochDays()).awaitAsList().filter { (it.heard ?: 0) >= STREAK_MIN_MS }.map { it.day }
             var longest = 0; var run = 0; var prev = Long.MIN_VALUE
             for (d in days) { run = if (d == prev + 1) run + 1 else 1; longest = maxOf(longest, run); prev = d }
-            val counts = lq.counts(fromMonth, toMonth).executeAsOne()
-            val first = lq.firstDay().executeAsOneOrNull()?.first?.let { LocalDate.fromEpochDays(it) }
+            val counts = lq.counts(fromMonth, toMonth).awaitAsOne()
+            val first = lq.firstDay().awaitAsOneOrNull()?.first?.let { LocalDate.fromEpochDays(it) }
             val estimate = if (range == StatsRange.All) {
                 val start = (first ?: today).atStartOfDayIn(zone()).epochSeconds
-                db.episodeQueries.heardBefore(start).executeAsOne() * 1000
+                db.episodeQueries.heardBefore(start).awaitAsOne() * 1000
             } else null
             ListeningStats(
                 range = range, heardMs = heard, savedBySpeedMs = (media - heard).coerceAtLeast(0), savedBySkipsMs = skipped,
-                episodes = lq.episodeCount(fromMonth, toMonth).executeAsOne().toInt(),
+                episodes = lq.episodeCount(fromMonth, toMonth).awaitAsOne().toInt(),
                 bars = bars,
                 topShows = shows.filter { (it.heard ?: 0) > 0 || it.given > 0 }
                     .map { ShowStats(it.show, it.title ?: "", it.heard ?: 0, it.given) }.sortedByDescending { it.heardMs },
-                topEpisodes = lq.episodeTotals(fromMonth, toMonth, TOP.toLong()).executeAsList()
+                topEpisodes = lq.episodeTotals(fromMonth, toMonth, TOP.toLong()).awaitAsList()
                     .map { EpisodeStats(it.title ?: "", titles[it.show] ?: "", it.heard ?: 0) },
                 boostMsat = shows.sumOf { it.boost ?: 0 }, streamMsat = shows.sumOf { it.stream ?: 0 }, zapMsat = shows.sumOf { it.zap ?: 0 },
                 showsHeard = shows.count { (it.heard ?: 0) > 0 },

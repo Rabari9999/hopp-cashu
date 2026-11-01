@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.sovereigncast
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -24,6 +25,7 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.ui.sovereigncast.CommunityViewModel
 import space.sovereigncast.hopp.ui.sovereigncast.ScPay
 import space.sovereigncast.hopp.value.FakeRelay
@@ -97,7 +99,7 @@ class SovereigncastTest {
         }
     })
     private var now = 1_780_000_000L
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val settings = SettingsRepository(db)
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
     private val episodes = EpisodeRepository(db, http, { now })
@@ -315,7 +317,7 @@ class SovereigncastTest {
         assertEquals("unknown", payment.lines.single().status)
         assertEquals(0L, payment.amountMsat, "not counted as sent")
         // It may have left the wallet: against the budget (security audit 2026-10-18, M-03).
-        assertEquals(210_000L, db.paymentQueries.spentSince(0).executeAsOne())
+        assertEquals(210_000L, db.paymentQueries.spentSince(0).awaitAsOne())
         vm.resetPay()
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         delay(200)
@@ -337,7 +339,7 @@ class SovereigncastTest {
         withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
         val payment = value.payments.first().single()
         assertEquals("paid" to CommunityViewModel.UNCONFIRMED, payment.lines.single().let { it.status to it.reason })
-        assertEquals(211_000L, db.paymentQueries.spentSince(0).executeAsOne(), "counted against the budget: 210 sats and the wallet's fee")
+        assertEquals(211_000L, db.paymentQueries.spentSince(0).awaitAsOne(), "counted against the budget: 210 sats and the wallet's fee")
         vm.resetPay()
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         withTimeout(5_000) { while (vm.pay.value !is ScPay.Failed) delay(20) }
@@ -367,7 +369,7 @@ class SovereigncastTest {
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
         assertEquals(1, fake.requests.count { it.first == "pay_invoice" })
-        assertEquals(211_000L, db.paymentQueries.spentSince(0).executeAsOne())
+        assertEquals(211_000L, db.paymentQueries.spentSince(0).awaitAsOne())
     }
 
     /** Security audit 2026-10-20, M-09: the payment is in the history before the
@@ -380,7 +382,7 @@ class SovereigncastTest {
         val vm = CommunityViewModel(id, sc, settings, wallet, episodes)
         withTimeout(5_000) { while (vm.layer.value == null || !vm.hasWallet.value) delay(10) }
         var journalled: List<space.sovereigncast.hopp.db.Payment>? = null
-        relay.listeners += { e -> if (e.kind == 23194 && journalled == null) journalled = db.paymentQueries.recent().executeAsList() }
+        relay.listeners += { e -> if (e.kind == 23194 && journalled == null) journalled = runBlocking { db.paymentQueries.recent().awaitAsList() } }
         vm.pay(ScTarget.ReleaseBoosting, 210, "", "Satoshi", "E297")
         withTimeout(10_000) { while (vm.pay.value !is ScPay.Done) delay(20) }
         val seen = assertNotNull(journalled, "the request reached the relay").single()

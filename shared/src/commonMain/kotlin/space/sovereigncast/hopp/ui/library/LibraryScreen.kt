@@ -9,12 +9,19 @@ import space.sovereigncast.hopp.resources.library_sort_title
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import kotlinx.datetime.daysUntil
+import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.formatDate
 import space.sovereigncast.hopp.directory.Category
 import space.sovereigncast.hopp.data.Settings
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.AlertDialog
+import org.jetbrains.compose.resources.pluralStringResource
+import space.sovereigncast.hopp.resources.show_all_played
+import space.sovereigncast.hopp.resources.mark_played
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.library_all_played_confirm
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
@@ -61,6 +68,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import space.sovereigncast.hopp.resources.downloads_title
 import space.sovereigncast.hopp.resources.queue_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.theme.Hopp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -105,6 +113,16 @@ fun LibraryScreen(
     val counts by vm.counts.collectAsState()
     val asList by vm.asList.collectAsState()
     val sort by vm.sort.collectAsState()
+    var confirmAllPlayed by remember { mutableStateOf(false) }
+    if (confirmAllPlayed) {
+        val unheard = counts.values.sumOf { it.unheard }
+        AlertDialog(
+            onDismissRequest = { confirmAllPlayed = false },
+            text = { Text(pluralStringResource(Res.plurals.library_all_played_confirm, unheard, unheard)) },
+            confirmButton = { TextButton(onClick = { confirmAllPlayed = false; vm.markAllPlayed() }) { Text(stringResource(Res.string.mark_played)) } },
+            dismissButton = { TextButton(onClick = { confirmAllPlayed = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
         if (list.isEmpty()) {
@@ -122,10 +140,13 @@ fun LibraryScreen(
                 large -> GridCells.Adaptive(168.dp)
                 else -> GridCells.Adaptive(104.dp)
             }
+            val canDownload = LocalPlatformActions.current.canDownload
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
                 item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
-                item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
-                item(span = { GridItemSpan(maxLineSpan) }) { ShowsHeader(asList, vm::showAsList, sort, vm::sortBy) }
+                if (canDownload) item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }) { confirmAllPlayed = true }
+                }
                 items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
                     if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp) { onShow(show.id) }
@@ -136,53 +157,69 @@ fun LibraryScreen(
     }
 }
 
-/** "Shows", the order (device feedback 2026-10-19), and the switch between cards and a list. */
+/**
+ * "Shows", the order (device feedback 2026-10-19), and the switch between cards and a list; below,
+ * while anything is unheard, how much and "Mark all as played" — a quiet line, at hand for a new
+ * setup with hundreds unheard (maintainer 2026-11-01: a row of its own was too dominant).
+ */
 @Composable
-private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit) {
+private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int, onAllPlayed: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().padding(start = 8.dp, top = 16.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(Res.string.library_shows), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        var open by remember { mutableStateOf(false) }
-        Box {
-            TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
-            DropdownMenu(open, onDismissRequest = { open = false }) {
-                Settings.sortChoices.forEach { s ->
-                    DropdownMenuItem(
-                        text = { Text(sortLabel(s), fontWeight = if (s == sort) FontWeight.Bold else null) },
-                        leadingIcon = { if (s == sort) Icon(Icons.Rounded.Check, null) },
-                        onClick = { open = false; onSort(s) },
-                    )
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 16.dp, bottom = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(Res.string.library_shows), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            var open by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
+                DropdownMenu(open, onDismissRequest = { open = false }) {
+                    Settings.sortChoices.forEach { s ->
+                        DropdownMenuItem(
+                            text = { Text(sortLabel(s), fontWeight = if (s == sort) FontWeight.Bold else null) },
+                            leadingIcon = { if (s == sort) Icon(Icons.Rounded.Check, null) },
+                            onClick = { open = false; onSort(s) },
+                        )
+                    }
                 }
             }
+            val shape = RoundedCornerShape(50)
+            Row(Modifier.clip(shape).border(1.dp, colors.outlineVariant, shape)) {
+                listOf(false to (HoppIcons.Grid to Res.string.library_as_cards), true to (Icons.AutoMirrored.Rounded.List to Res.string.library_as_list))
+                    .forEach { (list, look) ->
+                        val label = stringResource(look.second)
+                        Box(
+                            Modifier.background(if (list == asList) colors.secondaryContainer else Color.Transparent)
+                                .selectable(selected = list == asList, role = Role.Tab, onClick = { onAsList(list) })
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .semantics { contentDescription = label },
+                        ) { Icon(look.first, null, Modifier.size(20.dp)) }
+                    }
+            }
         }
-        val shape = RoundedCornerShape(50)
-        Row(Modifier.clip(shape).border(1.dp, colors.outlineVariant, shape)) {
-            listOf(false to (HoppIcons.Grid to Res.string.library_as_cards), true to (Icons.AutoMirrored.Rounded.List to Res.string.library_as_list))
-                .forEach { (list, look) ->
-                    val label = stringResource(look.second)
-                    Box(
-                        Modifier.background(if (list == asList) colors.secondaryContainer else Color.Transparent)
-                            .selectable(selected = list == asList, role = Role.Tab, onClick = { onAsList(list) })
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                            .semantics { contentDescription = label },
-                    ) { Icon(look.first, null, Modifier.size(20.dp)) }
-                }
+        if (unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+            val style = MaterialTheme.typography.bodySmall
+            Text(stringResource(Res.string.library_unheard, unheard) + " · ", style = style, color = colors.onSurfaceVariant)
+            Text(
+                stringResource(Res.string.show_all_played),
+                Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onAllPlayed).padding(vertical = 8.dp),
+                style = style, fontWeight = FontWeight.Bold, color = colors.onSurfaceVariant,
+            )
         }
     }
 }
 
 /**
- * Episodes of a show not heard yet, as a count on red; nothing when there are
+ * Episodes of a show not heard yet, as a count on orange; nothing when there are
  * none (device feedback 2026-10-17: it counted only those in "New", and stayed
  * at 1 however many waited). Above 99 it says 99+. Device
  * feedback 2026-10-13, twice: in the primary colour — black on a light page — it
  * vanished on dark covers; then red with a ring in the page's colour it still had
  * little presence in the dark theme, where that ring is black too. Now a brighter
  * red, a white ring in both themes and a small shadow lift it off any cover — dark,
- * light or red — and the figure is a size larger.
+ * light or red — and the figure is a size larger. Since 2026-11-01 the logo's orange, the
+ * figure black on it (ADR 0019): red always looked like an error (maintainer).
  */
 @Composable
 private fun UnheardCount(n: Int) {
@@ -190,17 +227,14 @@ private fun UnheardCount(n: Int) {
     val label = stringResource(Res.string.library_unheard, n)
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(BADGE_RED)
+        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(Hopp.colors.value)
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp).padding(horizontal = 6.dp)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text(if (n > 99) "99+" else "$n", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
+        Text(if (n > 99) "99+" else "$n", color = Hopp.colors.onValue, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold)
     }
 }
-
-/** A bright red that white reads on at about 4.5 : 1. */
-private val BADGE_RED = Color(0xFFE5251F)
 
 /** A show as a card: the cover fills the cell, its unheard episodes on it, title and author below. */
 @Composable

@@ -1,0 +1,51 @@
+# Hopp's feed proxy (web/proxy, ADR 0022, 6). Its own checks refuse every private address;
+# systemd refuses them once more underneath, so a fault in those checks still reaches nothing
+# on this machine or its network — Caddy's admin, the resolver on loopback, the provider's
+# metadata service included.
+[Unit]
+Description=Hopp feed proxy
+Requires=hopp-feed-proxy.socket
+After=network-online.target hopp-feed-proxy.socket
+
+[Service]
+ExecStart=/opt/hopp-feed-proxy/proxy
+Environment=HOPP_PROXY_ORIGINS=https://play.sovereigncast.space
+Environment=HOPP_PROXY_TRUST_FORWARDED=1
+Restart=on-failure
+
+DynamicUser=yes
+# systemd-resolved's stub listens on loopback, which the proxy may not dial: it reads the
+# resolved's own upstream servers instead (missing without resolved, then /etc/resolv.conf stays).
+BindReadOnlyPaths=-/run/systemd/resolve/resolv.conf:/etc/resolv.conf
+IPAddressDeny=localhost link-local multicast 0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 172.16.0.0/12 192.168.0.0/16 198.18.0.0/15 240.0.0.0/4 fc00::/7 64:ff9b::/96
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077
+# Eight fetches at once of at most 32 MB each (main.go, maxInFlight), and room besides.
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

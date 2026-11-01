@@ -2,10 +2,14 @@ package space.sovereigncast.hopp
 
 import android.Manifest
 import android.content.Intent
+import android.content.res.Configuration
+import android.content.res.Resources
+import android.graphics.Color
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,6 +62,14 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun scanQr(onText: (String) -> Unit) {
         onQr = onText
         scanQr.launch(Unit)
+    }
+
+    /** enableEdgeToEdge's own styles, told the listener's choice instead of only the system's. */
+    override fun themeChosen(dark: Boolean?) {
+        val detect: (Resources) -> Boolean = { res ->
+            dark ?: ((res.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES)
+        }
+        enableEdgeToEdge(SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT, detect), SystemBarStyle.auto(LIGHT_SCRIM, DARK_SCRIM, detect))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -209,5 +221,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, subject).putExtra(Intent.EXTRA_TEXT, text)
         startActivity(Intent.createChooser(send, subject))
     }
-
 }
+
+// enableEdgeToEdge's defaults for the navigation bar's scrim where the system draws one (before Android 10).
+private val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+private val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)

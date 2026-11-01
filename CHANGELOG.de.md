@@ -6,6 +6,34 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-01
+
+### 🆕 New Features
+- **Bibliothek:** Alle Folgen aller Shows auf einmal als gehört markieren – praktisch nach einer Neueinrichtung.
+- **Einstellungen:** Darstellung hell, dunkel oder wie das System.
+- **Tablets:** Seitenleiste mit den Einstellungen unten, eine Player-Leiste am unteren Rand und Seiten in lesbarer Breite.
+- **Player:** Auf Tablets Shownotes, Kapitel und Personen als Tabs neben dem Player.
+- **Nostr:** Der Verbindungscode als QR-Code, zum Scannen mit einem Signer auf einem anderen Gerät.
+- **Sync:** Das Sync-Fenster zeigt nach jeder Runde jedes Relay, und was fehlschlug, mit Grund.
+- **Sync:** „Von diesem Gerät neu schreiben“, wenn die Relays ein Dokument nur zum Teil haben.
+- **iPhone:** Hopp sucht im eingestellten Intervall nach neuen Folgen, solange es geöffnet ist.
+
+### 🐛 Fixes
+- **Player:** Eine als gehört markierte Folge verschwindet aus dem Player – einzeln, mit ihrer Show oder mit allen Shows.
+- **Player:** Eine auf einem anderen Gerät zu Ende gehörte Folge verschwindet auch hier aus dem Player.
+- **Player:** Schnelles Tippen auf das Tempo bleibt beim getippten Tempo.
+- **Sync:** „Alle gehört“ und „diese und ältere“ gehen als ein Eintrag pro Show raus – keine gebremsten Relays mehr.
+- **Sync:** Zuverlässiger mit Relays, die Ereignisse begrenzen oder nur teilweise halten.
+- **Sync:** „Wartet hier“ zählt keine Folgen mehr, die dein Feed nicht mehr hat.
+- **Downloads:** Nach dem Wiederherstellen lädt Hopp keine Folgen mehr automatisch herunter, die du schon gehört hast.
+- **Verlauf:** Bei frühen Installationen standen Gebühren und Ergebnisse in falschen Spalten; das ist repariert.
+- **Wallet:** Eine Zahlung gilt nur mit dem Nachweis der Wallet als bezahlt.
+- **Darstellung:** Die Statusleiste folgt dem in Hopp gewählten Design.
+- **Bibliothek:** Der Zähler ungehörter Folgen ist orange statt rot.
+- **Kapitel:** Die Zeiten stehen in einer Spalte, die Titel bündig daneben.
+- **Shows:** Eine Folge ohne eigenes Cover zeigt das der Show.
+- **Nostr:** Die Anmeldung mit Verbindungscode findet deinen Signer schneller.
+
 ## [0.3.1] - 2026-10-28
 
 ### 🆕 New Features

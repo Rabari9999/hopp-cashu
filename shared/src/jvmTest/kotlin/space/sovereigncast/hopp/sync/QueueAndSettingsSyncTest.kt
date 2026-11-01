@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,8 +24,8 @@ class QueueAndSettingsSyncTest {
 
     @AfterTest fun stop() = scope.cancel()
 
-    private fun SyncDevice.id(guid: String) = episode(feed, guid).id
-    private fun guids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).executeAsList().map { it.guid }
+    private suspend fun SyncDevice.id(guid: String) = episode(feed, guid).id
+    private suspend fun guids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).awaitAsList().map { it.guid }
 
     @Test
     fun upNextFollowsAndAReorderAndAnAdditionBothSurvive() = runBlocking<Unit> {
@@ -273,7 +274,7 @@ class QueueAndSettingsSyncTest {
         tablet.sync.enable()
         assertEquals(setOf(feed), tablet.urls())
         assertEquals(false, tablet.settings.current().autoDownloads)
-        val queued = tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).executeAsList().filter { it.download_state != 0L }
+        val queued = tablet.db.episodeQueries.selectByPodcast(tablet.row(feed).id).awaitAsList().filter { it.download_state != 0L }
         assertEquals(emptyList(), queued.map { it.guid })
     }
 

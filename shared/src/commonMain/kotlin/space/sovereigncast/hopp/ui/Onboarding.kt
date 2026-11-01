@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
@@ -76,7 +77,7 @@ import space.sovereigncast.hopp.ui.components.HoppSymbol
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** [icon] null: Hopp's logo symbol, for the page that says what Hopp is. */
-private class TourPage(
+private data class TourPage(
     val icon: ImageVector?, val value: Boolean, val title: StringResource, val text: StringResource, val nwcLink: Boolean = false,
     /** What it brings, a line each — a page with more to say than a paragraph holds. */
     val points: List<StringResource> = emptyList(),
@@ -126,7 +127,14 @@ fun OnboardingScreen(
     onDone: (connectWallet: Boolean) -> Unit,
 ) {
     // A wallet already connected (tour again, or after an update): no page asking for one.
-    val PAGES = if (hasWallet) ALL_PAGES.dropLast(1) else ALL_PAGES
+    // Where Hopp pays at all: not in the browser for now — no value-for-value page there either.
+    val canPay = LocalPlatformActions.current.canPay
+    val PAGES = when {
+        !canPay -> ALL_PAGES.dropLast(1).filter { it.title != Res.string.onboarding_v4v_title }
+            .map { p -> p.copy(points = p.points.filter { it != Res.string.onboarding_nostr_boosts }) }
+        hasWallet -> ALL_PAGES.dropLast(1)
+        else -> ALL_PAGES
+    }
     val pager = rememberPagerState(initialPage = initialPage.coerceIn(0, PAGES.lastIndex)) { PAGES.size }
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
@@ -225,11 +233,16 @@ fun OnboardingScreen(
                 Skip()
                 Column { Dots(); Buttons() }
             }
-        } else Column(Modifier.fillMaxSize()) {
-            Skip()
-            Pages(Modifier.weight(1f).fillMaxWidth())
-            Dots()
-            Buttons()
+        } else androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // A large window: the tour as one column in its middle, "Skip" at its corner and not the
+            // window's — 1 300 px from the text in a browser (UX review 2026-10-30). A phone as before.
+            val wide = maxWidth >= space.sovereigncast.hopp.ui.components.MEDIUM_WIDTH
+            Column(if (wide) Modifier.widthIn(max = 600.dp).heightIn(max = 800.dp).fillMaxSize() else Modifier.fillMaxSize()) {
+                Skip()
+                Pages(Modifier.weight(1f).fillMaxWidth())
+                Dots()
+                Buttons()
+            }
         }
     }
 }

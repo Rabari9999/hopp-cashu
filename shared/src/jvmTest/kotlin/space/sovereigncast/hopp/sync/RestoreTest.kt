@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +28,7 @@ class RestoreTest {
         val phone = SyncDevice(relay, scope, nsec)
         phone.podcasts.subscribe(feed)
         phone.podcasts.subscribe("https://pod.test/selfhosted.xml")
-        val guids = phone.db.episodeQueries.selectByPodcast(phone.row(feed).id).executeAsList().map { it.guid }
+        val guids = phone.db.episodeQueries.selectByPodcast(phone.row(feed).id).awaitAsList().map { it.guid }
         phone.episodes.savePosition(phone.episode(feed, guids[0]).id, 60_000)
         phone.episodes.savePosition(phone.episode(feed, guids[1]).id, 90_000)
         phone.episodes.setPlayed(phone.episode(feed, guids[2]).id, true)

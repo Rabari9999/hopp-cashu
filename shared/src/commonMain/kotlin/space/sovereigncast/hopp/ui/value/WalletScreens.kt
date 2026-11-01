@@ -75,6 +75,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.wallet_not_here
 import space.sovereigncast.hopp.resources.history_boost
 import space.sovereigncast.hopp.resources.history_empty
 import space.sovereigncast.hopp.resources.history_empty_text
@@ -129,6 +130,16 @@ import space.sovereigncast.hopp.value.ValueService
  * (or opening a `nostr+walletconnect:` link), what the wallet can, the daily
  * budget, the streaming rate, the name sent with boosts.
  */
+/** Where Hopp does not pay (the browser for now, [space.sovereigncast.hopp.ui.PlatformActions.canPay]):
+ *  what is left of the wallet page, for a link that still leads here. */
+@Composable
+fun WalletNotHere() {
+    Text(
+        stringResource(Res.string.wallet_not_here), Modifier.padding(24.dp),
+        style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WalletScreen(vm: WalletViewModel = koinViewModel()) {

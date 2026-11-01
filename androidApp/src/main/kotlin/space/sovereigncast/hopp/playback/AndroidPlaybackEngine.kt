@@ -87,6 +87,8 @@ class AndroidPlaybackEngine(context: Context) : PlaybackEngine {
     override fun pause() = withController { it.pause() }
     override fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs); publish() }
     override fun setSpeed(speed: Float) = withController { it.setPlaybackSpeed(speed) }
+    // Stopped and emptied: the media notification goes with the item.
+    override fun unload() = withController { it.stop(); it.clearMediaItems(); publish() }
 
     // Applied by PlaybackService from the settings — ExoPlayer's own feature.
     override val supportsSkipSilence: Boolean = true

@@ -12,10 +12,12 @@ import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.NostrSigner
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** Too few relays took a document ([took] of [asked]): it stays unpublished and goes out on the next sync. */
-class SyncNotPublished(val took: Int = 0, val asked: Int = 0) : Exception("$took of $asked relays took the sync event")
+class SyncNotPublished(val took: Int = 0, val asked: Int = 0, val rev: String? = null) : Exception("$took of $asked relays took the sync event")
 
 /**
  * The relays' side of sync (ADR 0021, 5): a document's parts read back and
@@ -24,6 +26,9 @@ class SyncNotPublished(val took: Int = 0, val asked: Int = 0) : Exception("$took
  */
 class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: () -> Long) {
     private val lastSent = mutableMapOf<String, Long>()
+    /** The highest part number the last read of each document found holding something — parts a smaller
+     *  version leaves over. One emptied already (past its own part count, no entries) does not count. */
+    private val partsSeen = mutableMapOf<String, Int>()
 
     /** How many relays answered the last read to its end, of how many asked — for the status. */
     var lastReach: Pair<Int, Int>? = null
@@ -54,7 +59,10 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             .mapValues { (_, events) -> events.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
         val majority = got.answered * 2 > got.asked
         // Absent only with no part at all: a later part without the first is a document read in part (HN-02).
-        if (newest.isEmpty()) return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
+        if (newest.isEmpty()) {
+            partsSeen[doc] = 0
+            return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
+        }
         val at = newest.values.maxOf { it.created_at }
         // A part that does not open or read makes the read incomplete, never smaller.
         val parts = newest.mapNotNull { (n, e) ->
@@ -62,13 +70,34 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             val part = try { SyncCodec.decode(text) } catch (x: SerializationException) { null } catch (x: IllegalArgumentException) { null }
             part?.let { n to it }
         }.toMap()
+        // An emptied part stays emptied: sent again with every version, it cost a pause and an event each
+        // time, for good (review 2026-10-31). One that does not open still counts.
+        partsSeen[doc] = newest.keys.filter { n -> parts[n]?.let { it.part > it.parts && it.entries.isEmpty() } != true }.maxOrNull() ?: 0
         val whole = SyncCodec.join(parts)
         // A part as new as the first, or newer, that is not of its revision: a later revision whose first
         // part did not come — the first one here is an older, smaller one (delta audit 2 2026-10-22, HN-02).
         // Parts left over from a larger revision are always older: a new one goes out later than all of them.
         val root = newest[1]
         val later = root != null && newest.any { (n, e) -> n > 1 && e.created_at >= root.created_at && parts[n]?.rev != parts[1]?.rev }
-        return if (whole != null && majority && !later) Fetched.Complete(whole, at) else Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at)
+        if (whole != null && majority && !later) return Fetched.Complete(whole, at)
+        // Which revision went out last, and whether its gap is only older parts (maintainer 2026-10-30).
+        val newestRev = newest.maxByOrNull { it.value.created_at }?.key?.let { parts[it]?.rev }
+        val first = parts[1]
+        val stale = root != null && first != null && !later && first.parts in 1..SyncCodec.MAX_PARTS && (1..first.parts).all { n ->
+            val p = parts[n] ?: return@all false
+            p.rev == first.rev || newest.getValue(n).created_at < root.created_at
+        }
+        val unread = newest.keys - parts.keys
+        val ofNewest = parts.filterValues { it.rev == newestRev }.keys.sorted()
+        val found = buildString {
+            append("newest version: parts ${ofNewest.joinToString(",").ifEmpty { "none" }} of ${parts.values.firstOrNull { it.rev == newestRev }?.parts ?: "?"}")
+            append("; first part ${if (first == null) "missing" else "of ${if (first.rev == newestRev) "it" else "an older one"}"}")
+            (parts.keys - ofNewest).takeIf { it.isNotEmpty() }?.let { append("; older parts ${it.sorted().joinToString(",")}") }
+            if (unread.isNotEmpty()) append("; unreadable ${unread.sorted().joinToString(",")}")
+            if (later) append("; a later part than the first")
+            append("; read to the end by ${got.answered} of ${got.asked}")
+        }
+        return Fetched.Incomplete(whole ?: SyncCodec.joinWhatArrived(parts), at, settled = majority, newestRev = newestRev, stale = stale, all = SyncCodec.joinAll(parts), found = found)
     }
 
     /**
@@ -77,19 +106,37 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
      * Taken only when a majority of [relays] took every part ([SyncNotPublished]
      * otherwise: it goes again next time).
      */
-    suspend fun publish(signer: NostrSigner, doc: String, entries: Map<String, SyncEntry>, relays: List<String>, notBefore: Long = 0): Set<String> {
-        val rev = secureRandomBytes(8).toHex()
+    suspend fun publish(signer: NostrSigner, doc: String, entries: Map<String, SyncEntry>, relays: List<String>, notBefore: Long = 0, rev: String = newRev()): Set<String> {
         val parts = SyncCodec.split(entries, rev, doc)
         // Two versions in the same second: relays would keep the lower id, not the newer one.
         val now = maxOf(nowSeconds(), (lastSent[doc] ?: 0) + 1, notBefore + 1).also { lastSent[doc] = it }
         var took: Set<String>? = null
         for (part in parts) {
+            // A breath between parts: relays count events per moment (maintainer 2026-10-30).
+            if (part.part > 1) delay(PART_PAUSE)
             val content = signer.encryptToSelf(SyncCodec.encode(part))
             val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", SyncCodec.dTag(doc, part.part))), now))
             val ok = publisher.publish(event, relays)
             took = took?.intersect(ok) ?: ok
         }
-        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size)
+        if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size, rev)
+        // A smaller version leaves the larger one's later parts behind, older and passed over — but read
+        // again every round (maintainer 2026-10-30: ~700 KB of them after the progress shrank to 8 KB).
+        // Each overwritten by an empty part of this version, a few hundred bytes: past its part count,
+        // every Hopp passes it over. Best effort: one not taken is just read as before.
+        for (n in parts.size + 1..(partsSeen[doc] ?: 0).coerceAtMost(SyncCodec.MAX_PARTS)) {
+            delay(PART_PAUSE)
+            val empty = SyncCodec.Part(SyncCodec.VERSION, rev, n, parts.size)
+            val event = signer.sign(UnsignedEvent(Nip78.KIND, signer.encryptToSelf(SyncCodec.encode(empty)), listOf(listOf("d", SyncCodec.dTag(doc, n))), now))
+            runCatching { publisher.publish(event, relays) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        }
+        partsSeen[doc] = parts.size
         return took
+    }
+
+    companion object {
+        private val PART_PAUSE = 500.milliseconds
+        /** A version's revision, shared by its parts. */
+        fun newRev(): String = secureRandomBytes(8).toHex()
     }
 }

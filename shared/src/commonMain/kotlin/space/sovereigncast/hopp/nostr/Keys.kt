@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.nostr
 
-import fr.acinq.secp256k1.Secp256k1
+import space.sovereigncast.hopp.crypto.Secp256k1
 import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.secureRandomBytes
 import space.sovereigncast.hopp.crypto.toHex
@@ -12,7 +12,7 @@ class KeyPair(val secretKey: ByteArray) {
     }
 
     /** x-only public key, 32 bytes. */
-    val publicKey: ByteArray = Secp256k1.pubkeyCreate(secretKey).copyOfRange(1, 33)
+    val publicKey: ByteArray = Secp256k1.xOnlyPublicKey(secretKey)
     val publicKeyHex: String get() = publicKey.toHex()
 
     fun signSchnorr(message32: ByteArray): ByteArray = Secp256k1.signSchnorr(message32, secretKey, secureRandomBytes(32))
@@ -33,7 +33,4 @@ fun verifySchnorr(signature: ByteArray, message32: ByteArray, xOnlyPublicKey: By
 
 /** ECDH x-coordinate (unhashed) between our secret and an x-only public key —
  *  the shared secret NIP-04 and NIP-44 both start from. */
-internal fun sharedX(secretKey: ByteArray, xOnlyPublicKey: ByteArray): ByteArray {
-    val point = Secp256k1.pubKeyTweakMul(byteArrayOf(0x02) + xOnlyPublicKey, secretKey)
-    return Secp256k1.pubKeyCompress(point).copyOfRange(1, 33)
-}
+internal fun sharedX(secretKey: ByteArray, xOnlyPublicKey: ByteArray): ByteArray = Secp256k1.sharedX(secretKey, xOnlyPublicKey)

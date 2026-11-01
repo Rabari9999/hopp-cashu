@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.sync
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -115,7 +116,7 @@ class SubscriptionsSyncTest {
         val phone = Device()
         phone.sync.enable()
         val id = phone.row(feed).id
-        val episode = phone.db.episodeQueries.selectByPodcast(id).executeAsList().first()
+        val episode = phone.db.episodeQueries.selectByPodcast(id).awaitAsList().first()
         phone.episodes.savePosition(episode.id, 123_456, paused = true)
         phone.queue.playLast(episode.id)
         phone.sync.syncNow()
@@ -127,7 +128,7 @@ class SubscriptionsSyncTest {
         phone.ms += 120_000
         val real = SubscriptionsDocument(phone.db, phone.podcasts)
         val racing = object : SyncedDocument by real {
-            override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: (String, SyncEntry) -> Boolean): Set<String> {
+            override suspend fun apply(entries: Map<String, SyncEntry>, stillWins: suspend (String, SyncEntry) -> Boolean): Set<String> {
                 if (entries.values.any { it.del }) phone.podcasts.setSpeed(id, 1.5f)
                 return real.apply(entries, stillWins)
             }

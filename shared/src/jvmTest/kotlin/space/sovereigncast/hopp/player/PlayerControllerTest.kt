@@ -1,6 +1,6 @@
 package space.sovereigncast.hopp.player
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -32,6 +32,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** An engine that does what it is told and lets the test play the clock. */
 class RecordingEngine : PlaybackEngine {
@@ -50,6 +51,8 @@ class RecordingEngine : PlaybackEngine {
     override fun pause() { s.value = s.value.copy(isPlaying = false) }
     override fun seekTo(positionMs: Long) { seeks += positionMs; s.value = s.value.copy(positionMs = positionMs) }
     override fun setSpeed(speed: Float) { lastSpeed = speed; s.value = s.value.copy(speed = speed) }
+    var unloaded = 0
+    override fun unload() { unloaded++; s.value = PlaybackState(speed = s.value.speed) }
     override fun release() = Unit
     fun at(ms: Long, playing: Boolean = true) { s.value = s.value.copy(positionMs = ms, isPlaying = playing) }
     fun end() { s.value = s.value.copy(positionMs = s.value.durationMs, isPlaying = false) }
@@ -73,7 +76,7 @@ class PlayerControllerTest {
             else -> respond("", HttpStatusCode.NotFound)
         }
     })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1000 })
     private val episodes = EpisodeRepository(db, http, { 1000 })
     private val queue = QueueRepository(db)
@@ -174,6 +177,84 @@ class PlayerControllerTest {
         again.togglePlay()
         until("plays from the new place") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 180_000L } == true }
         assertEquals(180_000L, episodes.item(e1.id)!!.positionMs)
+    }
+
+    /** Maintainer 2026-10-31: paused here, heard to its end on another device — gone from "new" there, but
+     *  still in the player here. It leaves the player, and the player goes; one playing here stays. */
+    @Test
+    fun anEpisodeHeardToItsEndElsewhereLeavesThePlayer() = test {
+        val (e1, e2, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        episodes.applyProgress(e1.id, 0, true, clockMs / 1000)
+        player.adoptProgress(e1.id, 0, true)
+        assertEquals(null, player.current.value, "nothing in the player")
+        assertEquals(1, engine.unloaded)
+        assertEquals(null, engine.state.value.itemId)
+        assertTrue(episodes.item(e1.id)!!.played)
+        // Playing here: left alone.
+        start(e2)
+        at(30_000)
+        player.adoptProgress(e2.id, 0, true)
+        assertEquals(e2.id, player.current.value?.item?.id)
+        assertEquals(1, engine.unloaded)
+    }
+
+    /** Maintainer 2026-11-01: the episode in the player marked played — on its own or with all of its show
+     *  or every show — leaves the player and "Up next"; one heard to its end here stays where it ended. */
+    @Test
+    fun anEpisodeMarkedPlayedLeavesThePlayer() = test {
+        val (e1, e2, e3) = episodes()
+        start(e1)
+        at(60_000)
+        episodes.setPlayed(e1.id, true)
+        until("out of the player") { player.current.value == null }
+        assertEquals(1, engine.unloaded)
+
+        // Playing on, with all of its show; the next one waiting in "Up next" goes too.
+        queue.playLast(e3.id)
+        start(e2)
+        at(30_000)
+        episodes.setShowPlayed(e2.podcastId)
+        until("out of the player") { player.current.value == null }
+        assertEquals(2, engine.unloaded)
+        assertTrue(queue.items.first().isEmpty(), "out of Up next")
+
+        // Every show at once.
+        episodes.setPlayed(e1.id, false)
+        start(e1)
+        at(10_000)
+        episodes.setAllPlayed()
+        until("out of the player") { player.current.value == null }
+        assertEquals(3, engine.unloaded)
+
+        // Heard to its end here, nothing waiting: it stays, at its end.
+        episodes.setPlayed(e3.id, false)
+        start(e3)
+        at(10_000)
+        step { end() }
+        until("marked played") { episodes.item(e3.id)!!.played }
+        delay(200)
+        assertEquals(e3.id, player.current.value?.item?.id)
+        assertEquals(3, engine.unloaded)
+    }
+
+    /** Maintainer 2026-10-31: after a reload the player said 1× for a show of its own speed, until played. */
+    @Test
+    fun aRestoredEpisodeShowsItsShowsSpeed() = test {
+        val (e1, _, _) = episodes()
+        podcasts.setSpeed(e1.podcastId, 1.5f)
+        start(e1)
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e1.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e1.id }
+        until("at the show's speed") { again.state.value.speed == 1.5f }
+        again.togglePlay()
+        until("played at it") { fresh.lastSpeed == 1.5f }
     }
 
     /** ND-03, the other way: the position arrives in the database only (the player not told) — still played from there. */
@@ -371,7 +452,7 @@ class PlayerControllerTest {
         var pos = 0L
         repeat(20) { clockMs += 500; pos += 500; at(pos) }
         at(pos, playing = false)
-        until("written") { db.listeningQueries.showTotals(0, 999_912).executeAsList().sumOf { it.heard ?: 0 } > 0 }
+        until("written") { db.listeningQueries.showTotals(0, 999_912).awaitAsList().sumOf { it.heard ?: 0 } > 0 }
     }
 
     /** Review 2026-10-27: an episode whose feed gives no length takes the skip, and goes back to
@@ -438,6 +519,21 @@ class PlayerControllerTest {
     }
 
     /** Device feedback 2026-10-19: a tap steps through every speed the long press offers. */
+    /** The speed changed on the show's page while it plays counts at once; taps in the player arriving
+     *  back from the database late never set it back (review 2026-10-31). */
+    @Test
+    fun aSpeedSetOnTheShowsPageCountsAtOnce() = test {
+        val (e1, _, _) = episodes()
+        start(e1)
+        repeat(5) { player.cycleSpeed() }
+        assertEquals(1.8f, engine.lastSpeed)
+        until("saved") { podcasts.show(e1.podcastId).first()?.playbackSpeed == 1.8f }
+        delay(100)
+        assertEquals(1.8f, engine.lastSpeed, "no tap undone")
+        podcasts.setSpeed(e1.podcastId, 1.3f)
+        until("taken over") { engine.lastSpeed == 1.3f }
+    }
+
     @Test
     fun aTapStepsThroughEverySpeed() = test {
         val (e1, _, _) = episodes()

@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.data
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -11,12 +10,13 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.testDatabase
 
 /** Searching a show's episodes by topic, and favourites (device feedback 2026-10-11). */
 class EpisodeSearchTest {
     private val feed = javaClass.getResource("/feeds/nodesignal-podhome.xml")!!.readBytes()
     private val http = HttpClient(MockEngine { respond(feed) })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { 1_000 })
     private val episodes = EpisodeRepository(db, http, { 1_000 })
     private fun test(block: suspend () -> Unit) = runBlocking { block() }

@@ -1,17 +1,20 @@
 package space.sovereigncast.hopp.sync
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.identity.IdentityRepository
+import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.LocalSigner
 import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -75,6 +78,16 @@ class SyncCoreTest {
         assertEquals(listOf("hopp/progress", "hopp/progress#2"), SyncCodec.dTags("progress").take(2))
     }
 
+    /** Maintainer 2026-10-30: nos.lol refused a progress part, "invalid: event too large: 87839". */
+    @Test
+    fun theFullestPartStaysUnderTheRelaysEventLimit() = runBlocking<Unit> {
+        val signer = LocalSigner(KeyPair.generate())
+        val fullest = "x".repeat(SyncCodec.MAX_PART_BYTES)
+        val event = signer.sign(UnsignedEvent(Nip78.KIND, signer.encryptToSelf(fullest), listOf(listOf("d", SyncCodec.dTag("subscriptions", SyncCodec.MAX_PARTS))), 1_790_000_000))
+        val size = Json.encodeToString(Event.serializer(), event).encodeToByteArray().size
+        assertTrue(size <= SyncCodec.MAX_EVENT_BYTES, "an event of $size bytes")
+    }
+
     @Test
     fun partsOfAnotherRevisionAreNotMixedIn() {
         val old = SyncCodec.split(mapOf("gone" to SyncEntry(1)), "old").single().copy(part = 2, parts = 2)
@@ -115,10 +128,10 @@ class SyncCoreTest {
 
     // ── store ───────────────────────────────────────────────────────────────
 
-    private fun db() = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private fun db() = testDatabase()
 
     @Test
-    fun aChangeHereIsLaterThanWhatItReplacesEvenWithAClockBehind() {
+    fun aChangeHereIsLaterThanWhatItReplacesEvenWithAClockBehind() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         store.putIfNewer("subscriptions", mapOf("show" to SyncEntry(5_000, d = data("by" to "the other device, clock ahead"))))
@@ -130,7 +143,7 @@ class SyncCoreTest {
     }
 
     @Test
-    fun oldRemovalMarkersGoAndWhatIsUnsentIsKnownPerEntry() {
+    fun oldRemovalMarkersGoAndWhatIsUnsentIsKnownPerEntry() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         store.putIfNewer("queue", mapOf("old" to SyncEntry(10, del = true), "new" to SyncEntry(500, del = true), "live" to SyncEntry(10)))
@@ -155,7 +168,7 @@ class SyncCoreTest {
 
     /** Audit 2026-10-22, H-03: a change made while a sync was on its way is not written over. */
     @Test
-    fun anOlderEntryFromTheRelaysNeverReplacesANewerOneHere() {
+    fun anOlderEntryFromTheRelaysNeverReplacesANewerOneHere() = runTest {
         var now = 1_000L
         val store = SyncStore(db()) { now }
         now = 5_000
@@ -220,6 +233,104 @@ class SyncCoreTest {
         phone.engine.sync(docPhone)
         assertTrue(docPhone.applied.getValue("show-a").del)
         assertEquals(SyncOutcome.Done(0, false), tablet.engine.sync(docTablet))
+    }
+
+    /**
+     * Maintainer 2026-10-30: "Incomplete", every relay answered, four changes waiting that never went out.
+     * A version that only partly went out (a relay refused one part) leaves a revision with a gap on the
+     * relays; with a majority read to its end, that gap never fills — a new, whole version goes out over
+     * it, with every entry that arrived, instead of waiting for ever.
+     */
+    @Test
+    fun aVersionThatPartlyWentOutIsWrittenOverOnceTheRelaysHaveAnswered() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}", "played" to "false")) }
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(doc, interactive = true))
+        // A change; the third part of its version is refused everywhere: parts 1 and 2 are new, part 3 is the old one.
+        phone.ms += 2_000
+        phone.store.record("test", "podcast-guid-1|episode-guid-1", data("pos" to "5", "played" to "true"))
+        relay.refuse = { e -> e.tags.any { it == listOf("d", "hopp/test#3") } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // Every relay answers; the version on them has a gap that no relay will ever fill.
+        phone.ms += 2_000
+        assertEquals(SyncOutcome.Done(0, true), phone.engine.sync(doc))
+        assertFalse(phone.store.unpublished("test"))
+        // Another device reads it whole, the change included.
+        val tablet = Device(nsec)
+        val other = MemoryDocument()
+        tablet.ms = phone.ms + 2_000
+        assertEquals(SyncOutcome.Done(1500, false), tablet.engine.sync(other, interactive = true))
+        assertEquals("true", other.applied.getValue("podcast-guid-1|episode-guid-1").d?.get("played")?.let { (it as JsonPrimitive).content })
+    }
+
+    /** The same gap left by a Hopp that did not keep which version failed: the missing part is there in an
+     *  older version only — a relay that had taken the newer one would hold it instead — so it is written over too. */
+    @Test
+    fun aGapOfOlderPartsOnlyIsWrittenOverWithoutKnowingWhoLeftIt() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        phone.engine.sync(doc, interactive = true)
+        phone.ms += 2_000
+        phone.store.record("test", "podcast-guid-2|episode-guid-2", data("pos" to "7"))
+        relay.refuse = { e -> e.tags.any { it == listOf("d", "hopp/test#3") } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // Another device, which never sent anything, finds the gap: older parts only — it writes over it.
+        val tablet = Device(nsec)
+        tablet.ms = phone.ms + 2_000
+        val other = MemoryDocument()
+        assertEquals(SyncOutcome.Done(1500, true), tablet.engine.sync(other, interactive = true))
+        val third = Device(nsec)
+        third.ms = tablet.ms + 2_000
+        assertIs<SyncOutcome.Done>(third.engine.sync(MemoryDocument(), interactive = true))
+    }
+
+    /**
+     * Maintainer 2026-10-30, the second time: a larger version cut off after its second part — later parts
+     * nowhere, and a Hopp that did not keep which version it left. Another device waits at first (a relay
+     * may hold a part back for a moment, HN-02), and writes over the gap once every relay has shown it
+     * for [SyncEngine.STUCK_FOR].
+     */
+    @Test
+    fun aGapEveryRelayShowsForAFewMinutesIsWrittenOver() = runBlocking<Unit> {
+        val nsec = space.sovereigncast.hopp.nostr.Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec)
+        val doc = MemoryDocument()
+        (1..700).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        phone.engine.sync(doc, interactive = true)
+        // Larger now; its parts after the second never arrive anywhere.
+        phone.ms += 2_000
+        (701..1500).forEach { phone.store.record("test", "podcast-guid-$it|episode-guid-$it", data("pos" to "${it * 1000}")) }
+        relay.refuse = { e -> e.tags.any { t -> t.size >= 2 && t[0] == "d" && t[1].substringAfter('#', "1").toInt() >= 3 } }
+        assertIs<SyncOutcome.Failed>(phone.engine.sync(doc))
+        relay.refuse = { false }
+        // As a Hopp before 0.3.2 left it: nothing kept of the version it cut off.
+        phone.store.markBroken("test", null)
+
+        val tablet = Device(nsec)
+        tablet.ms = phone.ms + 2_000
+        val other = MemoryDocument()
+        val first = tablet.engine.sync(other, interactive = true) as SyncOutcome.Incomplete
+        assertEquals("test", first.doc)
+        assertEquals(SyncEngine.STUCK_FOR.inWholeMilliseconds, first.rewriteInMs, "the sync page says when")
+        assertTrue(first.found.orEmpty().startsWith("newest version: parts 1,2 of "), first.found)
+        tablet.ms += 60_000
+        assertIs<SyncOutcome.Incomplete>(tablet.engine.sync(other))
+        tablet.ms += 3 * 60_000
+        assertIs<SyncOutcome.Done>(tablet.engine.sync(other))
+        // Whole again: the phone reads it complete, and sends what it alone still had.
+        phone.ms = tablet.ms + 2_000
+        assertIs<SyncOutcome.Done>(phone.engine.sync(doc))
+        val third = Device(nsec)
+        third.ms = phone.ms + 2_000
+        val all = MemoryDocument()
+        assertIs<SyncOutcome.Done>(third.engine.sync(all, interactive = true))
+        assertEquals(1500, all.applied.size)
     }
 
     @Test

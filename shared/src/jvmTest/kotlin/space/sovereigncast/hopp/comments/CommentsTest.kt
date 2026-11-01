@@ -1,6 +1,5 @@
 package space.sovereigncast.hopp.comments
 
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -27,6 +26,7 @@ import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.sovereigncast.ListenerApi
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
+import space.sovereigncast.hopp.testDatabase
 import space.sovereigncast.hopp.value.FakeRelay
 import space.sovereigncast.hopp.value.LnAddressClient
 import space.sovereigncast.hopp.value.ValueService
@@ -81,7 +81,7 @@ class CommentsTest {
             else -> respondError(HttpStatusCode.NotFound)
         }
     })
-    private val db = HoppDatabase(JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.create(it) })
+    private val db = testDatabase()
     private val settings = SettingsRepository(db)
     private val podcasts = PodcastRepository(db, FeedFetcher(http), { now })
     private val episodes = EpisodeRepository(db, http, { now })

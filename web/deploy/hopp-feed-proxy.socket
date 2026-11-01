@@ -1,0 +1,13 @@
+# The feed proxy's socket (ADR 0022, 6): held by systemd and reachable by Caddy only, so the
+# proxy itself needs no network address to listen on — and may dial none on this machine.
+[Unit]
+Description=Hopp feed proxy socket
+
+[Socket]
+ListenStream=/run/hopp-feed-proxy.sock
+SocketUser=root
+SocketGroup=caddy
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

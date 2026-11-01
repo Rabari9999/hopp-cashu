@@ -1,7 +1,6 @@
 package space.sovereigncast.hopp.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -12,6 +11,7 @@ import space.sovereigncast.hopp.db.Listen_count
 import space.sovereigncast.hopp.db.Listen_day
 import space.sovereigncast.hopp.db.Listen_episode
 import space.sovereigncast.hopp.db.Listen_show
+import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs.long
 import space.sovereigncast.hopp.sync.SyncDocs.text
 
@@ -64,11 +64,11 @@ class StatsDocument(
 
     override suspend fun snapshot(): Map<String, SyncEntry> = listening.snapshot().mapValues { (_, d) -> SyncEntry(nowMs(), d = d) }
 
-    override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> = withContext(Dispatchers.IO) {
+    override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> = withContext(ioDispatcher) {
         val q = db.listeningQueries
         val mine = listening.device
         // This device's own counts come back only where it has none (a reinstall that kept its name).
-        val ownEmpty = q.daysOf(mine).executeAsList().isEmpty() && q.showsOf(mine).executeAsList().isEmpty()
+        val ownEmpty = q.daysOf(mine).awaitAsList().isEmpty() && q.showsOf(mine).awaitAsList().isEmpty()
         db.transaction {
             for ((key, e) in entries) {
                 if (e.del) continue

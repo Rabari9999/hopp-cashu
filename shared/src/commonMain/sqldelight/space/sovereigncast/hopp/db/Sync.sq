@@ -27,11 +27,16 @@ CREATE TABLE sync_unapplied (
     PRIMARY KEY (doc, key)
 );
 
--- Per document: when it was last fetched, and the newest entry the relays took from here.
+-- Per document: when it was last fetched, and the newest entry the relays took from here;
+-- broken_rev: a revision this device began to send and did not finish, to write over (version 18);
+-- stuck_rev/stuck_since: a revision with a gap seen since then with every relay answering (version 19).
 CREATE TABLE sync_doc (
     doc TEXT PRIMARY KEY NOT NULL,
     fetched_at INTEGER,
-    published_up_to INTEGER
+    published_up_to INTEGER,
+    broken_rev TEXT,
+    stuck_rev TEXT,
+    stuck_since INTEGER
 );
 
 entries:
@@ -96,6 +101,18 @@ UPDATE sync_doc SET fetched_at = ? WHERE doc = ?;
 
 setPublished:
 UPDATE sync_doc SET published_up_to = ? WHERE doc = ?;
+
+brokenRev:
+SELECT broken_rev FROM sync_doc WHERE doc = ?;
+
+setBrokenRev:
+UPDATE sync_doc SET broken_rev = ? WHERE doc = ?;
+
+stuck:
+SELECT stuck_rev, stuck_since FROM sync_doc WHERE doc = ?;
+
+setStuck:
+UPDATE sync_doc SET stuck_rev = ?, stuck_since = ? WHERE doc = ?;
 
 clearEntries:
 DELETE FROM sync_entry;

@@ -1,10 +1,15 @@
 package space.sovereigncast.hopp.ui.library
 
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.RadioButton
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
 import space.sovereigncast.hopp.resources.stats_title
+import space.sovereigncast.hopp.resources.settings_updates
+import space.sovereigncast.hopp.resources.settings_updates_note
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
 import space.sovereigncast.hopp.resources.settings_downloads_queue
@@ -93,6 +98,7 @@ import space.sovereigncast.hopp.ui.theme.Hopp
 /** The pages behind the settings overview (device feedback 2026-10-10). */
 enum class SettingsPage(val title: StringResource) {
     Playback(Res.string.settings_playback),
+    Appearance(Res.string.settings_appearance),
     PerShow(Res.string.per_show_title),
     Home(Res.string.home_customize),
     Downloads(Res.string.settings_downloads_refresh),
@@ -121,20 +127,52 @@ fun SettingsScreen(
 ) {
     val wallet by vm.walletLabel.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-        Group(stringResource(Res.string.settings_group_value))
-        Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
-            wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
-        Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
-        Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats)
+        val actions = LocalPlatformActions.current
+        // Where Hopp pays nothing (the browser for now) there is no value group: the stats go with the app's
+        // pages, and neither a download page nor one for what payments report is offered (UX review 2026-10-30).
+        val stats = @Composable { Entry(Icons.Rounded.Star, stringResource(Res.string.stats_title), stringResource(Res.string.stats_entry_note), onClick = onStats) }
+        if (actions.canPay) {
+            Group(stringResource(Res.string.settings_group_value))
+            Entry(HoppIcons.Hop, stringResource(Res.string.settings_wallet),
+                wallet?.let { stringResource(Res.string.settings_wallet_connected, it) } ?: stringResource(Res.string.settings_wallet_none), accent = true, onClick = onWallet)
+            Entry(Icons.Rounded.DateRange, stringResource(Res.string.wallet_history), stringResource(Res.string.settings_history_note), onClick = onHistory)
+            stats()
+        }
 
         Group(stringResource(Res.string.settings_group_app))
         Entry(Icons.Rounded.PlayArrow, stringResource(Res.string.settings_playback), stringResource(Res.string.settings_playback_note)) { onPage(SettingsPage.Playback) }
         Entry(Icons.Rounded.Home, stringResource(Res.string.settings_home), stringResource(Res.string.settings_home_note)) { onPage(SettingsPage.Home) }
-        Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
-        Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        Entry(HoppIcons.Contrast, stringResource(Res.string.settings_appearance), stringResource(Res.string.settings_appearance_note)) { onPage(SettingsPage.Appearance) }
+        if (actions.canDownload) Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
+        else Entry(Icons.Rounded.Refresh, stringResource(Res.string.settings_updates), stringResource(Res.string.settings_updates_note)) { onPage(SettingsPage.Downloads) }
+        if (actions.canPay) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        if (!actions.canPay) stats()
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
-        val actions = LocalPlatformActions.current
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
+        // In the browser, which has no such page, Hopp's own choice (maintainer 2026-10-28).
+        actions.appLanguages?.let { languages ->
+            var choose by remember { mutableStateOf(false) }
+            val browser = stringResource(Res.string.settings_language_browser)
+            Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), actions.appLanguage?.let { languages[it] } ?: browser) { choose = true }
+            if (choose) AlertDialog(
+                onDismissRequest = { choose = false },
+                title = { Text(stringResource(Res.string.settings_language)) },
+                text = {
+                    Column {
+                        (listOf<String?>(null) + languages.keys).forEach { code ->
+                            Row(
+                                Modifier.fillMaxWidth().clickable { choose = false; if (code != actions.appLanguage) actions.setAppLanguage(code) }.padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(selected = code == actions.appLanguage, onClick = null)
+                                Text(code?.let { languages[it] } ?: browser, Modifier.padding(start = 12.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { choose = false }) { Text(stringResource(Res.string.cancel)) } },
+            )
+        }
         Entry(Icons.Rounded.Search, stringResource(Res.string.settings_directories), stringResource(Res.string.settings_directories_note)) { onPage(SettingsPage.Directories) }
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 
@@ -226,6 +264,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 }
             }
             SettingsPage.Downloads -> {
+              if (actions.canDownload) {
                 Section(stringResource(Res.string.settings_downloads))
                 Label(stringResource(Res.string.settings_storage))
                 Choices(Settings.storageChoicesMb, s.storageLimitMb, { mb ->
@@ -256,6 +295,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.cancel)) } },
                 )
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
+              }
                 // How often Hopp looks for new episodes by itself (ADR 0013; device feedback 2026-10-09).
                 Section(stringResource(Res.string.settings_refresh))
                 Choices(Settings.refreshChoicesHours, s.refreshHours, { h ->
@@ -266,10 +306,12 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         else -> stringResource(Res.string.refresh_hours, h)
                     }
                 }) { v -> vm.update { it.copy(refreshHours = v) } }
-                if (s.refreshHours > 0) Toggle(stringResource(Res.string.settings_refresh_wifi), stringResource(Res.string.settings_refresh_wifi_note), s.refreshWifiOnly) { on ->
+                // Where Hopp looks only while open, the listener chose the network themselves.
+                val whileOpen = org.koin.compose.koinInject<space.sovereigncast.hopp.data.FeedRefresh>().whileOpen
+                if (s.refreshHours > 0 && !whileOpen) Toggle(stringResource(Res.string.settings_refresh_wifi), stringResource(Res.string.settings_refresh_wifi_note), s.refreshWifiOnly) { on ->
                     vm.update { it.copy(refreshWifiOnly = on) }
                 }
-                Note(stringResource(Res.string.settings_refresh_text))
+                Note(stringResource(if (whileOpen) Res.string.settings_refresh_text_open else Res.string.settings_refresh_text))
             }
             SettingsPage.Notifications -> {
                 // Hopp has no push yet (ADR 0007): the messages are what a payment came to —
@@ -284,15 +326,28 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         })
                     }) { v -> vm.update { set(it, v) } }
                 }
-                feedback(Res.string.settings_quick_boost_feedback, s.quickBoostFeedback) { it, v -> it.copy(quickBoostFeedback = v) }
-                feedback(Res.string.settings_boost_feedback, s.boostFeedback) { it, v -> it.copy(boostFeedback = v) }
-                feedback(Res.string.settings_zap_feedback, s.zapFeedback) { it, v -> it.copy(zapFeedback = v) }
-                Note(stringResource(Res.string.settings_boost_feedback_note))
+                if (actions.canPay) {
+                    feedback(Res.string.settings_quick_boost_feedback, s.quickBoostFeedback) { it, v -> it.copy(quickBoostFeedback = v) }
+                    feedback(Res.string.settings_boost_feedback, s.boostFeedback) { it, v -> it.copy(boostFeedback = v) }
+                    feedback(Res.string.settings_zap_feedback, s.zapFeedback) { it, v -> it.copy(zapFeedback = v) }
+                    Note(stringResource(Res.string.settings_boost_feedback_note))
+                }
                 // Each system in its own words (device feedback 2026-10-13: iOS read of Android).
                 Note(stringResource(if (app.isIos) Res.string.settings_notifications_system_ios else Res.string.settings_notifications_system))
                 OutlinedButton(onClick = { actions.openNotificationSettings() }) {
                     Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
                 }
+            }
+            // Light or dark, or as the system says (maintainer 2026-10-30: not to be chosen in Hopp Web).
+            SettingsPage.Appearance -> {
+                Section(stringResource(Res.string.settings_theme))
+                Choices(Settings.themeChoices, s.theme, { t ->
+                    stringResource(when (t) {
+                        Settings.THEME_LIGHT -> Res.string.settings_theme_light
+                        Settings.THEME_DARK -> Res.string.settings_theme_dark
+                        else -> Res.string.settings_theme_system
+                    })
+                }) { v -> vm.update { it.copy(theme = v) } }
             }
             SettingsPage.Directories -> {
                 Note(stringResource(Res.string.settings_pi_note))

@@ -78,16 +78,21 @@ fun EpisodeRow(
     showPodcast: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The show's cover where [item] comes without it — an episode without its own cover shows the show's. */
+    showCover: String? = null,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
+    // The one shown beside the list, when the show and an episode stand side by side.
+    val shown = LocalShownEpisode.current == item.id
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier.fillMaxWidth().then(if (shown) Modifier.background(colors.secondaryContainer) else Modifier)
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box {
-            Cover(item.imageUrl ?: item.podcastImageUrl, 56.dp)
+            Cover(item.imageUrl ?: item.podcastImageUrl ?: showCover, 56.dp)
             DownloadBadge(item, Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp))
         }
         Column(Modifier.weight(1f)) {

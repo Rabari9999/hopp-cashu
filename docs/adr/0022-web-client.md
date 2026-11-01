@@ -239,9 +239,10 @@ Before the local build:
    they authenticate with NIP-98, not cookies. Self-hosted instances need
    that version; for older ones the web reads through the proxy or shows
    no Sovereigncast layer.
-2. **The proxy:** who runs it and where — proposed
-   `feeds.sovereigncast.space`, a container beside Nodesignal's instance but
-   apart from it; locally a container in OrbStack.
+2. ~~**The proxy:** who runs it and where~~ — decided 2026-10-30: Nodesignal,
+   on `feeds.sovereigncast.space`, on a small server of its own together
+   with `play.` (§12). Nodesignal's instance runs under systemd without
+   containers, so "beside it but apart" would have been a weak separation.
 3. **Testing on the iPhone before deploying:** service workers and passkeys
    need HTTPS, `localhost` serves only the Mac. A local certificate
    (`mkcert`) or Tailscale on the LAN; Playwright (Chromium, WebKit) for the
@@ -283,6 +284,51 @@ Earlier:
   does not apply on the web.
 - Whether a home-screen app on iOS should get Web Push for new episodes
   (needs a push service, ADR 0007).
+
+### 12. Built: stage W2, locally (2026-10-28)
+
+The preparation in `shared` and stage W2 were built on branch `0.3.2`
+(docs/tasks/web-client.md, web/README.md). Decided along the way:
+
+- **The target only on request** (`-Phopp.web=true`), so the apps' builds and
+  F-Droid's scanner never see Node, Yarn or npm. `secp256k1-kmp` sits in a
+  `nonWebMain` source set; the web uses `@noble/curves` (§8).
+- **The database is asynchronous everywhere** (SQLDelight `generateAsync`);
+  the apps' drivers stay synchronous through `Schema.synchronous()`, and the
+  JVM tests run on a driver that fails on a synchronous call.
+- **Payments speak to `WalletClient`**; NWC is its one implementation, WebLN
+  comes in W3 (§4).
+- **The proxy (§6)**: Go, standard library only, in `web/proxy`. Feeds up to
+  32 MB, as the apps read (§6 said 20 MB); text (VTT, SRT, HTML transcripts)
+  and `application/octet-stream`, which many hosts give feeds, are allowed
+  besides XML, JSON and images — served with `nosniff` and a sandbox CSP.
+  The Podcast Index (its key headers, which the proxy never forwards) and
+  the Listener API (CORS of its own, §11.1) are asked directly. Who runs the
+  proxy stays open (§11.2).
+- **NIP-07 is an external signer** behind the interface Amber uses; the
+  extension keeps its own permissions.
+- **Signing out** marks the browser and reloads: the database's file is held
+  by its worker while the app runs, so it goes on the next start, before the
+  worker opens.
+- **No User-Agent from the browser**: it sends its own, and another would
+  cost a CORS preflight per request.
+- **Fallback fonts** (subsets of Noto, OFL) for symbols and emoji, loaded
+  after the first frame: Skia knows only the fonts it is given.
+- **No wallet in the browser yet** (maintainer 2026-10-30): the shared UI
+  offered NWC on the web as in the apps — against §4, which keeps NWC for W5
+  behind a passkey. `Platform.wallet` / `PlatformActions.canPay` are off on
+  the web: no connection is stored or loaded, one kept before is deleted at
+  the next start, nothing streams or settles; boosts, zaps, the wallet and
+  its history, the tour's value pages and Sovereigncast's pay buttons are
+  not shown (its cards stay, as in the App Store build). Payments come back
+  with W3 (WebLN, QR) and W5 (NWC).
+- **Its own server** (2026-10-30, `web/deploy/`): Debian 13, Caddy for both
+  names, the proxy behind a Unix socket (systemd socket activation) that
+  only Caddy may open, and denied every local and private address by
+  systemd as well as by its own checks. The CSP of §7 holds with three
+  additions the local checks found: Compose's one `<style>` by its hash,
+  `worker-src blob:` for Coil's image decoder, `img-src https:` for the
+  Media Session's cover.
 
 ## Consequences
 

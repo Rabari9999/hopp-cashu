@@ -68,7 +68,7 @@ class LargeScreenTest {
     fun nowPlayingFitsATabletUpright() { openPlayer(); controlsOnScreen() }
 
     /** Step 2: on a tablet on its side a row of the show's page picks the episode
-     *  beside it — the list stays, the page is not covered. */
+     *  beside it — the list stays, the page is not covered; until then the newest stands there. */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
     fun showAndEpisodeSideBySideOnATablet() {
         rule.setContent { App() }
@@ -76,9 +76,11 @@ class LargeScreenTest {
         rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
         tap("Open as feed"); waitFor("Subscribe")
         tap("Subscribe"); waitFor("✓ Subscribed")
-        waitFor("Pick an episode to see it here.")
-        tap("Ep 2"); waitFor("Show notes")
-        rule.onNode(hasText("Ep 1")).assertIsDisplayed()
+        // The newest episode beside the list from the start, not an empty half (UX review 2026-10-30).
+        waitFor("Show notes")
+        check(!has("Pick an episode to see it here.")) { "the right half is empty" }
+        tap("Ep 1"); rule.waitUntil(10_000) { rule.onAllNodesWithText("Ep 1").fetchSemanticsNodes().size == 2 }
+        rule.onNode(hasText("Ep 2")).assertIsDisplayed()
         rule.onNode(hasText("✓ Subscribed")).assertIsDisplayed()
     }
 
@@ -101,8 +103,9 @@ class LargeScreenTest {
     fun nowPlayingStandsBesideTheEpisodeOnATablet() {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
-        // The notes' own text: "Show notes" is a chip in the player too.
-        rule.onNode(hasText("Mehr bei X.", substring = true)).assertIsDisplayed()
+        // The notes' own text twice: on the episode's page, and in the player's notes tab, which a
+        // tablet's column has the height for (UX review 2026-10-30).
+        check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
         check(!has("✓ Subscribed")) { "the show took the episode's place" }
     }
 
@@ -112,8 +115,16 @@ class LargeScreenTest {
     fun nowPlayingStandsBesideTheContentOnAnIpadAir() {
         openPlayer(); controlsOnScreen()
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
-        // The notes' own text: "Show notes" is a chip in the player too.
-        rule.onNode(hasText("Mehr bei X.", substring = true)).assertIsDisplayed()
+        // The notes on the episode's page and in the player's notes tab.
+        check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
+    }
+
+    /** A Pixel Tablet on its side as the device has it, its bars drawn (Robolectric draws none): the tabs
+     *  there too, and every control still on screen (review 2026-10-31). */
+    @Test @Config(qualifiers = "en-w1280dp-h736dp-land")
+    fun nowPlayingKeepsItsTabsWithATabletsBarsDrawn() {
+        openPlayer(); controlsOnScreen()
+        check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
     }
 
     @Test @Config(qualifiers = "en-w1133dp-h744dp-land")
@@ -122,13 +133,16 @@ class LargeScreenTest {
         rule.onNode(hasText("Library") and hasClickAction()).assertIsDisplayed()
     }
 
+    private fun notesShown() = rule.onAllNodesWithText("Mehr bei X.", substring = true).fetchSemanticsNodes().size
+
     /** Back from that episode goes to its show, not out of it — the arrow as the system's back. */
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
     fun theArrowGoesBackFromThePickedEpisodeToItsShow() {
         openPlayer()
         rule.onNode(hasContentDescription("Back")).performClick()
         waitFor("✓ Subscribed")
-        check(rule.onAllNodesWithText("Mehr bei X.", substring = true).fetchSemanticsNodes().isEmpty()) { "the episode is still there" }
+        // Only the player's notes tab still shows them.
+        check(notesShown() == 1) { "the episode is still there" }
     }
 
     @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
@@ -136,7 +150,8 @@ class LargeScreenTest {
         openPlayer()
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         waitFor("✓ Subscribed")
-        check(rule.onAllNodesWithText("Mehr bei X.", substring = true).fetchSemanticsNodes().isEmpty()) { "the episode is still there" }
+        // Only the player's notes tab still shows them.
+        check(notesShown() == 1) { "the episode is still there" }
     }
 
     /** Now playing's column takes about 40 % of a Pixel Tablet's width (device feedback 2026-10-13). */

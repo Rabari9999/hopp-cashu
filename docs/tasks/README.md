@@ -9,3 +9,4 @@ live in `docs/adr/`; a task points to the ADR it implements. Delete the file
 - [Hopp in F-Droid](fdroid-submission.md) — prepared, paused: tag 0.1.1, sign, submit to fdroiddata
 - [Hopp for iOS in AltStore PAL](altstore-pal-release.md) — repository ready; Apple and AltStore steps by the releasing developer
 - [Sync across devices over Nostr](nostr-sync.md) — built, ADR 0021 stage 5; the check on two devices left
+- [Hopp in the browser](web-client.md) — 0.3.2: preparation in `shared` and stage W2, local only

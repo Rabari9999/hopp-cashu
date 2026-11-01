@@ -365,7 +365,7 @@ switches.
    documents (`hopp/subscriptions`, `hopp/progress`, `hopp/queue`,
    `hopp/settings`), each a JSON of entries with a time in milliseconds and a
    removal mark, NIP-44-sealed to the listener's key in kind-30078 parts
-   under 60 KB that share a revision. Every round reads and merges per entry
+   under 40 KB that share a revision. Every round reads and merges per entry
    before it sends; a change made here is always later than what it
    replaces, so a clock behind does not lose it. A position and a favourite
    of one episode are separate entries; positions older than 90 days are
@@ -606,6 +606,109 @@ switches.
      up across devices and are never merged over each other. Noted at most
      every 30 minutes while listening, on a pause after 5 and when the app
      goes to the background; never a round of its own.
+   *Amended a tenth time 2026-10-30 (0.3.2, maintainer: relays refusing a long
+   progress document):*
+   - **"Heard up to" per show** (`upto\n<show>`: `before`, `at` in seconds):
+     "this and older" and "all heard" go as one entry instead of one per
+     episode — 324 entries of the test feed were 2 events, sent again with
+     every change. An episode that sync already held an entry for, or one
+     without a date, still gets its own. Applied before the episode
+     entries of the same read, so a later "unheard" of one episode wins;
+     it marks only what was not listened to since `at`. Kept in
+     `podcast.played_through` (version 17), never expired. Hopp before
+     0.3.2 passes over it: there those episodes stay unheard.
+   - **Gentler sending:** half a second between the parts of a document,
+     and a relay that answers `rate-limited` gets the event once more
+     after 3 s. What each relay answered is kept per round and shown on
+     the sync sheet.
+     Tests: `ProgressSyncTest`, `RelayReportTest`, `SyncMigrationTest`.
+
+   *Amended an eleventh time 2026-10-30 (0.3.2, maintainer: "Incomplete" with
+   every relay answering, four changes that never went out):*
+   - **Parts of at most 40 000 bytes:** a 60 000-byte part became an event of
+     ~88 KB, over strfry's default of 64 KiB per event (nos.lol and many
+     others); now ~55 KB.
+   - **A gap that stays is written over.** A version that went out only in
+     part (a relay refused a part) leaves a revision with a gap; read as
+     incomplete, it was never sent over (H-02) — and so never mended. Now,
+     with a majority read to its end, a whole new version goes out over it,
+     with every entry of every part that arrived, when the newest revision
+     is one this device failed to send whole (`sync_doc.broken_rev`,
+     version 18), or when every missing part is there in an older version
+     only (a relay that had taken the newer one would hold it instead). A
+     part that is simply missing still stops the round: a relay may hold it
+     and not have given it (HN-02) — for three minutes (ten at first): a gap every relay has
+     shown that long, the same revision each time, is written over too
+     (`sync_doc.stuck_rev`/`stuck_since`, version 19). The revision a device
+     sends is kept *before* its first part goes and cleared once all went, so
+     a round ended any way between — refused, timed out, the tab closed —
+     leaves a gap its device knows. Seen on the maintainer's progress
+     document: nos.lol slows to no answer after ~1.5 MB in a minute, and each
+     failed round sent the parts again. The report names the document that
+     came in part.
+     Tests: `SyncCoreTest`, `SyncAuditTest`, `SyncMigrationTest`.
+   - **Single entries folded into "heard up to".** Episodes heard one by
+     one before 0.3.2 kept an entry each — the maintainer's progress was
+     ~560 KB. Once per start each show heard from its oldest episode on
+     without a gap (at least ten) gets its mark, dated when the last of them
+     was heard (a device that listened to one since keeps that). An episode
+     entry the mark says already — heard, at its start, no newer than the
+     mark, out before it by this device's feed — is left out of the store,
+     the round and what goes out, without a removal marker; applied again it
+     would change nothing, as the mark goes first. With 50 such entries on
+     the relays a smaller version goes out though nothing changed. A Hopp
+     before 0.3.2 puts its copies back when it sends; 0.3.2 drops them again.
+     Tests: `ProgressSyncTest`.
+   - **"Write anew from this device"** on the sync page, under a document
+     read in part: this device's copy, with all that arrived, whole, at once
+     — the listener's word over the wait; what only the missing parts held
+     comes back when the device that has it syncs. The page says when Hopp
+     would do it by itself, and the report what the read found (which parts
+     of the newest version, how many relays answered), with names that a
+     release build does not shorten.
+   - **A smaller version leaves no large parts behind.** Passed over as
+     older, the larger one's later parts were still read every round (the
+     maintainer's progress: one part of 8 KB after the fold, 13 old ones of
+     ~700 KB beside it). Each is overwritten by an empty part of the new
+     version — same revision and time, past its part count, so every Hopp
+     passes it over — a few hundred bytes each; best effort.
+
+   *Amended a twelfth time 2026-10-31 (0.3.2, review of the branch: "heard up
+   to" passed over what the single entries had kept apart):*
+   - **A mark found from a device's feed starts where that feed does**
+     (`from` in seconds, `podcast.played_through_from`, version 20). Feeds
+     give their newest 50 or 100: a device subscribed for years holds older
+     episodes the run never saw, and the mark made them heard there. Applied
+     and counted as covering only from `from` on; a mark without it (the
+     listener's "this and older" or "all") from the first episode. One found
+     joins the show's mark only where the two meet.
+   - **An entry newer than the mark stands.** Taking an episode back leaves
+     no time in the episode, so a mark made elsewhere before it, read
+     after, made it heard again — and only that device. Where sync holds an
+     entry for the episode newer than the mark's `at`, the mark passes it
+     over.
+   - **"This and older" short of the mark leaves the mark as it was.** It
+     says *everything* up to it as of its time; re-dated, an episode taken
+     back since was heard again on the other devices, not on this one. The
+     episodes heard now go out one by one instead.
+   - **A smaller version for its own sake at most every six hours.** A
+     Hopp before 0.3.2 puts the covered entries back each round, and the
+     0.3.2 device took them out again: both sent a version every round for
+     as long as both were in use. With something else to send it still
+     goes along at once.
+     Tests: `ProgressSyncTest`, `SyncMigrationTest`, `SyncAuditTest`.
+   *Amended a thirteenth time 2026-11-01 (maintainer: "4 episodes waiting"
+   in the sync window for good):*
+   - **What will not come is not "waiting".** An entry for an episode this
+     device does not have still waits — its feed may not have brought it
+     yet — but no longer once the show's feed was read here, without an
+     error, after the entry was made: that feed no longer carries it (older
+     episodes another device has from before). Likewise an entry for a show
+     not followed here. Such entries are still tried each round, and taken
+     if the episode turns up. The sync window says "not in the feeds here
+     yet" instead of "feed out of reach", and a feed refresh runs a sync
+     round after it when something waits — sync goes before the feeds.
+     Test: `ProgressSyncTest`.
 
 ## Consequences
 

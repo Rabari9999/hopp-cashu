@@ -55,6 +55,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -92,6 +94,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -182,6 +185,28 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     val speedLabel = stringResource(Res.string.np_speed)
     val colors = MaterialTheme.colorScheme
 
+    // The show notes and the chapters as the sheets show them, and as tabs (UX review 2026-10-30).
+    val notesContent: @Composable (Modifier) -> Unit = { m ->
+        description?.let { html ->
+            val linkStyle = androidx.compose.ui.text.SpanStyle(color = colors.onSurface, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
+            val markStyle = androidx.compose.ui.text.SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+            // A time mark jumps there and stays: the listener may want the next one.
+            val notes = remember(html, linkStyle, markStyle) { space.sovereigncast.hopp.ui.components.showNotes(html, linkStyle, markStyle) { s -> model.seekTo(s * 1000) } }
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(notes, m.verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+    val chaptersContent: @Composable (Modifier, (Long) -> Unit) -> Unit = { m, onPicked ->
+        val timeWidth = space.sovereigncast.hopp.ui.components.rememberChapterTimeWidth(chapters.stops)
+        LazyColumn(m) {
+            itemsIndexed(chapters.stops) { i, ch ->
+                ChapterRow(ch, active = i == chapters.currentIndex(position), onSeek = {
+                    model.toChapter((ch.startSeconds * 1000).toLong()); onPicked(ch.startSeconds.toLong())
+                }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null }, timeWidth = timeWidth)
+            }
+        }
+    }
     // Swipe down (or back) minimises to the mini player, as in every player app.
     // As a column beside the content (ADR 0020) back belongs to the content.
     BackHandler(enabled = !inPane) { model.minimize() }
@@ -206,6 +231,10 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     ) {
         // The cover's chapter swipe, kept while the layout switches.
         var dragX by remember { mutableStateOf(0f) }
+        // The section shown as a tab where now playing has the height; the chapter's name on the cover opens
+        // its tab there, not a sheet over the tabs (review 2026-10-31).
+        var pickedSection by rememberSaveable(episode.id) { mutableStateOf(PlayerSection.Notes.name) }
+        var sectionsAsTabs by remember { mutableStateOf(false) }
         val cover: @Composable (Modifier) -> Unit = { m ->
             // Cover — the chapter image replaces it while a chapter has one; whole, not cut
             // to the square, and full screen on a tap (device feedback 2026-10-17).
@@ -228,16 +257,18 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             ) {
                 FittedImage(picture, Modifier.fillMaxSize())
                 if (viewing) ImageViewer(picture) { viewing = false }
-                if (current != null) {
+                // A small cover (beside the title, where tabs take the height): the chapter's name alone.
+                if (current != null) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                    val compact = maxWidth < 280.dp
                     Row(
-                        Modifier.align(Alignment.BottomCenter).padding(10.dp).fillMaxWidth()
+                        Modifier.padding(if (compact) 6.dp else 10.dp).fillMaxWidth()
                             .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.72f)).padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ChapterButton(HoppIcons.ChevronLeft, stringResource(Res.string.np_previous_chapter), model::previousChapter)
-                        Column(Modifier.weight(1f).clickable { showChapters = true }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.weight(1f).clickable { if (sectionsAsTabs) pickedSection = PlayerSection.Chapters.name else showChapters = true }, horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(current.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
+                            if (!compact) Text(
                                 stringResource(Res.string.np_chapter_of, chapters.currentIndex(position) + 1, chapters.stops.size, formatTime(chapters.remainingInChapterMs(position, duration))),
                                 color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp,
                             )
@@ -248,14 +279,36 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             }
 
         }
+        // What the chips open as sheets — or the tabs show, where now playing has the height (UX review 2026-10-30).
+        val sections = buildList {
+            if (description != null) add(PlayerSection.Notes)
+            if (chapters.stops.isNotEmpty()) add(PlayerSection.Chapters)
+            if (hasTranscript) add(PlayerSection.Transcript)
+            if (playing.persons.isNotEmpty()) add(PlayerSection.People)
+            if (hasCommunity) add(PlayerSection.Community)
+            add(PlayerSection.Comments)
+        }
+        val openSection = { s: PlayerSection ->
+            when (s) {
+                PlayerSection.Notes -> showNotesSheet = true
+                PlayerSection.Chapters -> showChapters = true
+                PlayerSection.Transcript -> { showTranscript = true; model.transcriptOpened() }
+                PlayerSection.People -> showPeople = true
+                PlayerSection.Community -> showCommunity = true
+                PlayerSection.Comments -> showComments = true
+            }
+        }
+        val byline = (listOf(playing.podcastTitle) + playing.persons.map { it.name }).filter { it.isNotBlank() }.distinct().joinToString(" · ")
         // [short]: a phone on its side — one line of title, and the show's name only in the
         // bar above, so the chips under the controls stay in view (device check 2026-10-20).
-        val details: @Composable ColumnScope.(short: Boolean) -> Unit = { short ->
-            Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = if (short) 1 else 2, overflow = TextOverflow.Ellipsis)
-            if (!short) Text(
-                (listOf(playing.podcastTitle) + playing.persons.map { it.name }).filter { it.isNotBlank() }.distinct().joinToString(" · "),
-                color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+        // [titled]: false where the title stands beside the cover already; [chips]: false where
+        // what they open is a tab below (UX review 2026-10-30); [wrap]: off a phone, the chips
+        // take a second line instead of running off the edge, where a mouse could not reach them.
+        val details: @Composable ColumnScope.(short: Boolean, titled: Boolean, chips: Boolean, wrap: Boolean) -> Unit = { short, titled, withChips, wrap ->
+            if (titled) {
+                Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = if (short) 1 else 2, overflow = TextOverflow.Ellipsis)
+                if (!short) Text(byline, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
 
             Spacer(Modifier.height(10.dp))
             // Where a drag would land, before the finger lets go (device feedback 2026-10-21).
@@ -307,26 +360,63 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
                 SleepButton(sleep) { showSleep = true }
             }
+            // In a browser its volume too, as in the bar below a wide window (maintainer 2026-10-31).
+            if (model.engine.volume != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                VolumeControl(model, Modifier.weight(1f))
+            }
 
-            // Value bar (ADR 0019): boost and streaming.
+            // Value bar (ADR 0019): boost and streaming — where Hopp pays at all.
             val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
-            ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
+            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
 
-            Spacer(Modifier.height(12.dp))
             // One line that scrolls sideways: wrapped onto a second, the chips pushed
             // the latest boosts off a phone held upright (2026-10-16, with Show notes).
             // Only what this episode has (device feedback 2026-10-16) — greyed-out
             // placeholders crowded the line. Comments always: whether there are
             // any only the relays know, and they are asked only once opened.
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (description != null) SheetChip(stringResource(Res.string.episode_shownotes)) { showNotesSheet = true }
-                if (chapters.stops.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_chapters)) { showChapters = true }
-                if (hasTranscript) SheetChip(stringResource(Res.string.sheet_transcript)) { showTranscript = true; model.transcriptOpened() }
-                if (playing.persons.isNotEmpty()) SheetChip(stringResource(Res.string.sheet_people)) { showPeople = true }
-                if (hasCommunity) SheetChip(stringResource(Res.string.sheet_community)) { showCommunity = true }
-                SheetChip(stringResource(Res.string.sheet_comments)) { showComments = true }
+            if (withChips) {
+                Spacer(Modifier.height(12.dp))
+                val chipList: @Composable () -> Unit = {
+                    sections.forEach { s -> SheetChip(stringResource(s.label)) { openSection(s) } }
+                }
+                if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
+                else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
             }
             state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodySmall) }
+        }
+        // Below the controls where the height allows: what the chips open, as tabs that stay open
+        // while listening — a column beside the content, a tablet upright (UX review 2026-10-30).
+        val sectionTabs: @Composable (Modifier) -> Unit = { m ->
+            val at = sections.indexOfFirst { it.name == pickedSection }.coerceAtLeast(0)
+            val section = sections[at]
+            Column(m) {
+                // Chips that wrap rather than a tab row that scrolls: six did not fit a column
+                // beside the content, and a mouse could not reach the last one.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    sections.forEach { s ->
+                        FilterChip(selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) })
+                    }
+                }
+                val body = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)
+                when (section) {
+                    PlayerSection.Notes -> notesContent(body.padding(bottom = 16.dp))
+                    PlayerSection.Chapters -> chaptersContent(body) { }
+                    PlayerSection.Transcript -> {
+                        LaunchedEffect(episode.id) { model.transcriptOpened() }
+                        TranscriptView(episode, position, onSeek = model::seekTo, modifier = body)
+                    }
+                    PlayerSection.People -> PeopleList(playing.persons, playing.podcastTitle, body)
+                    PlayerSection.Community -> CommunityContent(episode.podcastId, body)
+                    PlayerSection.Comments -> {
+                        val comments: space.sovereigncast.hopp.ui.comments.CommentsViewModel =
+                            koinViewModel(key = "comments-${episode.id}") { org.koin.core.parameter.parametersOf(episode.id) }
+                        space.sovereigncast.hopp.ui.comments.CommentsPane(
+                            comments, onTimestamp = { s -> model.seekTo(s * 1000) },
+                            modifier = body.imePadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+                        )
+                    }
+                }
+            }
         }
         // Large screens (ADR 0020): side by side wherever the window is wider than
         // tall — a tablet or a phone on its side, where a full-width square cover
@@ -336,6 +426,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             val wide = maxWidth > maxHeight && maxWidth >= 480.dp
             val short = wide && maxHeight < 480.dp
+            // Height enough for the sections as tabs below the controls (UX review 2026-10-30). 720, not 800: a
+            // tablet's 800 dp on its side leave ~730–775 once its bars are drawn, and the tabs never came there
+            // though the tests at 800 showed them (review 2026-10-31).
+            val tabbed = !wide && maxHeight >= 720.dp && (inPane || maxWidth >= 600.dp)
+            SideEffect { sectionsAsTabs = tabbed }
+            val smallCover = if (maxHeight >= 1000.dp) 240.dp else 200.dp
             val coverSide = minOf(maxHeight - 64.dp, maxWidth * 0.45f)
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -351,8 +447,21 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 ) {
                     cover(Modifier.size(coverSide))
                     Column(Modifier.weight(1f, fill = false).widthIn(max = 560.dp).verticalScroll(rememberScrollState())) {
-                        details(short)
+                        details(short, true, true, true)
                     }
+                } else if (tabbed) Column(Modifier.fillMaxSize().wrapContentWidth().widthIn(max = 720.dp)) {
+                    // The cover beside the title, the controls below, the rest of the height for a tab.
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        cover(Modifier.size(smallCover))
+                        Column(Modifier.weight(1f)) {
+                            Text(episode.title, style = MaterialTheme.typography.titleLarge, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            Text(byline, color = colors.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    details(false, false, false, false)
+                    sectionTabs(Modifier.weight(1f).fillMaxWidth())
                 } else if (inPane) Column(Modifier.fillMaxSize().padding(bottom = 16.dp)) {
                     // A column beside the content: the controls always in view, the
                     // cover as large as the height they leave allows.
@@ -360,18 +469,23 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
                     }
                     Spacer(Modifier.height(16.dp))
-                    details(false)
+                    details(false, true, true, true)
                 } else Column(Modifier.fillMaxWidth().fillMaxHeight().wrapContentWidth().widthIn(max = 560.dp)) {
-                    cover(Modifier.fillMaxWidth().aspectRatio(1f))
+                    // As wide as the screen where the height allows, smaller where it does not: in
+                    // Safari on an iPhone 12 mini its bars leave so little that the value bar was
+                    // squeezed unreadable under a full-width cover (maintainer 2026-10-29).
+                    Box(Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                        cover(Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+                    }
                     Spacer(Modifier.height(16.dp))
-                    details(false)
+                    details(false, true, true, false)
                 }
             }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 
-    if (showBoost) {
+    if (showBoost && space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) {
         BoostSheet(valueVm, episode, playing.podcastTitle, position, onDismiss = { showBoost = false }, onOpenWallet = { showBoost = false; onOpenWallet() })
     }
 
@@ -454,27 +568,13 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         }
     }
 
-    description?.let { html ->
-        if (showNotesSheet) ModalBottomSheet(onDismissRequest = { showNotesSheet = false }) {
-            val linkStyle = androidx.compose.ui.text.SpanStyle(color = colors.onSurface, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
-            val markStyle = androidx.compose.ui.text.SpanStyle(color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
-            // A time mark jumps there and stays: the listener may want the next one.
-            val notes = remember(html, linkStyle, markStyle) { space.sovereigncast.hopp.ui.components.showNotes(html, linkStyle, markStyle) { s -> model.seekTo(s * 1000) } }
-            androidx.compose.foundation.text.selection.SelectionContainer {
-                Text(notes, Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp), style = MaterialTheme.typography.bodyMedium)
-            }
-        }
+    if (showNotesSheet && description != null) ModalBottomSheet(onDismissRequest = { showNotesSheet = false }) {
+        notesContent(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 32.dp))
     }
 
     if (showChapters) {
         ModalBottomSheet(onDismissRequest = { showChapters = false }) {
-            LazyColumn(Modifier.padding(bottom = 24.dp)) {
-                itemsIndexed(chapters.stops) { i, ch ->
-                    ChapterRow(ch, active = i == chapters.currentIndex(position), onSeek = {
-                        model.toChapter((ch.startSeconds * 1000).toLong()); showChapters = false
-                    }, modifier = Modifier.padding(horizontal = 8.dp), withImages = chapters.stops.any { it.imageUrl != null })
-                }
-            }
+            chaptersContent(Modifier.padding(bottom = 24.dp)) { showChapters = false }
         }
     }
 }
@@ -560,4 +660,10 @@ private fun SheetOption(text: String, selected: Boolean, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
     )
+}
+
+/** What now playing opens below its controls — as chips and sheets, or as tabs where it has the height. */
+internal enum class PlayerSection(val label: org.jetbrains.compose.resources.StringResource) {
+    Notes(Res.string.episode_shownotes), Chapters(Res.string.sheet_chapters), Transcript(Res.string.sheet_transcript),
+    People(Res.string.sheet_people), Community(Res.string.sheet_community), Comments(Res.string.sheet_comments),
 }

@@ -1,0 +1,399 @@
+// Hopp's feed proxy (ADR 0022, 6): the browser may read a feed, chapters,
+// a transcript or an image only from a host that allows it (CORS), and most
+// podcast hosts do not. This fetches them for the web client — GET only, never
+// for a private address, never with cookies or credentials, within size
+// limits — and answers with CORS for the web client's origins only.
+//
+// A service of its own, apart from Sovereigncast: a request forgery through it
+// (SSRF) must not reach anything but the public internet.
+//
+// GET /fetch?url=<http(s) URL>   GET /healthz
+package main
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log"
+	"math"
+	"net"
+	"net/http"
+	"net/netip"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+)
+
+const (
+	maxFeedBytes  = 32 << 20 // a feed, chapters, a transcript: as much as the apps read (Limits.FEED)
+	maxImageBytes = 5 << 20
+	maxRedirects  = 5
+	fetchTimeout  = 30 * time.Second
+	// At most this many fetches at once, each held in memory up to maxFeedBytes: 8 × 32 MB
+	// keeps the proxy within a small server's memory; the rest wait their turn.
+	maxInFlight = 8
+	// Covers change rarely and are the bulk of what passes through; feeds are checked by
+	// the client itself (ETag), so they are kept only briefly.
+	imageMaxAge = 24 * time.Hour
+	userAgent   = "Hopp (Web; feed proxy)"
+	// Sent with every fetch, refused on every request: a URL pointing back at the proxy — under
+	// any of its names or addresses — would hold a slot per level and pass the limit by the
+	// web server's own address (review 2026-10-31).
+	via = "1.1 hopp-feed-proxy"
+)
+
+// Proxy answers /fetch. Origins: the web client's, allowed by CORS.
+type Proxy struct {
+	Origins map[string]bool
+	Client  *http.Client
+	Limiter *Limiter
+	// Behind a web server on the same machine every request comes from it: then the
+	// listener's address is the last one in X-Forwarded-For, which that server sets.
+	TrustForwarded bool
+	// Fetches running at once; nil for no limit.
+	slots chan struct{}
+}
+
+func main() {
+	addr := envOr("HOPP_PROXY_ADDR", ":8643")
+	origins := map[string]bool{}
+	for _, o := range strings.Split(envOr("HOPP_PROXY_ORIGINS", "http://127.0.0.1:8642,http://localhost:8642"), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			origins[o] = true
+		}
+	}
+	p := &Proxy{
+		// 120 a minute, with room for 300 at once: a library restored in the browser asks for every
+		// feed and cover in a few seconds (review 2026-10-31: 60 shows were the whole minute's share).
+		Origins: origins, Client: NewClient(PublicOnly), Limiter: NewLimiter(120, time.Minute, 300),
+		TrustForwarded: os.Getenv("HOPP_PROXY_TRUST_FORWARDED") == "1",
+		slots:          make(chan struct{}, maxInFlight),
+	}
+	ln, where, err := listen(addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	srv := &http.Server{Handler: p, ReadHeaderTimeout: 10 * time.Second, WriteTimeout: 2 * fetchTimeout}
+	log.Printf("feed proxy on %s for %d origins", where, len(origins))
+	log.Fatal(srv.Serve(ln))
+}
+
+// listen takes the socket systemd hands over (socket activation: a Unix socket the web
+// server may reach, while the proxy itself may reach no local address), else [addr] over TCP.
+func listen(addr string) (net.Listener, string, error) {
+	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) && os.Getenv("LISTEN_FDS") == "1" {
+		ln, err := net.FileListener(os.NewFile(3, "systemd socket"))
+		return ln, "the socket from systemd", err
+	}
+	ln, err := net.Listen("tcp", addr)
+	return ln, addr, err
+}
+
+func envOr(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
+}
+
+// PublicOnly refuses every address that is not on the public internet:
+// loopback, private, link-local, CGNAT, multicast, unspecified, documentation.
+func PublicOnly(a netip.Addr) bool {
+	a = a.Unmap()
+	if !a.IsValid() || a.IsLoopback() || a.IsPrivate() || a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() ||
+		a.IsMulticast() || a.IsUnspecified() || a.IsInterfaceLocalMulticast() {
+		return false
+	}
+	for _, p := range blocked {
+		if p.Contains(a) {
+			return false
+		}
+	}
+	return true
+}
+
+var blocked = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),
+	netip.MustParsePrefix("100.64.0.0/10"), // CGNAT, Tailscale
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"),
+	netip.MustParsePrefix("203.0.113.0/24"),
+	netip.MustParsePrefix("240.0.0.0/4"),
+	netip.MustParsePrefix("64:ff9b::/96"), // NAT64 can point into a private network
+	netip.MustParsePrefix("2001:db8::/32"),
+}
+
+// NewClient dials only addresses [allowed] accepts — checked on the address
+// actually connected to, after DNS, so a name that resolves (or re-resolves)
+// to a private address is refused too. Redirects are followed by hand.
+func NewClient(allowed func(netip.Addr) bool) *http.Client {
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		Control: func(network, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+			a, err := netip.ParseAddr(host)
+			if err != nil || !allowed(a) {
+				return errRefused
+			}
+			return nil
+		},
+	}
+	tr := &http.Transport{
+		DialContext:           dialer.DialContext,
+		Proxy:                 nil,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 15 * time.Second,
+		MaxIdleConns:          32,
+		IdleConnTimeout:       60 * time.Second,
+	}
+	return &http.Client{
+		Transport:     tr,
+		Timeout:       fetchTimeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+}
+
+var errRefused = errors.New("address not allowed")
+
+func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h := w.Header()
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	h.Set("Cross-Origin-Resource-Policy", "cross-origin")
+	// Always: a cover first fetched without CORS must not be taken from the cache for one with it.
+	h.Set("Vary", "Origin")
+	if o := r.Header.Get("Origin"); o != "" && p.Origins[o] {
+		h.Set("Access-Control-Allow-Origin", o)
+		h.Set("Access-Control-Expose-Headers", "ETag, Last-Modified, Retry-After")
+	}
+	switch {
+	case r.URL.Path == "/healthz":
+		io.WriteString(w, "ok")
+		return
+	case r.URL.Path != "/fetch":
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	case r.Method == http.MethodOptions:
+		h.Set("Access-Control-Allow-Methods", "GET")
+		h.Set("Access-Control-Allow-Headers", "If-None-Match, If-Modified-Since, Accept")
+		h.Set("Access-Control-Max-Age", "86400")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case r.Method != http.MethodGet:
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+	if strings.Contains(strings.Join(r.Header.Values("Via"), ","), "hopp-feed-proxy") {
+		http.Error(w, "a fetch through the proxy itself", http.StatusLoopDetected)
+		return
+	}
+	if ok, wait := p.Limiter.Allow(p.clientIP(r)); !ok {
+		// When the next one goes through, so the web client may ask again then.
+		h.Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+		http.Error(w, "too many requests", http.StatusTooManyRequests)
+		return
+	}
+	target, err := checkURL(r.URL.Query().Get("url"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p.fetch(w, r, target)
+}
+
+func checkURL(raw string) (*url.URL, error) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return nil, errors.New("an http or https URL without credentials")
+	}
+	return u, nil
+}
+
+func (p *Proxy) fetch(w http.ResponseWriter, r *http.Request, target *url.URL) {
+	ctx, cancel := context.WithTimeout(r.Context(), fetchTimeout)
+	defer cancel()
+	if p.slots != nil {
+		select {
+		case p.slots <- struct{}{}:
+			defer func() { <-p.slots }()
+		case <-ctx.Done():
+			w.Header().Set("Retry-After", "5")
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	var resp *http.Response
+	for hop := 0; ; hop++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+		if err != nil {
+			http.Error(w, "bad url", http.StatusBadRequest)
+			return
+		}
+		// Only what makes a fetch cheaper; never the listener's cookies or credentials.
+		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("Via", via)
+		req.Header.Set("Accept", orDefault(r.Header.Get("Accept"), "*/*"))
+		for _, k := range []string{"If-None-Match", "If-Modified-Since"} {
+			if v := r.Header.Get(k); v != "" {
+				req.Header.Set(k, v)
+			}
+		}
+		resp, err = p.Client.Do(req)
+		if err != nil {
+			if errors.Is(err, errRefused) {
+				http.Error(w, "address not allowed", http.StatusForbidden)
+			} else {
+				http.Error(w, "upstream unreachable", http.StatusBadGateway)
+			}
+			return
+		}
+		if resp.StatusCode < 300 || resp.StatusCode >= 400 || resp.StatusCode == http.StatusNotModified {
+			break
+		}
+		resp.Body.Close()
+		next, err := target.Parse(resp.Header.Get("Location"))
+		if err != nil || hop >= maxRedirects {
+			http.Error(w, "too many or bad redirects", http.StatusBadGateway)
+			return
+		}
+		if target, err = checkURL(next.String()); err != nil {
+			http.Error(w, "redirect to a non-http URL", http.StatusBadGateway)
+			return
+		}
+	}
+	defer resp.Body.Close()
+
+	ct := resp.Header.Get("Content-Type")
+	limit, ok := allowedType(ct)
+	if resp.StatusCode == http.StatusNotModified {
+		ok, limit = true, 0
+	}
+	if !ok {
+		http.Error(w, "content type not allowed: "+ct, http.StatusUnsupportedMediaType)
+		return
+	}
+	if resp.ContentLength > limit && resp.StatusCode != http.StatusNotModified {
+		http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if err != nil {
+		http.Error(w, "upstream read failed", http.StatusBadGateway)
+		return
+	}
+	if int64(len(body)) > limit {
+		http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	h := w.Header()
+	if ct != "" {
+		h.Set("Content-Type", ct)
+	}
+	for _, k := range []string{"ETag", "Last-Modified"} {
+		if v := resp.Header.Get(k); v != "" {
+			h.Set(k, v)
+		}
+	}
+	if limit == maxImageBytes {
+		h.Set("Cache-Control", "public, max-age="+strconv.Itoa(int(imageMaxAge.Seconds())))
+	} else {
+		h.Set("Cache-Control", "public, max-age=60")
+	}
+	h.Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(resp.StatusCode)
+	w.Write(body)
+}
+
+// allowedType: feeds and their parts (XML, JSON, text such as VTT, SRT and HTML
+// transcripts) and images; with the size each may have. Many hosts label a feed
+// application/octet-stream — taken as a feed: with nosniff and the sandbox CSP
+// nothing here is ever run.
+func allowedType(ct string) (int64, bool) {
+	t := strings.ToLower(strings.TrimSpace(strings.SplitN(ct, ";", 2)[0]))
+	switch {
+	case strings.HasPrefix(t, "image/"):
+		return maxImageBytes, true
+	case t == "", strings.HasPrefix(t, "text/"), strings.HasSuffix(t, "/xml"), strings.HasSuffix(t, "+xml"),
+		strings.HasSuffix(t, "/json"), strings.HasSuffix(t, "+json"), t == "application/x-subrip", t == "application/octet-stream":
+		return maxFeedBytes, true
+	}
+	return 0, false
+}
+
+func orDefault(v, d string) string {
+	if v == "" {
+		return d
+	}
+	return v
+}
+
+func (p *Proxy) clientIP(r *http.Request) string {
+	if p.TrustForwarded {
+		if f := r.Header.Values("X-Forwarded-For"); len(f) > 0 {
+			hops := strings.Split(f[len(f)-1], ",")
+			if last := strings.TrimSpace(hops[len(hops)-1]); last != "" {
+				return last
+			}
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// Limiter: per address, n requests per window on average and up to burst at once (a token
+// bucket). No logs, no history.
+type Limiter struct {
+	mu    sync.Mutex
+	rate  float64 // tokens per second
+	burst float64
+	seen  map[string]*bucket
+}
+
+type bucket struct {
+	tokens float64
+	at     time.Time
+}
+
+func NewLimiter(n int, window time.Duration, burst int) *Limiter {
+	return &Limiter{rate: float64(n) / window.Seconds(), burst: float64(burst), seen: map[string]*bucket{}}
+}
+
+// Allow takes one token for [key]; without one, how long until the next.
+func (l *Limiter) Allow(key string) (bool, time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := time.Now()
+	full := time.Duration(l.burst / l.rate * float64(time.Second))
+	if len(l.seen) > 10_000 {
+		for k, b := range l.seen {
+			if now.Sub(b.at) >= full {
+				delete(l.seen, k)
+			}
+		}
+	}
+	b := l.seen[key]
+	if b == nil {
+		b = &bucket{tokens: l.burst, at: now}
+		l.seen[key] = b
+	}
+	b.tokens = math.Min(l.burst, b.tokens+now.Sub(b.at).Seconds()*l.rate)
+	b.at = now
+	if b.tokens >= 1 {
+		b.tokens--
+		return true, 0
+	}
+	return false, time.Duration((1 - b.tokens) / l.rate * float64(time.Second))
+}

@@ -22,12 +22,15 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
@@ -46,6 +49,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.size
+import space.sovereigncast.hopp.resources.refresh
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -74,6 +79,7 @@ import space.sovereigncast.hopp.resources.nav_library
 import space.sovereigncast.hopp.resources.nav_home
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.resources.settings
+import space.sovereigncast.hopp.resources.settings_updates
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.DisposableEffect
@@ -89,12 +95,14 @@ import space.sovereigncast.hopp.resources.privacy_title
 import space.sovereigncast.hopp.resources.favorites_title
 import space.sovereigncast.hopp.ui.library.SettingsPage
 import space.sovereigncast.hopp.ui.library.SettingsPageScreen
+import space.sovereigncast.hopp.data.Settings
 import space.sovereigncast.hopp.data.SettingsRepository
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import space.sovereigncast.hopp.resources.crash_title
 import space.sovereigncast.hopp.resources.crash_ask
 import space.sovereigncast.hopp.resources.crash_view
@@ -227,13 +235,16 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         onTab != null -> stringResource(onTab.label)
         destination?.hasRoute(SettingsRoute::class) == true -> stringResource(Res.string.settings)
         destination?.hasRoute(SettingsPageRoute::class) == true ->
-            entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let { stringResource(it.title) } ?: ""
+            entry?.toRoute<SettingsPageRoute>()?.page?.let { p -> SettingsPage.entries.firstOrNull { it.name == p } }?.let {
+                // Where nothing is downloaded (the browser) the page only looks for new episodes.
+                stringResource(if (it == SettingsPage.Downloads && !platformActions.canDownload) Res.string.settings_updates else it.title)
+            } ?: ""
         destination?.hasRoute(QueueRoute::class) == true -> stringResource(Res.string.queue_title)
         destination?.hasRoute(FavoritesRoute::class) == true -> stringResource(Res.string.favorites_title)
         destination?.hasRoute(InboxRoute::class) == true -> stringResource(Res.string.nav_new)
         destination?.hasRoute(WalletRoute::class) == true -> stringResource(Res.string.wallet_title)
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
-        destination?.hasRoute(PersonRoute::class) == true -> pageTitle.text.orEmpty()
+        destination?.hasRoute(PersonRoute::class) == true || destination?.hasRoute(ShowRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
@@ -268,6 +279,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // The listening statistics noted before that round, all of it (they otherwise go every half hour).
     val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }
+    // New episodes while Hopp is open where no background job looks for them (the browser, iOS for now).
+    val feeds: space.sovereigncast.hopp.data.FeedRefresh = koinInject()
+    if (feeds.whileOpen) LaunchedEffect(Unit) { feeds.keepFresh() }
     val appSettings by settingsRepo.settings.collectAsState(null)
     var tour by rememberSaveable { mutableStateOf(false) }
     /** Where the tour was left for one of its pages, to come back to. */
@@ -349,7 +363,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         }
     }
 
-    HoppTheme {
+    // The listener's choice, else the system's — the browser's in Hopp Web (maintainer 2026-10-30).
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val chosenDark = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> null }
+    LaunchedEffect(chosenDark) { platformActions.themeChosen(chosenDark) }
+    HoppTheme(darkTheme = chosenDark ?: systemDark) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
@@ -386,17 +404,30 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   val paneWidth = maxOf(PLAYER_PANE_MIN, maxWidth * PLAYER_PANE_SHARE)
                   val paneOpen = playerPane && expanded
                   Row(Modifier.fillMaxSize()) {
+                    // The tabs at the top, where the eye starts, and the settings at the foot of the rail —
+                    // not alone in the window's far corner (UX review 2026-10-30).
                     if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
-                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+                        val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
                             NavigationRailItem(
-                                selected = currentTab == tab,
+                                selected = currentTab == tab && !inSettings,
                                 onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, null) },
                                 label = { Text(stringResource(tab.label)) },
                             )
                         }
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        NavigationRailItem(
+                            selected = inSettings,
+                            // From one of its pages: back to Settings itself, not a second one on top (review 2026-10-31).
+                            onClick = {
+                                if (destination?.hasRoute(SettingsRoute::class) != true && !nav.popBackStack(SettingsRoute, inclusive = false)) nav.navigate(SettingsRoute)
+                            },
+                            icon = { Icon(Icons.Rounded.Settings, null) },
+                            label = { Text(stringResource(Res.string.settings)) },
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                     }
                     Scaffold(
                         modifier = Modifier.weight(1f),
@@ -405,7 +436,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         topBar = {
                             CenterAlignedTopAppBar(
                                 // Faded, so a page's own title comes up as its head scrolls away.
-                                title = { androidx.compose.animation.Crossfade(title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
+                                // Home's greeting is its head beside a rail: no second "Home" above it (UX review 2026-10-30).
+                                title = { androidx.compose.animation.Crossfade(if (rail && onTab == tabs[0]) "" else title, label = "title") { Text(it, style = MaterialTheme.typography.titleLarge) } },
                                 navigationIcon = {
                                     // The page's own step first (a picked episode), then the back stack.
                                     if (onTab == null) IconButton(onClick = { pageBack.step?.invoke() ?: nav.popBackStack() }) {
@@ -413,7 +445,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     }
                                 },
                                 actions = {
-                                    if (onTab != null) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
+                                    // Where a mouse cannot pull the lists down (maintainer 2026-11-01).
+                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
+                                        RefreshButton(feeds)
+                                    }
+                                    if (onTab != null && !rail) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
                                         // A cogwheel: Hopp has no account (device feedback 2026-10-10).
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
                                     }
@@ -456,12 +492,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
-                            composable<LibraryRoute> {
+                            composable<LibraryRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 LibraryScreen(
                                     onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
                                 )
-                            }
+                            } }
                             composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
                             composable<FavoritesRoute> { Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.FavoritesScreen() } }
                             composable<DownloadsRoute> { Readable(LIST_WIDTH) { DownloadsScreen() } }
@@ -533,7 +569,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     if (nav.currentBackStackEntry?.destination?.hasRoute(CrashRoute::class) == true) nav.popBackStack()
                                 })
                             } }
-                            composable<WalletRoute> { Readable { WalletScreen() } }
+                            composable<WalletRoute> { Readable { if (platformActions.canPay) WalletScreen() else space.sovereigncast.hopp.ui.value.WalletNotHere() } }
                             composable<HistoryRoute> { Readable { HistoryScreen() } }
                             composable<PersonRoute> { e ->
                                 val route = e.toRoute<PersonRoute>()
@@ -550,8 +586,9 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 // Only this page leaves, and only once — the show can vanish while
                                 // the page waits in another tab's stack.
                                 // Wide: the show and an episode side by side (ADR 0020, step 2).
+                                val latest by remember(route.id) { episodeRepo.ofPodcastPage(route.id, 1).map { it.firstOrNull()?.id } }.collectAsState(null)
                                 space.sovereigncast.hopp.ui.library.ShowListDetail(
-                                    route.id,
+                                    route.id, latest = latest,
                                     show = {
                                         ShowScreen(route.id, onOpenWallet = { nav.navigate(WalletRoute) }, onGone = { if (nav.currentBackStackEntry?.id == e.id) nav.popBackStack() },
                                             openCommunity = route.community, openBoosts = route.boosts, openRound = route.round, openUnlock = route.unlock,
@@ -646,3 +683,13 @@ private fun sharedAxisOut(forward: Boolean): ExitTransition =
 private val fadeThroughIn: EnterTransition = fadeIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate)) +
     scaleIn(tween(220, delayMillis = 90, easing = EmphasizedDecelerate), initialScale = 0.94f)
 private val fadeThroughOut: ExitTransition = fadeOut(tween(90, easing = EmphasizedAccelerate))
+
+/** The lists' refresh as a button, turning while it runs. */
+@Composable
+private fun RefreshButton(feeds: space.sovereigncast.hopp.data.FeedRefresh) {
+    val refreshing by feeds.refreshing.collectAsState()
+    IconButton(onClick = { feeds.now() }, enabled = !refreshing) {
+        if (refreshing) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        else Icon(Icons.Rounded.Refresh, stringResource(Res.string.refresh))
+    }
+}

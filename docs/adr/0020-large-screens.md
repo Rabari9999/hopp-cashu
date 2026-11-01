@@ -160,6 +160,42 @@ keyboard shortcuts. Running it on a Mac, like on a device, needs the app signed
 with the team (`TEAM_ID` in `iosApp/Configuration/Config.xcconfig`, empty so
 far). Compose Desktop only if listeners ask for a native Mac app.
 
+### UX review of the web and tablet layout (2026-10-30)
+
+Hopp Web at 1440×900, 1280×720 and the iPad's two sizes, the small points first:
+
+- **The rail:** the tabs at its top, the settings at its foot (selected while
+  in them); the cogwheel in the top bar only without a rail. Home's greeting
+  is its head beside a rail — no second "Home" above it.
+- **The selected item** of the rail and the bar, a chosen segment, info boxes:
+  `secondaryContainer` set to a neutral tone; left unset, Material's baseline
+  made them lavender.
+- **A show's name in the top bar** once its header has scrolled away
+  (`TabbedPage(title = …)`, as a person's page does).
+- **The library** centred like the other pages, at most 1 200 dp
+  (`GRID_WIDTH`); Home's show tiles 128 dp from 600 dp wide.
+- **The tour** on a large window as one column of at most 600 × 800 dp,
+  "Skip" at its corner.
+- **Now playing with room below** (a column of at least 800 dp in height, a
+  tablet upright): the cover beside the title, and show notes, chapters,
+  transcript, people, community and comments as tabs under the controls,
+  open while listening, instead of chips that open sheets. Their chips wrap
+  rather than scroll; elsewhere off a phone the player's chips wrap too, so
+  none runs off the edge where a mouse cannot reach it. On a cover under
+  280 dp the chapter band names the chapter only.
+- **A show beside its episode:** the show's column 45 % of the page (420–560
+  dp, its titles broke after two lines at 420 on a desktop), and the newest
+  episode on the right until one is picked — not a step of its own, back
+  still leaves the show — marked in the list like the one picked.
+- **A player bar** from 840 dp in place of the mini player: what plays (the
+  chapter under the title), the skips round play, a seek bar with the
+  chapters and both times, the speed, and the volume where the engine has
+  one of its own (`PlaybackEngine.volume`: the browser, not Safari on iOS,
+  which ignores it); a tap on cover or title, or the arrow, opens now playing.
+- **Rows scrolled sideways** (Discover's categories and carousels, Home's
+  shows) show arrows at their ends while a mouse is over them
+  (`SideScroll`): a wheel scrolls the page, not the row.
+
 ## Consequences
 
 - Hopp is usable on tablets, the iPad and a phone on its side from step 1;
