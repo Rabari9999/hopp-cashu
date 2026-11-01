@@ -16,6 +16,13 @@ import space.sovereigncast.hopp.data.Settings
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.AlertDialog
+import org.jetbrains.compose.resources.pluralStringResource
+import space.sovereigncast.hopp.resources.show_all_played
+import space.sovereigncast.hopp.resources.mark_played
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.library_all_played_confirm
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
@@ -107,6 +114,16 @@ fun LibraryScreen(
     val counts by vm.counts.collectAsState()
     val asList by vm.asList.collectAsState()
     val sort by vm.sort.collectAsState()
+    var confirmAllPlayed by remember { mutableStateOf(false) }
+    if (confirmAllPlayed) {
+        val unheard = counts.values.sumOf { it.unheard }
+        AlertDialog(
+            onDismissRequest = { confirmAllPlayed = false },
+            text = { Text(pluralStringResource(Res.plurals.library_all_played_confirm, unheard, unheard)) },
+            confirmButton = { TextButton(onClick = { confirmAllPlayed = false; vm.markAllPlayed() }) { Text(stringResource(Res.string.mark_played)) } },
+            dismissButton = { TextButton(onClick = { confirmAllPlayed = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
         if (list.isEmpty()) {
@@ -128,6 +145,11 @@ fun LibraryScreen(
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
                 item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
                 if (canDownload) item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
+                // At hand, not in a menu (maintainer 2026-11-01): a new setup starts with hundreds unheard.
+                val unheard = counts.values.sumOf { it.unheard }
+                if (unheard > 0) item(span = { GridItemSpan(maxLineSpan) }) {
+                    EntryRow(Icons.Rounded.CheckCircle, stringResource(Res.string.show_all_played), unheard) { confirmAllPlayed = true }
+                }
                 item(span = { GridItemSpan(maxLineSpan) }) { ShowsHeader(asList, vm::showAsList, sort, vm::sortBy) }
                 items(list, key = { it.id }) { show ->
                     val c = counts[show.id]

@@ -165,12 +165,14 @@ internal fun sorted(shows: List<Show>, counts: Map<Long, space.sovereigncast.hop
 
 class LibraryViewModel(
     podcasts: PodcastRepository,
-    episodes: EpisodeRepository,
+    private val episodes: EpisodeRepository,
     queue: QueueRepository,
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
     feeds: space.sovereigncast.hopp.data.FeedRefresh,
 ) : RefreshingViewModel(feeds) {
+    /** Every show's episodes heard at once (maintainer 2026-11-01). */
+    fun markAllPlayed() = viewModelScope.launch { episodes.setAllPlayed() }
     /** The listener's order (device feedback 2026-10-19): the show with the newest episode first by default. */
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }

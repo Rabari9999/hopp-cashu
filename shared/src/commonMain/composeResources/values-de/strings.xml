@@ -991,6 +991,10 @@
     <string name="sync_hint_error">Ein Problem beim Relay. Später erneut versuchen.</string>
     <string name="sync_nothing_lost">Nichts geht verloren: Änderungen warten hier bis zur nächsten Runde.</string>
     <string name="sync_copy_report">Bericht kopieren</string>
+    <plurals name="library_all_played_confirm">
+        <item quantity="one">Die eine ungehörte Folge als gehört markieren?</item>
+        <item quantity="other">Alle %1$d ungehörten Folgen deiner Shows als gehört markieren?</item>
+    </plurals>
     <plurals name="home_sync_changes">
         <item quantity="one">%1$d Änderung</item>
         <item quantity="other">%1$d Änderungen</item>

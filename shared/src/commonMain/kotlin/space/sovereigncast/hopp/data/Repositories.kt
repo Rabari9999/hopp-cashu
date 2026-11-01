@@ -453,6 +453,13 @@ class EpisodeRepository(
         noteLeft(left)
     }
 
+    /** Every episode of every show heard (maintainer 2026-11-01: a new setup starts with hundreds
+     *  unheard) — show by show, each its own "heard up to" for sync. */
+    suspend fun setAllPlayed() {
+        val ids = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList().map { it.id } }
+        ids.forEach { setShowPlayed(it) }
+    }
+
     /** This episode and every older one of its show heard — as Castamatic does. */
     suspend fun setPlayedUpTo(item: EpisodeItem) = withContext(ioDispatcher) {
         val now = clock.now()

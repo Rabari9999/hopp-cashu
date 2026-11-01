@@ -991,6 +991,10 @@
     <string name="sync_hint_error">A problem on the relay’s side. Try again later.</string>
     <string name="sync_nothing_lost">Nothing is lost: changes wait here for the next round.</string>
     <string name="sync_copy_report">Copy report</string>
+    <plurals name="library_all_played_confirm">
+        <item quantity="one">Mark the one unplayed episode as played?</item>
+        <item quantity="other">Mark all %1$d unplayed episodes of your shows as played?</item>
+    </plurals>
     <plurals name="home_sync_changes">
         <item quantity="one">%1$d change</item>
         <item quantity="other">%1$d changes</item>

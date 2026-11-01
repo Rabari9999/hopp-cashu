@@ -349,6 +349,32 @@ class ProgressSyncTest {
         assertEquals(500_000, tablet.episode(feed, old).position_ms)
     }
 
+    /** Maintainer 2026-11-01: all shows heard at once from the library, one entry per show for sync. */
+    @Test
+    fun everyShowHeardAtOnceGoesToTheOtherDevice() = runBlocking<Unit> {
+        val other = "https://pod.test/selfhosted.xml"
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.podcasts.subscribe(other)
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+
+        phone.ms += 60_000
+        phone.episodes.setAllPlayed()
+        suspend fun all(d: SyncDevice) = d.urls().flatMap { d.db.episodeQueries.selectByPodcast(d.row(it).id).awaitAsList() }
+        assertTrue(all(phone).all { it.played == 1L })
+        phone.sync.syncNow()
+        assertTrue(phone.store.entries(SyncDocs.PROGRESS).size <= 2, "${phone.store.entries(SyncDocs.PROGRESS).keys}")
+
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.syncNow()
+        val onTablet = all(tablet)
+        assertEquals(2, tablet.urls().size)
+        assertTrue(onTablet.isNotEmpty() && onTablet.all { it.played == 1L })
+    }
+
     @Test
     fun theEpisodePlayingHereIsNotMovedUntilItPauses() = runBlocking<Unit> {
         val (phone, tablet) = pair()
