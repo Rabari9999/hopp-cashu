@@ -71,9 +71,11 @@ interface Platform {
     suspend fun signedOut() = Unit
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
     val keysInApp: Boolean get() = true
-    /** Whether a wallet may be connected and Hopp pay from it — not in the browser until its
-     *  wallet has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
+    /** Whether a wallet may be connected over NWC and its connection kept — not in the browser until
+     *  it has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
     val wallet: Boolean get() = true
+    /** The browser's own wallet (WebLN, ADR 0022, 4, stage W3); null in the apps. */
+    val browserWallet: space.sovereigncast.hopp.value.BrowserWallet? get() = null
     /** Whether the system looks for new episodes in the background (Android's WorkManager); where not,
      *  Hopp does while it is open ([space.sovereigncast.hopp.data.FeedRefresh.whileOpen]). */
     val backgroundRefresh: Boolean get() = true
@@ -144,7 +146,7 @@ fun sharedModule(platform: Platform) = module {
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
-    single { WalletRepository(get(), get(), get(), enabled = platform.wallet) }
+    single { WalletRepository(get(), get(), get(), enabled = platform.wallet, browser = platform.browserWallet) }
     single { LnAddressClient(get()) }
     single { PaymentMetadataSource(get(), get()) }
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
@@ -162,7 +164,7 @@ fun sharedModule(platform: Platform) = module {
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single {
-        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), if (platform.wallet) get<ValueService>() else null, listening = get())
+        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), if (platform.wallet || platform.browserWallet != null) get<ValueService>() else null, listening = get())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
     viewModel { InboxViewModel(get(), get(), get()) }

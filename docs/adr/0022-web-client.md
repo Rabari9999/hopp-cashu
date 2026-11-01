@@ -330,6 +330,38 @@ The preparation in `shared` and stage W2 were built on branch `0.3.2`
   `worker-src blob:` for Coil's image decoder, `img-src https:` for the
   Media Session's cover.
 
+### 13. Built: stage W3, WebLN (2026-11-01, branch `0.3.3`)
+
+The order of 0.3.3 (maintainer, 2026-11-01): WebKit in the browser checks,
+then W3, then the service worker and the signed build (§7), then testing.
+
+- **The browser's wallet is a second kind of wallet**, not a second payment
+  path: `BrowserWallet` (`value/`), implemented by `WeblnWallet` on the web,
+  is chosen on the wallet page ("Use the browser's wallet") and kept as
+  `webln_info` — only that it was chosen and what it can (`getInfo`'s
+  methods, else the functions the extension has); nothing that can spend.
+  `WalletRepository.client()` hands it out wrapped in `ProvenWallet` like
+  NWC: a payment counts only with its preimage. Boosts, streaming sats,
+  zaps and Sovereigncast's payments therefore go through it unchanged, and
+  Hopp's daily budget applies per browser. NWC stays refused (§4, W5).
+- **Whole sats:** WebLN pays in sats; every share Hopp sends already is one.
+  Keysend records travel as text (`customRecords`), which the boostagram and
+  the recipients' custom values are; a record that is not text is not sent.
+- **Outcome:** an extension's refusal (the listener's "no", no route) is a
+  failure before payment; only an answer that speaks of a timeout is the
+  outcome unknown (H-04). After a reload the extension is asked to enable
+  again at the first payment.
+- **The rest of the UI:** payments are offered in the browser again
+  (`PlatformActions.canPay`); the wallet page and the tour's last page speak
+  of an extension with WebLN, not NWC; "via Alby (WebLN)" in the boost sheet;
+  no notification settings (`canNotify`: the browser's tab shows none).
+- **Checks:** `run.mjs` gives its fake extension a WebLN wallet that records
+  what it is asked and pays nothing: the wallet taken, a boost sent as
+  keysend with its boostagram; a browser without one is told what to
+  install. Writes to the Listener API are blocked (Chromium) or caught
+  (WebKit, where Playwright's interception breaks `blob:` loads).
+- **Left for W3:** a boost as an invoice QR code without WebLN.
+
 ## Consequences
 
 - **Distribution (ADR 0011)** gains the web as a channel: a reproducible

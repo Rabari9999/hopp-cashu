@@ -144,6 +144,11 @@
     <string name="wallet_scan">QR-Code scannen</string>
     <string name="wallet_scanned">✓ QR-Code gelesen. Das Kamerabild wurde nirgends gespeichert – Hopp hat nur die Verbindung übernommen.</string>
     <string name="wallet_limit_tip">Tipp: Setze in deiner Wallet ein Ausgabelimit für diese Verbindung – Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
+    <string name="wallet_browser_intro">Bezahle mit der Wallet deines Browsers: Eine Erweiterung wie Alby bietet sie Hopp an (WebLN). Boosts, Streaming-Sats und Zaps laufen darüber, und sie fragt dich, bevor sie zahlt.</string>
+    <string name="wallet_browser_connect">Wallet des Browsers verwenden</string>
+    <string name="wallet_browser_none">In diesem Browser ist keine Wallet. Installiere eine Erweiterung mit WebLN wie Alby und lade Hopp neu.</string>
+    <string name="wallet_browser_budget_tip">Tipp: Gib Hopp in der Erweiterung ein Budget – dann gehen Streaming-Sats raus, ohne jedes Mal zu fragen. Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
+    <string name="wallet_browser_cannot_pay">Die Wallet des Browsers kann weder Rechnungen bezahlen noch Keysend senden – Boosts und Streaming gehen damit nicht.</string>
     <string name="wallet_failed">Verbindung fehlgeschlagen: %1$s</string>
     <string name="wallet_no_nip44">Diese Wallet spricht nur die alte NIP-04-Verschlüsselung; Hopp braucht NIP-44. Aktualisiere die Wallet oder verbinde eine andere.</string>
     <string name="wallet_connected">Verbunden: %1$s</string>
@@ -179,11 +184,12 @@
     <string name="boost_unreachable">%1$d Empfänger nicht erreichbar – ihr Anteil wird übersprungen</string>
     <string name="boost_send">%1$s sats boosten</string>
     <string name="boost_send_over">Über dem Budget – trotzdem %1$s sats boosten</string>
-    <string name="boost_via">über %1$s (NWC) · Budget heute: %2$s sats übrig</string>
-    <string name="boost_via_balance">über %1$s (NWC) · in der Wallet: %2$s sats · Budget heute: %3$s sats übrig</string>
+    <string name="boost_via">über %1$s · Budget heute: %2$s sats übrig</string>
+    <string name="boost_via_balance">über %1$s · in der Wallet: %2$s sats · Budget heute: %3$s sats übrig</string>
     <string name="boost_low_balance">In der Wallet sind nur %1$s sats – zu wenig für diesen Boost samt Gebühren.</string>
     <string name="boost_no_wallet">Wallet verbinden, um zu boosten</string>
     <string name="boost_why_nwc">Ein Boost wird so aufgeteilt, wie der Podcast es festlegt – oft auf mehrere Empfänger, manche nur per Keysend erreichbar. Das geht nur mit einer verbundenen Wallet (NWC); eine Wallet-App bekommt immer nur eine Rechnung. Release Boosting und Boost2Unlock bei Sovereigncast-Shows bezahlst du auch mit jeder Wallet-App.</string>
+    <string name="boost_why_browser">Ein Boost wird so aufgeteilt, wie der Podcast es festlegt – oft auf mehrere Empfänger, manche nur per Keysend erreichbar. Im Browser macht das eine Wallet-Erweiterung mit WebLN wie Alby.</string>
     <string name="boost_no_value">Diese Show hat keinen Value-Block – sie kann keine Boosts empfangen.</string>
     <string name="boost_done">%1$s sats geboostet</string>
     <string name="boost_partial">%1$d von %2$d Empfängern bezahlt</string>
@@ -477,6 +483,7 @@
     <string name="onboarding_v4v_text">Podcasts leben von ihren Hörern. Mit einem Boost schickst du Sats – Bitcoin über Lightning – direkt an die Menschen hinter einer Show, mit Nachricht, aufgeteilt so, wie die Show es festlegt. Beim Streaming fließen ein paar Sats pro Minute, während du hörst – nur, wenn du es einschaltest. Bei Sovereigncast-Shows holst du außerdem Folgen früher raus und stimmst über Themen ab.</string>
     <string name="onboarding_wallet_title">Wallet verbinden</string>
     <string name="onboarding_wallet_text">Für Boosts verbindest du deine Lightning-Wallet per Nostr Wallet Connect (NWC) – Alby Hub, Zeus, Coinos und andere bieten das an. Ein Tagesbudget hält es im Rahmen. Ohne Wallet funktioniert alles andere genauso.</string>
+    <string name="onboarding_wallet_text_browser">Für Boosts nutzt du die Lightning-Wallet deines Browsers: eine Erweiterung mit WebLN wie Alby. Hopp hält zusätzlich ein Tagesbudget ein. Ohne Wallet funktioniert alles andere genauso.</string>
     <string name="sc_info_title">Was Sovereigncast mitbringt</string>
     <string name="sc_info_intro">Diese Show läuft mit Sovereigncast – der offenen, selbst gehosteten Plattform, mit der ihre Macher sie produzieren. In Hopp bringt das Extras, die keine andere App zeigt:</string>
     <string name="sc_info_rb">Release Boosting: Deine Sats holen die nächste Folge früher raus.</string>

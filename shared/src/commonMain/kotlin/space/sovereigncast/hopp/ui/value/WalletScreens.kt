@@ -1,5 +1,10 @@
 package space.sovereigncast.hopp.ui.value
 
+import space.sovereigncast.hopp.resources.wallet_browser_intro
+import space.sovereigncast.hopp.resources.wallet_browser_connect
+import space.sovereigncast.hopp.resources.wallet_browser_none
+import space.sovereigncast.hopp.resources.wallet_browser_cannot_pay
+import space.sovereigncast.hopp.resources.wallet_browser_budget_tip
 import space.sovereigncast.hopp.resources.wallet_silent
 import space.sovereigncast.hopp.resources.wallet_yes
 import space.sovereigncast.hopp.resources.wallet_no
@@ -166,6 +171,17 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             // There is a connection, unreadable for now: nothing to connect over it (security review 2026-10-20).
             Text(stringResource(Res.string.secrets_unreadable), color = colors.error)
             OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
+        } else if (w == null && !vm.nwcHere) {
+            // The browser: its own wallet, an extension's (WebLN — ADR 0022, 4, stage W3).
+            Text(stringResource(Res.string.wallet_browser_intro))
+            if (vm.browserWallet) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = vm::connectBrowser, enabled = connect != ConnectState.Working) { Text(stringResource(Res.string.wallet_browser_connect)) }
+                if (connect == ConnectState.Working) CircularProgressIndicator(Modifier.padding(4.dp))
+            } else Text(stringResource(Res.string.wallet_browser_none), color = colors.onSurfaceVariant)
+            (connect as? ConnectState.Failed)?.let {
+                Text(if (it.code == WalletRepository.CANNOT_PAY) stringResource(Res.string.wallet_browser_cannot_pay) else stringResource(Res.string.wallet_failed, it.reason), color = colors.error)
+            }
+            Text(stringResource(Res.string.wallet_browser_budget_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else if (w == null) {
             Text(stringResource(Res.string.wallet_intro))
             OutlinedTextField(uri, { uri = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(Res.string.wallet_uri_hint)) },

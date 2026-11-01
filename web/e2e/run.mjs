@@ -42,6 +42,12 @@ async function device(name, ext = {}) {
   const ctx = await newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'en-US' });
   const page = ctx.pages()[0] ?? await ctx.newPage();
   const extension = await installFakeExtension(page, ext);
+  // The checks pay nothing and write nothing to a Sovereigncast instance (a boost's metadata goes
+  // there first when it pays an invoice): only the Listener API's reads go through. WebKit fails
+  // blob: loads while Playwright intercepts anything, so there a write is only caught, after.
+  const writes = [];
+  page.on('request', r => { if (/\/api\/listener\//.test(r.url()) && r.method() !== 'GET' && r.method() !== 'OPTIONS') writes.push(`${r.method()} ${r.url()}`); });
+  if (!inWebKit) await page.route('**/api/listener/**', r => r.request().method() === 'GET' ? r.continue() : r.abort());
   const errors = [];
   page.on('pageerror', e => errors.push({ at: Date.now(), text: `${e} ${where()}` }));
   // WebKit fails the old page's loads still under way when it reloads (signing out, a language
@@ -84,7 +90,7 @@ async function device(name, ext = {}) {
   // Until the first screen is mirrored (a cold WebKit takes longer than a warm Chromium), then a moment more.
   for (let i = 0; i < 40 && (await buttons()).length === 0; i++) await page.waitForTimeout(500);
   await page.waitForTimeout(3000);
-  return { ctx, page, extension, errors, refused, mirrored, buttons, has, press, shot, reload };
+  return { ctx, page, extension, writes, errors, refused, mirrored, buttons, has, press, shot, reload };
 }
 
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
@@ -108,7 +114,8 @@ async function openEpisode(d, query, title) {
 }
 
 // 1. Start, the tour, a search through the proxy, a subscription, playback.
-const a = await device('a');
+const a = await device('a', { webln: true });
+for (let i = 0; i < 30 && !(await a.has('Skip')); i++) await a.page.waitForTimeout(500);
 check(await a.has('Skip'), 'the tour opens');
 await a.press('Skip', 4000);
 await openShow(a, 'Nodesignal');
@@ -122,8 +129,8 @@ await a.shot('show');
 await openEpisode(a, 'E298', 'Nodesignal-Talk - E298');
 await a.press('Play', 12_000);
 check(await a.has('Pause'), 'an episode plays');
-// No wallet in the browser yet (ADR 0022, 12): the episode of a show with a value block offers no boost.
-check(!(await a.buttons()).some(b => b.trim() === 'Boost'), 'no boost offered in the browser');
+// The browser pays with an extension's wallet (WebLN, ADR 0022, 4): the episode offers a boost.
+check((await a.buttons()).some(b => b.trim() === 'Boost'), 'a boost is offered in the browser');
 await a.shot('playing');
 await a.press('Pause', 2000);
 
@@ -134,7 +141,25 @@ await a.press('Save audio file', 1000);
 check(!!(await opened), "Save audio file hands the episode's audio to the browser");
 await a.reload();
 
-// 1c. Hopp's own language, apart from the browser's.
+// 1c. The browser's wallet (WebLN): taken on the wallet page, a boost sent through it with its boostagram.
+await a.press('Home', 2000); await a.press('Settings', 2000);
+await a.press('Wallet & payments', 3000);
+check(await a.has('Use the browser’s wallet'), "the browser's wallet is offered");
+await a.press('Use the browser’s wallet', 5000);
+check((await a.mirrored('*')).some(t => t.includes('Connected: Test wallet')), "the browser's wallet taken");
+await openShow(a, 'Nodesignal');
+await a.press('Episodes', 2000);
+await openEpisode(a, 'E298', 'Nodesignal-Talk - E298');
+await a.press('Boost', 4000);
+check((await a.mirrored('*')).some(t => t.includes('via Test wallet (WebLN)')), 'the boost sheet names the browser\'s wallet');
+await a.press('Boost 1,000 sats', 20_000);
+const keysends = a.extension.payments.filter(p => p.op === 'keysend');
+check(keysends.length > 0 && keysends.every(k => /"app_name":"Hopp"/.test(k.customRecords?.['7629169'] ?? '')),
+  `the boost went to the browser's wallet as keysend with its boostagram (${keysends.length} keysend, ${a.extension.payments.filter(p => p.op === 'sendPayment').length} invoices)`);
+await a.shot('boosted');
+await a.reload();
+
+// 1d. Hopp's own language, apart from the browser's.
 await a.press('Home', 2000); await a.press('Settings', 2000);
 await a.press('Language', 1500);
 await a.page.getByText('Deutsch').first().dispatchEvent('click').catch(() => {});
@@ -190,6 +215,9 @@ const stored = () => c.page.evaluate(async () => {
 });
 const text = async (t) => (await c.mirrored('*')).some(s => s.includes(t));
 await c.press('Skip', 4000);
+await c.press('Settings', 2000); await c.press('Wallet & payments', 3000);
+check(await text('No wallet found in this browser'), 'without an extension the wallet page says what to install');
+await c.press('Home', 2000);
 await openShow(c, 'Nodesignal');
 await c.press('Subscribe', 8000);
 await c.press('Home', 2000); await c.press('Settings', 2000); await c.press('Nostr identity', 3000);
@@ -229,6 +257,7 @@ if (withSync) {
 }
 
 check(a.errors.length === 0, `no uncaught errors${a.errors.length ? ':\n  ' + a.errors.map(e => e.text.slice(0, 300)).join('\n  ') : ''}`);
+check(a.writes.length === 0, `nothing written to a Sovereigncast instance${a.writes.length ? ': ' + a.writes.join(', ') : ''}`);
 check(a.refused.length === 0, `nothing refused by the CSP${a.refused.length ? ':\n  ' + a.refused.map(e => e.slice(0, 300)).join('\n  ') : ''}`);
 for (const ctx of contexts) await ctx.close().catch(() => {});
 await browser?.close();

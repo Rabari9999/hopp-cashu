@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.onboarding_wallet_text_browser
 import space.sovereigncast.hopp.resources.onboarding_later
 import space.sovereigncast.hopp.resources.onboarding_library_text
 import space.sovereigncast.hopp.resources.onboarding_library_title
@@ -129,10 +130,13 @@ fun OnboardingScreen(
     // A wallet already connected (tour again, or after an update): no page asking for one.
     // Where Hopp pays at all: not in the browser for now — no value-for-value page there either.
     val canPay = LocalPlatformActions.current.canPay
+    // In the browser the wallet is an extension's (WebLN), not one connected over NWC.
+    val browser = LocalPlatformActions.current.paysWithBrowser
     val PAGES = when {
         !canPay -> ALL_PAGES.dropLast(1).filter { it.title != Res.string.onboarding_v4v_title }
             .map { p -> p.copy(points = p.points.filter { it != Res.string.onboarding_nostr_boosts }) }
         hasWallet -> ALL_PAGES.dropLast(1)
+        browser -> ALL_PAGES.dropLast(1) + ALL_PAGES.last().copy(text = Res.string.onboarding_wallet_text_browser, nwcLink = false)
         else -> ALL_PAGES
     }
     val pager = rememberPagerState(initialPage = initialPage.coerceIn(0, PAGES.lastIndex)) { PAGES.size }

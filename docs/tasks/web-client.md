@@ -132,3 +132,13 @@ How to run and check it: [web/README.md](../../web/README.md).
 Hosting on `play.sovereigncast.space` with own headers, imprint and privacy
 policy, the signed hash of the web build, comments and boosts (W3), Umbrel
 (W4), NWC in the web (W5).
+
+## Stage W3 (0.3.3)
+
+- [x] **WebLN** (2026-11-01, ADR 0022, 13): the browser's wallet as a second
+      kind of wallet behind `WalletClient` — boosts, streaming sats, zaps
+      and Sovereigncast's payments through an extension such as Alby; JVM
+      tests in `ValueServiceTest`, browser checks with a fake WebLN wallet.
+- [ ] Without WebLN: a boost as an invoice QR code and a `lightning:` link.
+- [ ] With a real extension (Alby) on the maintainer's machine: a boost,
+      streaming sats, a zap.

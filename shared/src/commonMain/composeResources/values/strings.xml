@@ -144,6 +144,11 @@
     <string name="wallet_scan">Scan QR code</string>
     <string name="wallet_scanned">✓ QR code read. The camera picture was not saved anywhere — Hopp only kept the connection.</string>
     <string name="wallet_limit_tip">Tip: set a spending limit for this connection in your wallet — Hopp keeps its own daily budget on top.</string>
+    <string name="wallet_browser_intro">Pay from your browser’s wallet: an extension such as Alby offers it to Hopp (WebLN). Boosts, streaming sats and zaps go through it, and it asks you before it pays.</string>
+    <string name="wallet_browser_connect">Use the browser’s wallet</string>
+    <string name="wallet_browser_none">No wallet found in this browser. Install an extension with WebLN, such as Alby, and reload Hopp.</string>
+    <string name="wallet_browser_budget_tip">Tip: give Hopp a budget in the extension — streaming sats then go out without asking each time. Hopp keeps its own daily budget on top.</string>
+    <string name="wallet_browser_cannot_pay">The browser’s wallet can neither pay invoices nor send keysend — boosts and streaming will not work with it.</string>
     <string name="wallet_failed">Could not connect: %1$s</string>
     <string name="wallet_no_nip44">This wallet speaks only the old NIP-04 encryption; Hopp needs NIP-44. Update the wallet, or connect another.</string>
     <string name="wallet_connected">Connected: %1$s</string>
@@ -179,11 +184,12 @@
     <string name="boost_unreachable">%1$d recipient(s) cannot be reached — their share is skipped</string>
     <string name="boost_send">Boost %1$s sats</string>
     <string name="boost_send_over">Over budget — boost %1$s sats anyway</string>
-    <string name="boost_via">via %1$s (NWC) · budget left today: %2$s sats</string>
-    <string name="boost_via_balance">via %1$s (NWC) · in the wallet: %2$s sats · budget left today: %3$s sats</string>
+    <string name="boost_via">via %1$s · budget left today: %2$s sats</string>
+    <string name="boost_via_balance">via %1$s · in the wallet: %2$s sats · budget left today: %3$s sats</string>
     <string name="boost_low_balance">The wallet holds only %1$s sats — not enough for this boost and its fees.</string>
     <string name="boost_no_wallet">Connect a wallet to boost</string>
     <string name="boost_why_nwc">A boost is split the way the podcast sets it — often among several recipients, some reachable only by keysend. That takes a connected wallet (NWC); a wallet app only ever gets one invoice. Release Boosting and Boost2Unlock at Sovereigncast shows you can also pay with any wallet app.</string>
+    <string name="boost_why_browser">A boost is split the way the podcast sets it — often among several recipients, some reachable only by keysend. In the browser a wallet extension with WebLN, such as Alby, does that.</string>
     <string name="boost_no_value">This show has no value block — it cannot receive boosts.</string>
     <string name="boost_done">%1$s sats boosted</string>
     <string name="boost_partial">%1$d of %2$d recipients paid</string>
@@ -477,6 +483,7 @@
     <string name="onboarding_v4v_text">Podcasts live on their listeners. A boost sends sats — bitcoin over Lightning — straight to the people behind a show, with a message, split the way the show sets it. Streaming sends a few sats per minute while you listen, only if you switch it on. Sovereigncast shows also let you bring episodes out sooner and vote on topics.</string>
     <string name="onboarding_wallet_title">Connect your wallet</string>
     <string name="onboarding_wallet_text">For boosts, connect your Lightning wallet over Nostr Wallet Connect (NWC) — Alby Hub, Zeus, Coinos and others offer it. A daily budget keeps it in check. Without a wallet, everything else works just the same.</string>
+    <string name="onboarding_wallet_text_browser">For boosts, use your browser’s Lightning wallet: an extension with WebLN, such as Alby. Hopp keeps a daily budget on top. Without a wallet, everything else works just the same.</string>
     <string name="sc_info_title">What Sovereigncast brings</string>
     <string name="sc_info_intro">This show runs on Sovereigncast — the open, self-hosted platform its makers produce it with. In Hopp it brings extras no other app shows:</string>
     <string name="sc_info_rb">Release Boosting: your sats bring the next episode out sooner.</string>

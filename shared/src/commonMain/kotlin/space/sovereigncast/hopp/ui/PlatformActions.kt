@@ -12,9 +12,12 @@ interface PlatformActions {
     fun shareText(text: String, subject: String) = Unit
     /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
     val canDownload: Boolean get() = true
-    /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments: not in
-     *  the browser for now ([space.sovereigncast.hopp.di.Platform.wallet]). */
+    /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments. */
     val canPay: Boolean get() = true
+    /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
+    val paysWithBrowser: Boolean get() = false
+    /** Whether the system shows Hopp's notifications — a payment's outcome among them; not the browser's tab. */
+    val canNotify: Boolean get() = true
     /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */
     val canSaveAudio: Boolean get() = false
     /** Saves the audio file at [url] as [name], as the platform can (maintainer 2026-10-28). */

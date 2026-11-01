@@ -145,7 +145,7 @@ fun SettingsScreen(
         Entry(HoppIcons.Contrast, stringResource(Res.string.settings_appearance), stringResource(Res.string.settings_appearance_note)) { onPage(SettingsPage.Appearance) }
         if (actions.canDownload) Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
         else Entry(Icons.Rounded.Refresh, stringResource(Res.string.settings_updates), stringResource(Res.string.settings_updates_note)) { onPage(SettingsPage.Downloads) }
-        if (actions.canPay) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        if (actions.canPay && actions.canNotify) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
         if (!actions.canPay) stats()
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }

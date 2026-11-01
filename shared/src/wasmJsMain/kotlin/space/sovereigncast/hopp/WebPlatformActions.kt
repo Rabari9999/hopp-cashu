@@ -51,7 +51,10 @@ private val LANGUAGES = mapOf("en" to "English", "de" to "Deutsch")
 class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformActions {
     override val canDownload: Boolean get() = false
     // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
-    override val canPay: Boolean get() = false
+    // Paid from the browser's own wallet, an extension's (WebLN — ADR 0022, 4, stage W3).
+    override val canPay: Boolean get() = true
+    override val paysWithBrowser: Boolean get() = true
+    override val canNotify: Boolean get() = false
     override val canSaveAudio: Boolean get() = true
     override val refreshButton: Boolean get() = true
     override fun saveAudio(url: String, name: String) {

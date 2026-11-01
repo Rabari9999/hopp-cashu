@@ -52,6 +52,10 @@ class WalletViewModel(
     val checking: StateFlow<Boolean> = _checking.asStateFlow()
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
+    /** NWC can be connected here; in the browser only its own wallet (WebLN). */
+    val nwcHere: Boolean get() = wallet.nwcHere
+    /** The browser offers a wallet of its own (an extension with WebLN). */
+    val browserWallet: Boolean get() = wallet.browserWallet
 
     init { refreshBalance() }
 
@@ -72,6 +76,18 @@ class WalletViewModel(
         viewModelScope.launch {
             _connect.value = try {
                 wallet.connect(uri); refreshBalance(); ConnectState.Idle
+            } catch (e: Exception) {
+                ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
+            }
+        }
+    }
+
+    /** Takes the browser's wallet; the extension may ask the listener first. */
+    fun connectBrowser() {
+        _connect.value = ConnectState.Working
+        viewModelScope.launch {
+            _connect.value = try {
+                wallet.connectBrowser(); refreshBalance(); ConnectState.Idle
             } catch (e: Exception) {
                 ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
             }

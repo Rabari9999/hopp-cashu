@@ -461,9 +461,13 @@ fun BoostSheet(
             val short = !vm.covers(balance, amount)
             val w = wallet
             if (w == null) {
-                // Why a connection, not just any wallet app (device feedback 2026-10-12).
-                Text(stringResource(Res.string.boost_why_nwc), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                space.sovereigncast.hopp.ui.components.NwcExplainerLink()
+                // Why a connection, not just any wallet app (device feedback 2026-10-12) — in the browser, an extension's.
+                if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.paysWithBrowser) {
+                    Text(stringResource(Res.string.boost_why_browser), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                } else {
+                    Text(stringResource(Res.string.boost_why_nwc), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    space.sovereigncast.hopp.ui.components.NwcExplainerLink()
+                }
                 BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
             } else {
                 if (short) Text(stringResource(Res.string.boost_low_balance, formatSats((balance ?: 0) / 1000)), color = colors.error)
@@ -488,8 +492,8 @@ fun BoostSheet(
                     }
                 }
                 Text(
-                    balance?.let { stringResource(Res.string.boost_via_balance, w.label, formatSats(it / 1000), formatSats(left / 1000)) }
-                        ?: stringResource(Res.string.boost_via, w.label, formatSats(left / 1000)),
+                    balance?.let { stringResource(Res.string.boost_via_balance, w.via, formatSats(it / 1000), formatSats(left / 1000)) }
+                        ?: stringResource(Res.string.boost_via, w.via, formatSats(left / 1000)),
                     color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 )
