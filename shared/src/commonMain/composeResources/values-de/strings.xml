@@ -1163,4 +1163,16 @@
     <string name="contacts_public_text">Hopp veröffentlicht eine Notiz, dass du das nutzt, mit zwei eigenen Schlüsseln. Was du abonniert hast, steht nie darin – das geht nur versiegelt an deine gegenseitigen Kontakte.</string>
     <string name="contacts_public_confirm">Einschalten</string>
     <string name="show_share_contacts">Mit Nostr-Kontakten teilen</string>
+    <string name="discover_contacts">Bei deinen Nostr-Kontakten</string>
+    <string name="discover_contacts_note">was sie teilen · ein Abo ist keine Empfehlung</string>
+    <string name="contacts_names_two">%1$s und %2$s</string>
+    <plurals name="contacts_names_more">
+        <item quantity="one">%1$s, %2$s und %3$d weitere</item>
+        <item quantity="other">%1$s, %2$s und %3$d weitere</item>
+    </plurals>
+    <string name="contacts_no_recommendation">Ein Abo ist keine Empfehlung.</string>
+    <plurals name="contacts_listen">
+        <item quantity="one">%1$d deiner Nostr-Kontakte hört das</item>
+        <item quantity="other">%1$d deiner Nostr-Kontakte hören das</item>
+    </plurals>
 </resources>

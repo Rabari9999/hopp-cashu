@@ -118,6 +118,7 @@ class DownloadsAndQueueTest {
         val driver = schemaDriver()
         // Version 20 had no show left out of sharing with Nostr contacts yet (version 22).
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
+        driver.execute(null, "DROP TABLE contact_cache", 0)
         driver.execute(null, "DROP TABLE payment", 0)
         driver.execute(null, """CREATE TABLE payment (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, kind TEXT NOT NULL,
             podcast_id INTEGER, episode_id INTEGER, podcast_title TEXT, episode_title TEXT, amount_msat INTEGER NOT NULL, message TEXT,

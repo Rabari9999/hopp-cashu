@@ -91,7 +91,7 @@ UPDATE podcast SET contacts_hidden = ? WHERE id = ?;
 
 -- What is shared with mutual Nostr contacts (ADR 0024, 4): every show not left out, newest first.
 selectShared:
-SELECT podcast_guid, feed_url, title, subscribed_at FROM podcast WHERE contacts_hidden = 0 ORDER BY subscribed_at DESC;
+SELECT podcast_guid, feed_url, title, subscribed_at, image_url FROM podcast WHERE contacts_hidden = 0 ORDER BY subscribed_at DESC;
 
 -- Sovereigncast layer (ADR 0002): the verified instance and what it answered.
 setSovereigncast:

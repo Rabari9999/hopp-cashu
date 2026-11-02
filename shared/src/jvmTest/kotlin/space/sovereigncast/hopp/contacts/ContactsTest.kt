@@ -25,10 +25,10 @@ class ContactsTest {
     private var now = 1_790_000_000L
 
     /** One of the listener's devices. */
-    private inner class Device {
+    private inner class Device(owner: KeyPair = listener) {
         val secrets = MemorySecretStore()
         val identity = IdentityRepository(secrets, RelayPublisher(relay), { now }).also {
-            runBlocking { it.importKey(Bech32.encode("nsec", listener.secretKey)) }
+            runBlocking { it.importKey(Bech32.encode("nsec", owner.secretKey)) }
         }
         val keys = ContactKeys(identity, RelayPublisher(relay), secrets) { now }
         val graph = ContactGraph(identity, RelayPublisher(relay)) { now }
@@ -183,5 +183,48 @@ class ContactsTest {
         val newest = byShareKey(key).groupBy { it.tag("d") }.mapValues { (_, e) -> e.maxBy { it.created_at } }
         assertTrue(newest.values.all { it.content.isEmpty() })
         assertTrue(relay.stored().any { it.kind == 5 && it.pubkey == key.publicKeyHex })
+    }
+
+    // Stage 3: seeing what mutual contacts share (ADR 0024, 5, 7).
+
+    /** Anna shares with the listener; the listener, looking, sees her shows with her name — Ben, who
+     *  shares too but does not follow the listener back, is not opened. */
+    @Test
+    fun whatAMutualContactSharesIsSeen(): Unit = runBlocking {
+        val anna = KeyPair.generate(); val ben = KeyPair.generate()
+        follows(listener, anna.publicKeyHex, ben.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        follows(ben, KeyPair.generate().publicKeyHex)
+        relay.publish(Event.sign(anna, 0, """{"name":"Anna","picture":"https://a.test/anna.png"}""", emptyList(), now - 100))
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val myInbox = me.keys.inboxKey()!!.publicKeyHex
+        for (who in listOf(anna, ben)) {
+            val device = Device(who)
+            device.keys.set(share = true, see = false)
+            ContactShare(device.identity, RelayPublisher(relay), device.keys, device.secrets, { shows }) { now }.publish(setOf(myInbox))
+        }
+        me.contacts.refresh(force = true)
+        val read = assertNotNull(me.contacts.state.value.read)
+        assertEquals(shows.toSet(), read.contacts.getValue(anna.publicKeyHex).shows.toSet())
+        assertTrue(read.contacts.getValue(ben.publicKeyHex).shows.isEmpty())
+        assertEquals(listOf("Anna"), read.listeners("guid-a", "https://a.test/feed").map { it.name })
+        assertEquals(listOf("https://b.test/feed", "https://a.test/feed"), read.listening().map { it.show.url })
+        assertEquals("https://a.test/anna.png", read.contacts.getValue(anna.publicKeyHex).picture)
+    }
+
+    /** Without looking at it, nothing is opened, even where a contact shares. */
+    @Test
+    fun notLookingOpensNothing(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        val me = Device()
+        me.keys.set(share = true, see = false)
+        val annas = Device(anna)
+        annas.keys.set(share = true, see = false)
+        ContactShare(annas.identity, RelayPublisher(relay), annas.keys, annas.secrets, { shows }) { now }.publish(setOf(KeyPair.generate().publicKeyHex))
+        me.contacts.refresh(force = true)
+        assertTrue(me.contacts.state.value.read!!.listening().isEmpty())
     }
 }

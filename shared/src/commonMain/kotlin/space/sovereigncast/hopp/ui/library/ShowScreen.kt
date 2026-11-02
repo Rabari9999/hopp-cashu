@@ -233,6 +233,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true },
                             sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts) }
                     }
+                    show?.let { s -> space.sovereigncast.hopp.ui.components.ContactListeners(s.podcastGuid, s.feedUrl, Modifier.padding(top = 4.dp)) }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))

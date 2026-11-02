@@ -98,6 +98,7 @@ fun ShowPreviewScreen(
                     SelectionContainer { Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
                     CategoryTags(p?.categories ?: known?.categories.orEmpty())
+                    space.sovereigncast.hopp.ui.components.ContactListeners(p?.podcastGuid ?: known?.podcastGuid, feedUrl)
                     if (loaded != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (layer != null) space.sovereigncast.hopp.ui.sovereigncast.ScBadge()
                         Text(

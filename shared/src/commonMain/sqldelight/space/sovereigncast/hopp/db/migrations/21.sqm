@@ -1,2 +1,8 @@
--- Version 21 → 22 (ADR 0024, 4a): a show left out of what is shared with mutual Nostr contacts.
+-- Version 21 → 22 (ADR 0024): a show left out of what is shared with mutual Nostr contacts (4a), and
+-- what the contacts listen to as last read (7).
 ALTER TABLE podcast ADD COLUMN contacts_hidden INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE contact_cache (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+    json TEXT NOT NULL,
+    read_at INTEGER NOT NULL
+);

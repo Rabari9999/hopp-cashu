@@ -5,17 +5,23 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.putJsonArray
+import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.identity.IdentityRepository
+import space.sovereigncast.hopp.nostr.KeyPair
+import space.sovereigncast.hopp.nostr.Nip44
 import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import kotlin.time.Duration.Companion.seconds
 
 /** One of the listener's Nostr contacts, as their own relays show them. */
+@Serializable
 data class Contact(
     val pubkey: String,
     /** They follow the listener back: their newest contact list names the listener. */
@@ -23,14 +29,38 @@ data class Contact(
     /** Their contacts note's public keys (ADR 0024, 3): sharing, and looking at what is shared. */
     val share: String? = null,
     val inbox: String? = null,
+    /** What they share with the listener — opened with the listener's inbox key (ADR 0024, 5). */
+    val shows: List<SharedShow> = emptyList(),
+    /** Their profile (kind 0), for the rows that name them. */
+    val name: String? = null,
+    val picture: String? = null,
 )
 
 /** The listener's contacts read: [following] from their own list, what each one's relays told. */
+@Serializable
 data class ContactsRead(val following: Set<String>, val contacts: Map<String, Contact>, val at: Long) {
     val mutual: List<Contact> get() = contacts.values.filter { it.mutual }
     /** Mutual contacts who use the feature: their contacts note names a key. */
     val withHopp: List<Contact> get() = mutual.filter { it.share != null || it.inbox != null }
+
+    /** Shows the contacts share, each with who — most contacts first, then the newest (ADR 0024, 7). */
+    fun listening(): List<ContactPick> = contacts.values.flatMap { c -> c.shows.map { showKey(it) to (it to c) } }
+        .groupBy({ it.first }, { it.second })
+        .map { (_, pairs) -> ContactPick(pairs.maxBy { it.first.since }.first, pairs.map { it.second }.distinctBy { it.pubkey }, pairs.maxOf { it.first.since }) }
+        .sortedWith(compareByDescending<ContactPick> { it.by.size }.thenByDescending { it.latest })
+
+    /** Who of the contacts shares the show with [guid] or at [feedUrl]. */
+    fun listeners(guid: String?, feedUrl: String): List<Contact> {
+        val key = showKey(guid, feedUrl)
+        return contacts.values.filter { c -> c.shows.any { showKey(it) == key || it.url == feedUrl } }
+    }
 }
+
+/** A show the contacts share, and who: [latest], when one of them last subscribed to it. */
+data class ContactPick(val show: SharedShow, val by: List<Contact>, val latest: Long)
+
+private fun showKey(s: SharedShow) = showKey(s.guid, s.url)
+private fun showKey(guid: String?, url: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:" + url.trimEnd('/')
 
 /**
  * The listener's Nostr contacts (ADR 0024, 2): their own contact list (NIP-02, kind 3), then
@@ -45,7 +75,10 @@ class ContactGraph(
     private val publisher: RelayPublisher,
     private val nowSeconds: () -> Long,
 ) {
-    suspend fun read(): ContactsRead? {
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** [inbox]: the listener's inbox key, while they look at what contacts share — their lists are opened with it. */
+    suspend fun read(inbox: KeyPair? = null): ContactsRead? {
         val me = identity.identity.value?.pubkey ?: return null
         val lookup = (identity.writeRelays() + IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS).distinct()
         val mine = publisher.query(listOf(filter(CONTACT_LIST, listOf(me))), lookup, SETTLE)
@@ -86,11 +119,66 @@ class ContactGraph(
             .map { it.pubkey }.toSet()
         val notes = found.filter { it.kind == Nip78.KIND && it.pubkey in following && it.tag("d") == ContactKeys.DTAG }
             .groupBy { it.pubkey }.mapValues { (_, n) -> n.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
-        val contacts = following.associateWith { who ->
+        val bare = following.associateWith { who ->
             val note = notes[who]?.takeIf { it.content.isNotEmpty() }
             Contact(who, who in followsBack, note?.tag("share")?.takeIf { HEX64.matches(it) }, note?.tag("inbox")?.takeIf { HEX64.matches(it) })
         }
+        // What mutual contacts share with this inbox: their key for it, and the list it opens.
+        val shelves = if (inbox == null) emptyMap() else shelves(bare.values.filter { it.mutual && it.share != null }, outbox, inbox)
+        val named = profiles(shelves.filterValues { it.isNotEmpty() }.keys)
+        val contacts = bare.mapValues { (who, c) ->
+            val p = named[who]
+            c.copy(shows = shelves[who].orEmpty(), name = p?.first, picture = p?.second)
+        }
         return ContactsRead(following, contacts, nowSeconds())
+    }
+
+    /** Each sharing contact's list, opened: the share key sealed to [inbox], then the list sealed by that key. */
+    private suspend fun shelves(sharing: List<Contact>, outbox: Map<String, List<String>>, inbox: KeyPair): Map<String, List<SharedShow>> = coroutineScope {
+        val gate = Semaphore(PARALLEL)
+        sharing.map { c ->
+            async {
+                gate.withPermit {
+                    val share = c.share!!
+                    val urls = (outbox[c.pubkey].orEmpty().ifEmpty { IdentityRepository.DEFAULT_RELAYS } + IdentityRepository.SYNC_RELAYS).distinct()
+                    val filter = buildJsonObject {
+                        putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
+                        putJsonArray("authors") { add(JsonPrimitive(share)) }
+                        putJsonArray("#d") { add(JsonPrimitive(ContactShare.SHELF)); add(JsonPrimitive(ContactShare.keyTag(inbox.publicKeyHex))) }
+                    }
+                    val found = runCatching { publisher.query(listOf(filter), urls, SETTLE) }.getOrDefault(emptyList())
+                        .filter { it.pubkey == share && it.kind == Nip78.KIND }
+                    val newest = { d: String -> found.filter { it.tag("d") == d }.maxByOrNull { it.created_at } }
+                    val shows = runCatching {
+                        val sealedKey = newest(ContactShare.keyTag(inbox.publicKeyHex))?.takeIf { it.content.isNotEmpty() } ?: return@runCatching emptyList()
+                        val secret = Nip44.decrypt(sealedKey.content, Nip44.conversationKey(inbox.secretKey, share.hexToBytes()))
+                        val key = KeyPair.fromHex(secret)
+                        // A key that is not the one the contact's note names opens nothing.
+                        if (key.publicKeyHex != share) return@runCatching emptyList()
+                        val shelf = newest(ContactShare.SHELF)?.takeIf { it.content.isNotEmpty() } ?: return@runCatching emptyList()
+                        json.decodeFromString(Shelf.serializer(), Nip44.decrypt(shelf.content, Nip44.conversationKey(key.secretKey, share.hexToBytes()))).shows
+                            .filter { it.url.startsWith("http") }.take(MAX_SHOWS)
+                    }.getOrDefault(emptyList())
+                    c.pubkey to shows
+                }
+            }
+        }.awaitAll().toMap()
+    }
+
+    /** Name and picture (kind 0) of [people], from the indexes and Hopp's relays. */
+    private suspend fun profiles(people: Set<String>): Map<String, Pair<String?, String?>> {
+        if (people.isEmpty()) return emptyMap()
+        val out = mutableMapOf<String, Pair<String?, String?>>()
+        people.toList().chunked(BATCH).forEach { batch ->
+            publisher.query(listOf(filter(0, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, SETTLE)
+                .filter { it.kind == 0 && it.pubkey in batch }.groupBy { it.pubkey }.mapValues { (_, e) -> e.maxBy { it.created_at } }
+                .forEach { (who, e) ->
+                    val o = runCatching { json.parseToJsonElement(e.content) as? JsonObject }.getOrNull() ?: return@forEach
+                    val text = { k: String -> (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.takeIf { it.isNotEmpty() } }
+                    out[who] = (text("display_name") ?: text("name"))?.take(60) to text("picture")?.takeIf { it.startsWith("https://") && it.length <= 1024 }
+                }
+        }
+        return out
     }
 
     private fun writeRelays(list: Event): List<String> = list.tags
@@ -112,6 +200,8 @@ class ContactGraph(
         const val THEIR_RELAYS = 3
         /** Relays asked at once. */
         const val PARALLEL = 8
+        /** Shows taken from one contact's list at most. */
+        const val MAX_SHOWS = 500
         val SETTLE = 3.seconds
         val HEX64 = Regex("^[0-9a-f]{64}$")
     }

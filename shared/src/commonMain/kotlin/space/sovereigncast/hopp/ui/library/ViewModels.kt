@@ -472,6 +472,7 @@ class DiscoverViewModel(
     private val settings: SettingsRepository,
     private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
     private val people: space.sovereigncast.hopp.data.PeopleRepository,
+    private val contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
 ) : ViewModel() {
     private val _people = MutableStateFlow<List<space.sovereigncast.hopp.data.PersonMatch>>(emptyList())
     /** People in the subscribed shows whose name holds the term (0.3.1) — found here, on the device. */
@@ -507,6 +508,17 @@ class DiscoverViewModel(
     private val subscribedKeys = podcasts.shows
         .map { list -> list.flatMap { listOfNotNull(feedKey(it.feedUrl), it.podcastGuid?.lowercase()) }.toSet() }
         .distinctUntilChanged()
+
+    /** "With your Nostr contacts" (ADR 0024, 7): what they share, most of them first; shows the listener
+     *  has left out. Empty unless the listener looks at it — and so without a Nostr identity. */
+    val withContacts: StateFlow<List<space.sovereigncast.hopp.contacts.ContactPick>> = state(
+        if (contacts == null) kotlinx.coroutines.flow.flowOf(emptyList())
+        else combine(contacts.state, subscribedKeys) { s, subscribed ->
+            if (s.note?.seeing != true) emptyList()
+            else s.read?.listening().orEmpty().filter { p -> feedKey(p.show.url) !in subscribed && p.show.guid?.lowercase() !in subscribed }.take(20)
+        },
+        emptyList(),
+    )
 
     /** "Recommended by your shows" — fetched again whenever the subscriptions change,
      *  and without what is subscribed at once, before that answer is in. Loaded once

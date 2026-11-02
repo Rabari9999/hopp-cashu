@@ -39,11 +39,25 @@ class ContactsRepository(
     private val graph: ContactGraph,
     private val nowSeconds: () -> Long,
     private val share: ContactShare? = null,
+    /** What was read last, kept between starts — and keeping it; null: nothing kept. */
+    private val cache: ContactsCache? = null,
     private val readEvery: Long = 3600,
 ) {
     private val _state = MutableStateFlow(ContactsState())
     val state: StateFlow<ContactsState> = _state.asStateFlow()
     private val lock = Mutex()
+
+    /** Where what was read last is kept (ADR 0024, 7). */
+    interface ContactsCache {
+        suspend fun load(): ContactsRead?
+        suspend fun save(read: ContactsRead?)
+    }
+
+    /** What was read before this start, at once — then the relays when due. */
+    suspend fun loadKept() {
+        if (identity.identity.value == null || _state.value.read != null) return
+        runCatching { cache?.load() }.getOrNull()?.let { kept -> _state.update { if (it.read == null) it.copy(read = kept) else it } }
+    }
 
     /** The note and, when due or [force]d, the contacts. [interactive]: a note made on another device is taken over. */
     suspend fun refresh(force: Boolean = false, interactive: Boolean = false) = lock.withLock {
@@ -53,8 +67,9 @@ class ContactsRepository(
             _state.update { it.copy(note = note) }
             val last = _state.value.read?.at
             if (force || last == null || nowSeconds() - last >= readEvery) {
-                val read = graph.read()
+                val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)
                 _state.update { it.copy(read = read) }
+                runCatching { cache?.save(read) }
             }
             shareNow()
         }
@@ -81,7 +96,7 @@ class ContactsRepository(
     suspend fun setSeeing(on: Boolean) = change(share = _state.value.note?.sharing == true, see = on)
 
     /** Signed out: nothing of it stays on this device. */
-    fun forget() { keys.forget(); _state.value = ContactsState() }
+    suspend fun forget() { keys.forget(); _state.value = ContactsState(); runCatching { cache?.save(null) } }
 
     private suspend fun change(share: Boolean, see: Boolean) = lock.withLock {
         work {

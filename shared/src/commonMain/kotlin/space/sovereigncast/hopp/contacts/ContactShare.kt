@@ -16,7 +16,7 @@ import space.sovereigncast.hopp.platform.SecretStore
 
 /** One show as it is shared with mutual Nostr contacts (ADR 0024, 4). */
 @Serializable
-data class SharedShow(val guid: String? = null, val url: String, val title: String, val since: Long)
+data class SharedShow(val guid: String? = null, val url: String, val title: String, val since: Long, val image: String? = null)
 
 /** The shared list, as sealed. */
 @Serializable
@@ -89,7 +89,7 @@ class ContactShare(
 
     /** As many shows as one sealed event holds (NIP-44: 65,535 bytes) — the newest first. */
     private fun fit(all: List<SharedShow>): List<SharedShow> {
-        val trimmed = all.map { it.copy(title = it.title.take(MAX_TITLE)) }.filter { it.url.length <= MAX_URL }
+        val trimmed = all.map { it.copy(title = it.title.take(MAX_TITLE), image = it.image?.takeIf { i -> i.startsWith("https://") && i.length <= MAX_URL }) }.filter { it.url.length <= MAX_URL }
         var n = trimmed.size
         while (n > 0 && json.encodeToString(Shelf.serializer(), Shelf(shows = trimmed.take(n))).encodeToByteArray().size > MAX_PLAIN) n -= maxOf(1, n / 10)
         return trimmed.take(n)

@@ -1,7 +1,7 @@
 # What your Nostr contacts listen to
 
 - **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.3.3.
-- **Status:** stages 1 and 2 built (2026-11-02, branch `0.3.3`).
+- **Status:** stages 1–3 built (2026-11-02, branch `0.3.3`), a contact's page left.
 
 Only with a Nostr identity: without one, nothing of it is shown or done.
 
@@ -42,9 +42,17 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
 
 ## Stage 3 — seeing shared subscriptions
 
-- [ ] Read each mutual contact's key for this inbox, open their list, keep it.
-- [ ] Discover "With your Nostr contacts", a show's row of avatars and count,
-      a contact's page; "A subscription is no recommendation."
+- [x] `ContactGraph.read(inbox)`: for each mutual contact whose note names a
+      share key, its key for this inbox and the list it opens — a key that is
+      not the one the note names opens nothing; names and pictures (kind 0)
+      of those who share. Kept between starts (`contact_cache`, migration
+      21 → 22); read with each feed refresh, at most hourly.
+- [x] Discover "With your Nostr contacts" (what they share, most contacts
+      first, shows already subscribed left out; "a subscription is no
+      recommendation"); on a show's page and its preview, the contacts'
+      avatars and "4 of your Nostr contacts listen to this".
+- [ ] A contact's page: the shows they share.
+- [x] Tests: `ContactsTest` (11).
 
 ## Stage 4 — public signals
 

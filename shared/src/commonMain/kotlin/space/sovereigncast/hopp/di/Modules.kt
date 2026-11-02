@@ -15,6 +15,8 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.db.HoppDatabase
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.directory.AppleClient
 import space.sovereigncast.hopp.directory.DirectoryRepository
 import space.sovereigncast.hopp.directory.FyydClient
@@ -113,10 +115,20 @@ fun sharedModule(platform: Platform) = module {
     single {
         val podcasts = get<PodcastRepository>()
         val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {
-            podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at) }
+            podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at, it.image_url) }
         }) { get<Clock>().now() }
-        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share)
-            .also { it.start(CoroutineScope(SupervisorJob() + Dispatchers.Default), podcasts.shows) }
+        val db = get<HoppDatabase>()
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        val cache = object : space.sovereigncast.hopp.contacts.ContactsRepository.ContactsCache {
+            override suspend fun load() = db.contactsQueries.select().awaitAsOneOrNull()
+                ?.let { runCatching { json.decodeFromString(space.sovereigncast.hopp.contacts.ContactsRead.serializer(), it) }.getOrNull() }
+            override suspend fun save(read: space.sovereigncast.hopp.contacts.ContactsRead?) {
+                if (read == null) db.contactsQueries.clear() else db.contactsQueries.put(json.encodeToString(space.sovereigncast.hopp.contacts.ContactsRead.serializer(), read), read.at)
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache)
+            .also { it.start(scope, podcasts.shows); scope.launch { it.loadKept() } }
     }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
@@ -151,6 +163,8 @@ fun sharedModule(platform: Platform) = module {
             before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
             after = {
                 koin.get<SovereigncastRepository>().refresh()
+                // What the listener's Nostr contacts listen to, at most hourly (ADR 0024).
+                runCatching { koin.get<space.sovereigncast.hopp.contacts.ContactsRepository>().refresh() }
                 // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01).
                 val sync = koin.get<space.sovereigncast.hopp.sync.SyncManager>()
                 if (sync.status.value.pending > 0) sync.syncNow()
@@ -191,7 +205,7 @@ fun sharedModule(platform: Platform) = module {
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get(), get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
     viewModel { QueueViewModel(get()) }

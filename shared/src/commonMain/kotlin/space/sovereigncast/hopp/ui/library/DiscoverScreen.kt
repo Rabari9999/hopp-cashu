@@ -45,6 +45,11 @@ import androidx.compose.ui.semantics.stateDescription
 import space.sovereigncast.hopp.directory.Category
 import space.sovereigncast.hopp.ui.theme.Hopp
 import space.sovereigncast.hopp.resources.discover_for_you
+import space.sovereigncast.hopp.resources.discover_contacts
+import space.sovereigncast.hopp.resources.discover_contacts_note
+import space.sovereigncast.hopp.resources.contacts_names_two
+import space.sovereigncast.hopp.resources.contacts_names_more
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.resources.discover_for_you_note
 import space.sovereigncast.hopp.resources.discover_recommended_by
 import space.sovereigncast.hopp.resources.discover_because
@@ -154,6 +159,7 @@ fun DiscoverScreen(
     val search by vm.search.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
     val forYou by vm.forYou.collectAsState()
+    val withContacts by vm.withContacts.collectAsState()
     val myCategories by vm.myCategories.collectAsState()
     val category by vm.category.collectAsState()
     val trending by vm.trending.collectAsState()
@@ -284,6 +290,15 @@ fun DiscoverScreen(
                                     r.category != null -> stringResource(Res.string.discover_because, categoryLabel(r.category))
                                     else -> null
                                 }) { onPreview(show.feedUrl, show) }
+                            }
+                        }
+                    }
+                    // What the listener's Nostr contacts share (ADR 0024, 7) — only while they look at it.
+                    if (category == null && withContacts.isNotEmpty()) {
+                        item { Header(stringResource(Res.string.discover_contacts), stringResource(Res.string.discover_contacts_note)) }
+                        item {
+                            Carousel(withContacts.map { it.show.asDirectoryShow() }, key = "c") { i, show ->
+                                Card(show, contactNames(withContacts[i].by)) { onPreview(show.feedUrl, show) }
                             }
                         }
                     }
@@ -550,5 +565,20 @@ private fun DirectoryRow(
             }
             else -> IconButton(onClick = onSubscribe) { Icon(Icons.Rounded.Add, stringResource(Res.string.discover_add_button)) }
         }
+    }
+}
+
+/** A shared show as Discover's rows take it. */
+private fun space.sovereigncast.hopp.contacts.SharedShow.asDirectoryShow() =
+    DirectoryShow(title = title, feedUrl = url, imageUrl = image, podcastGuid = guid)
+
+/** "Anna", "Anna and Ben", "Anna, Ben and 3 more" — who of the listener's contacts (ADR 0024, 7). */
+@Composable
+internal fun contactNames(by: List<space.sovereigncast.hopp.contacts.Contact>): String {
+    val names = by.map { it.name ?: space.sovereigncast.hopp.nostr.npub(it.pubkey).let { n -> n.take(10) + "…" } }
+    return when {
+        names.size <= 1 -> names.firstOrNull().orEmpty()
+        names.size == 2 -> stringResource(Res.string.contacts_names_two, names[0], names[1])
+        else -> pluralStringResource(Res.plurals.contacts_names_more, names.size - 2, names[0], names[1], names.size - 2)
     }
 }

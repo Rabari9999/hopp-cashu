@@ -455,7 +455,7 @@ class NostrIdentityViewModel(
         _exported.value = null; _published.value = null; _restore.value = null
         // Without a key there is nothing to sync with; the relays keep what they have.
         sync?.let { viewModelScope.launch { it.disable() } }
-        contacts?.forget()
+        contacts?.let { viewModelScope.launch { it.forget() } }
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
