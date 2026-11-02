@@ -6,7 +6,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
-### 🐛 Bug Fixes
+### 🐛 Fixes
 - **Wallet:** The hint which wallets can send keysend names the right ones.
 
 ## [0.3.2] - 2026-11-01
