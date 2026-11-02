@@ -159,4 +159,5 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
       96449f0f…, signature 5f20ba17… (Amber, through a bunker connection of
       its own for sign.mjs); verify.mjs holds; run.mjs 37/37 live in
       Chromium and WebKit; About says it matches.
-- [ ] The pipeline schedule for `web-verify` (HOPP_SCHEDULE=web-verify).
+- [ ] The pipeline schedule for `web-verify` (HOPP_SCHEDULE=web-verify) —
+      put back by the maintainer 2026-11-02; the job is ready.
