@@ -21,6 +21,10 @@ if [[ -n $BUILD ]]; then
     ./gradlew --console=plain -Phopp.web=true :shared:wasmJsBrowserDistribution
 fi
 [[ -f $DIST/index.html ]] || { echo "no build in $DIST" >&2; exit 1; }
+# Where index.html sends feeds: on the LAN through this origin's /feed-proxy/ (serve.mjs), else the
+# proxy itself — set in the file before the build list is made, which the service worker checks it against.
+PROXY_META=http://127.0.0.1:$PROXY_PORT/; [[ -n $LAN ]] && PROXY_META=feed-proxy/
+sed -i.bak "s|\(name=\"hopp-feed-proxy\" content=\"\)[^\"]*\"|\1$PROXY_META\"|" "$DIST/index.html" && rm "$DIST/index.html.bak"
 # The build list and the service worker's version, as on the server (ADR 0022, 14).
 node web/deploy/release.mjs "$DIST" "$(git describe --tags --always --dirty)-dev"
 
@@ -32,7 +36,9 @@ trap 'docker stop hopp-feed-proxy > /dev/null 2>&1 || true' EXIT
 echo "feed proxy on http://127.0.0.1:$PROXY_PORT/ (index.html's hopp-feed-proxy)"
 
 if [[ -n $LAN ]]; then
-    echo "Hopp on https://$(ipconfig getifaddr en0 2>/dev/null || hostname):$PORT/"
+    # The address of the interface the default route takes (Wi-Fi is not always en0).
+    IFACE=$(route -n get default 2>/dev/null | awk '/interface:/ { print $2 }')
+    echo "Hopp on https://$(ipconfig getifaddr "${IFACE:-en0}" 2>/dev/null || hostname):$PORT/"
 else
     echo "Hopp on http://127.0.0.1:$PORT/"
 fi
