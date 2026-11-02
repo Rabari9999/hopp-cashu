@@ -143,7 +143,8 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
       2026-11-02 (maintainer, ADR 0022, 4): most recipients are reached by
       keysend only. The wallet page names an extension, and the app.
 - [ ] With a real extension (Alby) on the maintainer's machine: a boost,
-      streaming sats, a zap.
+      streaming sats, a zap. Streaming works (maintainer 2026-11-02, the
+      local build over the LAN); boost and zap with the next round.
 
 ## The build's hash, its signature, the service worker (0.3.3)
 
