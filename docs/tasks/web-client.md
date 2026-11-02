@@ -139,6 +139,8 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
       kind of wallet behind `WalletClient` — boosts, streaming sats, zaps
       and Sovereigncast's payments through an extension such as Alby; JVM
       tests in `ValueServiceTest`, browser checks with a fake WebLN wallet.
-- [ ] Without WebLN: a boost as an invoice QR code and a `lightning:` link.
+- [x] ~~Without WebLN: a boost as an invoice QR code~~ — dropped
+      2026-11-02 (maintainer, ADR 0022, 4): most recipients are reached by
+      keysend only. The wallet page names an extension, and the app.
 - [ ] With a real extension (Alby) on the maintainer's machine: a boost,
       streaming sats, a zap.

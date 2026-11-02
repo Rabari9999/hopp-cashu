@@ -146,7 +146,7 @@
     <string name="wallet_limit_tip">Tipp: Setze in deiner Wallet ein Ausgabelimit für diese Verbindung – Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
     <string name="wallet_browser_intro">Bezahle mit der Wallet deines Browsers: Eine Erweiterung wie Alby bietet sie Hopp an (WebLN). Boosts, Streaming-Sats und Zaps laufen darüber, und sie fragt dich, bevor sie zahlt.</string>
     <string name="wallet_browser_connect">Wallet des Browsers verwenden</string>
-    <string name="wallet_browser_none">In diesem Browser ist keine Wallet. Installiere eine Erweiterung mit WebLN wie Alby und lade Hopp neu.</string>
+    <string name="wallet_browser_none">In diesem Browser ist keine Wallet. Installiere eine Erweiterung mit WebLN wie Alby und lade Hopp neu – oder booste aus der Hopp-App.</string>
     <string name="wallet_browser_budget_tip">Tipp: Gib Hopp in der Erweiterung ein Budget – dann gehen Streaming-Sats raus, ohne jedes Mal zu fragen. Hopp hält zusätzlich ein eigenes Tagesbudget ein.</string>
     <string name="wallet_browser_cannot_pay">Die Wallet des Browsers kann weder Rechnungen bezahlen noch Keysend senden – Boosts und Streaming gehen damit nicht.</string>
     <string name="wallet_failed">Verbindung fehlgeschlagen: %1$s</string>

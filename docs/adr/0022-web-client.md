@@ -105,8 +105,13 @@ listener also ends the old session in their signer, which the page says.
   asking; Hopp's daily budget (ADR 0005) applies on top, per browser, and
   is never synced. Not every wallet behind WebLN does keysend: a keysend
   recipient is then paid as on a wallet without keysend (ADR 0005).
-- **Without WebLN:** a boost becomes an invoice shown as a QR code and a
-  `lightning:` link for any wallet; no streaming sats.
+- ~~**Without WebLN:** a boost becomes an invoice shown as a QR code and a
+  `lightning:` link for any wallet; no streaming sats.~~ *Dropped 2026-11-02
+  (maintainer):* an invoice reaches only recipients with a Lightning
+  address — most value blocks name nodes, paid by keysend — a boost to three
+  would take three scans, and Hopp could confirm a payment only where the
+  address's server offers LUD-21. Without WebLN the wallet page names an
+  extension such as Alby, and the app.
 - **NWC in the web**, a later stage (W5), only:
   - as a connection of its own ("Hopp Web"), never the app's, never synced;
   - made through the wallet's own flow (`nostr+walletauth`, Alby Hub's app
@@ -220,7 +225,8 @@ database or admin.
   library and player; the proxy; hosting (A); "End all other sessions" (§3)
   before the release.
 - **W3 — comments and boosts:** comments, likes, mutes, reports; the wallet
-  interface, WebLN boosts and streaming sats; QR boosts without WebLN.
+  interface, WebLN boosts and streaming sats. (QR boosts without WebLN:
+  dropped 2026-11-02, §4.)
 - **W4 — Umbrel:** the web client and the proxy as one Umbrel app.
 - **W5 — NWC in the web**, if listeners ask for it: own connection, passkey.
 
@@ -360,7 +366,7 @@ then W3, then the service worker and the signed build (§7), then testing.
   keysend with its boostagram; a browser without one is told what to
   install. Writes to the Listener API are blocked (Chromium) or caught
   (WebKit, where Playwright's interception breaks `blob:` loads).
-- **Left for W3:** a boost as an invoice QR code without WebLN.
+- **No QR boost** (maintainer 2026-11-02, §4): W3 is done with WebLN.
 
 ## Consequences
 
