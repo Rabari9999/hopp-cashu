@@ -831,6 +831,17 @@ class ValueServiceTest {
         assertEquals("Danke!", logged.message)
     }
 
+    /** Maintainer 2026-11-02: "Support Hopp" — a donation with no show, logged under Hopp's name. */
+    @Test
+    fun hoppIsSupportedWithoutAShow() = test {
+        wallet.connect(uri())
+        value.donate(null, "donate@alby.test", 5_000, "Weiter so", title = "Hopp")
+        assertEquals(listOf(donee to 5L), keysends())
+        val logged = value.payments.first().single()
+        assertEquals("Hopp", logged.podcastTitle)
+        assertEquals("Weiter so", logged.message)
+    }
+
     /** Device feedback 2026-10-19: a comment zapped from the wallet, as other Nostr apps do. */
     @Test
     fun aCommentIsZappedWithinTheBudget() = test {

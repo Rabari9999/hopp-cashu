@@ -69,6 +69,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.font.FontWeight
@@ -114,6 +115,7 @@ enum class SettingsPage(val title: StringResource) {
     Directories(Res.string.settings_directories),
     Subscriptions(Res.string.settings_subscriptions),
     Nostr(Res.string.nostr_title),
+    SharedShows(Res.string.contacts_shared_title),
     About(Res.string.settings_about_title),
 }
 
@@ -128,6 +130,7 @@ fun SettingsScreen(
     onWallet: () -> Unit = {},
     onHistory: () -> Unit = {},
     onStats: () -> Unit = {},
+    onSupport: () -> Unit = {},
     onPage: (SettingsPage) -> Unit = {},
     onPrivacy: () -> Unit = {},
     onCrashReport: (() -> Unit)? = null,
@@ -185,6 +188,8 @@ fun SettingsScreen(
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 
         Group(stringResource(Res.string.settings_group_hopp))
+        // A donation to Hopp, from the wallet connected here (maintainer 2026-11-02) — where Hopp pays at all.
+        if (actions.canPay) Entry(Icons.Rounded.Favorite, stringResource(Res.string.wallet_support), stringResource(Res.string.settings_support_note), accent = true, onClick = onSupport)
         // The optional identity (ADR 0021): its name once there is one.
         val identity by koinInject<space.sovereigncast.hopp.identity.IdentityRepository>().identity.collectAsState()
         Entry(Icons.Rounded.Person, stringResource(Res.string.nostr_title),
@@ -235,11 +240,12 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
         HomeSectionsEditor(s, titles) { change -> vm.update(change) }
         return
     }
-    if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
+    if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(onSharedShows = { onPage(SettingsPage.SharedShows) }); return }
     if (page == SettingsPage.PerShow) { PerShowPage(vm); return }
+    if (page == SettingsPage.SharedShows) { SharedShowsPage(vm); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
-            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow -> Unit
+            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow, SettingsPage.SharedShows -> Unit
             SettingsPage.Playback -> {
                 // Every show plays at this speed until the listener gives it one of its own
                 // in the player (device feedback 2026-10-19).

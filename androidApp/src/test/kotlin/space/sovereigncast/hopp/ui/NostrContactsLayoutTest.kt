@@ -93,6 +93,26 @@ class NostrContactsLayoutTest {
         rule.onAllNodesWithText("Nostr-Kontakte").onFirst().performScrollTo()
         rule.waitForIdle()
         shoot("nostr")
+        // Every show and whether it is shared, one tap away (maintainer 2026-11-02).
+        rule.onNode(hasText("Geteilte Shows") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Noch keine Abos")
+        shoot("shared-shows")
+    }
+
+    /** "Support Hopp" (maintainer 2026-11-02): the page, without a wallet — the way to connect one, the address. */
+    @Test
+    fun theSupportPageFitsAPhone() {
+        rule.setContent { App() }
+        rule.waitForIdle()
+        rule.onNode(hasContentDescription("Einstellungen")).performClick()
+        waitFor("Hopp unterstützen")
+        rule.onNode(hasText("Hopp unterstützen") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Hopp ist frei")
+        rule.waitForIdle()
+        shoot("support")
+        rule.onNode(hasText("sovereigncast@getalby.com")).performScrollTo()
+        rule.waitForIdle()
+        shoot("support-end")
     }
 
     /** Each window as it is drawn — a sheet is one of its own. */

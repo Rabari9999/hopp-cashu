@@ -480,7 +480,7 @@ class NostrIdentityViewModel(
 val LocalOpenStats = androidx.compose.runtime.staticCompositionLocalOf<() -> Unit> { {} }
 
 @Composable
-fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
+fun NostrIdentityPage(onSharedShows: () -> Unit = {}, vm: NostrIdentityViewModel = koinViewModel()) {
     val identity by vm.identity.collectAsState()
     val unreadable by vm.unreadable.collectAsState()
     val settings by vm.current.collectAsState()
@@ -490,7 +490,7 @@ fun NostrIdentityPage(vm: NostrIdentityViewModel = koinViewModel()) {
         // Device feedback 2026-10-16: too much text, too many ways at once. One way in for
         // the newcomer — a name and "Get started" —, everything for an existing account
         // behind one link; once in, the profile, one backup card, two switches.
-        if (me == null && unreadable) Unreadable(vm) else if (me == null) Welcome(settings?.senderName.orEmpty(), busy, vm) else Signed(me, settings, busy, vm)
+        if (me == null && unreadable) Unreadable(vm) else if (me == null) Welcome(settings?.senderName.orEmpty(), busy, vm) else Signed(me, settings, busy, vm, onSharedShows)
     }
 }
 
@@ -657,7 +657,7 @@ private fun Waiting(text: String, vm: NostrIdentityViewModel) = Row(verticalAlig
 }
 
 @Composable
-private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: NostrIdentityViewModel) {
+private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: NostrIdentityViewModel, onSharedShows: () -> Unit) {
     val actions = LocalPlatformActions.current
     val published by vm.published.collectAsState()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -706,7 +706,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (settings?.nostrSync == true) SyncStatusLine(vm)
     // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
     if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
-    ContactsSection(vm)
+    ContactsSection(vm, onSharedShows)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -741,7 +741,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
  * note — said before, as every first public act is (ADR 0021, 8).
  */
 @Composable
-private fun ContactsSection(vm: NostrIdentityViewModel) {
+private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Unit) {
     val state by vm.contactsState.collectAsState()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     LaunchedEffect(Unit) { vm.refreshContacts() }
@@ -755,6 +755,7 @@ private fun ContactsSection(vm: NostrIdentityViewModel) {
     SwitchRow(stringResource(Res.string.contacts_share), stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSharing(true) } else vm.setContactsSharing(false)
     }
+    SharedShowsRow(note?.sharing == true, onSharedShows)
     SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
     }
@@ -789,6 +790,25 @@ private fun ContactsSection(vm: NostrIdentityViewModel) {
             confirmButton = { TextButton(onClick = { ask = null; act() }) { Text(stringResource(Res.string.contacts_public_confirm)) } },
             dismissButton = { TextButton(onClick = { ask = null }) { Text(stringResource(Res.string.cancel)) } },
         )
+    }
+}
+
+/**
+ * The way to every show and whether it is shared (maintainer 2026-11-02), right below the switch —
+ * with sharing off too, so a show can be left out before anything goes out.
+ */
+@Composable
+private fun SharedShowsRow(sharing: Boolean, onClick: () -> Unit, podcasts: space.sovereigncast.hopp.data.PodcastRepository = org.koin.compose.koinInject()) {
+    val shows by podcasts.shows.collectAsState(emptyList())
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val shared = shows.count { !it.contactsHidden }
+    val counts = stringResource(Res.string.contacts_shared_summary, shared, shows.size)
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(Res.string.contacts_shared_title))
+            Text(if (sharing) counts else stringResource(Res.string.contacts_shared_later) + " · " + counts, color = muted, style = MaterialTheme.typography.bodySmall)
+        }
+        Text("›", style = MaterialTheme.typography.titleLarge, color = muted)
     }
 }
 

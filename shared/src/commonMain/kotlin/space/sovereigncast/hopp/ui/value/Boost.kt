@@ -84,6 +84,7 @@ import space.sovereigncast.hopp.resources.boost_send_over
 import space.sovereigncast.hopp.resources.boost_split
 import space.sovereigncast.hopp.resources.boost_title
 import space.sovereigncast.hopp.resources.donate_title
+import space.sovereigncast.hopp.resources.onboarding_wallet
 import space.sovereigncast.hopp.resources.donate_to
 import space.sovereigncast.hopp.resources.boost_unreachable
 import space.sovereigncast.hopp.resources.boost_via
@@ -373,6 +374,36 @@ fun BoostSheet(
     /** A Lightning address from the show's funding link: a donation there. */
     donateTo: String? = null,
 ) {
+    ModalBottomSheet(onDismissRequest = { vm.resetBoost(); onDismiss() }) {
+        BoostForm(vm, item, showTitle, positionMs, onDismiss, onOpenWallet, podcastId, donateTo)
+    }
+}
+
+/**
+ * What the boost dialog holds — in it, or on a page of its own ("Support Hopp", maintainer
+ * 2026-11-02): [heading] off where the page says it already, [header] above all of it,
+ * [presets] and [start] the amounts offered. [podcastId] 0 with [donateTo]: no show, a
+ * donation named [showTitle].
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun BoostForm(
+    vm: ValueBarViewModel,
+    item: EpisodeItem?,
+    showTitle: String,
+    positionMs: Long,
+    onDismiss: () -> Unit,
+    onOpenWallet: () -> Unit,
+    podcastId: Long = item?.podcastId ?: 0,
+    donateTo: String? = null,
+    presets: List<Long> = PRESETS,
+    start: Long = 1_000L,
+    heading: Boolean = true,
+    /** No split and no word on boosting: one recipient, and nothing boosted (the support page). */
+    plain: Boolean = false,
+    header: @Composable () -> Unit = {},
+    footer: @Composable () -> Unit = {},
+) {
     val wallet by vm.connected.collectAsState()
     val settings by vm.current.collectAsState()
     val plan by vm.plan.collectAsState()
@@ -385,7 +416,7 @@ fun BoostSheet(
     val colors = MaterialTheme.colorScheme
     val haptics = LocalHapticFeedback.current
     val position = remember { positionMs / 1000 }
-    var amount by remember { mutableLongStateOf(1_000L) }
+    var amount by remember { mutableLongStateOf(start) }
     var custom by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var name by remember(settings?.senderName) { mutableStateOf(settings?.senderName.orEmpty()) }
@@ -400,14 +431,15 @@ fun BoostSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = { vm.resetBoost(); onDismiss() }) {
+    run {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            header()
+            if (heading) Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(HoppIcons.Hop, null, tint = Hopp.colors.value, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.size(8.dp))
                 Text(if (donateTo != null) stringResource(Res.string.donate_title, showTitle) else stringResource(Res.string.boost_title, showTitle), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
-            Text(
+            if (heading) Text(
                 when {
                     donateTo != null -> stringResource(Res.string.donate_to, donateTo)
                     item != null -> stringResource(Res.string.boost_where, item.title, formatTime(positionMs))
@@ -423,7 +455,7 @@ fun BoostSheet(
             }
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PRESETS.forEach { p -> Pill(formatSats(p), selected = !custom && amount == p) { custom = false; amount = p } }
+                presets.forEach { p -> Pill(formatSats(p), selected = !custom && amount == p) { custom = false; amount = p } }
                 Pill("…", selected = custom) { custom = true }
             }
             if (custom) OutlinedTextField(
@@ -448,7 +480,7 @@ fun BoostSheet(
 
             when (val p = plan) {
                 BoostPlan.NoValue -> Text(stringResource(Res.string.boost_no_value), color = colors.onSurfaceVariant)
-                is BoostPlan.Ready -> SplitView(p.shares)
+                is BoostPlan.Ready -> if (!plain) SplitView(p.shares)
                 null -> Unit
             }
 
@@ -462,13 +494,14 @@ fun BoostSheet(
             val w = wallet
             if (w == null) {
                 // Why a connection, not just any wallet app (device feedback 2026-10-12) — in the browser, an extension's.
-                if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.paysWithBrowser) {
+                if (plain) Unit
+                else if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.paysWithBrowser) {
                     Text(stringResource(Res.string.boost_why_browser), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 } else {
                     Text(stringResource(Res.string.boost_why_nwc), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     space.sovereigncast.hopp.ui.components.NwcExplainerLink()
                 }
-                BigButton(stringResource(Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
+                BigButton(stringResource(if (plain) Res.string.onboarding_wallet else Res.string.boost_no_wallet), enabled = true, onClick = onOpenWallet)
             } else {
                 if (short) Text(stringResource(Res.string.boost_low_balance, formatSats((balance ?: 0) / 1000)), color = colors.error)
                 // No answer from the wallet: a boost now would end "outcome unknown" (device feedback 2026-10-26).
@@ -485,7 +518,7 @@ fun BoostSheet(
                     else {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         when {
-                            donateTo != null -> vm.sendDonation(podcastId, donateTo, amount, message, name)
+                            donateTo != null -> vm.sendDonation(podcastId.takeIf { it > 0 }, donateTo, amount, message, name, showTitle)
                             item != null -> vm.send(item, position, amount, message, name, onNostr = onNostr && vm.identity.value != null)
                             else -> vm.sendShow(podcastId, amount, message, name)
                         }
@@ -498,6 +531,7 @@ fun BoostSheet(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 )
             }
+            footer()
         }
     }
 }

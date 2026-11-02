@@ -1183,4 +1183,21 @@
     <string name="contacts_did_share">shares the subscription</string>
     <string name="contacts_did_boost">boosted</string>
     <string name="contacts_did_comment">commented</string>
+    <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
+    <string name="contacts_shared_title">Shared shows</string>
+    <string name="contacts_shared_summary">%1$d of %2$d shared</string>
+    <string name="contacts_shared_later">Applies once you turn sharing on</string>
+    <string name="contacts_shared_text">Your mutual Nostr contacts see these subscriptions, sealed. A new subscription is shared until you turn it off here.</string>
+    <string name="contacts_shared_text_off">Sharing is off, so nothing goes out. What you turn off here stays out once you turn sharing on.</string>
+    <string name="contacts_shared_group">Shared · %1$d</string>
+    <string name="contacts_hidden_group">Not shared · %1$d</string>
+    <string name="contacts_share_all">Share all</string>
+    <string name="contacts_share_none">Share none</string>
+    <string name="contacts_hidden_note">Only on your devices</string>
+    <!-- Support Hopp, a page of its own in the settings (maintainer 2026-11-02) -->
+    <string name="settings_support_note">A donation via Lightning</string>
+    <string name="support_text">Hopp is free, with no ads and no tracking. It lives on listeners giving back what it is worth to them.</string>
+    <string name="support_to">To %1$s, from your wallet</string>
+    <string name="support_other_wallet">With any other wallet: send to this Lightning address.</string>
+    <string name="support_share">Or give a small share of every boost and of streaming, in the wallet settings.</string>
 </resources>

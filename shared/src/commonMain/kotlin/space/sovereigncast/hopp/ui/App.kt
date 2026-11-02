@@ -71,6 +71,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.stats_title
+import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
@@ -158,7 +159,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 /** The settings and what hangs off them — closed when the listener leaves for a tab. */
 private val SETTINGS_ROUTES = listOf(
-    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class,
+    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class, SupportRoute::class,
 )
 
 @Serializable object SettingsRoute
@@ -181,6 +182,8 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
 @Serializable object StatsRoute
+/** "Support Hopp": a donation to Hopp's Lightning address (maintainer 2026-11-02). */
+@Serializable object SupportRoute
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -250,6 +253,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
         destination?.hasRoute(PersonRoute::class) == true || destination?.hasRoute(ShowRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
+        destination?.hasRoute(SupportRoute::class) == true -> stringResource(Res.string.wallet_support)
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -559,6 +563,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<SettingsRoute> { Readable {
                                 SettingsScreen(
                                     onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) }, onStats = { nav.navigate(StatsRoute) },
+                                    onSupport = { nav.navigate(SupportRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
@@ -597,6 +602,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 ) }
                             }
                             composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
+                            composable<SupportRoute> { Readable { space.sovereigncast.hopp.ui.value.SupportScreen(onOpenWallet = { nav.navigate(WalletRoute) }) } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while

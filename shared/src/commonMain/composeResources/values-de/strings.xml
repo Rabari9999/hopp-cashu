@@ -1183,4 +1183,21 @@
     <string name="contacts_did_share">teilt das Abo</string>
     <string name="contacts_did_boost">hat geboostet</string>
     <string name="contacts_did_comment">hat kommentiert</string>
+    <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
+    <string name="contacts_shared_title">Geteilte Shows</string>
+    <string name="contacts_shared_summary">%1$d von %2$d geteilt</string>
+    <string name="contacts_shared_later">Gilt, sobald du das Teilen einschaltest</string>
+    <string name="contacts_shared_text">Diese Abos sehen deine gegenseitigen Nostr-Kontakte, versiegelt. Ein neues Abo ist geteilt, bis du es hier ausschaltest.</string>
+    <string name="contacts_shared_text_off">Das Teilen ist aus, es geht nichts hinaus. Was du hier ausschaltest, bleibt draußen, sobald du das Teilen einschaltest.</string>
+    <string name="contacts_shared_group">Geteilt · %1$d</string>
+    <string name="contacts_hidden_group">Nicht geteilt · %1$d</string>
+    <string name="contacts_share_all">Alle teilen</string>
+    <string name="contacts_share_none">Keine teilen</string>
+    <string name="contacts_hidden_note">Nur auf deinen Geräten</string>
+    <!-- Support Hopp, a page of its own in the settings (maintainer 2026-11-02) -->
+    <string name="settings_support_note">Eine Spende per Lightning</string>
+    <string name="support_text">Hopp ist frei, ohne Werbung und ohne Tracking. Es lebt davon, dass Hörer zurückgeben, was es ihnen wert ist.</string>
+    <string name="support_to">An %1$s, aus deiner Wallet</string>
+    <string name="support_other_wallet">Mit jeder anderen Wallet: an diese Lightning-Adresse senden.</string>
+    <string name="support_share">Oder ein kleiner Anteil jedes Boosts und des Streamings, in den Wallet-Einstellungen.</string>
 </resources>

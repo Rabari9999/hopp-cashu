@@ -320,17 +320,18 @@ class ValueService(
         return BoostPlan.Ready(planned, null)
     }
 
-    suspend fun donate(podcastId: Long, address: String, amountMsat: Long, message: String?): List<ShareResult> = spending.withLock {
+    /** A donation to a Lightning address: a show's funding link, or Hopp itself ([podcastId] null, [title] "Hopp"). */
+    suspend fun donate(podcastId: Long?, address: String, amountMsat: Long, message: String?, title: String? = null): List<ShareResult> = spending.withLock {
         val client = wallet.client() ?: throw IllegalStateException("no wallet connected")
         val info = wallet.wallet.value?.info ?: client.info()
-        val show = podcasts.show(podcastId).first()
+        val show = podcastId?.let { podcasts.show(it).first() }
         val ctx = BoostContext(
-            action = "boost", appVersion = app.version, podcast = show?.title, episode = null, feedUrl = show?.feedUrl,
+            action = "boost", appVersion = app.version, podcast = show?.title ?: title, episode = null, feedUrl = show?.feedUrl,
             podcastGuid = show?.podcastGuid, episodeGuid = null, positionSeconds = null,
             senderName = settings.current().senderName.takeIf { it.isNotBlank() }, message = message?.takeIf { it.isNotBlank() },
         )
         val results = BoostSender(client, lnAddress, info).send(donationBlock(address), amountMsat, ctx)
-        record(KIND_BOOST, podcastId, null, show?.title, null, results, message)
+        record(KIND_BOOST, podcastId, null, show?.title ?: title, null, results, message)
         results
     }
 
@@ -472,10 +473,10 @@ class ValueService(
     }
 
     /** What a boost came to, to report it (BoostReports). */
-    suspend fun outcome(podcastId: Long, amountSats: Long, results: List<ShareResult>, fallbackTitle: String? = null): QuickBoost.Sent {
+    suspend fun outcome(podcastId: Long?, amountSats: Long, results: List<ShareResult>, fallbackTitle: String? = null): QuickBoost.Sent {
         val paid = results.filterIsInstance<ShareResult.Paid>()
         return QuickBoost.Sent(paid.sumOf { it.share.amountMsat } / 1000, amountSats, paid.size, results.size,
-            podcasts.show(podcastId).first()?.title ?: fallbackTitle.orEmpty())
+            podcastId?.let { podcasts.show(it).first()?.title } ?: fallbackTitle.orEmpty())
     }
 
     private suspend fun context(item: EpisodeItem, action: String, positionSeconds: Long?, message: String?): BoostContext {
@@ -493,7 +494,7 @@ class ValueService(
     }
 
     private suspend fun record(
-        kind: String, podcastId: Long, episodeId: Long?, podcastTitle: String?, episodeTitle: String?,
+        kind: String, podcastId: Long?, episodeId: Long?, podcastTitle: String?, episodeTitle: String?,
         results: List<ShareResult>, message: String?,
     ) = withContext(ioDispatcher) {
         val lines = results.map { r ->

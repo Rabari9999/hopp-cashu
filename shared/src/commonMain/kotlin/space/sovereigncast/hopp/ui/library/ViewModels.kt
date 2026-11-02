@@ -290,6 +290,8 @@ class SettingsViewModel(
     val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
     fun setShowSpeed(id: Long, speed: Float?) = viewModelScope.launch { podcasts.setSpeed(id, speed) }
     fun setShowSkip(id: Long, intro: Int? = null, outro: Int? = null) = viewModelScope.launch { podcasts.setSkip(id, introSeconds = intro, outroSeconds = outro) }
+    /** A show shared with mutual Nostr contacts, or left out (ADR 0024, 4a) — [ids] at once from "Shared shows". */
+    fun setSharedWithContacts(ids: Collection<Long>, shared: Boolean) = viewModelScope.launch { ids.forEach { podcasts.setContactsHidden(it, !shared) } }
     /** The connected wallet's name, for the settings overview; null = none. */
     val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
