@@ -93,9 +93,18 @@ key (ADR 0021, 5), the full Sovereigncast feature set, the address
 who runs the feed proxy and on which domain; the spike (stage W1) decides
 whether Compose on the web carries it.
 
-## 19. What friends subscribe to — decided 2026-11-01
+## 19. What your Nostr contacts listen to — decided 2026-11-01, revised 2026-11-02
 
-Decided → [ADR 0024](adr/0024-friends-subscriptions.md): mutual Nostr
-contacts who use Hopp see each other's subscriptions, sealed so that only
-friends open them. Sharing and seeing are separate switches, both off;
-single shows can be left out; subscriptions only for now. Not built yet.
+Decided → [ADR 0024](adr/0024-nostr-contacts.md): mutual Nostr contacts
+who use Hopp see each other's subscriptions, sealed so that only they open
+them; public boosts, comments, zaps and follows of the people one follows
+count too. Sharing and seeing are separate switches, both off; single shows
+can be left out; subscriptions only for now. Called Nostr contacts, never
+friends. Not built yet.
+
+## 20. Public recommendation lists — an idea, 2026-11-02
+
+Zapstore's "stacks" for podcasts: lists a listener puts together on purpose
+and publishes (NIP-51 sets of `podcast:guid`s), readable by any client — the
+public counterpart to the private shared subscriptions of ADR 0024 (10).
+Noted by the maintainer as an idea for later; nothing decided.
