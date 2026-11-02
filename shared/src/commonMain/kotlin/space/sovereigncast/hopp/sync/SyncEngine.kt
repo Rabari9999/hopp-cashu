@@ -98,14 +98,15 @@ class SyncEngine(
         try {
             // A first keyring only with the listener there — never from a round in the background (audit 2026-10-22, H-01).
             val signer = keys.signer(interactive, create = interactive) ?: return SyncOutcome.WaitsForSigner
-            val urls = identity.writeRelays()
+            val urls = identity.syncRelays()
+            val own = identity.writeRelays()
             val now = nowMs()
             val cutoff = now - REMOVALS_KEPT.inWholeMilliseconds
             store.pruneRemoved(doc.name, cutoff)
             doc.prepare()
             var mine = store.entries(doc.name)
             mine.filter { (k, e) -> doc.expired(k, e, now) }.keys.takeIf { it.isNotEmpty() }?.let { store.remove(doc.name, it); mine = mine - it }
-            val fetched = relays.fetch(signer, doc.name, urls)
+            val fetched = relays.fetch(signer, doc.name, urls, own)
             // A gap that will stay (Fetched.Incomplete): written over with everything that arrived — one this
             // device left, one of older parts only, or one every relay has shown for [STUCK_FOR] (maintainer
             // 2026-10-30: a version cut off by a relay slowing down, left before Hopp kept which).
@@ -282,7 +283,7 @@ class SyncEngine(
         if (identity.identity.value == null) return null
         return try {
             val signer = keys.signer(interactive = false, create = false) ?: return null
-            when (val f = relays.fetch(signer, name, identity.writeRelays())) {
+            when (val f = relays.fetch(signer, name, identity.syncRelays(), identity.writeRelays())) {
                 is Fetched.Complete -> Peek.Open(f.entries)
                 is Fetched.Incomplete -> Peek.Open(f.entries)
                 Fetched.Absent, is Fetched.Unknown -> null

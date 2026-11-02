@@ -187,7 +187,7 @@ class SyncCoreTest {
     /** A device: its own database and secret store, the same key. */
     private inner class Device(nsec: String?) {
         val secrets = MemorySecretStore()
-        val identity = IdentityRepository(secrets, RelayPublisher(relay), { nowSeconds })
+        val identity = IdentityRepository(secrets, RelayPublisher(relay), { nowSeconds }, hoppSyncRelays = emptyList())
         var ms = nowSeconds * 1000
         val store = SyncStore(db()) { ms }
         // Events by the device's own clock: two in the same second would be a tie on the relays.

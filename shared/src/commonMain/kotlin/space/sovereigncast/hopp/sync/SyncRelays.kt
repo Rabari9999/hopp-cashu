@@ -43,7 +43,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
      * 2026-10-22, HN-03 — one old relay alone must not be written over the rest).
      * Fewer: what came may be applied, never sent over ([Fetched.Incomplete]).
      */
-    suspend fun fetch(signer: NostrSigner, doc: String, relays: List<String>): Fetched {
+    suspend fun fetch(signer: NostrSigner, doc: String, relays: List<String>, own: List<String> = relays): Fetched {
         val filter = buildJsonObject {
             putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
             putJsonArray("authors") { add(JsonPrimitive(signer.pubkey)) }
@@ -61,7 +61,9 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
         // Absent only with no part at all: a later part without the first is a document read in part (HN-02).
         if (newest.isEmpty()) {
             partsSeen[doc] = 0
-            return if (majority) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
+            // Absent also only when most of the listener's own relays said so: a document from before Hopp's
+            // relays held sync is on theirs alone (2026-11-02).
+            return if (majority && got.majorityOf(own)) Fetched.Absent else Fetched.Unknown(got.answered, got.asked)
         }
         val at = newest.values.maxOf { it.created_at }
         // A part that does not open or read makes the read incomplete, never smaller.

@@ -93,6 +93,8 @@ class IdentityRepository(
     val keysInApp: Boolean = true,
     /** What else goes after signing out — in the browser, all of Hopp's data there (ADR 0022, 2). */
     private val afterSignOut: suspend () -> Unit = {},
+    /** Hopp's relays for sync, besides the listener's ([SYNC_RELAYS]); tests of the listener's relays alone leave them out. */
+    private val hoppSyncRelays: List<String> = SYNC_RELAYS,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -274,6 +276,15 @@ class IdentityRepository(
     /** Where the listener's events go: their write relays. */
     suspend fun writeRelays(): List<String> = relays().filter { it.write }.map { it.url }.take(MAX_WRITE_RELAYS)
 
+    /**
+     * Where sync's documents and keyring live (ADR 0021, 5, amended 2026-11-02): the listener's
+     * write relays and Hopp's own for sync. The documents are signed by the sync key, not the
+     * listener's: a relay that takes only its owner's events (Haven), only authors with a NIP-05
+     * (nostr-rs-relay's restricted writes) or only a web of trust refuses every one of them —
+     * a listener with only such relays had no sync at all (device feedback 2026-11-01).
+     */
+    suspend fun syncRelays(): List<String> = (writeRelays() + hoppSyncRelays).distinct()
+
     /** Where the listener reads, as kept — for comments asked of them too; nothing until known. */
     fun readRelays(): List<String> = _identity.value?.relays.orEmpty().filter { it.read }.map { it.url }.take(MAX_THEIR_RELAYS)
 
@@ -408,6 +419,10 @@ class IdentityRepository(
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")
+
+        /** Hopp's relays for sync, besides the listener's: they take a new key's events, a round of them at
+         *  once (tested 2026-11-02). Not relay.damus.io, quick to block (maintainer, same day). */
+        val SYNC_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net", "wss://relay.nostr.net")
 
         /** Relays that collect profiles and relay lists (kinds 0, 3, 10002) to look people up. */
         val INDEX_RELAYS = listOf("wss://purplepag.es", "wss://user.kindpag.es")

@@ -7,6 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🐛 Fixes
+- **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
 - **Wallet:** The hint which wallets can send keysend names the right ones.
 
 ## [0.3.2] - 2026-11-01

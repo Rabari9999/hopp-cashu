@@ -7,6 +7,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🐛 Fixes
+- **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
 - **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
 
 ## [0.3.2] - 2026-11-01

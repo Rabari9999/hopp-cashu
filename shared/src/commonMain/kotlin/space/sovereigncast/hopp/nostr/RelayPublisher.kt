@@ -77,11 +77,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * answering. For a decision that must not rest on "nothing found" when
      * the relay holding it was the one that failed (the sync key, ADR 0021 5).
      */
-    data class Checked(val events: List<Event>, val answered: Int, val asked: Int)
+    data class Checked(val events: List<Event>, val answered: Int, val asked: Int, val answeredBy: Set<String> = emptySet()) {
+        /** Whether a majority of [these] relays answered to the end — of none asked, true. */
+        fun majorityOf(these: List<String>): Boolean = these.distinct().let { it.isEmpty() || answeredBy.count { url -> url in it } * 2 > it.size }
+    }
 
     suspend fun queryChecked(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): Checked {
-        val got = gather(relays, settle) { url -> queryOn(filters, url, toTheEnd = true) }
-        return Checked(got.results.flatten().filter { it.isValid() }.distinctBy { it.id }, got.results.size, relays.distinct().size)
+        val got = gather(relays, settle) { url -> queryOn(filters, url, toTheEnd = true)?.let { url to it } }
+        return Checked(got.results.flatMap { it.second }.filter { it.isValid() }.distinctBy { it.id }, got.results.size, relays.distinct().size, got.results.map { it.first }.toSet())
     }
 
     /** What [gather] came to; [complete] when every relay answered — none unreachable, none cut off by the settle time. */

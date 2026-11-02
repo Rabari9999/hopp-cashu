@@ -80,9 +80,10 @@ class SyncAuditTest {
     }
 
     /** [secrets]: another's — the same device started again. */
-    private inner class Device(val relays: RelayConnector, val secrets: MemorySecretStore = MemorySecretStore()) {
+    /** [syncRelays]: Hopp's relays for sync — none here but where a test is about them; the audit's cases are the listener's relays alone. */
+    private inner class Device(val relays: RelayConnector, val secrets: MemorySecretStore = MemorySecretStore(), syncRelays: List<String> = emptyList()) {
         var ms = nowSeconds * 1000
-        val identity = IdentityRepository(secrets, RelayPublisher(relays), { ms / 1000 }).also { runBlocking { it.importKey(nsec) } }
+        val identity = IdentityRepository(secrets, RelayPublisher(relays), { ms / 1000 }, hoppSyncRelays = syncRelays).also { runBlocking { it.importKey(nsec) } }
         val db = testDatabase()
         val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relays), secrets) { ms }
@@ -1050,5 +1051,54 @@ class SyncAuditTest {
         assertEquals(3, a.queueGuids().size)
         // Broken by what sync names the episodes by — not by this device's ids, which differ between devices.
         assertEquals(a.queueGuids().sorted(), a.queueGuids())
+    }
+
+    /** A listener whose write relays are only [own], with Hopp's relays for sync on [device]. */
+    private suspend fun ownRelays(device: Device, own: List<String>) {
+        own.forEach { device.identity.addRelay(it) }
+        IdentityRepository.DEFAULT_RELAYS.forEach { device.identity.removeRelay(it) }
+        assertEquals(own, device.identity.writeRelays())
+    }
+
+    /** Device feedback 2026-11-01 (Dennis, Hopp Web): his write relays take only their owner's events (Haven)
+     *  or authors with a NIP-05 (nostr-rs-relay) — every document of the sync key refused, on every device.
+     *  Hopp's relays for sync take them (ADR 0021, 5, amended 2026-11-02). */
+    @Test
+    fun ownRelaysThatRefuseTheSyncKeyLeaveSyncToHoppsRelays() = runBlocking<Unit> {
+        val relays = Relays()
+        val own = listOf("wss://haven.test", "wss://einundzwanzig.test")
+        (own + IdentityRepository.SYNC_RELAYS + IdentityRepository.INDEX_RELAYS).forEach { relays.byUrl.getOrPut(it) { FakeRelay() } }
+        val phone = Device(relays, syncRelays = IdentityRepository.SYNC_RELAYS)
+        ownRelays(phone, own)
+        val listener = phone.identity.identity.value!!.pubkey
+        own.forEach { url -> relays.byUrl.getValue(url).refuse = { it.pubkey != listener } }
+        phone.change("a", "1")
+        assertIs<SyncOutcome.Done>(phone.engine.sync(phone.doc, interactive = true))
+        val laptop = Device(relays, syncRelays = IdentityRepository.SYNC_RELAYS)
+        assertIs<SyncOutcome.Done>(laptop.engine.sync(laptop.doc, interactive = true))
+        assertEquals(setOf("a"), laptop.doc.applied.keys)
+        assertEquals(phone.syncKey(), laptop.syncKey())
+    }
+
+    /** A keyring made before Hopp's relays held sync is on the listener's relays alone. With those out of
+     *  reach, Hopp's relays answering without one is no reason to make a new one — the library would stay
+     *  under a key nobody has; once they answer, the old one is taken. */
+    @Test
+    fun hoppsRelaysWithoutTheKeyringDoNotMakeANewOne() = runBlocking<Unit> {
+        val relays = Relays()
+        val own = listOf("wss://own-1.test", "wss://own-2.test")
+        (own + IdentityRepository.SYNC_RELAYS + IdentityRepository.INDEX_RELAYS).forEach { relays.byUrl.getOrPut(it) { FakeRelay() } }
+        val before = Device(relays)
+        ownRelays(before, own)
+        before.change("a", "1")
+        assertIs<SyncOutcome.Done>(before.engine.sync(before.doc, interactive = true))
+        relays.down += own
+        val after = Device(relays, syncRelays = IdentityRepository.SYNC_RELAYS)
+        assertIs<SyncOutcome.Failed>(after.engine.sync(after.doc, interactive = true))
+        assertNull(after.syncKey())
+        relays.down -= own.toSet()
+        assertIs<SyncOutcome.Done>(after.engine.sync(after.doc, interactive = true))
+        assertEquals(before.syncKey(), after.syncKey())
+        assertEquals(setOf("a"), after.doc.applied.keys)
     }
 }

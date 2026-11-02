@@ -54,7 +54,7 @@ internal class SyncDevice(
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val queue = QueueRepository(db, journal)
     val listening = space.sovereigncast.hopp.data.ListeningRepository(db, secrets, { ms / 1000 }, journal) { kotlinx.datetime.TimeZone.UTC }
-    val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
+    val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, hoppSyncRelays = emptyList()).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
     val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {

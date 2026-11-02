@@ -190,6 +190,25 @@ Hopp shows what Fountain's listeners say about the same episode.
   no standing relay connection. A new device, or Hopp installed again,
   offers right after sign-in to restore from the documents it finds.
   Plan: `docs/tasks/nostr-sync.md`.
+- *Amended 2026-11-02 (maintainer) — Hopp's relays for sync:* the documents
+  are signed by the sync key, not the listener's. Relays that take only
+  their owner's events (Haven), only authors with a NIP-05 (nostr-rs-relay's
+  restricted writes) or only a web of trust refuse every one of them; a
+  tester whose two write relays were such had no sync on any device
+  (2026-11-01: "blocked: NIP-05 verification needed", "auth-required").
+  Sync's documents and keyring now go to the listener's write relays **and**
+  Hopp's three for sync — `nos.lol`, `relay.primal.net`, `relay.nostr.net`
+  (`IdentityRepository.SYNC_RELAYS`): each took a round of eight documents
+  from a key it never saw (tested the same day); `relay.damus.io` not, quick
+  to block (maintainer), nor relays with a web of trust or a fee, which
+  refuse a new key. Every device reads and writes the same list, and the
+  majority rules stay, over all of them. "Not there" — a keyring to make
+  anew, a document absent — counts only when most of the listener's own
+  relays said so too: what was written before lies on those alone, and
+  Hopp's relays answering without it say nothing. Relays see what ADR 0015
+  says, now Hopp's three among them: the sync key, and when something
+  changes. A switch for "my relays only" would have to be the same on every
+  device (in the keyring): left for when a listener asks.
 
 ### 6. Boosts and the npub
 

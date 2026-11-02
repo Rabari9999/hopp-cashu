@@ -61,7 +61,7 @@ class SyncKeysTest {
         signIn: Boolean = true,
     ) {
         var ms = nowSeconds * 1000
-        val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, app)
+        val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, app, hoppSyncRelays = emptyList())
         val store = SyncStore(db) { ms }
         val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
         val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
