@@ -37,6 +37,8 @@ data class Contact(
     val picture: String? = null,
     /** What they did in public about shows (ADR 0024, 6): boosts made public and comments. */
     val signals: List<PublicSignal> = emptyList(),
+    /** Their write relays (NIP-65), where their list is looked for again. */
+    val relays: List<String> = emptyList(),
 )
 
 /** A contact's public act about a show: a boost made public or a comment, naming the show's `podcast:guid`. */
@@ -165,7 +167,8 @@ class ContactGraph(
             .groupBy { it.pubkey }.mapValues { (_, n) -> n.sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).first() }
         val bare = following.associateWith { who ->
             val note = notes[who]?.takeIf { it.content.isNotEmpty() }
-            Contact(who, who in followsBack, note?.tag("share")?.takeIf { HEX64.matches(it) }, note?.tag("inbox")?.takeIf { HEX64.matches(it) })
+            Contact(who, who in followsBack, note?.tag("share")?.takeIf { HEX64.matches(it) }, note?.tag("inbox")?.takeIf { HEX64.matches(it) },
+                relays = outbox[who].orEmpty())
         }
         // What mutual contacts share with this inbox: their key for it, and the list it opens.
         val shelves = if (inbox == null) emptyMap() else shelves(bare.values.filter { it.mutual && it.share != null }, outbox, inbox)
@@ -178,6 +181,14 @@ class ContactGraph(
         }
         return ContactsRead(following, contacts, nowSeconds())
     }
+
+    /**
+     * The lists of [sharing] contacts opened again — for those whose list did not open at the last read:
+     * their key for this inbox may have come since (device feedback 2026-11-02: it came minutes after the
+     * read, and the show waited for the next one). One request per contact, not the whole read.
+     */
+    suspend fun shelvesAgain(sharing: List<Contact>, inbox: KeyPair): Map<String, List<SharedShow>> =
+        shelves(sharing, sharing.associate { it.pubkey to it.relays }, inbox)
 
     /** Each sharing contact's list, opened: the share key sealed to [inbox], then the list sealed by that key. */
     private suspend fun shelves(sharing: List<Contact>, outbox: Map<String, List<String>>, inbox: KeyPair): Map<String, List<SharedShow>> = coroutineScope {
@@ -234,7 +245,7 @@ class ContactGraph(
         .mapValues { (_, list) -> list.sortedByDescending { it.at }.take(MAX_SIGNALS) }
 
     /** Name and picture (kind 0) of [people], from the indexes and Hopp's relays. */
-    private suspend fun profiles(people: Set<String>): Map<String, Pair<String?, String?>> {
+    suspend fun profiles(people: Set<String>): Map<String, Pair<String?, String?>> {
         if (people.isEmpty()) return emptyMap()
         val out = mutableMapOf<String, Pair<String?, String?>>()
         people.toList().chunked(BATCH).forEach { batch ->

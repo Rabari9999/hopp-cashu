@@ -343,4 +343,30 @@ class ContactsTest {
         assertNull(contacts.state.value.read)
         assertTrue(asked.none { it.contains("\"kinds\":[3]") }, "no contact list asked for")
     }
+
+    /** Device feedback 2026-11-02: the sharer's key came minutes after the listener's read, and the show
+     *  waited for the next full read. A list that did not open is looked for again on opening Discover —
+     *  once a minute at most, without reading everything again. */
+    @Test
+    fun aListThatDidNotOpenIsLookedForAgainSoon(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        relay.publish(Event.sign(tester, 0, """{"name":"Testjupp"}""", emptyList(), now - 100))
+        val testers = Device(tester)
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now },
+            ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now })
+        testerContacts.setSharing(true)
+        val me = Device()
+        me.contacts.setSeeing(true)
+        assertTrue(me.contacts.state.value.read!!.listening().isEmpty(), "no key for this inbox yet")
+        // The tester's device seals one a minute later; Discover opens on the listener's a minute after that.
+        now += 60
+        testerContacts.refresh(force = true)
+        now += 61
+        me.contacts.refresh(maxAge = 600)
+        val read = me.contacts.state.value.read!!
+        assertEquals(shows.toSet(), read.listening().map { it.show }.toSet())
+        assertEquals("Testjupp", read.contacts.getValue(tester.publicKeyHex).name)
+    }
 }

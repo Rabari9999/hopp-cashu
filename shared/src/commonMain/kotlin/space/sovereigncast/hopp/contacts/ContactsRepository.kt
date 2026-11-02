@@ -79,10 +79,33 @@ class ContactsRepository(
             // Both switches off: nobody's lists are asked for — not even hourly in the background.
             if (note == null) return@work
             val last = _state.value.read?.at
-            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow()
+            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow() else if (maxAge < readEvery) openWaiting()
             renewIfLost(interactive)
             shareNow()
         }
+    }
+
+    /** When the lists that did not open were last looked for again. */
+    private var waitingLookedAt = 0L
+
+    /**
+     * Mutual contacts who share, but whose list did not open at the last read — no key for this inbox
+     * yet: looked for again, at most once a minute, without reading everything again.
+     */
+    private suspend fun openWaiting() {
+        val read = _state.value.read ?: return
+        val inbox = keys.inboxKey()?.takeIf { _state.value.note?.seeing == true } ?: return
+        val waiting = read.mutual.filter { it.share != null && it.shows.isEmpty() }
+        if (waiting.isEmpty() || nowSeconds() - waitingLookedAt < WAITING_EVERY) return
+        waitingLookedAt = nowSeconds()
+        val opened = graph.shelvesAgain(waiting, inbox).filterValues { it.isNotEmpty() }
+        if (opened.isEmpty()) return
+        val named = runCatching { graph.profiles(opened.keys.filter { read.contacts[it]?.name == null }.toSet()) }.getOrDefault(emptyMap())
+        val updated = read.copy(contacts = read.contacts.mapValues { (who, c) ->
+            opened[who]?.let { shows -> c.copy(shows = shows, name = c.name ?: named[who]?.first, picture = c.picture ?: named[who]?.second) } ?: c
+        })
+        _state.update { it.copy(read = updated) }
+        runCatching { cache?.save(updated) }
     }
 
     /** The contacts read now — with the inbox key while the listener looks — and kept. */
@@ -174,6 +197,8 @@ class ContactsRepository(
     private companion object {
         /** Shows looked up in the directory per read, at most. */
         const val LOOKUPS = 12
+        /** Seconds between looks for lists that did not open. */
+        const val WAITING_EVERY = 60L
     }
 
     private suspend fun work(block: suspend () -> Unit) {
