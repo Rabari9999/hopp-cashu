@@ -95,9 +95,15 @@ import space.sovereigncast.hopp.resources.library_continue
 import space.sovereigncast.hopp.resources.library_empty
 import space.sovereigncast.hopp.resources.library_shows
 import space.sovereigncast.hopp.resources.inbox_no_shows
+import space.sovereigncast.hopp.resources.home_all
+import space.sovereigncast.hopp.resources.queue_empty
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.layout
 
-/** "Library" (ADR 0012): up next, downloads, the subscribed shows.
- *  "Continue listening" moved to Home. */
+/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 each a section
+ *  that folds, as on Home, up next and the downloads right there (Dennis, maintainer 2026-11-02:
+ *  two taps to the list he cares most about). "Continue listening" moved to Home. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -113,6 +119,10 @@ fun LibraryScreen(
     val counts by vm.counts.collectAsState()
     val asList by vm.asList.collectAsState()
     val sort by vm.sort.collectAsState()
+    val queue by vm.queueItems.collectAsState()
+    val downloaded by vm.downloaded.collectAsState()
+    val collapsed by vm.collapsed.collectAsState()
+    val nav = LocalEpisodeNav.current
     var confirmAllPlayed by remember { mutableStateOf(false) }
     if (confirmAllPlayed) {
         val unheard = counts.values.sumOf { it.unheard }
@@ -142,12 +152,32 @@ fun LibraryScreen(
             }
             val canDownload = LocalPlatformActions.current.canDownload
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
-                item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
-                if (canDownload) item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }) { confirmAllPlayed = true }
+                val full: (androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope) -> GridItemSpan = { GridItemSpan(it.maxLineSpan) }
+                val queueOpen = LIB_QUEUE !in collapsed
+                item(key = "h-queue", span = full) {
+                    SectionHeader(stringResource(Res.string.queue_title), queueOpen, queueCount, { vm.toggle(LIB_QUEUE) },
+                        stringResource(Res.string.home_all, queueCount).takeIf { queueCount > 0 }, onQueue, modifier = Modifier.bleed(8.dp))
                 }
-                items(list, key = { it.id }) { show ->
+                if (queueOpen) item(key = "queue", span = full) {
+                    if (queue.isEmpty()) Text(stringResource(Res.string.queue_empty), Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    else Box(Modifier.bleed(8.dp)) { QueuePreview(queue, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
+                }
+                if (canDownload && downloadCount > 0) {
+                    val open = LIB_DOWNLOADS !in collapsed
+                    item(key = "h-downloads", span = full) {
+                        SectionHeader(stringResource(Res.string.downloads_title), open, downloadCount, { vm.toggle(LIB_DOWNLOADS) },
+                            stringResource(Res.string.home_all, downloadCount), onDownloads, modifier = Modifier.bleed(8.dp))
+                    }
+                    if (open) items(downloaded.take(HomeViewModel.HOME_ROWS), key = { "d${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { item ->
+                        Box(Modifier.bleed(8.dp)) { EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) { PlayButton(item); EpisodeMenu(item) } }
+                    }
+                }
+                val showsOpen = LIB_SHOWS !in collapsed
+                item(key = "h-shows", span = full) {
+                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, showsOpen, list.size, { vm.toggle(LIB_SHOWS) }) { confirmAllPlayed = true }
+                }
+                if (showsOpen) items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
                     if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp) { onShow(show.id) }
                     else ShowCard(show, c, large) { onShow(show.id) }
@@ -163,14 +193,29 @@ fun LibraryScreen(
  * setup with hundreds unheard (maintainer 2026-11-01: a row of its own was too dominant).
  */
 @Composable
-private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int, onAllPlayed: () -> Unit) {
+private fun ShowsHeader(
+    asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int,
+    open: Boolean, count: Int, onToggle: () -> Unit, onAllPlayed: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 16.dp, bottom = 4.dp)) {
+    val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 0f else -90f)
+    val title = stringResource(Res.string.library_shows)
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 12.dp, bottom = 4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(Res.string.library_shows), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            // Folds like Home's sections: the title and its arrow.
+            Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = title, onClick = onToggle)
+                    .padding(vertical = 8.dp).semantics { stateDescription = if (open) "open" else "closed" },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Icon(HoppIcons.ChevronDown, null, Modifier.padding(start = 4.dp).size(22.dp).rotate(turn), tint = colors.onSurfaceVariant)
+                if (!open) Text(" $count", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            }
+            if (!open) return@Row
             var open by remember { mutableStateOf(false) }
             Box {
                 TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
@@ -198,7 +243,7 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: Stri
                     }
             }
         }
-        if (unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+        if (open && unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
             val style = MaterialTheme.typography.bodySmall
             Text(stringResource(Res.string.library_unheard, unheard) + " · ", style = style, color = colors.onSurfaceVariant)
             Text(
@@ -296,17 +341,17 @@ private fun Header(text: String) = Text(
     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
 )
 
-@Composable
-private fun EntryRow(icon: ImageVector, label: String, count: Int, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.width(16.dp))
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        if (count > 0) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+/** Folded sections of the library, kept with Home's. */
+private const val LIB_QUEUE = "lib-queue"
+private const val LIB_DOWNLOADS = "lib-downloads"
+private const val LIB_SHOWS = "lib-shows"
+
+/** As wide as the grid with its side padding: a row in line with the page, as on Home. */
+private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { measurable, constraints ->
+    val px = by.roundToPx()
+    val wide = constraints.copy(minWidth = constraints.minWidth + 2 * px, maxWidth = constraints.maxWidth + 2 * px)
+    val placeable = measurable.measure(wide)
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-px, 0) }
 }
 
 @Composable

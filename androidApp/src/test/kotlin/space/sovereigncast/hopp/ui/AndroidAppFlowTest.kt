@@ -395,8 +395,11 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe()
         waitFor("Ep 1")
         menuOf(1); waitFor("Play next"); tap("Play next")
-        tap("Library"); waitFor("Up next")
-        tap("Up next"); waitFor("Ep 1")
+        // On Home too, right there (Dennis, maintainer 2026-11-02).
+        tap("Home"); waitFor("Up next")
+        // In the library itself since 0.3.3 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
+        tap("Library"); waitFor("Up next"); waitFor("Ep 1")
+        tap("All 1 ›"); waitFor("Ep 1")
         rule.onNode(hasContentDescription("Remove from up next")).performClick()
         waitFor("Nothing up next")
     }
@@ -412,7 +415,9 @@ class AndroidAppFlowTest {
         // The cover's badge says so too; the episode not downloaded has none.
         check(rule.onAllNodes(hasContentDescription("Downloaded"), useUnmergedTree = true).fetchSemanticsNodes().size == 1) { "one badge expected: ${screen()}" }
         tap("Library"); waitFor("Downloads")
-        tap("Downloads"); waitFor("Ep 1")
+        // The downloads' "All", below up next's (a finished download joins up next).
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
+        waitFor("Ep 1")
         check(has("used", substring = true)) { "no space shown: ${screen()}" }
     }
 

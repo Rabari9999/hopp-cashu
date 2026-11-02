@@ -115,6 +115,27 @@ class NostrContactsLayoutTest {
         shoot("support-end")
     }
 
+    /** "Als Nächstes" on Home and in the library (Dennis, maintainer 2026-11-02) — pictures to look at. */
+    @Test
+    fun upNextOnHomeAndInTheLibrary() {
+        rule.setContent { App() }
+        tap("Entdecken")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Als Feed öffnen"); waitFor("Abonnieren")
+        tap("Abonnieren"); waitFor("✓ Abonniert")
+        if (!has("Folgen durchsuchen")) tap("✓ Abonniert")
+        waitFor("Folgen durchsuchen")
+        val more = rule.onAllNodes(hasContentDescription("Mehr") and hasClickAction())
+        more[0].performClick(); waitFor("Als Nächstes abspielen"); tap("Als Nächstes abspielen")
+        more[1].performClick(); waitFor("Am Ende abspielen"); tap("Am Ende abspielen")
+        tap("Home"); waitFor("Als Nächstes")
+        rule.waitForIdle()
+        shoot("home-queue")
+        tap("Bibliothek"); waitFor("Shows")
+        rule.waitForIdle()
+        shoot("library")
+    }
+
     /** Each window as it is drawn — a sheet is one of its own. */
     private fun shoot(what: String) {
         java.io.File("build/contacts-layout").mkdirs()

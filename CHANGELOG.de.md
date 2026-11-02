@@ -11,6 +11,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Nostr:** Teile deine Abos mit gegenseitigen Nostr-Kontakten, versiegelt, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
 - **Nostr:** Eine Seite zeigt alle deine Shows und ob sie mit deinen Nostr-Kontakten geteilt werden.
 - **Einstellungen:** Hopp mit einer Spende per Lightning unterstützen.
+- **Home:** „Als Nächstes“ direkt auf Home und dort sortierbar; die Bereiche ordnest du direkt auf Home an, über den Regler oder einen langen Druck auf einen Titel.
+- **Bibliothek:** Als Nächstes und deine Downloads direkt in der Bibliothek, in aufklappbaren Bereichen.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.

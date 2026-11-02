@@ -508,8 +508,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
                                         unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
-                                    onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) },
-                                    onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) })
+                                    onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) },
+                                    onQueue = { nav.navigate(QueueRoute) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {

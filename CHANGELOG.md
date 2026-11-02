@@ -11,6 +11,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Nostr:** Share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
 - **Nostr:** One page lists all your shows and whether each is shared with your Nostr contacts.
 - **Settings:** Support Hopp with a donation via Lightning.
+- **Home:** "Up next" right on Home, reorderable there; arrange Home's sections in place with the tune button or a long press on a title.
+- **Library:** Up next and your downloads in the library itself, in sections that fold.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.

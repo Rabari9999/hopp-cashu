@@ -56,6 +56,7 @@ import space.sovereigncast.hopp.resources.take_part_hidden_round
 import space.sovereigncast.hopp.resources.take_part_hidden_unlock
 import space.sovereigncast.hopp.resources.take_part_show_again
 import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.resources.queue_title
 
 /**
  * Home's sections, which the listener may arrange and hide (device feedback
@@ -71,14 +72,19 @@ object HomeSections {
     const val FAVORITES = "favorites"
     const val BOOSTED = "boosted"
     const val RECENT = "recent"
+    const val QUEUE = "queue"
 
-    /** Hopp's own order (device feedback 2026-10-13): what to take part in and the shows
-     *  first, then what is under way and new, what was heard last. */
-    val default = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
+    /** Hopp's own order since 0.3.3 (Dennis, maintainer 2026-11-02): listening first — what is under
+     *  way and what comes next — then what is new, what to take part in, the shows, what was heard last. */
+    val default = listOf(CONTINUE, QUEUE, NEW, TAKE_PART, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
+
+    /** Hopp's own order before 0.3.3: kept for a listener who had it, "Up next" put in after "Continue". */
+    val before033 = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
 
     val titles: Map<String, StringResource> = mapOf(
         NEW to Res.string.nav_new,
         CONTINUE to Res.string.library_continue,
+        QUEUE to Res.string.queue_title,
         YOUR_SHOWS to Res.string.home_your_shows,
         TAKE_PART to Res.string.home_take_part,
         FAVORITES to Res.string.favorites_title,
@@ -108,7 +114,7 @@ object HomeSections {
 /** The settings page: drag to arrange, switch to hide, and back to Hopp's order; below,
  *  what was hidden under "Take part", each to show again ([showTitles] by podcast:guid). */
 @Composable
-fun HomeSectionsEditor(settings: Settings, showTitles: Map<String, String> = emptyMap(), onChange: ((Settings) -> Settings) -> Unit) {
+fun HomeSectionsEditor(settings: Settings, showTitles: Map<String, String> = emptyMap(), note: String? = null, onChange: ((Settings) -> Settings) -> Unit) {
     val saved = HomeSections.order(settings.homeOrder)
     var order by remember { mutableStateOf(saved) }
     LaunchedEffect(settings.homeOrder) { order = HomeSections.order(settings.homeOrder) }
@@ -123,7 +129,7 @@ fun HomeSectionsEditor(settings: Settings, showTitles: Map<String, String> = emp
     LazyColumn(Modifier.fillMaxSize(), state = listState) {
         item(key = "text") {
             Text(
-                stringResource(Res.string.home_sections_text), Modifier.padding(16.dp),
+                note ?: stringResource(Res.string.home_sections_text), Modifier.padding(16.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
             )
         }

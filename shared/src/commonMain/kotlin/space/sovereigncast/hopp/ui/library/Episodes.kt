@@ -50,7 +50,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import sh.calvin.reorderable.ReorderableColumn
+import androidx.compose.foundation.layout.Column
 import sh.calvin.reorderable.ReorderableItem
+import androidx.compose.runtime.key
+import space.sovereigncast.hopp.resources.queue_more
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import space.sovereigncast.hopp.data.DownloadState
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -75,6 +79,7 @@ import space.sovereigncast.hopp.resources.queue_remove
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatBytes
+import androidx.compose.foundation.layout.padding
 
 /** Episode id → download progress 0..1, provided once by the app frame. */
 val LocalDownloadProgress = compositionLocalOf<Map<Long, Float>> { emptyMap() }
@@ -198,6 +203,49 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
         confirmButton = { TextButton(onClick = { confirmOlder = false; vm.setPlayedUpTo(item) }) { Text(stringResource(Res.string.mark_played)) } },
         dismissButton = { TextButton(onClick = { confirmOlder = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/**
+ * The first [limit] of "Up next" where other things are on the page too — Home and the library
+ * (Dennis, maintainer 2026-11-02: two taps to the list he cares most about were too many):
+ * reorderable right there by the handle, the rest of the queue keeping its place behind them.
+ * Not a lazy list of its own, so it sits in Home's list and in the library's grid alike.
+ */
+@Composable
+fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit) {
+    var shown by remember { mutableStateOf(items.take(limit)) }
+    LaunchedEffect(items, limit) { shown = items.take(limit) }
+    val haptics = LocalHapticFeedback.current
+    val dragLabel = stringResource(Res.string.queue_drag)
+    // One column: in a lazy list's item, siblings would lie on top of each other.
+    Column {
+    ReorderableColumn(
+        shown,
+        onSettle = { from, to ->
+            shown = shown.toMutableList().apply { add(to, removeAt(from)) }
+            onReorder(shown.map { it.id } + items.drop(limit).map { it.id })
+        },
+        onMove = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+    ) { _, item, dragging ->
+        key(item.id) {
+            ReorderableItem {
+                // On the page's own ground; lifted only while dragged.
+                Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
+                    EpisodeRow(item, showPodcast = true, onClick = { onOpen(item) }) {
+                        PlayButton(item)
+                        IconButton(onClick = {}, modifier = Modifier.draggableHandle().semantics { contentDescription = dragLabel }) {
+                            Icon(HoppIcons.DragHandle, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (items.size > limit) Text(
+        stringResource(Res.string.queue_more, items.size - limit), Modifier.padding(start = 16.dp, top = 2.dp, bottom = 6.dp),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    }
 }
 
 /**

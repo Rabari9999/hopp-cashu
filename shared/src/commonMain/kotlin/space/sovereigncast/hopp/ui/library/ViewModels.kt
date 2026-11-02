@@ -74,6 +74,7 @@ class HomeViewModel(
     feeds: space.sovereigncast.hopp.data.FeedRefresh,
     sync: space.sovereigncast.hopp.sync.SyncManager? = null,
     identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
+    private val queueRepo: QueueRepository? = null,
 ) : RefreshingViewModel(feeds) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
@@ -87,7 +88,24 @@ class HomeViewModel(
         viewModelScope.launch { runCatching { episodes.fillEnclosureLengths() } }
         viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().drop(1).collectLatest { sc.verifyAll() } }
         viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().drop(1).collectLatest { sc.refresh() } }
+        // Home's order changed with 0.3.3: who had Hopp's before keeps it, "Up next" after "Continue" (maintainer 2026-11-02).
+        viewModelScope.launch {
+            settings.update { s ->
+                when {
+                    s.homeOrder033 -> s
+                    s.onboardingDone && s.homeOrder.isEmpty() -> s.copy(homeOrder = HomeSections.before033, homeOrder033 = true)
+                    else -> s.copy(homeOrder033 = true)
+                }
+            }
+        }
     }
+
+    /** "Up next" on Home (Dennis, maintainer 2026-11-02), reorderable there. */
+    val queue: StateFlow<List<EpisodeItem>> = state(queueRepo?.items ?: kotlinx.coroutines.flow.flowOf(emptyList()), emptyList())
+    fun reorderQueue(ids: List<Long>) { val q = queueRepo ?: return; viewModelScope.launch { q.reorder(ids) } }
+    /** For arranging Home in place. */
+    val current: StateFlow<Settings?> = state(settings.settings, null)
+    fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
 
     /** "Take part" without what the listener hid there (device feedback 2026-10-22);
      *  [actions] stays whole — "Your shows" still counts down to a release. */
@@ -150,7 +168,7 @@ class HomeViewModel(
     val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
     val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
 
-    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2 }
+    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2; const val QUEUE_ROWS = 8 }
 }
 
 /** [shows] in the library's [sort]; A–Z among equals, and shows without episodes last. */
@@ -166,7 +184,7 @@ internal fun sorted(shows: List<Show>, counts: Map<Long, space.sovereigncast.hop
 class LibraryViewModel(
     podcasts: PodcastRepository,
     private val episodes: EpisodeRepository,
-    queue: QueueRepository,
+    private val queue: QueueRepository,
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
     feeds: space.sovereigncast.hopp.data.FeedRefresh,
@@ -182,6 +200,14 @@ class LibraryViewModel(
     )
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
+    /** "Up next" and the downloads in the library itself, each a section that folds (Dennis, maintainer 2026-11-02). */
+    val queueItems: StateFlow<List<EpisodeItem>> = state(queue.items, emptyList())
+    fun reorderQueue(ids: List<Long>) = viewModelScope.launch { queue.reorder(ids) }
+    val downloaded: StateFlow<List<EpisodeItem>> = state(downloads.downloads.map { list -> list.filter { it.downloadState == DownloadState.DONE } }, emptyList())
+    val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
+    fun toggle(section: String) = viewModelScope.launch {
+        settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
+    }
     /** Episodes and new ones per show, for the cards and the list. */
     val counts: StateFlow<Map<Long, space.sovereigncast.hopp.data.ShowCounts>> = state(episodes.countsPerShow, emptyMap())
     /** Cards (the default) or a list — the listener's choice, kept in the settings. */

@@ -51,7 +51,16 @@ class HomeLayoutTest {
         tap("Home"); waitFor("Your shows"); waitFor("New")
     }
 
-    /** Hopp's own order: the shows before what is new (device feedback 2026-10-13). */
+    /** Since 0.3.3 Hopp's own order puts listening first (Dennis, maintainer 2026-11-02): what is new before the shows. */
+    @Test
+    fun aNewInstallListensFirst() {
+        runBlocking { settings.update { it.copy(homeOrder033 = true) } }
+        home()
+        val s = screen()
+        check(s.indexOf("New") < s.indexOf("Your shows")) { "not in Hopp's new order: $s" }
+    }
+
+    /** Who had Hopp's order before 0.3.3 keeps it: the shows before what is new (device feedback 2026-10-13). */
     @Test
     fun theShowsComeBeforeWhatIsNew() {
         home()
@@ -75,7 +84,8 @@ class HomeLayoutTest {
         rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).performClick(); waitFor("Your shows")
         rule.onNode(isToggleable() and hasContentDescription("Your shows")).performClick()
         rule.waitUntil(10_000) { runBlocking { HomeSections.YOUR_SHOWS in settings.settings.first().homeHidden } }
-        rule.onNode(hasContentDescription("Back")).performClick()
+        // Arranged in place since 0.3.3: "Done" goes back to Home.
+        rule.onNode(hasText("Done") and hasClickAction()).performClick()
         waitFor("New")
         check(!has("Your shows")) { "the hidden section is still on Home: ${screen()}" }
         check(has("Ep 2")) { "New went too" }
@@ -87,7 +97,7 @@ class HomeLayoutTest {
         home()
         rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).assertIsDisplayed().performClick()
         rule.waitUntil(10_000) { rule.onAllNodes(isToggleable() and hasContentDescription("Your shows")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(hasContentDescription("Back")).performClick()
+        rule.onNode(hasText("Done") and hasClickAction()).performClick()
         waitFor("New")
         check(!has("Customize Home")) { "the button below is still there" }
     }

@@ -1200,4 +1200,8 @@
     <string name="support_to">To %1$s, from your wallet</string>
     <string name="support_other_wallet">With any other wallet: send to this Lightning address.</string>
     <string name="support_share">Or give a small share of every boost and of streaming, in the wallet settings.</string>
+    <!-- Up next on Home and in the library; Home arranged in place (Dennis, maintainer 2026-11-02) -->
+    <string name="home_edit_done">Done</string>
+    <string name="home_edit_note">Drag to arrange, switch off to hide. A long press on a section title gets you here too.</string>
+    <string name="queue_more">+ %1$d more</string>
 </resources>
