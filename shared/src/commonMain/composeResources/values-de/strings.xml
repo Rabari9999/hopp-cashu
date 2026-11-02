@@ -1147,4 +1147,19 @@
         <item quantity="one">%1$d Folge in deinen Abos</item>
         <item quantity="other">%1$d Folgen in deinen Abos</item>
     </plurals>
+    <string name="contacts_title">Nostr-Kontakte</string>
+    <string name="contacts_intro">Was die Leute hören, denen du auf Nostr folgst – deine Kontaktliste, keine eigene Liste.</string>
+    <string name="contacts_share">Meine Abos mit gegenseitigen Nostr-Kontakten teilen</string>
+    <string name="contacts_share_note">Alle, denen du auf Nostr folgst, die dir folgen und Hopp nutzen. Versiegelt: Niemand sonst kann sie lesen.</string>
+    <string name="contacts_see">Zeigen, was meine Nostr-Kontakte hören</string>
+    <string name="contacts_see_note">Was gegenseitige Kontakte teilen, und was die Leute, denen du folgst, öffentlich geboostet, kommentiert oder gezappt haben.</string>
+    <string name="contacts_reading">Schaue nach deinen Kontakten …</string>
+    <string name="contacts_elsewhere">Auf einem anderen Gerät eingeschaltet.</string>
+    <string name="contacts_take_over">Übernehmen</string>
+    <string name="contacts_none">Du folgst auf Nostr noch niemandem – das geht mit der Kontaktliste eines Nostr-Kontos, das du schon nutzt.</string>
+    <string name="contacts_counts">Du folgst %1$d Leuten auf Nostr; %2$d folgen dir zurück, davon %3$d mit Hopp.</string>
+    <string name="contacts_failed">Das hat nicht geklappt: %1$s</string>
+    <string name="contacts_public_title">Öffentlich auf Nostr</string>
+    <string name="contacts_public_text">Hopp veröffentlicht eine Notiz, dass du das nutzt, mit zwei eigenen Schlüsseln. Was du abonniert hast, steht nie darin – das geht nur versiegelt an deine gegenseitigen Kontakte.</string>
+    <string name="contacts_public_confirm">Einschalten</string>
 </resources>

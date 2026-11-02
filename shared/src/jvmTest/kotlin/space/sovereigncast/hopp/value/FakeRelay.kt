@@ -38,6 +38,12 @@ class FakeRelay : RelayConnector {
     /** Events it answers "refused" to and does not keep (delta audit 2026-10-22). */
     var refuse: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
+    /** Keeps only the newest of a person's contact list and other replaceable kinds, as relays do (NIP-01);
+     *  off by default, as tests here rely on every version being kept. */
+    var replaces = false
+
+    /** Everything kept, for a test to look at. */
+    fun stored(): List<Event> = synchronized(this) { stored.toList() }
 
     inner class Session : RelaySession {
         val channel = Channel<String>(Channel.UNLIMITED)
@@ -50,7 +56,10 @@ class FakeRelay : RelayConnector {
     override suspend fun connect(url: String): RelaySession = Session().also { synchronized(this) { sessions += it } }
 
     fun publish(event: Event) {
-        val targets = synchronized(this) { stored += event; sessions.toList() }
+        val targets = synchronized(this) {
+            if (replaces && (event.kind == 0 || event.kind == 3 || event.kind in 10000..19999)) stored.removeAll { it.pubkey == event.pubkey && it.kind == event.kind }
+            stored += event; sessions.toList()
+        }
         for (s in targets) for ((id, filter) in s.subs.toMap()) if (matches(filter, event)) {
             s.channel.trySend(eventMessage(id, event))
         }

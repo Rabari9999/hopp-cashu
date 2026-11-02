@@ -1147,4 +1147,19 @@
         <item quantity="one">%1$d episode in your subscriptions</item>
         <item quantity="other">%1$d episodes in your subscriptions</item>
     </plurals>
+    <string name="contacts_title">Nostr contacts</string>
+    <string name="contacts_intro">What the people you follow on Nostr listen to — your contact list, no list of its own.</string>
+    <string name="contacts_share">Share my subscriptions with mutual Nostr contacts</string>
+    <string name="contacts_share_note">Everyone you follow on Nostr who follows you back and uses Hopp. Sealed: nobody else can read them.</string>
+    <string name="contacts_see">Show what my Nostr contacts listen to</string>
+    <string name="contacts_see_note">What mutual contacts share, and what the people you follow boosted, commented on or zapped in public.</string>
+    <string name="contacts_reading">Looking at your contacts …</string>
+    <string name="contacts_elsewhere">Turned on on another device.</string>
+    <string name="contacts_take_over">Take over</string>
+    <string name="contacts_none">You follow nobody on Nostr yet — this works with the contact list of a Nostr account you already use.</string>
+    <string name="contacts_counts">You follow %1$d people on Nostr; %2$d follow you back, %3$d of them with Hopp.</string>
+    <string name="contacts_failed">That did not go through: %1$s</string>
+    <string name="contacts_public_title">Public on Nostr</string>
+    <string name="contacts_public_text">Hopp publishes a note that you use this, with two keys of its own. What you subscribe to is never in it — that goes sealed to your mutual contacts only.</string>
+    <string name="contacts_public_confirm">Turn on</string>
 </resources>

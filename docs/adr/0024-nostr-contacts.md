@@ -166,6 +166,10 @@ never published or synced.
 
 ### 8. Settings
 
+**Only with a Nostr identity** (maintainer, 2026-11-02): without an npub in
+Hopp, nothing of the feature is shown or done — no switches, no section in
+Discover, no row on a show's page.
+
 Two switches on the Nostr page, both off:
 
 - **Share my subscriptions with mutual Nostr contacts** — with the list of

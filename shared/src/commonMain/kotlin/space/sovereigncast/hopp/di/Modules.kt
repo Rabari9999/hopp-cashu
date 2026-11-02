@@ -107,6 +107,10 @@ fun sharedModule(platform: Platform) = module {
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    // What the listener's Nostr contacts listen to (ADR 0024).
+    single { space.sovereigncast.hopp.contacts.ContactKeys(get(), get(), get()) { get<Clock>().now() } }
+    single { space.sovereigncast.hopp.contacts.ContactGraph(get(), get()) { get<Clock>().now() } }
+    single { space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }) }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
     single {
@@ -192,7 +196,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
-    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get(), get()) }
+    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
     single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     viewModel { ValueBarViewModel(get(), get(), get(), get(), get(), get(), get()) }

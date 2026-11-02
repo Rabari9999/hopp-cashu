@@ -166,7 +166,14 @@ class NostrIdentityViewModel(
     private val identities: IdentityRepository,
     private val settings: SettingsRepository,
     private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
+    private val contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
 ) : ViewModel() {
+    /** What the listener's Nostr contacts listen to (ADR 0024): the switches and the contacts read. */
+    val contactsState: StateFlow<space.sovereigncast.hopp.contacts.ContactsState> =
+        contacts?.state ?: MutableStateFlow(space.sovereigncast.hopp.contacts.ContactsState())
+    fun refreshContacts(force: Boolean = false) { val c = contacts ?: return; viewModelScope.launch { c.refresh(force, interactive = force) } }
+    fun setContactsSharing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSharing(on) } }
+    fun setContactsSeeing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSeeing(on) } }
     val identity: StateFlow<NostrIdentity?> = identities.identity
     /** A stored identity the key store could not give up — shown, never made anew (security review 2026-10-20). */
     val unreadable: StateFlow<Boolean> = identities.unreadable
@@ -448,6 +455,7 @@ class NostrIdentityViewModel(
         _exported.value = null; _published.value = null; _restore.value = null
         // Without a key there is nothing to sync with; the relays keep what they have.
         sync?.let { viewModelScope.launch { it.disable() } }
+        contacts?.forget()
         // A bunker hears that the session is over — a courtesy, not waited on long.
         viewModelScope.launch {
             kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { identities.endRemoteSession() } }
@@ -697,6 +705,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     if (settings?.nostrSync == true) SyncStatusLine(vm)
     // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
     if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
+    ContactsSection(vm)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -723,6 +732,57 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/**
+ * What the listener's Nostr contacts listen to (ADR 0024): sharing with mutual contacts and
+ * looking at what contacts share, each a switch. The first one turned on publishes the contacts
+ * note — said before, as every first public act is (ADR 0021, 8).
+ */
+@Composable
+private fun ContactsSection(vm: NostrIdentityViewModel) {
+    val state by vm.contactsState.collectAsState()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    LaunchedEffect(Unit) { vm.refreshContacts() }
+    var ask by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val note = state.note
+    // Only the first note is announced: once there is one, changing it publishes nothing new about the listener.
+    val turnOn = { act: () -> Unit -> if (note == null) ask = act else act() }
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    Text(stringResource(Res.string.contacts_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.contacts_intro), color = muted, style = MaterialTheme.typography.bodySmall)
+    SwitchRow(stringResource(Res.string.contacts_share), stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
+        if (on) turnOn { vm.setContactsSharing(true) } else vm.setContactsSharing(false)
+    }
+    SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
+        if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
+    }
+    if (state.working) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        Text(stringResource(Res.string.contacts_reading), color = muted, style = MaterialTheme.typography.bodySmall)
+    }
+    // Turned on on another device: its keys come over with one question to the signer.
+    if (note != null && !note.opened && !state.working) Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(Res.string.contacts_elsewhere), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_take_over)) }
+    }
+    state.read?.let { read ->
+        Text(
+            if (read.following.isEmpty()) stringResource(Res.string.contacts_none)
+            else stringResource(Res.string.contacts_counts, read.following.size, read.mutual.size, read.withHopp.size),
+            color = muted, style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    state.error?.let { Text(stringResource(Res.string.contacts_failed, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    ask?.let { act ->
+        AlertDialog(
+            onDismissRequest = { ask = null },
+            title = { Text(stringResource(Res.string.contacts_public_title)) },
+            text = { Text(stringResource(Res.string.contacts_public_text)) },
+            confirmButton = { TextButton(onClick = { ask = null; act() }) { Text(stringResource(Res.string.contacts_public_confirm)) } },
+            dismissButton = { TextButton(onClick = { ask = null }) { Text(stringResource(Res.string.cancel)) } },
+        )
+    }
 }
 
 /** Under the sync switch: when it last got through, or why not — and a way on where there is one. */
