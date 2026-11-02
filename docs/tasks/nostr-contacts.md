@@ -76,3 +76,10 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
       with the listener there or where Hopp holds the key; otherwise the
       Nostr page offers "Renew key".
 - [x] Tests: `ContactsTest` (13).
+
+## On the real relays
+
+`HOPP_LIVE_CONTACTS=1 ./gradlew :shared:jvmTest --tests '*ContactsLiveTest*'`: two
+throwaway keys follow each other on Hopp's relays; one shares, the other looks.
+2026-11-02: each found the other mutual (`#p` answered by damus, nos.lol,
+primal), the key reached the inbox, and the list opened.
