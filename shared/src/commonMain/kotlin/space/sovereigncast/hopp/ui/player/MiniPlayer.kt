@@ -238,8 +238,8 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
     }
 }
 
-/** The player's own volume where it has one (a browser): mute and a slider, in the bar and in the
- *  open player alike (maintainer 2026-10-31: opened, there was no way to change it). In a Row. */
+/** The player's own volume where it has one (a browser): mute and a slider, in the bar along a wide
+ *  window's foot alone (maintainer 2026-11-02; the open player had it from 2026-10-31). In a Row. */
 @Composable
 internal fun VolumeControl(model: PlayerController, sliderModifier: Modifier) {
     val flow = model.engine.volume ?: return
