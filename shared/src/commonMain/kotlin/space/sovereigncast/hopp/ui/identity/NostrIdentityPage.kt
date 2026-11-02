@@ -758,7 +758,8 @@ private fun ContactsSection(vm: NostrIdentityViewModel) {
     SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
     }
-    if (state.working) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Only while the feature is on: off, the page must not jump under the listener's finger as it looks (CI 2026-11-02).
+    if (state.working && note != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(stringResource(Res.string.contacts_reading), color = muted, style = MaterialTheme.typography.bodySmall)
     }
