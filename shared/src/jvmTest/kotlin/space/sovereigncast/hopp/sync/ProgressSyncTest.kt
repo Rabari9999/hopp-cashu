@@ -297,6 +297,45 @@ class ProgressSyncTest {
         assertEquals(heard, heardOn(laptop))
     }
 
+    /**
+     * Maintainer 2026-11-02: what was listened to on the phone did not show under "Recently played" on
+     * the tablet — the entry said "heard", not that it was played. Listened to, it shows there too;
+     * only marked heard, it stays out, as on the phone.
+     */
+    @Test
+    fun listenedToShowsAsRecentlyPlayedOnTheOtherDevice() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val (a, b) = guids(phone).take(2)
+        phone.ms += 60_000
+        phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, a).id, true)
+        phone.episodes.setPlayed(phone.episode(feed, b).id, true)
+        phone.sync.syncNow()
+
+        tablet.ms += 300_000
+        tablet.sync.syncNow()
+        assertEquals(1L, tablet.episode(feed, a).played)
+        assertEquals(1L, tablet.episode(feed, b).played)
+        assertEquals(listOf(a), tablet.episodes.recentlyPlayed(5).first().map { it.guid })
+    }
+
+    /** The same for what was listened to before sync was turned on: it goes out with the first snapshot. */
+    @Test
+    fun listenedToBeforeSyncShowsAsRecentlyPlayedOnTheOtherDevice() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val a = guids(phone).first()
+        phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, a).id, true)
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.enable()
+        assertEquals(listOf(a), tablet.episodes.recentlyPlayed(5).first().map { it.guid })
+    }
+
     @Test
     fun allHeardBeforeSyncGoesOutAsOneEntry() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)

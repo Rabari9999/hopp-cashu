@@ -368,7 +368,7 @@ class EpisodeRepository(
         if (!journal.enabled) return
         val r = eq.syncKeysOf(id).awaitAsOneOrNull() ?: return
         val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
-        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now()), urgent = urgent)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now(), r.last_played_at), urgent = urgent)
     }
 
     private suspend fun noteFavorite(id: Long) {
@@ -610,9 +610,14 @@ class EpisodeRepository(
     /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
      *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
      *  a finished download put it in, which only this device knows. */
-    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(ioDispatcher) {
+    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null) = withContext(ioDispatcher) {
         db.transaction {
-            if (played) { eq.markPlayed(atSeconds, id); leaveQueue(listOf(id)) } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+            if (played) {
+                eq.markPlayed(atSeconds, id)
+                // Listened to there, not only marked heard: "Recently played" here too (maintainer 2026-11-02).
+                listenedSeconds?.takeIf { it > 0 }?.let { eq.noteListened(it, id) }
+                leaveQueue(listOf(id))
+            } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
         }
     }
 

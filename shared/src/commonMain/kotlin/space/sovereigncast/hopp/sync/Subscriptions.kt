@@ -53,8 +53,14 @@ object SyncDocs {
     fun progressKey(show: String, guid: String) = "pos\n$show\n$guid"
     fun favoriteKey(show: String, guid: String) = "fav\n$show\n$guid"
 
-    fun progress(show: String, guid: String, positionMs: Long, played: Boolean, atSeconds: Long): JsonObject = buildJsonObject {
+    /**
+     * [listenedSeconds]: when it was last played, for one heard — listened to, not only marked heard, so
+     * the other device lists it under "Recently played" too (maintainer 2026-11-02). Hopp before 0.3.3
+     * passes over it; an entry without it is marked heard, as before.
+     */
+    fun progress(show: String, guid: String, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null): JsonObject = buildJsonObject {
         put("show", show); put("guid", guid); put("pos", positionMs); put("played", played); put("at", atSeconds)
+        if (played && listenedSeconds != null && listenedSeconds > 0) put("listened", listenedSeconds)
     }
 
     /**

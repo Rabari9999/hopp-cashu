@@ -13,6 +13,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
 - **Wallet:** The hint which wallets can send keysend names the right ones.
+- **Sync:** Episodes you listened to on one device show under "Recently played" on the others too.
 
 ## [0.3.2] - 2026-11-01
 

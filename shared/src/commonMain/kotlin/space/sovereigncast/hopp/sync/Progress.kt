@@ -73,8 +73,12 @@ class ProgressDocument(
         if (marks.isEmpty()) return@withContext emptySet()
         val shows = db.podcastQueries.selectAll().awaitAsList()
         val dates = mutableMapOf<String, Map<String, Long?>>()
+        val recent = entries.filter { (k, e) -> k.startsWith("pos\n") && !e.del && e.d.long("listened") != null }
+            .entries.sortedByDescending { it.value.t }.take(RECENT).mapTo(mutableSetOf()) { it.key }
         entries.filter { (k, e) ->
             if (!k.startsWith("pos\n") || e.del || e.d.bool("played") != true || (e.d.long("pos") ?: 0) != 0L) return@filter false
+            // The newest listened to stay single: the mark does not say they were played (maintainer 2026-11-02).
+            if (k in recent) return@filter false
             val show = e.d.text("show") ?: return@filter false
             val guid = e.d.text("guid") ?: return@filter false
             val mark = marks[show] ?: return@filter false
@@ -98,15 +102,19 @@ class ProgressDocument(
                 val at = p.played_through_at ?: 0
                 put(SyncDocs.playedThroughKey(show), SyncEntry(at * 1000, d = SyncDocs.playedThrough(show, before, at, p.played_through_from)))
             }
-            for (r in db.episodeQueries.progressForSync(since).awaitAsList()) {
+            val rows = db.episodeQueries.progressForSync(since).awaitAsList()
+            // The newest listened to are never folded into "heard up to": it does not say they were played.
+            val recent = rows.filter { it.played == 1L && it.last_played_at != null }
+                .sortedByDescending { maxOf(it.last_played_at ?: 0, it.played_at ?: 0) }.take(RECENT).mapTo(mutableSetOf()) { it.podcast_guid to it.feed_url to it.guid }
+            for (r in rows) {
                 val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
                 val heard = maxOf(r.last_played_at ?: 0, r.played_at ?: 0)
                 // Heard by "heard up to": that one entry says it.
-                val covered = r.played == 1L && r.position_ms == 0L && r.published_at != null && r.played_through != null &&
+                val covered = (r.podcast_guid to r.feed_url to r.guid) !in recent && r.played == 1L && r.position_ms == 0L && r.published_at != null && r.played_through != null &&
                     r.published_at <= r.played_through && (r.played_through_from == null || r.published_at >= r.played_through_from) &&
                     (r.played_at ?: 0) <= (r.played_through_at ?: 0)
                 if (!covered && (heard > 0 || r.position_ms > 0)) {
-                    put(SyncDocs.progressKey(show, r.guid), SyncEntry(heard * 1000, d = SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, heard)))
+                    put(SyncDocs.progressKey(show, r.guid), SyncEntry(heard * 1000, d = SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, heard, r.last_played_at)))
                 }
                 r.favorite_at?.let { at -> put(SyncDocs.favoriteKey(show, r.guid), SyncEntry(at * 1000, d = SyncDocs.favorite(show, r.guid, at))) }
             }
@@ -145,7 +153,7 @@ class ProgressDocument(
                     // Never a place before the start (audit 2026-10-22, M-04).
                     val pos = (e.d.long("pos") ?: 0).coerceAtLeast(0)
                     val played = e.d.bool("played") ?: false
-                    episodes.applyProgress(id, pos, played, e.d.long("at")?.coerceAtLeast(0) ?: (e.t / 1000))
+                    episodes.applyProgress(id, pos, played, e.d.long("at")?.coerceAtLeast(0) ?: (e.t / 1000), e.d.long("listened"))
                     // The player follows as an aside: its failing leaves the entry applied (M-06).
                     runCatching { adopt(id, pos, played) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
                 }
@@ -178,5 +186,7 @@ class ProgressDocument(
     companion object {
         val KEPT = 90.days
         private const val UPTO = "upto\n"
+        /** Listened to, the newest this many keep an entry of their own ("Recently played" shows five). */
+        private const val RECENT = 20
     }
 }
