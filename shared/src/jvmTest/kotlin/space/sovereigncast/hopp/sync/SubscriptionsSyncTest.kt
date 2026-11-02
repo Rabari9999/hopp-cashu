@@ -68,6 +68,28 @@ class SubscriptionsSyncTest {
         assertEquals(setOf("https://pod.test/nodesignal.xml"), tablet.urls())
     }
 
+    /** ADR 0024, 4a: a show left out of what is shared with mutual Nostr contacts is left out on every device. */
+    @Test
+    fun aShowLeftOutOfSharingIsLeftOutEverywhere() = runBlocking<Unit> {
+        val phone = Device()
+        phone.podcasts.subscribe("https://pod.test/nodesignal.xml")
+        val s = phone.podcasts.subscribe("https://pod.test/selfhosted.xml") as SubscribeResult.Subscribed
+        phone.podcasts.setContactsHidden(s.podcastId, true)
+        assertEquals(listOf("https://pod.test/nodesignal.xml"), phone.podcasts.shared().map { it.feed_url })
+        phone.sync.enable()
+        val tablet = Device()
+        tablet.sync.enable()
+        assertEquals(1L, tablet.row("https://pod.test/selfhosted.xml").contacts_hidden)
+        assertEquals(0L, tablet.row("https://pod.test/nodesignal.xml").contacts_hidden)
+        // Shared again on the tablet: so on the phone.
+        tablet.ms += 30_000
+        tablet.podcasts.setContactsHidden(tablet.row("https://pod.test/selfhosted.xml").id, false)
+        tablet.sync.syncNow()
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        assertEquals(0L, phone.row("https://pod.test/selfhosted.xml").contacts_hidden)
+    }
+
     @Test
     fun withSyncOffNothingIsNotedOrSent() = runBlocking<Unit> {
         val phone = Device()

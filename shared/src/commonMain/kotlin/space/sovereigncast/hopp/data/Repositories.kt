@@ -55,6 +55,8 @@ data class Show(
     /** Seconds skipped at the start of each episode, and at its end; 0 for none. */
     val skipIntroSeconds: Int = 0,
     val skipOutroSeconds: Int = 0,
+    /** Left out of what is shared with mutual Nostr contacts (ADR 0024, 4a). */
+    val contactsHidden: Boolean = false,
 )
 
 /** The most a show may skip at an episode's start or end: ten minutes. */
@@ -137,7 +139,7 @@ class PodcastRepository(
         if (!sync) return
         q.selectById(id).awaitAsOneOrNull()?.let { r ->
             journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
-                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt()))
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt(), r.contacts_hidden == 1L))
         }
     }
 
@@ -152,7 +154,7 @@ class PodcastRepository(
 
     private fun space.sovereigncast.hopp.db.Podcast.toShow() = Show(
         id, feed_url, title, author, image_url, last_error, auto_download == 1L, playback_speed?.toFloat(), podcast_guid,
-        categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(),
+        categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(), contacts_hidden == 1L,
     )
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(ioDispatcher) {
@@ -323,6 +325,10 @@ class PodcastRepository(
     // Noted after the change, outside its transaction (SyncJournal.record): the note reads the show as it is then.
     suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(ioDispatcher) { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) }
     suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
+    /** Show [id] left out of what is shared with mutual Nostr contacts, or shared again (ADR 0024, 4a). */
+    suspend fun setContactsHidden(id: Long, hidden: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setContactsHidden(if (hidden) 1 else 0, id); noteShow(id, sync) }
+    /** What is shared with mutual Nostr contacts: every show not left out, newest first (ADR 0024, 4). */
+    suspend fun shared() = withContext(ioDispatcher) { q.selectShared().awaitAsList() }
     /** Seconds skipped at the start and the end of each episode of show [id]; 0 for none, null: as it is —
      *  read in the same transaction, so a change to one never puts back an old value of the other. */
     suspend fun setSkip(id: Long, introSeconds: Int? = null, outroSeconds: Int? = null, sync: Boolean = true) = withContext(ioDispatcher) {

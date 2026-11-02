@@ -18,8 +18,14 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
+    /** Version 21: no show left out of what is shared with Nostr contacts (ADR 0024). */
+    private fun version21(driver: JdbcSqliteDriver) {
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
+    }
+
     /** Version 19 from the current schema: a "heard up to" from the first episode always. */
     private fun version19(driver: JdbcSqliteDriver) {
+        version21(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through_from", 0)
     }
 

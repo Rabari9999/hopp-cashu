@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.contacts
 
 import kotlinx.coroutines.runBlocking
+import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.toHex
 import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.Bech32
@@ -122,5 +123,65 @@ class ContactsTest {
         val phone = Device()
         phone.contacts.refresh(force = true)
         assertTrue(phone.contacts.state.value.read!!.mutual.isEmpty())
+    }
+
+    // Stage 2: sharing (ADR 0024, 4).
+
+    private var shows = listOf(SharedShow("guid-a", "https://a.test/feed", "Show A", 100), SharedShow(null, "https://b.test/feed", "Show B", 200))
+
+    private fun share(device: Device) = ContactShare(device.identity, RelayPublisher(relay), device.keys, device.secrets, { shows }) { now }
+
+    private fun byShareKey(share: KeyPair) = relay.stored().filter { it.pubkey == share.publicKeyHex && it.kind == Nip78.KIND }.distinctBy { it.id }
+
+    /** The list opens with the share key alone; a mutual contact's inbox opens the share key. */
+    @Test
+    fun theSharedListAndTheKeysForMutualContactsOpenAsTheyShould(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = false)
+        val inbox = KeyPair.generate()
+        share(phone).publish(setOf(inbox.publicKeyHex))
+        val key = phone.keys.shareKey()!!
+        val events = byShareKey(key)
+        val shelf = events.single { it.tag("d") == ContactShare.SHELF }
+        val opened = kotlinx.serialization.json.Json.decodeFromString(Shelf.serializer(),
+            space.sovereigncast.hopp.nostr.Nip44.decrypt(shelf.content, space.sovereigncast.hopp.nostr.Nip44.conversationKey(key.secretKey, key.publicKeyHex.hexToBytes())))
+        assertEquals(shows, opened.shows)
+        val sealedKey = events.single { it.tag("d") == ContactShare.keyTag(inbox.publicKeyHex) }
+        val secret = space.sovereigncast.hopp.nostr.Nip44.decrypt(sealedKey.content, space.sovereigncast.hopp.nostr.Nip44.conversationKey(inbox.secretKey, key.publicKeyHex.hexToBytes()))
+        assertEquals(key.secretKey.toHex(), secret)
+        assertTrue(events.none { it.content.contains("Show A") }, "nothing of the list in clear text")
+    }
+
+    /** Only what changed goes out again: the same list and the same inboxes send nothing. */
+    @Test
+    fun unchangedNothingIsSentAgain(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = false)
+        val inbox = KeyPair.generate().publicKeyHex
+        val sharing = share(phone)
+        sharing.publish(setOf(inbox))
+        val key = phone.keys.shareKey()!!
+        val first = byShareKey(key).size
+        sharing.publish(setOf(inbox))
+        assertEquals(first, byShareKey(key).size)
+        shows = shows.drop(1)
+        now += 60
+        sharing.publish(setOf(inbox))
+        assertEquals(first + 1, byShareKey(key).size, "the changed list, and no key again")
+    }
+
+    /** Sharing off: what the share key signed is replaced by empty events and deleted. */
+    @Test
+    fun sharingOffTakesTheListBack(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = false)
+        val sharing = share(phone)
+        sharing.publish(setOf(KeyPair.generate().publicKeyHex))
+        val key = phone.keys.shareKey()!!
+        now += 60
+        assertTrue(sharing.retire(key))
+        val newest = byShareKey(key).groupBy { it.tag("d") }.mapValues { (_, e) -> e.maxBy { it.created_at } }
+        assertTrue(newest.values.all { it.content.isEmpty() })
+        assertTrue(relay.stored().any { it.kind == 5 && it.pubkey == key.publicKeyHex })
     }
 }

@@ -1162,4 +1162,5 @@
     <string name="contacts_public_title">Öffentlich auf Nostr</string>
     <string name="contacts_public_text">Hopp veröffentlicht eine Notiz, dass du das nutzt, mit zwei eigenen Schlüsseln. Was du abonniert hast, steht nie darin – das geht nur versiegelt an deine gegenseitigen Kontakte.</string>
     <string name="contacts_public_confirm">Einschalten</string>
+    <string name="show_share_contacts">Mit Nostr-Kontakten teilen</string>
 </resources>

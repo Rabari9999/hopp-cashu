@@ -352,8 +352,12 @@ class ShowViewModel(
     private val podcasts: PodcastRepository,
     private val episodes: EpisodeRepository,
     private val directory: DirectoryRepository? = null,
+    contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
 ) : ViewModel() {
     val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
+    /** The listener shares with mutual Nostr contacts: the menu offers to leave this show out (ADR 0024, 4a). */
+    val sharingWithContacts: StateFlow<Boolean> = state(contacts?.state?.map { it.note?.sharing == true } ?: kotlinx.coroutines.flow.flowOf(false), false)
+    fun setSharedWithContacts(shared: Boolean) = viewModelScope.launch { podcasts.setContactsHidden(podcastId, !shared) }
     /** Unsubscribed — here or anywhere else while this page waited in a stack. */
     val gone: StateFlow<Boolean> = state(podcasts.show(podcastId).map { it == null }, false)
     private val limit = MutableStateFlow(PAGE)

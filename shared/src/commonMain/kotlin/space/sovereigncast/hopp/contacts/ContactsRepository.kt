@@ -1,6 +1,14 @@
 package space.sovereigncast.hopp.contacts
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +38,7 @@ class ContactsRepository(
     private val keys: ContactKeys,
     private val graph: ContactGraph,
     private val nowSeconds: () -> Long,
+    private val share: ContactShare? = null,
     private val readEvery: Long = 3600,
 ) {
     private val _state = MutableStateFlow(ContactsState())
@@ -47,7 +56,22 @@ class ContactsRepository(
                 val read = graph.read()
                 _state.update { it.copy(read = read) }
             }
+            shareNow()
         }
+    }
+
+    /** Sends the shared list again when [subscriptions] change — at most every [pause] (ADR 0024, 4). */
+    @OptIn(FlowPreview::class)
+    fun start(scope: CoroutineScope, subscriptions: Flow<*>, pause: Duration = 5.minutes) {
+        scope.launch { subscriptions.drop(1).debounce(pause).collect { lock.withLock { work { shareNow() } } } }
+    }
+
+    /** What changed of the shared list and the keys for mutual contacts who look, sent — only while sharing. */
+    private suspend fun shareNow() {
+        val note = _state.value.note ?: return
+        if (!note.sharing || !note.opened) return
+        val inboxes = _state.value.read?.withHopp.orEmpty().mapNotNull { it.inbox }.toSet()
+        share?.publish(inboxes)
     }
 
     /** Sharing with mutual contacts on or off; the listener's signer is asked. */
@@ -60,7 +84,13 @@ class ContactsRepository(
     fun forget() { keys.forget(); _state.value = ContactsState() }
 
     private suspend fun change(share: Boolean, see: Boolean) = lock.withLock {
-        work { _state.update { it.copy(note = keys.set(share, see)) } }
+        work {
+            val before = keys.shareKey()
+            _state.update { it.copy(note = keys.set(share, see)) }
+            // Sharing off, or a new share key: what the old one signed goes from the relays.
+            if (before != null && keys.shareKey()?.publicKeyHex != before.publicKeyHex) this.share?.retire(before)
+            shareNow()
+        }
     }
 
     private suspend fun work(block: suspend () -> Unit) {

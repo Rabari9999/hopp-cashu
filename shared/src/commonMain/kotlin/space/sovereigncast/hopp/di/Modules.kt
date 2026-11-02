@@ -110,7 +110,14 @@ fun sharedModule(platform: Platform) = module {
     // What the listener's Nostr contacts listen to (ADR 0024).
     single { space.sovereigncast.hopp.contacts.ContactKeys(get(), get(), get()) { get<Clock>().now() } }
     single { space.sovereigncast.hopp.contacts.ContactGraph(get(), get()) { get<Clock>().now() } }
-    single { space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }) }
+    single {
+        val podcasts = get<PodcastRepository>()
+        val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {
+            podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at) }
+        }) { get<Clock>().now() }
+        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share)
+            .also { it.start(CoroutineScope(SupervisorJob() + Dispatchers.Default), podcasts.shows) }
+    }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
     single {
@@ -178,7 +185,7 @@ fun sharedModule(platform: Platform) = module {
     viewModel { space.sovereigncast.hopp.ui.library.StatsViewModel(get()) }
     viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
+    viewModel { params -> ShowViewModel(params.get(), get(), get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
     single { FyydClient(get()) }

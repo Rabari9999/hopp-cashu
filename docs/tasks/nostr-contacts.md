@@ -1,7 +1,7 @@
 # What your Nostr contacts listen to
 
 - **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.3.3.
-- **Status:** stage 1 built (2026-11-02, branch `0.3.3`).
+- **Status:** stages 1 and 2 built (2026-11-02, branch `0.3.3`).
 
 Only with a Nostr identity: without one, nothing of it is shown or done.
 
@@ -27,10 +27,18 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
 
 ## Stage 2 — sharing, leaving shows out
 
-- [ ] The shared list (`hopp/contacts/shelf`), sealed by the share key; sent
-      when the subscriptions change, at most every five minutes.
-- [ ] A key per mutual contact with an inbox (`hopp/contacts/key/<inbox>`).
-- [ ] "Not shared with Nostr contacts" per show, synced in `hopp/subscriptions`.
+- [x] `contacts/ContactShare`: the shared list (`hopp/contacts/shelf`), sealed
+      by the share key to itself — as many shows as one NIP-44 message holds,
+      newest first; a key per mutual contact with an inbox
+      (`hopp/contacts/key/<inbox>`). Each only when changed; signed by the
+      share key alone. Sent with each refresh and five minutes after the
+      subscriptions last changed.
+- [x] Sharing off: what the share key signed replaced by empty events and
+      deleted (NIP-09).
+- [x] "Share with Nostr contacts" per show in its menu, while sharing is on;
+      `podcast.contacts_hidden` (migration 21 → 22), synced in
+      `hopp/subscriptions` as `noShare`.
+- [x] Tests: `ContactsTest` (9), `SubscriptionsSyncTest.aShowLeftOutOfSharingIsLeftOutEverywhere`.
 
 ## Stage 3 — seeing shared subscriptions
 

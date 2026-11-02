@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.ui.library
 
 import space.sovereigncast.hopp.resources.show_playback
+import space.sovereigncast.hopp.resources.show_share_contacts
 import space.sovereigncast.hopp.resources.mark_played
 import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
@@ -227,8 +228,10 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
+                        val sharing by vm.sharingWithContacts.collectAsState()
                         show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
-                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true }) }
+                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true },
+                            sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts) }
                     }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
@@ -399,7 +402,11 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
 /** The show's settings, out of the way: auto-download, its playback, unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit) {
+private fun ShowMenu(
+    autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit,
+    /** Whether the show goes to mutual Nostr contacts; null while the listener shares nothing (ADR 0024, 4a). */
+    sharedWithContacts: Boolean? = null, onSharedWithContacts: (Boolean) -> Unit = {},
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -411,6 +418,13 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },
             )
+            sharedWithContacts?.let { shared ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.show_share_contacts)) },
+                    trailingIcon = { Switch(checked = shared, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
+                    onClick = { onSharedWithContacts(!shared) },
+                )
+            }
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })

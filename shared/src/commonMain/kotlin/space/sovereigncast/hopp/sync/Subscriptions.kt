@@ -36,7 +36,7 @@ object SyncDocs {
     fun showKey(guid: String?, feedUrl: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:$feedUrl"
 
     /** Title and image are for the restore offer only; kept short, so no feed's oddity makes an entry too large (M-04). */
-    fun show(feedUrl: String, title: String?, image: String?, speed: Float?, autoDownload: Boolean, introSeconds: Int = 0, outroSeconds: Int = 0): JsonObject = buildJsonObject {
+    fun show(feedUrl: String, title: String?, image: String?, speed: Float?, autoDownload: Boolean, introSeconds: Int = 0, outroSeconds: Int = 0, contactsHidden: Boolean = false): JsonObject = buildJsonObject {
         put("url", feedUrl)
         title?.let { put("title", it.take(300)) }
         image?.takeIf { it.length <= 2048 }?.let { put("image", it) }
@@ -45,6 +45,8 @@ object SyncDocs {
         // Only when set: an entry without them is a show that skips nothing.
         if (introSeconds > 0) put("intro", introSeconds)
         if (outroSeconds > 0) put("outro", outroSeconds)
+        // Left out of what is shared with mutual Nostr contacts (ADR 0024, 4a); only when so.
+        if (contactsHidden) put("noShare", true)
     }
 
     /** An episode's position and played state; its favourite apart, so the two never overwrite each other. */
@@ -102,12 +104,12 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
         val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
     }
 
-    private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int)
+    private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int, val contactsHidden: Boolean = false)
 
     private suspend fun local(): List<Local> = withContext(ioDispatcher) {
         db.podcastQueries.selectAll().awaitAsList().map {
             Local(it.id, SyncDocs.showKey(it.podcast_guid, it.feed_url), it.feed_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
-                it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt())
+                it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L)
         }
     }
 
@@ -115,7 +117,7 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
         db.podcastQueries.selectAll().awaitAsList().associate {
             SyncDocs.showKey(it.podcast_guid, it.feed_url) to
                 SyncEntry(it.subscribed_at * 1000, d = SyncDocs.show(it.feed_url, it.title, it.image_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
-                    it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt()))
+                    it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L))
         }
     }
 
@@ -151,6 +153,8 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
                                 val intro = e.d.long("intro")?.takeIf { it in 0..MAX_SKIP_SECONDS }?.toInt() ?: 0
                                 val outro = e.d.long("outro")?.takeIf { it in 0..MAX_SKIP_SECONDS }?.toInt() ?: 0
                                 if ((mine?.intro ?: 0) != intro || (mine?.outro ?: 0) != outro) podcasts.setSkip(id, intro, outro, sync = false)
+                                val hidden = e.d.bool("noShare") == true
+                                if ((mine?.contactsHidden ?: false) != hidden) podcasts.setContactsHidden(id, hidden, sync = false)
                                 key
                             }
                         }
