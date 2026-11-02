@@ -40,15 +40,14 @@ import space.sovereigncast.hopp.contacts.ContactsRepository
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.contacts_listen
 import space.sovereigncast.hopp.resources.contacts_acted
-import space.sovereigncast.hopp.resources.contacts_no_recommendation
 import space.sovereigncast.hopp.resources.contacts_title
 import space.sovereigncast.hopp.resources.contacts_did_share
 import space.sovereigncast.hopp.resources.contacts_did_boost
 import space.sovereigncast.hopp.resources.contacts_did_comment
 
 /**
- * Which of the listener's Nostr contacts listen to a show (ADR 0024, 7): their avatars, a count,
- * and that a subscription is no recommendation. Nothing unless the listener looks at it — and so
+ * Which of the listener's Nostr contacts listen to a show (ADR 0024, 7): their avatars and a count.
+ * Nothing unless the listener looks at it — and so
  * nothing without a Nostr identity.
  */
 @Composable
@@ -75,7 +74,6 @@ fun ContactListeners(guid: String?, feedUrl: String, modifier: Modifier = Modifi
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
             )
         }
-        Text(stringResource(Res.string.contacts_no_recommendation), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
     if (open) WhoSheet(who, guid, feedUrl) { open = false }
 }
@@ -106,7 +104,6 @@ private fun WhoSheet(who: List<Contact>, guid: String?, feedUrl: String, onDismi
                     Text("›", color = colors.onSurfaceVariant, style = MaterialTheme.typography.titleLarge)
                 }
             }
-            Text(stringResource(Res.string.contacts_no_recommendation), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

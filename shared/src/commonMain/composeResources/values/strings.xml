@@ -1164,13 +1164,12 @@
     <string name="contacts_public_confirm">Turn on</string>
     <string name="show_share_contacts">Share with Nostr contacts</string>
     <string name="discover_contacts">With your Nostr contacts</string>
-    <string name="discover_contacts_note">what they share, boost and comment on · a subscription is no recommendation</string>
+    <string name="discover_contacts_note">what they share, boost and comment on</string>
     <string name="contacts_names_two">%1$s and %2$s</string>
     <plurals name="contacts_names_more">
         <item quantity="one">%1$s, %2$s and %3$d more</item>
         <item quantity="other">%1$s, %2$s and %3$d more</item>
     </plurals>
-    <string name="contacts_no_recommendation">A subscription is no recommendation.</string>
     <plurals name="contacts_listen">
         <item quantity="one">%1$d of your Nostr contacts listens to this</item>
         <item quantity="other">%1$d of your Nostr contacts listen to this</item>

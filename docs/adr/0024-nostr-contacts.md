@@ -2,7 +2,7 @@
 
 - **Status:** accepted by the maintainer 2026-11-01 (sealed sharing, the
   public contacts note, two switches); revised 2026-11-02 (maintainer): the
-  wording, public signals, "a subscription is no recommendation" — built
+  wording, public signals — built
   on branch `0.3.3` the same day (`docs/tasks/nostr-contacts.md`); zaps and
   follows of a show's npub not yet
 - **Date:** 2026-11-01, revised 2026-11-02
@@ -157,9 +157,9 @@ What comes back is kept on the device and shown:
   Nostr contacts listen to this").
 - **A contact's page**, opened from those: the shows they share and what
   they boosted or commented on.
-- Wherever shared subscriptions show, one line says what they are: **"A
-  subscription is no recommendation."** — as Zapstore says of follows, so
-  nobody feels judged for what they listen to.
+- ~~Wherever shared subscriptions show, one line says what they are: "A
+  subscription is no recommendation."~~ Dropped 2026-11-02 (maintainer):
+  repeated on every show it said nothing and got in the way.
 
 A show is matched by its `podcast:guid`, else by its feed URL. Nothing of
 this leaves the device: who is a contact and what they share or did is
