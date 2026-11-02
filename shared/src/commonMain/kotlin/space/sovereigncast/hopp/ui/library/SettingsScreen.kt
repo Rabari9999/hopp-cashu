@@ -297,7 +297,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 val bytes by vm.downloadBytes.collectAsState()
                 val count by vm.downloadCount.collectAsState()
                 var confirmDelete by remember { mutableStateOf(false) }
-                Label(stringResource(Res.string.settings_downloads_used, formatBytes(bytes), count.toInt()))
+                Label(pluralStringResource(Res.plurals.settings_downloads_used, count.toInt(), formatBytes(bytes), count.toInt()))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (actions.canBrowseDownloads) OutlinedButton(onClick = { actions.browseDownloads() }) { Text(stringResource(Res.string.settings_downloads_browse)) }
                     OutlinedButton(onClick = { confirmDelete = true }, enabled = count > 0) { Text(stringResource(Res.string.settings_downloads_delete)) }
@@ -383,7 +383,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         Text(when {
                             file.shows == 0 -> stringResource(Res.string.opml_incoming_none)
                             file.already > 0 -> stringResource(Res.string.opml_incoming_some_here, file.shows, file.already)
-                            else -> stringResource(Res.string.opml_incoming_count, file.shows)
+                            else -> pluralStringResource(Res.plurals.opml_incoming_count, file.shows, file.shows)
                         })
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (file.shows > file.already) Button(onClick = { vm.importOpml(file.text); incoming = null }) { Text(stringResource(Res.string.opml_incoming_import)) }

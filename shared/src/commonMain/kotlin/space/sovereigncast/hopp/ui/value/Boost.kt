@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.resources.np_not_possible
 import space.sovereigncast.hopp.resources.np_wallet_silent
@@ -573,7 +574,7 @@ private fun SplitView(shares: List<PlannedShare>) {
     var all by remember { mutableStateOf(false) }
     val greys = listOf(colors.onSurface, colors.onSurface.copy(alpha = 0.7f), colors.onSurface.copy(alpha = 0.5f), colors.onSurface.copy(alpha = 0.35f))
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(stringResource(Res.string.boost_split, shares.size), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text(pluralStringResource(Res.plurals.boost_split, shares.size, shares.size), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         val sorted = shares.sortedByDescending { it.amountMsat }
         Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))) {
             sorted.forEachIndexed { i, s ->

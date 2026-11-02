@@ -46,7 +46,10 @@
     <string name="show_pick_episode">Pick an episode to see it here.</string>
     <string name="show_unsubscribe">Unsubscribe</string>
     <string name="show_unsubscribe_confirm">Unsubscribe from %1$s? Positions of this show are removed.</string>
-    <string name="show_episodes">%1$d episodes</string>
+    <plurals name="show_episodes">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
     <string name="show_feed_error">Last update failed: %1$s</string>
     <string name="show_boostable_alternative">A boostable feed of this show was found</string>
     <string name="show_find_boostable">Look for a boostable feed</string>
@@ -123,7 +126,10 @@
     <string name="settings_downloads_text">Played episodes are deleted after 24 hours. When the space is full, the oldest unplayed go first.</string>
     <string name="settings_auto_downloads">Download new episodes</string>
     <string name="settings_auto_downloads_note">On Wi-Fi only. Off: only what you download yourself.</string>
-    <string name="settings_downloads_used">Downloaded: %1$s in %2$d episodes</string>
+    <plurals name="settings_downloads_used">
+        <item quantity="one">Downloaded: %1$s in %2$d episode</item>
+        <item quantity="other">Downloaded: %1$s in %2$d episodes</item>
+    </plurals>
     <string name="settings_downloads_browse">Show in Files</string>
     <string name="settings_downloads_delete">Delete all downloads</string>
     <string name="settings_downloads_delete_confirm">Delete all %1$d downloaded episodes (%2$s)? Running downloads stop; the episodes stay in your library and can be streamed.</string>
@@ -188,7 +194,10 @@
     <string name="boost_custom">Amount in sats</string>
     <string name="boost_message">Message (optional)</string>
     <string name="boost_name">Your name (optional)</string>
-    <string name="boost_split">Split per feed · %1$d recipients</string>
+    <plurals name="boost_split">
+        <item quantity="one">Split per feed · %1$d recipient</item>
+        <item quantity="other">Split per feed · %1$d recipients</item>
+    </plurals>
     <string name="boost_more">+%1$d more</string>
     <string name="boost_less">less</string>
     <string name="boost_unreachable">%1$d recipient(s) cannot be reached — their share is skipped</string>
@@ -372,7 +381,10 @@
     <string name="privacy_name_set">Your name “%1$s” is sent along</string>
     <string name="privacy_refresh_off">Refresh by hand only</string>
     <string name="privacy_refresh_hourly">Background refresh every hour</string>
-    <string name="privacy_refresh_hours">Background refresh every %1$d hours</string>
+    <plurals name="privacy_refresh_hours">
+        <item quantity="one">Background refresh every hour</item>
+        <item quantity="other">Background refresh every %1$d hours</item>
+    </plurals>
     <string name="privacy_relay">Your relay: %1$s</string>
     <string name="privacy_ua_ok">Already minimal</string>
     <string name="pv_hosts_tip">Refreshing less often in the background tells less about when you are online.</string>
@@ -508,7 +520,10 @@
     <string name="nwc_explainer_url">https://nwc.ereignishorizont.xyz/en/</string>
     <string name="onboarding_nwc_more">What NWC is and how to set it up:</string>
     <string name="episode_search">Search episodes</string>
-    <string name="episode_search_found">%1$d episodes found</string>
+    <plurals name="episode_search_found">
+        <item quantity="one">%1$d episode found</item>
+        <item quantity="other">%1$d episodes found</item>
+    </plurals>
     <string name="episode_search_none">No episode found</string>
     <string name="favorite_add">Add to favourites</string>
     <string name="favorite_remove">Remove from favourites</string>
@@ -695,7 +710,10 @@
     <string name="comments_none">No comments on this episode yet.</string>
     <string name="comments_failed">The comments could not be loaded.</string>
     <string name="comments_reload">Reload</string>
-    <string name="comments_from_relays">From %1$d Nostr relays</string>
+    <plurals name="comments_from_relays">
+        <item quantity="one">From %1$d Nostr relay</item>
+        <item quantity="other">From %1$d Nostr relays</item>
+    </plurals>
     <string name="comments_reply_to">replying to %1$s</string>
     <string name="comments_boost">⚡ %1$s sats</string>
     <string name="comments_vpn_on">VPN active — the relays do not see your IP address</string>
@@ -943,7 +961,10 @@
     <string name="move_export_title">Take your subscriptions along</string>
     <string name="move_export_text">As an OPML file, for a backup or another app.</string>
     <string name="opml_incoming_title">Subscriptions from another app</string>
-    <string name="opml_incoming_count">The file names %1$d shows. Subscribe to them in Hopp?</string>
+    <plurals name="opml_incoming_count">
+        <item quantity="one">The file names %1$d show. Subscribe to it in Hopp?</item>
+        <item quantity="other">The file names %1$d shows. Subscribe to them in Hopp?</item>
+    </plurals>
     <string name="opml_incoming_some_here">The file names %1$d shows, %2$d of them you have already. Subscribe to the others?</string>
     <string name="opml_incoming_none">There are no shows in this file — is it an OPML export?</string>
     <string name="opml_incoming_import">Subscribe</string>
@@ -1204,4 +1225,5 @@
     <string name="home_edit_done">Done</string>
     <string name="home_edit_note">Drag to arrange, switch off to hide. A long press on a section title gets you here too.</string>
     <string name="queue_more">+ %1$d more</string>
+    <string name="month_year">%1$s %2$s</string>
 </resources>

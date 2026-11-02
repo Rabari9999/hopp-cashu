@@ -44,7 +44,7 @@ private fun overrideLanguage(code: String): Unit = js("""{
 /** The language the listener chose in Hopp, in place of the browser's — before the app starts. */
 internal fun applyChosenLanguage() { storedLanguage()?.takeIf { it in LANGUAGES }?.let(::overrideLanguage) }
 
-private val LANGUAGES = mapOf("en" to "English", "de" to "Deutsch")
+private val LANGUAGES = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
 
 /** What the browser can do for the shared UI (ADR 0022): files by picker and download, the
  *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */

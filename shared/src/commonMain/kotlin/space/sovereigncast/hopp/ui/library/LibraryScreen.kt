@@ -324,7 +324,7 @@ private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () 
             val line = listOfNotNull(
                 counts?.latestAt?.let { latestLabel(it) },
                 Category.of(show.categories).firstOrNull()?.let { categoryLabel(it) },
-            ).joinToString(" · ").ifEmpty { counts?.let { stringResource(Res.string.show_episodes, it.episodes) }.orEmpty() }
+            ).joinToString(" · ").ifEmpty { counts?.let { pluralStringResource(Res.plurals.show_episodes, it.episodes, it.episodes) }.orEmpty() }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (line.isNotEmpty()) Text(line, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (isSc) ScBadge()

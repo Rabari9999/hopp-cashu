@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.platform.AppInfo
 import space.sovereigncast.hopp.resources.Res
@@ -248,7 +249,7 @@ private fun PartyCheck(p: Party, s: PrivacyState, onPage: (SettingsPage) -> Unit
         Res.string.pv_hosts_who -> CheckLine(Check.Info, when (val h = s.settings.refreshHours) {
             0 -> stringResource(Res.string.privacy_refresh_off)
             1 -> stringResource(Res.string.privacy_refresh_hourly)
-            else -> stringResource(Res.string.privacy_refresh_hours, h)
+            else -> pluralStringResource(Res.plurals.privacy_refresh_hours, h, h)
         }) { onPage(SettingsPage.Downloads) }
         Res.string.pv_directories_who -> DirectoriesCheck(s, onPage)
         Res.string.pv_sc_who, Res.string.pv_recipients_who -> NameCheck(s, onWallet)

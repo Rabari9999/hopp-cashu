@@ -289,6 +289,6 @@ private fun duration(ms: Long): String {
 /** One decimal, in the language's way: "8,8" or "8.8". */
 private fun decimal(x: Double): String {
     val tenths = kotlin.math.round(x * 10).toLong()
-    val sep = if (androidx.compose.ui.text.intl.Locale.current.language == "de") "," else "."
+    val sep = space.sovereigncast.hopp.ui.components.Languages.of(space.sovereigncast.hopp.ui.components.Languages.current()).decimal
     return "${tenths / 10}$sep${tenths % 10}"
 }

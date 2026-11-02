@@ -136,6 +136,21 @@ class NostrContactsLayoutTest {
         shoot("library")
     }
 
+    /** The Spanish draft on a phone (maintainer 2026-11-02): the settings and Home, to look at. */
+    @Test @Config(qualifiers = "es-w360dp-h800dp")
+    fun theSpanishDraftFitsAPhone() {
+        rule.setContent { App() }
+        rule.waitForIdle()
+        rule.onNode(hasContentDescription("Ajustes")).performClick()
+        waitFor("Apoyar a Hopp")
+        rule.waitForIdle()
+        shoot("es-settings")
+        rule.onNode(hasText("Apoyar a Hopp") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Hopp es libre")
+        rule.waitForIdle()
+        shoot("es-support")
+    }
+
     /** Each window as it is drawn — a sheet is one of its own. */
     private fun shoot(what: String) {
         java.io.File("build/contacts-layout").mkdirs()

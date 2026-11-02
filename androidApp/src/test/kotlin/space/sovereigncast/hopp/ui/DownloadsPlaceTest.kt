@@ -76,7 +76,7 @@ class DownloadsPlaceTest {
         val file = downloaded()
         rule.onNode(hasContentDescription("Settings")).performClick()
         rule.onNode(hasText("Downloads", substring = true) and hasClickAction()).performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("in 1 episodes", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("in 1 episode", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onNode(hasText("Delete all downloads") and hasClickAction()).performClick()
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Delete all 1 downloaded episodes", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onAllNodes(hasText("Delete all downloads") and hasClickAction()).onLast().performClick()

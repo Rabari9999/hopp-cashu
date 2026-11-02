@@ -22,11 +22,21 @@ private fun holdTabLock(): Promise<JsBoolean> = js("""navigator.locks
   ? new Promise(ok => navigator.locks.request('hopp-database', { ifAvailable: true }, lock => { ok(!!lock); return lock ? new Promise(() => {}) : null; }))
   : Promise.resolve(true)""")
 
-private fun showOtherTab(): Unit = js("""{
-  const de = (navigator.language || '').toLowerCase().startsWith('de');
-  document.body.innerHTML = '<div style="font: 16px/1.5 system-ui, sans-serif; max-width: 28em; margin: 20vh auto; padding: 0 24px; text-align: center; color: #1a1a1a">' +
-    (de ? '<p><b>Hopp ist schon in einem anderen Tab offen.</b></p><p>Schließ ihn oder wechsle dorthin.</p>'
-        : '<p><b>Hopp is open in another tab.</b></p><p>Close it, or switch to it.</p>') + '</div>';
+private fun browserLanguage(): String = js("navigator.language || ''")
+
+// In the browser's language, from Hopp's list of them (Languages) — the app's strings are not loaded yet.
+private fun showOtherTab() {
+    val (title, line) = space.sovereigncast.hopp.ui.components.Languages.of(browserLanguage()).otherTab
+    showOtherTab(title, line)
+}
+
+private fun showOtherTab(title: String, line: String): Unit = js("""{
+  const box = document.createElement('div');
+  box.style.cssText = 'font: 16px/1.5 system-ui, sans-serif; max-width: 28em; margin: 20vh auto; padding: 0 24px; text-align: center; color: #1a1a1a';
+  const p1 = document.createElement('p'); const b = document.createElement('b'); b.textContent = title; p1.appendChild(b);
+  const p2 = document.createElement('p'); p2.textContent = line;
+  box.appendChild(p1); box.appendChild(p2);
+  document.body.replaceChildren(box);
 }""")
 
 // Signing out in the browser takes everything Hopp kept there (ADR 0022, 2). The database's file

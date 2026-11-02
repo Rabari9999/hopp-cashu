@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.directory.DirectoryShow
@@ -102,7 +103,7 @@ fun ShowPreviewScreen(
                     if (loaded != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (layer != null) space.sovereigncast.hopp.ui.sovereigncast.ScBadge()
                         Text(
-                            listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
+                            listOfNotNull(pluralStringResource(Res.plurals.show_episodes, count, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                         )
                     }

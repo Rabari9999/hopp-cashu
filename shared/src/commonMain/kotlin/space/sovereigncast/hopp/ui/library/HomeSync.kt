@@ -361,7 +361,7 @@ private fun areaName(area: String): String = when (area) {
 
 private fun host(url: String) = url.removePrefix("wss://").removePrefix("ws://").trimEnd('/')
 
-private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${ms / 1000},${(ms % 1000) / 100} s"
+private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${space.sovereigncast.hopp.ui.components.formatTenths(ms / 100)} s"
 
 /** The round in plain text, to pass on when asking for help: technical, not translated. */
 private fun report(status: SyncStatus, nowMs: Long): String = buildString {

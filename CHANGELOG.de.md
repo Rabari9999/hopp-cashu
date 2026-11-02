@@ -18,6 +18,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
 - **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
 - **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.
+- **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
 
 ## [0.3.2] - 2026-11-01
 

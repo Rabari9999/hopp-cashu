@@ -65,9 +65,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.month_year
 import space.sovereigncast.hopp.resources.show_copy_feed
 import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.cancel
@@ -217,7 +219,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             CategoryTags(show?.categories.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (layer != null) ScBadge()
-                                episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                                episodes?.let { Text(pluralStringResource(Res.plurals.show_episodes, count.toInt(), count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
                             }
                         }
                     }
@@ -472,8 +474,10 @@ private fun LazyListScope.leaderboard(b: Leaderboard) {
     }
     item(key = "top-h") {
         val months = stringArrayResource(Res.array.months)
+        // "October 2026", "octubre de 2026": the language's own way (preparing Spanish, maintainer 2026-11-02).
+        val monthYear = stringResource(Res.string.month_year)
         // The instance's word for it: a month that is not "yyyy-mm" shows as sent (code review 2026-10-17, M25).
-        val name = b.month.split("-").let { p -> p.getOrNull(1)?.toIntOrNull()?.let { m -> months.getOrNull(m - 1)?.let { "$it ${p[0]}" } } }
+        val name = b.month.split("-").let { p -> p.getOrNull(1)?.toIntOrNull()?.let { m -> months.getOrNull(m - 1)?.let { monthYear.replace("%1\$s", it).replace("%2\$s", p[0]) } } }
         BoardTitle(stringResource(Res.string.sc_top_month, name ?: b.month), first = b.recentBoosts.isEmpty())
     }
     if (b.topBoosts.isEmpty()) item(key = "top-none") {

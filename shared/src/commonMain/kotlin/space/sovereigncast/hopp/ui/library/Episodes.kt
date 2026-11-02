@@ -102,7 +102,7 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
  * downloading it now, streaming it, or waiting for Wi-Fi. Feeds that state a
  * few bytes — placeholders — show nothing.
  */
-fun episodeSize(item: EpisodeItem, language: String = androidx.compose.ui.text.intl.Locale.current.language): String? {
+fun episodeSize(item: EpisodeItem, language: String = space.sovereigncast.hopp.ui.components.Languages.current()): String? {
     val bytes = item.enclosureLength?.takeIf { item.downloadState == DownloadState.NONE && it in PLAUSIBLE_SIZE } ?: return null
     return if (bytes < 1024L * 1024) "< 1 MB" else formatBytes(bytes, language)
 }

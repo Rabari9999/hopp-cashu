@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.played
@@ -209,7 +210,7 @@ fun EpisodeSearchField(query: String, onChange: (String) -> Unit, found: Int?) {
         )
         if (found != null) Text(
             if (found == 0) stringResource(Res.string.episode_search_none)
-            else stringResource(Res.string.episode_search_found, found),
+            else pluralStringResource(Res.plurals.episode_search_found, found, found),
             Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
         )
     }
