@@ -171,7 +171,8 @@ class NostrIdentityViewModel(
     /** What the listener's Nostr contacts listen to (ADR 0024): the switches and the contacts read. */
     val contactsState: StateFlow<space.sovereigncast.hopp.contacts.ContactsState> =
         contacts?.state ?: MutableStateFlow(space.sovereigncast.hopp.contacts.ContactsState())
-    fun refreshContacts(force: Boolean = false) { val c = contacts ?: return; viewModelScope.launch { c.refresh(force, interactive = force) } }
+    /** On opening the page: what is older than five minutes is read again. [force]: now, the signer asked if needed. */
+    fun refreshContacts(force: Boolean = false) { val c = contacts ?: return; viewModelScope.launch { c.refresh(force, interactive = force, maxAge = 300) } }
     fun setContactsSharing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSharing(on) } }
     fun setContactsSeeing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSeeing(on) } }
     val identity: StateFlow<NostrIdentity?> = identities.identity

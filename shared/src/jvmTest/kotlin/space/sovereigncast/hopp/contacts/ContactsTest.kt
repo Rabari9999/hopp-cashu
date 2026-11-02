@@ -295,4 +295,30 @@ class ContactsTest {
         assertTrue(byShareKey(old).groupBy { it.tag("d") }.values.all { e -> e.maxBy { it.created_at }.content.isEmpty() })
         assertTrue(byShareKey(me.keys.shareKey()!!).any { it.tag("d") == ContactShare.SHELF })
     }
+
+    /** Device feedback 2026-11-02: the listener turned looking on and saw nothing, as the contacts were read
+     *  again only on the hour. Now: read at once on turning on; the sharer's device seals a key for the new
+     *  inbox when its Nostr page opens; the listener's page or Discover then opens the list. */
+    @Test
+    fun turnedOnWhatIsSharedShowsWithoutWaitingForTheHour(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val testers = Device(tester)
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now },
+            ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now })
+        testerContacts.setSharing(true)
+        val me = Device()
+        me.contacts.refresh()
+        assertTrue(me.contacts.state.value.read!!.listening().isEmpty(), "not looking yet")
+        now += 30
+        me.contacts.setSeeing(true)
+        assertEquals(1, me.contacts.state.value.read!!.withHopp.size, "read again at once: the tester uses Hopp")
+        // The tester's page opens five minutes later: a key for the new inbox.
+        now += 301
+        testerContacts.refresh(maxAge = 300)
+        now += 301
+        me.contacts.refresh(maxAge = 300)
+        assertEquals(shows.toSet(), me.contacts.state.value.read!!.listening().map { it.show }.toSet())
+    }
 }

@@ -63,21 +63,30 @@ class ContactsRepository(
         runCatching { cache?.load() }.getOrNull()?.let { kept -> _state.update { if (it.read == null) it.copy(read = kept) else it } }
     }
 
-    /** The note and, when due or [force]d, the contacts. [interactive]: a note made on another device is taken over. */
-    suspend fun refresh(force: Boolean = false, interactive: Boolean = false) = lock.withLock {
+    /**
+     * The note and, when due or [force]d, the contacts. Due after [readEvery] seconds — or after [maxAge],
+     * when given: the Nostr page reads again what is older than a few minutes, so a contact's new inbox
+     * gets its key and what they share shows without waiting for the hour (device feedback 2026-11-02).
+     * [interactive]: a note made on another device is taken over.
+     */
+    suspend fun refresh(force: Boolean = false, interactive: Boolean = false, maxAge: Long = readEvery) = lock.withLock {
         if (identity.identity.value == null) { _state.value = ContactsState(); return@withLock }
         work {
             val note = keys.note(interactive)
             _state.update { it.copy(note = note) }
             val last = _state.value.read?.at
-            if (force || last == null || nowSeconds() - last >= readEvery) {
-                val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, _state.value.read) }
-                _state.update { it.copy(read = read) }
-                runCatching { cache?.save(read) }
-            }
+            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow()
             renewIfLost(interactive)
             shareNow()
         }
+    }
+
+    /** The contacts read now — with the inbox key while the listener looks — and kept. */
+    private suspend fun readNow() {
+        val note = _state.value.note
+        val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, _state.value.read) }
+        _state.update { it.copy(read = read) }
+        runCatching { cache?.save(read) }
     }
 
     /** Inboxes found lost in the read before: one lost twice in a row makes a new share key (one relay
@@ -151,6 +160,9 @@ class ContactsRepository(
             _state.update { it.copy(note = keys.set(share, see)) }
             // Sharing off, or a new share key: what the old one signed goes from the relays.
             if (before != null && keys.shareKey()?.publicKeyHex != before.publicKeyHex) this.share?.retire(before)
+            // Read again at once: looking now opens what contacts share; sharing now needs their inboxes
+            // (device feedback 2026-11-02: turned on, nothing showed until the hour was up).
+            readNow()
             shareNow()
         }
     }
