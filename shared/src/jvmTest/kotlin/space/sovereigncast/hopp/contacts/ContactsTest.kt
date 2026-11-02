@@ -227,4 +227,72 @@ class ContactsTest {
         me.contacts.refresh(force = true)
         assertTrue(me.contacts.state.value.read!!.listening().isEmpty())
     }
+
+    // Stage 4: public signals (ADR 0024, 6).
+
+    /** The people the listener follows — one way — count with what they did in public: a boost (a note
+     *  ending "⚡ N sats") weighs more than a comment, and both more than a shared subscription. */
+    @Test
+    fun publicBoostsAndCommentsOfThePeopleFollowedCount(): Unit = runBlocking {
+        val anna = KeyPair.generate(); val ben = KeyPair.generate()
+        follows(listener, anna.publicKeyHex, ben.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        // Ben does not follow back: his public acts count all the same.
+        val tags = { guid: String -> listOf(listOf("i", "podcast:item:guid:ep-1"), listOf("k", "podcast:item:guid"), listOf("i", "podcast:guid:$guid"), listOf("k", "podcast:guid")) }
+        relay.publish(Event.sign(ben, 1, "Great episode!\n\n⚡ 2100 sats", tags("Boosted-Show"), now - 1000))
+        relay.publish(Event.sign(ben, 1, "Not about podcasts", emptyList(), now - 900))
+        relay.publish(Event.sign(anna, 1111, "Nice", listOf(listOf("I", "podcast:guid:commented-show"), listOf("K", "podcast:guid")), now - 800))
+        // Older than ninety days: no longer counted.
+        relay.publish(Event.sign(anna, 1, "Old\n\n⚡ 10 sats", tags("old-show"), now - 100 * 86_400))
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val annas = Device(anna)
+        annas.keys.set(share = true, see = false)
+        ContactShare(annas.identity, RelayPublisher(relay), annas.keys, annas.secrets, { shows }) { now }.publish(setOf(me.keys.inboxKey()!!.publicKeyHex))
+        val looked = mapOf(
+            "boosted-show" to SharedShow("boosted-show", "https://boosted.test/feed", "Boosted", 0),
+            "commented-show" to SharedShow("commented-show", "https://commented.test/feed", "Commented", 0),
+        )
+        val contacts = ContactsRepository(me.identity, me.keys, me.graph, { now }, lookup = { looked[it] })
+        contacts.refresh(force = true)
+        val read = contacts.state.value.read!!
+        assertEquals(listOf(PublicSignal("boosted-show", boost = true, at = now - 1000)), read.contacts.getValue(ben.publicKeyHex).signals)
+        val picks = read.listening()
+        assertEquals("https://boosted.test/feed", picks.first().show.url)
+        assertEquals(listOf("https://boosted.test/feed", "https://commented.test/feed"), picks.take(2).map { it.show.url })
+        assertTrue(picks.none { it.show.guid == "old-show" })
+        assertEquals(listOf(ben.publicKeyHex), read.listeners("Boosted-Show", "https://boosted.test/feed").map { it.pubkey })
+    }
+
+    // Stage 5: a mutual contact lost (ADR 0024, 4).
+
+    /** Anna had the key; she unfollows. Lost in two reads in a row, the share key is renewed — her inbox
+     *  gets no key for the new one, and what the old one signed is emptied. */
+    @Test
+    fun aLostMutualContactGetsNothingThatComesAfter(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        val annas = Device(anna)
+        annas.keys.set(share = false, see = true)
+        val annaInbox = annas.keys.inboxKey()!!.publicKeyHex
+        val me = Device()
+        val sharing = ContactShare(me.identity, RelayPublisher(relay), me.keys, me.secrets, { shows }) { now }
+        val contacts = ContactsRepository(me.identity, me.keys, me.graph, { now }, sharing, readEvery = 0)
+        contacts.setSharing(true)
+        contacts.refresh(force = true)
+        val old = me.keys.shareKey()!!
+        assertEquals(setOf(annaInbox), sharing.sentTo())
+        // Anna unfollows.
+        now += 60
+        relay.publish(Event.sign(anna, 3, "", emptyList(), now))
+        contacts.refresh(force = true)
+        assertEquals(old.publicKeyHex, me.keys.shareKey()!!.publicKeyHex, "once is not enough: a relay may have been down")
+        now += 60
+        contacts.refresh(force = true)
+        assertNotEquals(old.publicKeyHex, me.keys.shareKey()!!.publicKeyHex)
+        assertTrue(sharing.sentTo().isEmpty())
+        assertTrue(byShareKey(old).groupBy { it.tag("d") }.values.all { e -> e.maxBy { it.created_at }.content.isEmpty() })
+        assertTrue(byShareKey(me.keys.shareKey()!!).any { it.tag("d") == ContactShare.SHELF })
+    }
 }

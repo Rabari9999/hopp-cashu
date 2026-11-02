@@ -766,6 +766,11 @@ private fun ContactsSection(vm: NostrIdentityViewModel) {
         Text(stringResource(Res.string.contacts_elsewhere), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_take_over)) }
     }
+    // A mutual contact lost, and the signer has to be asked for the new share key (ADR 0024, 4).
+    if (state.renewPending && !state.working) Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(Res.string.contacts_renew_text), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_renew)) }
+    }
     state.read?.let { read ->
         Text(
             if (read.following.isEmpty()) stringResource(Res.string.contacts_none)

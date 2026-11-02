@@ -1164,7 +1164,7 @@
     <string name="contacts_public_confirm">Einschalten</string>
     <string name="show_share_contacts">Mit Nostr-Kontakten teilen</string>
     <string name="discover_contacts">Bei deinen Nostr-Kontakten</string>
-    <string name="discover_contacts_note">was sie teilen · ein Abo ist keine Empfehlung</string>
+    <string name="discover_contacts_note">was sie teilen, boosten und kommentieren · ein Abo ist keine Empfehlung</string>
     <string name="contacts_names_two">%1$s und %2$s</string>
     <plurals name="contacts_names_more">
         <item quantity="one">%1$s, %2$s und %3$d weitere</item>
@@ -1175,4 +1175,13 @@
         <item quantity="one">%1$d deiner Nostr-Kontakte hört das</item>
         <item quantity="other">%1$d deiner Nostr-Kontakte hören das</item>
     </plurals>
+    <plurals name="contacts_acted">
+        <item quantity="one">%1$d deiner Nostr-Kontakte hört das, hat es geboostet oder kommentiert</item>
+        <item quantity="other">%1$d deiner Nostr-Kontakte hören das, haben es geboostet oder kommentiert</item>
+    </plurals>
+    <string name="contacts_renew_text">Jemand folgt dir nicht mehr zurück, oder du ihm nicht mehr: Ein neuer Schlüssel hält ab jetzt fern, was du teilst.</string>
+    <string name="contacts_renew">Schlüssel erneuern</string>
+    <string name="contacts_did_share">teilt das Abo</string>
+    <string name="contacts_did_boost">hat geboostet</string>
+    <string name="contacts_did_comment">hat kommentiert</string>
 </resources>

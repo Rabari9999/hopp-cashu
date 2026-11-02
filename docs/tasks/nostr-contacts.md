@@ -1,7 +1,7 @@
 # What your Nostr contacts listen to
 
 - **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.3.3.
-- **Status:** stages 1–3 built (2026-11-02, branch `0.3.3`), a contact's page left.
+- **Status:** stages 1–5 built (2026-11-02, branch `0.3.3`); zaps and follows of a show's npub left.
 
 Only with a Nostr identity: without one, nothing of it is shown or done.
 
@@ -51,11 +51,28 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
       first, shows already subscribed left out; "a subscription is no
       recommendation"); on a show's page and its preview, the contacts'
       avatars and "4 of your Nostr contacts listen to this".
-- [ ] A contact's page: the shows they share.
+- [x] Tapping the row: who, and what each did (shares the subscription,
+      boosted, commented), each opening their Nostr profile. A page with all
+      of one contact's shows: later, if asked for.
 - [x] Tests: `ContactsTest` (11).
 
 ## Stage 4 — public signals
 
-- [ ] Public boosts and comments (NIP-73 guids), zaps, follows of a show's npub.
+- [x] Notes (kind 1, `k` podcast:guid / podcast:item:guid) and comments (kind
+      1111, `K`) of everyone the listener follows, the last 90 days, asked
+      with the same per-relay requests; counted per show by `podcast:guid`
+      — a boost when the note ends "⚡ N sats". Ranked: boost 3, comment 2,
+      shared subscription 1, per contact the most, summed; shows known only
+      from these looked up in the Podcast Index by guid (12 at most per read).
+- [ ] Zaps to a show's npub, follows of a show's npub; comments naming an
+      episode only (no `podcast:guid`): not yet — they need the show's npub or
+      the episode's show.
 
 ## Stage 5 — a new share key when a mutual contact is lost
+
+- [x] An inbox that had the key and is no longer a mutual contact's, in two
+      reads in a row: a new share key, the old one's events emptied and
+      deleted, the keys sent again to who is left. The signer is asked only
+      with the listener there or where Hopp holds the key; otherwise the
+      Nostr page offers "Renew key".
+- [x] Tests: `ContactsTest` (13).

@@ -90,14 +90,15 @@ class ContactKeys(
      * stays on, a new one for a part turned on, none for a part off — and the note published
      * again. Both off: the note emptied and deleted (NIP-09). The listener's signer is asked.
      */
-    suspend fun set(share: Boolean, see: Boolean): Note? = lock.withLock {
+    suspend fun set(share: Boolean, see: Boolean, newShare: Boolean = false, interactive: Boolean = true): Note? = lock.withLock {
         val me = identity.identity.value ?: throw SignerUnavailable("no identity")
-        val signer = identity.signer(interactive = true) ?: throw SignerUnavailable("no signer for the listener's key")
+        val signer = identity.signer(interactive) ?: throw SignerUnavailable("no signer for the listener's key")
         val newest = newestOnRelays(me.pubkey)
         val current = held()?.takeIf { it.owner == me.pubkey }
             ?: newest?.takeIf { it.content.isNotEmpty() }?.let { open(it) }?.let { Held(me.pubkey, it.share, it.inbox, newest.id, newest.created_at) }
         val next = Sealed(
-            share = if (share) current?.share ?: newKey() else null,
+            // [newShare]: a mutual contact lost — what is shared from now on, under a key they do not have (ADR 0024, 4).
+            share = if (share) current?.share?.takeUnless { newShare } ?: newKey() else null,
             inbox = if (see) current?.inbox ?: newKey() else null,
         )
         // Later than any note before, or relays could keep the old one (NIP-01: same second, lower id).

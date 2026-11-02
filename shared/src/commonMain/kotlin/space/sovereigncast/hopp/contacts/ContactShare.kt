@@ -44,6 +44,9 @@ class ContactShare(
     @Serializable
     private data class Sent(val share: String, val shelf: String? = null, val inboxes: Set<String> = emptySet())
 
+    /** The inboxes the current share key was sealed to. */
+    fun sentTo(): Set<String> = keys.shareKey()?.let { k -> sent()?.takeIf { it.share == k.publicKeyHex }?.inboxes }.orEmpty()
+
     /** Sends what changed; [inboxes]: the inbox keys of mutual contacts who look. Nothing while not sharing. */
     suspend fun publish(inboxes: Set<String>) {
         val share = keys.shareKey() ?: return

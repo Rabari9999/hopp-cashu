@@ -1164,7 +1164,7 @@
     <string name="contacts_public_confirm">Turn on</string>
     <string name="show_share_contacts">Share with Nostr contacts</string>
     <string name="discover_contacts">With your Nostr contacts</string>
-    <string name="discover_contacts_note">what they share · a subscription is no recommendation</string>
+    <string name="discover_contacts_note">what they share, boost and comment on · a subscription is no recommendation</string>
     <string name="contacts_names_two">%1$s and %2$s</string>
     <plurals name="contacts_names_more">
         <item quantity="one">%1$s, %2$s and %3$d more</item>
@@ -1175,4 +1175,13 @@
         <item quantity="one">%1$d of your Nostr contacts listens to this</item>
         <item quantity="other">%1$d of your Nostr contacts listen to this</item>
     </plurals>
+    <plurals name="contacts_acted">
+        <item quantity="one">%1$d of your Nostr contacts listens to this, boosted or commented on it</item>
+        <item quantity="other">%1$d of your Nostr contacts listen to this, boosted or commented on it</item>
+    </plurals>
+    <string name="contacts_renew_text">Someone no longer follows you back, or you no longer follow them: a new key keeps what you share from now on from them.</string>
+    <string name="contacts_renew">Renew key</string>
+    <string name="contacts_did_share">shares the subscription</string>
+    <string name="contacts_did_boost">boosted</string>
+    <string name="contacts_did_comment">commented</string>
 </resources>

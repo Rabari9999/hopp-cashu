@@ -127,7 +127,11 @@ fun sharedModule(platform: Platform) = module {
             }
         }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache)
+        val directory = get<space.sovereigncast.hopp.directory.DirectoryRepository>()
+        val lookup: suspend (String) -> space.sovereigncast.hopp.contacts.SharedShow? = { guid ->
+            directory.showForGuid(guid)?.let { space.sovereigncast.hopp.contacts.SharedShow(it.podcastGuid ?: guid, it.feedUrl, it.title, 0, it.imageUrl) }
+        }
+        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache, lookup)
             .also { it.start(scope, podcasts.shows); scope.launch { it.loadKept() } }
     }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }

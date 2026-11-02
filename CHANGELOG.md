@@ -6,6 +6,10 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Nostr:** See what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
+- **Nostr:** Share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
+
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
 - **Wallet:** The hint which wallets can send keysend names the right ones.

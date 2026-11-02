@@ -21,6 +21,8 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 data class ContactsState(
     /** The listener's contacts note; null: both switches off. */
     val note: ContactKeys.Note? = null,
+    /** A mutual contact was lost, and the signer has to be asked for a new share key: on the Nostr page. */
+    val renewPending: Boolean = false,
     /** The contacts, as last read; null until then. */
     val read: ContactsRead? = null,
     val working: Boolean = false,
@@ -41,6 +43,8 @@ class ContactsRepository(
     private val share: ContactShare? = null,
     /** What was read last, kept between starts — and keeping it; null: nothing kept. */
     private val cache: ContactsCache? = null,
+    /** A show by its `podcast:guid`, from the directory — for shows contacts only boosted or commented on. */
+    private val lookup: (suspend (String) -> SharedShow?)? = null,
     private val readEvery: Long = 3600,
 ) {
     private val _state = MutableStateFlow(ContactsState())
@@ -67,12 +71,55 @@ class ContactsRepository(
             _state.update { it.copy(note = note) }
             val last = _state.value.read?.at
             if (force || last == null || nowSeconds() - last >= readEvery) {
-                val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)
+                val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, _state.value.read) }
                 _state.update { it.copy(read = read) }
                 runCatching { cache?.save(read) }
             }
+            renewIfLost(interactive)
             shareNow()
         }
+    }
+
+    /** Inboxes found lost in the read before: one lost twice in a row makes a new share key (one relay
+     *  down for a read is no reason for it). */
+    private var lostBefore: Set<String> = emptySet()
+
+    /**
+     * A mutual contact lost — either side unfollowed, or their note no longer names that inbox (ADR 0024,
+     * 4): a new share key, so what changes from now on is sealed under a key they do not have; what the
+     * old one signed goes. The signer is asked only with the listener there ([interactive]) or where the
+     * key is Hopp's own; otherwise the Nostr page offers it ([ContactsState.renewPending]).
+     */
+    private suspend fun renewIfLost(interactive: Boolean) {
+        val note = _state.value.note ?: return
+        val read = _state.value.read ?: return
+        val sharer = share ?: return
+        if (!note.sharing || !note.opened) return
+        val current = read.withHopp.mapNotNull { it.inbox }.toSet()
+        val lost = sharer.sentTo() - current
+        val confirmed = lost intersect lostBefore
+        lostBefore = lost
+        if (confirmed.isEmpty() && !_state.value.renewPending) return
+        val old = keys.shareKey() ?: return
+        try {
+            _state.update { it.copy(note = keys.set(share = true, see = note.seeing, newShare = true, interactive = interactive), renewPending = false) }
+            lostBefore = emptySet()
+            sharer.retire(old)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _state.update { it.copy(renewPending = true) }
+        }
+    }
+
+    /** Shows known only from public signals, looked up — at most [LOOKUPS] of them, the ones looked up before kept. */
+    private suspend fun lookedUp(read: ContactsRead, before: ContactsRead?): ContactsRead {
+        val find = lookup ?: return read
+        val shared = read.contacts.values.flatMap { c -> c.shows.mapNotNull { it.guid?.lowercase() } }.toSet()
+        val wanted = read.signalShows().filter { it !in shared }.take(LOOKUPS)
+        val kept = before?.looked.orEmpty()
+        val looked = wanted.mapNotNull { guid -> (kept[guid] ?: runCatching { find(guid) }.getOrNull())?.let { guid to it } }.toMap()
+        return read.copy(looked = looked)
     }
 
     /** Sends the shared list again when [subscriptions] change — at most every [pause] (ADR 0024, 4). */
@@ -106,6 +153,11 @@ class ContactsRepository(
             if (before != null && keys.shareKey()?.publicKeyHex != before.publicKeyHex) this.share?.retire(before)
             shareNow()
         }
+    }
+
+    private companion object {
+        /** Shows looked up in the directory per read, at most. */
+        const val LOOKUPS = 12
     }
 
     private suspend fun work(block: suspend () -> Unit) {

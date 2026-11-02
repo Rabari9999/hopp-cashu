@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.identity.IdentityRepository
@@ -34,33 +35,76 @@ data class Contact(
     /** Their profile (kind 0), for the rows that name them. */
     val name: String? = null,
     val picture: String? = null,
+    /** What they did in public about shows (ADR 0024, 6): boosts made public and comments. */
+    val signals: List<PublicSignal> = emptyList(),
 )
+
+/** A contact's public act about a show: a boost made public or a comment, naming the show's `podcast:guid`. */
+@Serializable
+data class PublicSignal(val show: String, val boost: Boolean, val at: Long)
 
 /** The listener's contacts read: [following] from their own list, what each one's relays told. */
 @Serializable
-data class ContactsRead(val following: Set<String>, val contacts: Map<String, Contact>, val at: Long) {
+data class ContactsRead(
+    val following: Set<String>,
+    val contacts: Map<String, Contact>,
+    val at: Long,
+    /** Shows known only from public signals, looked up by their `podcast:guid`. */
+    val looked: Map<String, SharedShow> = emptyMap(),
+) {
     val mutual: List<Contact> get() = contacts.values.filter { it.mutual }
     /** Mutual contacts who use the feature: their contacts note names a key. */
     val withHopp: List<Contact> get() = mutual.filter { it.share != null || it.inbox != null }
 
-    /** Shows the contacts share, each with who — most contacts first, then the newest (ADR 0024, 7). */
-    fun listening(): List<ContactPick> = contacts.values.flatMap { c -> c.shows.map { showKey(it) to (it to c) } }
-        .groupBy({ it.first }, { it.second })
-        .map { (_, pairs) -> ContactPick(pairs.maxBy { it.first.since }.first, pairs.map { it.second }.distinctBy { it.pubkey }, pairs.maxOf { it.first.since }) }
-        .sortedWith(compareByDescending<ContactPick> { it.by.size }.thenByDescending { it.latest })
+    /**
+     * Shows the contacts share or did something about in public, each with who (ADR 0024, 7):
+     * a boost weighs [BOOST], a comment [COMMENT], a shared subscription [SHARED] — per contact
+     * the most of these — summed over the contacts; then the newest first.
+     */
+    fun listening(): List<ContactPick> {
+        val acts = mutableMapOf<String, MutableMap<String, Pair<Int, Long>>>()
+        val shows = mutableMapOf<String, SharedShow>()
+        fun count(key: String, who: String, weight: Int, at: Long) {
+            val byWho = acts.getOrPut(key) { mutableMapOf() }
+            val was = byWho[who]
+            byWho[who] = (maxOf(was?.first ?: 0, weight)) to maxOf(was?.second ?: 0, at)
+        }
+        for (c in contacts.values) {
+            c.shows.forEach { s -> showKey(s).let { k -> shows.getOrPut(k) { s }; count(k, c.pubkey, SHARED, s.since) } }
+            c.signals.forEach { sig -> count(showKey(sig.show, ""), c.pubkey, if (sig.boost) BOOST else COMMENT, sig.at) }
+        }
+        looked.forEach { (guid, s) -> shows.getOrPut(showKey(guid, s.url)) { s } }
+        return acts.mapNotNull { (key, byWho) ->
+            val show = shows[key] ?: return@mapNotNull null
+            val by = byWho.entries.sortedByDescending { it.value.first }.mapNotNull { contacts[it.key] }
+            ContactPick(show, by, byWho.values.maxOf { it.second }, byWho.values.sumOf { it.first })
+        }.sortedWith(compareByDescending<ContactPick> { it.score }.thenByDescending { it.latest })
+    }
 
-    /** Who of the contacts shares the show with [guid] or at [feedUrl]. */
+    /** Guids of shows contacts did something about in public, most first — to look up the ones not known. */
+    fun signalShows(): List<String> = contacts.values.flatMap { c -> c.signals.map { it.show }.distinct() }
+        .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+
+    /** Who of the contacts shares, boosted or commented on the show with [guid] or at [feedUrl]. */
     fun listeners(guid: String?, feedUrl: String): List<Contact> {
         val key = showKey(guid, feedUrl)
-        return contacts.values.filter { c -> c.shows.any { showKey(it) == key || it.url == feedUrl } }
+        return contacts.values.filter { c ->
+            c.shows.any { showKey(it) == key || it.url == feedUrl } || (guid != null && c.signals.any { it.show.equals(guid, ignoreCase = true) })
+        }
+    }
+
+    companion object {
+        const val BOOST = 3
+        const val COMMENT = 2
+        const val SHARED = 1
     }
 }
 
-/** A show the contacts share, and who: [latest], when one of them last subscribed to it. */
-data class ContactPick(val show: SharedShow, val by: List<Contact>, val latest: Long)
+/** A show the contacts share or did something about, and who: [latest], their newest act; [score], what it weighs. */
+data class ContactPick(val show: SharedShow, val by: List<Contact>, val latest: Long, val score: Int = by.size)
 
 private fun showKey(s: SharedShow) = showKey(s.guid, s.url)
-private fun showKey(guid: String?, url: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:" + url.trimEnd('/')
+private fun showKey(guid: String?, url: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:" + it.lowercase() } ?: "url:" + url.trimEnd('/')
 
 /**
  * The listener's Nostr contacts (ADR 0024, 2): their own contact list (NIP-02, kind 3), then
@@ -109,7 +153,7 @@ class ContactGraph(
                             publisher.query(listOf(
                                 filter(CONTACT_LIST, batch, "#p" to listOf(me)),
                                 filter(Nip78.KIND, batch, "#d" to listOf(ContactKeys.DTAG)),
-                            ), listOf(url), SETTLE)
+                            ) + (if (inbox != null) signalFilters(batch) else emptyList()), listOf(url), SETTLE)
                         }.getOrDefault(emptyList())
                     }
                 }
@@ -125,10 +169,12 @@ class ContactGraph(
         }
         // What mutual contacts share with this inbox: their key for it, and the list it opens.
         val shelves = if (inbox == null) emptyMap() else shelves(bare.values.filter { it.mutual && it.share != null }, outbox, inbox)
-        val named = profiles(shelves.filterValues { it.isNotEmpty() }.keys)
+        // What the people the listener follows did in public about shows (ADR 0024, 6) — one way, as public is public.
+        val signals = if (inbox == null) emptyMap() else signals(found.filter { it.pubkey in following })
+        val named = profiles(shelves.filterValues { it.isNotEmpty() }.keys + signals.filterValues { it.isNotEmpty() }.keys)
         val contacts = bare.mapValues { (who, c) ->
             val p = named[who]
-            c.copy(shows = shelves[who].orEmpty(), name = p?.first, picture = p?.second)
+            c.copy(shows = shelves[who].orEmpty(), name = p?.first, picture = p?.second, signals = signals[who].orEmpty())
         }
         return ContactsRead(following, contacts, nowSeconds())
     }
@@ -165,6 +211,28 @@ class ContactGraph(
         }.awaitAll().toMap()
     }
 
+    /** Notes and comments naming a show or episode (NIP-73), of the last [SIGNAL_DAYS] days. */
+    private fun signalFilters(authors: List<String>): List<JsonObject> {
+        val since = nowSeconds() - SIGNAL_DAYS * 86_400
+        return listOf(
+            filter(1, authors, "#k" to listOf("podcast:guid", "podcast:item:guid"), since),
+            filter(COMMENT, authors, "#K" to listOf("podcast:guid", "podcast:item:guid"), since),
+        )
+    }
+
+    /** Per author, the shows their notes and comments name by `podcast:guid` — a boost when the note ends
+     *  "⚡ N sats" as Hopp writes it, a comment otherwise; the newest [MAX_SIGNALS] each. */
+    private fun signals(events: List<Event>): Map<String, List<PublicSignal>> = events
+        .filter { it.kind == 1 || it.kind == COMMENT }.distinctBy { it.id }
+        .flatMap { e ->
+            val shows = e.tags.filter { it.size >= 2 && (it[0] == "i" || it[0] == "I") && it[1].startsWith(SHOW_PREFIX) }
+                .map { it[1].removePrefix(SHOW_PREFIX).trim().lowercase() }.filter { it.isNotEmpty() && it.length <= 64 }.distinct()
+            val boost = e.kind == 1 && space.sovereigncast.hopp.comments.boostSats(e.content) != null
+            shows.map { e.pubkey to PublicSignal(it, boost, e.created_at) }
+        }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, list) -> list.sortedByDescending { it.at }.take(MAX_SIGNALS) }
+
     /** Name and picture (kind 0) of [people], from the indexes and Hopp's relays. */
     private suspend fun profiles(people: Set<String>): Map<String, Pair<String?, String?>> {
         if (people.isEmpty()) return emptyMap()
@@ -185,10 +253,11 @@ class ContactGraph(
         .filter { it.size >= 2 && it[0] == "r" && it[1].startsWith("wss://") && (it.size < 3 || it[2] != "read") }
         .map { it[1].trimEnd('/') }.distinct().take(THEIR_RELAYS)
 
-    private fun filter(kind: Int, authors: List<String>, tag: Pair<String, List<String>>? = null): JsonObject = buildJsonObject {
+    private fun filter(kind: Int, authors: List<String>, tag: Pair<String, List<String>>? = null, since: Long? = null): JsonObject = buildJsonObject {
         putJsonArray("kinds") { add(JsonPrimitive(kind)) }
         putJsonArray("authors") { authors.forEach { add(JsonPrimitive(it)) } }
         tag?.let { (name, values) -> putJsonArray(name) { values.forEach { add(JsonPrimitive(it)) } } }
+        since?.let { put("since", it) }
     }
 
     private companion object {
@@ -202,6 +271,10 @@ class ContactGraph(
         const val PARALLEL = 8
         /** Shows taken from one contact's list at most. */
         const val MAX_SHOWS = 500
+        const val COMMENT = 1111
+        const val SIGNAL_DAYS = 90L
+        const val MAX_SIGNALS = 50
+        const val SHOW_PREFIX = "podcast:guid:"
         val SETTLE = 3.seconds
         val HEX64 = Regex("^[0-9a-f]{64}$")
     }

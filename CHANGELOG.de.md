@@ -6,6 +6,10 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Nostr:** Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren – in Entdecken und auf der Seite einer Show.
+- **Nostr:** Teile deine Abos mit gegenseitigen Nostr-Kontakten, versiegelt, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
+
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
 - **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
