@@ -155,5 +155,8 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
 - [x] The build's hash and its signature under Settings → About.
 - [x] Two clean builds of one tree: the same hash, all 39 files (2026-11-02,
       on the build Mac; another machine not yet compared).
-- [ ] First signed deploy (maintainer: Amber), then the pipeline schedule
-      for `web-verify` (HOPP_SCHEDULE=web-verify).
+- [x] First signed deploy (2026-11-02): v0.3.2-10-geccd525, build
+      96449f0f…, signature 5f20ba17… (Amber, through a bunker connection of
+      its own for sign.mjs); verify.mjs holds; run.mjs 37/37 live in
+      Chromium and WebKit; About says it matches.
+- [ ] The pipeline schedule for `web-verify` (HOPP_SCHEDULE=web-verify).
