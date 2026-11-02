@@ -83,3 +83,20 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
 throwaway keys follow each other on Hopp's relays; one shares, the other looks.
 2026-11-02: each found the other mutual (`#p` answered by damus, nos.lol,
 primal), the key reached the inbox, and the list opened.
+
+## When what goes out and comes in (2026-11-02)
+
+- **The sharer's device** sends its list when it changed: five minutes after
+  the subscriptions last changed, and with every refresh — opening Discover
+  or the Nostr page, the feed refresh. A key for a new inbox goes out after a
+  full read has shown that inbox.
+- **A full read** (contact lists, notes, lists, public acts): right after a
+  switch; on opening the Nostr page when older than five minutes; on Discover
+  coming to the screen when older than ten; else hourly with the feed refresh.
+  Nothing at all while both switches are off.
+- **Looking again** between full reads, each time Discover or the Nostr page
+  comes to the screen, at most every two minutes: the lists of mutual
+  contacts who share, one request each — a changed list, and one whose key
+  came after the read. A list that does not come keeps what was there.
+- So a show the sharer subscribes to reaches the listener about seven
+  minutes later at most, with Hopp open on both sides; else when both open it.

@@ -79,26 +79,29 @@ class ContactsRepository(
             // Both switches off: nobody's lists are asked for — not even hourly in the background.
             if (note == null) return@work
             val last = _state.value.read?.at
-            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow() else if (maxAge < readEvery) openWaiting()
+            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow() else if (maxAge < readEvery) lookAgain()
             renewIfLost(interactive)
             shareNow()
         }
     }
 
-    /** When the lists that did not open were last looked for again. */
-    private var waitingLookedAt = 0L
+    /** When the shared lists were last looked at again. */
+    private var lookedAgainAt = 0L
 
     /**
-     * Mutual contacts who share, but whose list did not open at the last read — no key for this inbox
-     * yet: looked for again, at most once a minute, without reading everything again.
+     * The lists of mutual contacts who share, looked at again between full reads — at most every
+     * [LOOK_AGAIN_EVERY] seconds, one request per contact: a list that changed (a show subscribed) and
+     * one that did not open before (its key came since) show without waiting for the next full read
+     * (device feedback 2026-11-02). A list that does not come now keeps what was there: a relay that did
+     * not answer is no list emptied — one turned off shows in the contact's note, at the next full read.
      */
-    private suspend fun openWaiting() {
+    private suspend fun lookAgain() {
         val read = _state.value.read ?: return
         val inbox = keys.inboxKey()?.takeIf { _state.value.note?.seeing == true } ?: return
-        val waiting = read.mutual.filter { it.share != null && it.shows.isEmpty() }
-        if (waiting.isEmpty() || nowSeconds() - waitingLookedAt < WAITING_EVERY) return
-        waitingLookedAt = nowSeconds()
-        val opened = graph.shelvesAgain(waiting, inbox).filterValues { it.isNotEmpty() }
+        val sharing = read.mutual.filter { it.share != null }
+        if (sharing.isEmpty() || nowSeconds() - lookedAgainAt < LOOK_AGAIN_EVERY) return
+        lookedAgainAt = nowSeconds()
+        val opened = graph.shelvesAgain(sharing, inbox).filterValues { it.isNotEmpty() }.filter { (who, shows) -> read.contacts[who]?.shows != shows }
         if (opened.isEmpty()) return
         val named = runCatching { graph.profiles(opened.keys.filter { read.contacts[it]?.name == null }.toSet()) }.getOrDefault(emptyMap())
         val updated = read.copy(contacts = read.contacts.mapValues { (who, c) ->
@@ -197,8 +200,8 @@ class ContactsRepository(
     private companion object {
         /** Shows looked up in the directory per read, at most. */
         const val LOOKUPS = 12
-        /** Seconds between looks for lists that did not open. */
-        const val WAITING_EVERY = 60L
+        /** Seconds between looks at the shared lists, between full reads. */
+        const val LOOK_AGAIN_EVERY = 120L
     }
 
     private suspend fun work(block: suspend () -> Unit) {

@@ -363,10 +363,40 @@ class ContactsTest {
         // The tester's device seals one a minute later; Discover opens on the listener's a minute after that.
         now += 60
         testerContacts.refresh(force = true)
-        now += 61
+        now += 121
         me.contacts.refresh(maxAge = 600)
         val read = me.contacts.state.value.read!!
         assertEquals(shows.toSet(), read.listening().map { it.show }.toSet())
         assertEquals("Testjupp", read.contacts.getValue(tester.publicKeyHex).name)
+    }
+
+    /** Device feedback 2026-11-02: a show subscribed by the sharer appeared only after a full read. The shared
+     *  lists are looked at again every two minutes between full reads; one that does not come keeps what was there. */
+    @Test
+    fun aChangedSharedListShowsWithinMinutes(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val testers = Device(tester)
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now },
+            ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now })
+        testerContacts.setSharing(true)
+        val me = Device()
+        me.contacts.setSeeing(true)
+        now += 30
+        testerContacts.refresh(force = true)
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        assertEquals(2, me.contacts.state.value.read!!.listening().size)
+        // A third show on the tester's side, sent with the next refresh there.
+        shows = shows + SharedShow("guid-c", "https://c.test/feed", "Show C", 300)
+        now += 30
+        testerContacts.refresh()
+        // Within two minutes of the last look: not yet; after: there — no full read (that waits ten minutes).
+        me.contacts.refresh(maxAge = 600)
+        assertEquals(2, me.contacts.state.value.read!!.listening().size)
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        assertEquals(3, me.contacts.state.value.read!!.listening().size)
     }
 }

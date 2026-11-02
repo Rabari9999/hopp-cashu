@@ -160,6 +160,8 @@ fun DiscoverScreen(
     val suggestions by vm.suggestions.collectAsState()
     val forYou by vm.forYou.collectAsState()
     val withContacts by vm.withContacts.collectAsState()
+    // Each time Discover comes to the screen: the tab keeps its page, so its view model is built only once.
+    LaunchedEffect(Unit) { vm.lookAtContacts() }
     val myCategories by vm.myCategories.collectAsState()
     val category by vm.category.collectAsState()
     val trending by vm.trending.collectAsState()
