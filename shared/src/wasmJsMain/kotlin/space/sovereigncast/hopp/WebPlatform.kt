@@ -38,6 +38,7 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     // (ADR 0022, 4, stage W5; maintainer 2026-10-30): one kept before goes at the next start.
     override val wallet: Boolean get() = false
     // The browser's own wallet instead, where an extension offers one (WebLN, ADR 0022, 4, stage W3).
+    override suspend fun webBuild(): space.sovereigncast.hopp.web.WebBuild? = WebUpdates.current()
     override val browserWallet: space.sovereigncast.hopp.value.BrowserWallet = space.sovereigncast.hopp.value.WeblnWallet()
     // No background job in a browser tab: the feeds are looked at while Hopp is open (maintainer 2026-11-01).
     override val backgroundRefresh: Boolean get() = false

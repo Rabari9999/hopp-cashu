@@ -144,3 +144,15 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
       keysend only. The wallet page names an extension, and the app.
 - [ ] With a real extension (Alby) on the maintainer's machine: a boost,
       streaming sats, a zap.
+
+## The build's hash, its signature, the service worker (0.3.3)
+
+- [x] `release.json`, `sign.mjs`, `verify.mjs`, CI job `web-verify`
+      (2026-11-02, ADR 0022, 14).
+- [x] Service worker: a build kept whole, offered when it waits, taken on
+      "Reload"; Hopp offline; one with a wrong file never offered.
+- [x] The build's hash and its signature under Settings → About.
+- [x] Two clean builds of one tree: the same hash, all 39 files (2026-11-02,
+      on the build Mac; another machine not yet compared).
+- [ ] First signed deploy (maintainer: Amber), then the pipeline schedule
+      for `web-verify` (HOPP_SCHEDULE=web-verify).

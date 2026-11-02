@@ -11,6 +11,9 @@ fault in the proxy reaches nothing of it.
 | `deploy.sh <server> [--setup]` | the site into `releases/<version>`, `current` switched at once, the last five kept; the proxy and the server files replaced when they changed |
 | `setup.sh` | a fresh Debian 13 once (and again at any time): updates, security updates by themselves, nftables (22, 80, 443), SSH by key only, Caddy, the proxy's socket and service, the user `deploy` |
 | `Caddyfile` | both sites, the headers of ADR 0022, 7, certificates from Let's Encrypt, no access logs |
+| `release.mjs <site> [version]` | the build list `release.json` (every file with its SHA-256; its own SHA-256 is the build's hash) and the version in `sw.js` — run by `build.sh` |
+| `sign.mjs <site>` | Nodesignal's signature for the build (NIP-94, kind 1063), through the Amber bunker in `SIGN_WITH` |
+| `verify.mjs [url]` | the live site against the signature, file by file — also the CI job `web-verify` on a schedule |
 | `hopp-feed-proxy.socket`, `.service` | the proxy behind a Unix socket only Caddy may open; systemd denies it every local and private address on top of its own checks |
 
 ## The server
@@ -27,8 +30,16 @@ Access is by a key of its own (`~/.ssh/hopp-web-vps` on the build Mac,
 
 ```bash
 web/deploy/build.sh amd64
+(cd web/deploy && npm ci)                                        # once, for sign.mjs and verify.mjs
+SIGN_WITH='bunker://…' node web/deploy/sign.mjs build/web-release/<version>/site
 web/deploy/deploy.sh <server> --setup     # the first time; later without --setup
+node web/deploy/verify.mjs                # what the server gives out, against the signature
 ```
+
+Signed before it goes out: a listener's Hopp compares the build with the
+signature under Settings → About, and the scheduled `web-verify` fails on a
+build nobody signed. Built the same from the same commit, a build has the
+same hash — anyone can rebuild and compare (ADR 0022, 14).
 
 Going back to an earlier site: `ssh deploy@<server> 'cd /srv/hopp-web && ls releases && ln -sfn releases/<version> current'`.
 

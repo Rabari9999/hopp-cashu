@@ -16,6 +16,10 @@ interface PlatformActions {
     val canPay: Boolean get() = true
     /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
     val paysWithBrowser: Boolean get() = false
+    /** A new build of Hopp Web waiting to take over (its version) — the service worker's (ADR 0022, 14); null in the apps. */
+    val updateReady: kotlinx.coroutines.flow.StateFlow<String?>? get() = null
+    /** Lets the build waiting take over: the page reloads into it. */
+    fun applyUpdate() = Unit
     /** Whether the system shows Hopp's notifications — a payment's outcome among them; not the browser's tab. */
     val canNotify: Boolean get() = true
     /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */

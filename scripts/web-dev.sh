@@ -21,6 +21,8 @@ if [[ -n $BUILD ]]; then
     ./gradlew --console=plain -Phopp.web=true :shared:wasmJsBrowserDistribution
 fi
 [[ -f $DIST/index.html ]] || { echo "no build in $DIST" >&2; exit 1; }
+# The build list and the service worker's version, as on the server (ADR 0022, 14).
+node web/deploy/release.mjs "$DIST" "$(git describe --tags --always --dirty)-dev"
 
 docker build -q -t hopp-feed-proxy web/proxy > /dev/null
 docker rm -f hopp-feed-proxy > /dev/null 2>&1 || true

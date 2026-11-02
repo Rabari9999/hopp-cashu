@@ -69,6 +69,16 @@
     <string name="result_imported">%1$d subscribed, %2$d already there, %3$d failed</string>
     <string name="open_show">Open</string>
     <string name="settings_version">Version %1$s</string>
+    <string name="update_ready">Hopp %1$s is ready</string>
+    <string name="update_reload">Reload</string>
+    <string name="about_build">Build %1$s</string>
+    <string name="about_build_checking">Comparing it with Nodesignal’s signature …</string>
+    <string name="about_build_signed">Matches the build Nodesignal signed.</string>
+    <string name="about_build_differs">Differs from the build Nodesignal signed as this version.</string>
+    <string name="about_build_unsigned">Nodesignal has not signed this build (yet).</string>
+    <string name="about_build_unknown">No relay answered — not compared.</string>
+    <string name="about_build_event">See the signature</string>
+    <string name="about_build_note">The page checks itself here. To be sure, compare the hash with the signature yourself.</string>
     <string name="settings_about">Hopp — honest open podcast player. No account, no tracking.</string>
     <string name="menu_more">More</string>
     <string name="menu_play_next">Play next</string>

@@ -75,6 +75,8 @@ fun main() {
     MainScope().launch {
         if (!holdTabLock().await<JsBoolean>().toBoolean()) return@launch showOtherTab()
         mark("hopp:tab-lock")
+        // Only the tab that holds Hopp keeps its build (ADR 0022, 14).
+        WebUpdates.start()
         val wipe = wipeIfMarked().await<JsString>().toString()
         mark("hopp:wipe-checked")
         // "This is not my device", chosen earlier in this tab: nothing opened that is stored.

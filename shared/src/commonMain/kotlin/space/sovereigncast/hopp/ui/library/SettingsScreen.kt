@@ -4,6 +4,14 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.RadioButton
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.about_build
+import space.sovereigncast.hopp.resources.about_build_checking
+import space.sovereigncast.hopp.resources.about_build_signed
+import space.sovereigncast.hopp.resources.about_build_differs
+import space.sovereigncast.hopp.resources.about_build_unsigned
+import space.sovereigncast.hopp.resources.about_build_unknown
+import space.sovereigncast.hopp.resources.about_build_event
+import space.sovereigncast.hopp.resources.about_build_note
 import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
@@ -402,6 +410,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(Res.string.settings_about), style = MaterialTheme.typography.bodyLarge)
                     Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    WebBuildInfo()
                 } }
                 OutlinedButton(onClick = onTour) {
                     Icon(Icons.Rounded.Star, null, Modifier.size(18.dp))
@@ -444,4 +453,39 @@ private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boo
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+/**
+ * Hopp Web's build (ADR 0022, 14): its hash, and whether it is the one Nodesignal signed — checked
+ * by the page itself, so said as what it is; the hash is there to compare with the signature by
+ * hand. Nothing where no web build runs.
+ */
+@Composable
+private fun WebBuildInfo(check: space.sovereigncast.hopp.web.BuildCheck = org.koin.compose.koinInject()) {
+    val colors = MaterialTheme.colorScheme
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val state by androidx.compose.runtime.produceState<Pair<space.sovereigncast.hopp.web.WebBuild, space.sovereigncast.hopp.web.BuildStatus?>?>(null) {
+        val build = check.current() ?: return@produceState
+        value = build to null
+        value = build to check.status(build)
+    }
+    val (build, status) = state ?: return
+    Text(stringResource(Res.string.about_build, build.hash), color = colors.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+    Text(
+        stringResource(when (status) {
+            null -> Res.string.about_build_checking
+            is space.sovereigncast.hopp.web.BuildStatus.Signed -> Res.string.about_build_signed
+            is space.sovereigncast.hopp.web.BuildStatus.Differs -> Res.string.about_build_differs
+            space.sovereigncast.hopp.web.BuildStatus.Unsigned -> Res.string.about_build_unsigned
+            space.sovereigncast.hopp.web.BuildStatus.Unknown -> Res.string.about_build_unknown
+        }),
+        color = if (status is space.sovereigncast.hopp.web.BuildStatus.Differs) colors.error else colors.onSurfaceVariant,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    if (status is space.sovereigncast.hopp.web.BuildStatus.Signed) TextButton(onClick = {
+        val ref = space.sovereigncast.hopp.nostr.NoteRef(status.eventId, author = space.sovereigncast.hopp.web.BuildCheck.SIGNER)
+        runCatching { uri.openUri("https://njump.me/" + space.sovereigncast.hopp.nostr.nevent(ref, space.sovereigncast.hopp.web.BuildCheck.KIND)) }
+    }) { Text(stringResource(Res.string.about_build_event)) }
+    Text(stringResource(Res.string.about_build_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 }

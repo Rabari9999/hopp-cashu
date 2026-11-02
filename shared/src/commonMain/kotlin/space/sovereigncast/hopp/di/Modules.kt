@@ -74,6 +74,8 @@ interface Platform {
     /** Whether a wallet may be connected over NWC and its connection kept — not in the browser until
      *  it has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
     val wallet: Boolean get() = true
+    /** The build of Hopp Web running — its version and hash (ADR 0022, 14); null in the apps. */
+    suspend fun webBuild(): space.sovereigncast.hopp.web.WebBuild? = null
     /** The browser's own wallet (WebLN, ADR 0022, 4, stage W3); null in the apps. */
     val browserWallet: space.sovereigncast.hopp.value.BrowserWallet? get() = null
     /** Whether the system looks for new episodes in the background (Android's WorkManager); where not,
@@ -100,6 +102,7 @@ fun sharedModule(platform: Platform) = module {
         }
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
+    single { space.sovereigncast.hopp.web.BuildCheck(get(), space.sovereigncast.hopp.identity.IdentityRepository.DEFAULT_RELAYS, build = { platform.webBuild() }) }
     single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp, platform::signedOut) }
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }

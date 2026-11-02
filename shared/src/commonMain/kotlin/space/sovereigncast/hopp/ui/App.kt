@@ -85,11 +85,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.getPluralString
 import space.sovereigncast.hopp.resources.sync_restored_shows
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
+import space.sovereigncast.hopp.resources.update_ready
+import space.sovereigncast.hopp.resources.update_reload
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.privacy_title
 import space.sovereigncast.hopp.resources.favorites_title
@@ -266,6 +270,18 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Streaming paid after time offline: say so (ADR 0014).
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
+    }
+    // A new build of Hopp Web waits (ADR 0022, 14): it takes over when the listener says so, never by itself.
+    platformActions.updateReady?.let { ready ->
+        LaunchedEffect(ready) {
+            ready.filterNotNull().distinctUntilChanged().collect { version ->
+                val answer = snackbar.showSnackbar(
+                    getString(Res.string.update_ready, version), actionLabel = getString(Res.string.update_reload),
+                    withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Indefinite,
+                )
+                if (answer == androidx.compose.material3.SnackbarResult.ActionPerformed) platformActions.applyUpdate()
+            }
+        }
     }
     // The Sovereigncast list fetched ahead, so Discover marks and filters at
     // once instead of a moment after opening (device feedback 2026-10-11).

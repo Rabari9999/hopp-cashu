@@ -159,7 +159,23 @@ check(keysends.length > 0 && keysends.every(k => /"app_name":"Hopp"/.test(k.cust
 await a.shot('boosted');
 await a.reload();
 
-// 1d. Hopp's own language, apart from the browser's.
+// 1d. The service worker keeps the build (ADR 0022, 14): it serves the page, Hopp starts without a
+// network, and About names the build's hash — unsigned here, a local build.
+check(await a.page.evaluate(() => !!navigator.serviceWorker?.controller), 'the service worker serves the page');
+await a.ctx.setOffline(true);
+await a.page.reload(); await a.page.waitForTimeout(8000);
+check(await a.has('Library'), 'Hopp starts without a network');
+await a.ctx.setOffline(false);
+await a.press('Home', 2000); await a.press('Settings', 2000); await a.press('About Hopp', 4000);
+const hash = await a.page.evaluate(async () => {
+  const bytes = await (await fetch('release.json')).arrayBuffer();
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
+});
+check((await a.mirrored('*')).some(t => t.includes(`Build ${hash}`)), "About names the build's hash");
+check((await a.mirrored('*')).some(t => /has not signed this build|Matches the build|No relay answered/.test(t)), 'About says what Nodesignal signed');
+await a.reload();
+
+// 1e. Hopp's own language, apart from the browser's.
 await a.press('Home', 2000); await a.press('Settings', 2000);
 await a.press('Language', 1500);
 await a.page.getByText('Deutsch').first().dispatchEvent('click').catch(() => {});

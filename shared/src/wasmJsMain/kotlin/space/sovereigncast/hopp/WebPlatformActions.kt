@@ -55,6 +55,8 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     override val canPay: Boolean get() = true
     override val paysWithBrowser: Boolean get() = true
     override val canNotify: Boolean get() = false
+    override val updateReady: kotlinx.coroutines.flow.StateFlow<String?> get() = WebUpdates.ready
+    override fun applyUpdate() = WebUpdates.apply()
     override val canSaveAudio: Boolean get() = true
     override val refreshButton: Boolean get() = true
     override fun saveAudio(url: String, name: String) {
