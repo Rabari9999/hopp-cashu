@@ -106,6 +106,7 @@ class ContactsTest {
         follows(cara, listener.publicKeyHex, anna.publicKeyHex)
         relay.publish(Event.sign(cara, Nip78.KIND, "sealed", listOf(listOf("d", ContactKeys.DTAG), listOf("inbox", KeyPair.generate().publicKeyHex)), now - 50))
         val phone = Device()
+        phone.keys.set(share = true, see = false)
         phone.contacts.refresh(force = true)
         val read = assertNotNull(phone.contacts.state.value.read)
         assertEquals(setOf(anna.publicKeyHex, ben.publicKeyHex, cara.publicKeyHex), read.following)
@@ -121,6 +122,7 @@ class ContactsTest {
         relay.publish(Event.sign(ben, 3, "", listOf(listOf("p", listener.publicKeyHex)), now - 500))
         relay.publish(Event.sign(ben, 3, "", emptyList(), now - 100))
         val phone = Device()
+        phone.keys.set(share = true, see = false)
         phone.contacts.refresh(force = true)
         assertTrue(phone.contacts.state.value.read!!.mutual.isEmpty())
     }
@@ -310,7 +312,7 @@ class ContactsTest {
         testerContacts.setSharing(true)
         val me = Device()
         me.contacts.refresh()
-        assertTrue(me.contacts.state.value.read!!.listening().isEmpty(), "not looking yet")
+        assertNull(me.contacts.state.value.read, "both switches off: nobody's lists are asked for")
         now += 30
         me.contacts.setSeeing(true)
         assertEquals(1, me.contacts.state.value.read!!.withHopp.size, "read again at once: the tester uses Hopp")
@@ -320,5 +322,25 @@ class ContactsTest {
         now += 301
         me.contacts.refresh(maxAge = 300)
         assertEquals(shows.toSet(), me.contacts.state.value.read!!.listening().map { it.show }.toSet())
+    }
+
+    /** Both switches off: the hourly refresh asks the relays for nobody's lists. */
+    @Test
+    fun withBothSwitchesOffNoListIsAskedFor(): Unit = runBlocking {
+        follows(listener, KeyPair.generate().publicKeyHex)
+        val asked = mutableListOf<String>()
+        val watching = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { asked += message; inner.send(message) }
+                }
+            }
+        }
+        val me = Device()
+        val contacts = ContactsRepository(me.identity, me.keys, ContactGraph(me.identity, RelayPublisher(watching)) { now }, { now })
+        contacts.refresh(force = true)
+        assertNull(contacts.state.value.read)
+        assertTrue(asked.none { it.contains("\"kinds\":[3]") }, "no contact list asked for")
     }
 }

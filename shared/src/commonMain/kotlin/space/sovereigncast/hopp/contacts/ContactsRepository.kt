@@ -71,9 +71,13 @@ class ContactsRepository(
      */
     suspend fun refresh(force: Boolean = false, interactive: Boolean = false, maxAge: Long = readEvery) = lock.withLock {
         if (identity.identity.value == null) { _state.value = ContactsState(); return@withLock }
+        // What was read before this start first: a refresh right after it is then no new read.
+        loadKept()
         work {
             val note = keys.note(interactive)
             _state.update { it.copy(note = note) }
+            // Both switches off: nobody's lists are asked for — not even hourly in the background.
+            if (note == null) return@work
             val last = _state.value.read?.at
             if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow()
             renewIfLost(interactive)

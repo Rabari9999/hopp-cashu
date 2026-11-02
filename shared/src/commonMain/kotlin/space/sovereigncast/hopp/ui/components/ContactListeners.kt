@@ -3,6 +3,9 @@ package space.sovereigncast.hopp.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -58,15 +61,17 @@ fun ContactListeners(guid: String?, feedUrl: String, modifier: Modifier = Modifi
     var open by remember { mutableStateOf(false) }
     Column(modifier.clip(RoundedCornerShape(8.dp)).clickable { open = true }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Overlapping, as Zapstore's "stacked or zapped by".
-            Box {
-                who.take(MAX_FACES).forEachIndexed { i, c -> Face(c, Modifier.offset(x = (i * 16).dp)) }
+            // Overlapping, as Zapstore's "stacked or zapped by" — the group as wide as the faces it shows.
+            val faces = minOf(who.size, MAX_FACES)
+            Box(Modifier.width((FACE + OVERLAP * (faces - 1)).dp).height(FACE.dp)) {
+                who.take(MAX_FACES).forEachIndexed { i, c -> Face(c, Modifier.offset(x = (i * OVERLAP).dp)) }
             }
+            Spacer(Modifier.width(8.dp))
             // Boosted or commented on in public by one of them: said so (ADR 0024, 6).
             val acted = guid != null && who.any { c -> c.signals.any { it.show.equals(guid, ignoreCase = true) } }
             Text(
                 pluralStringResource(if (acted) Res.plurals.contacts_acted else Res.plurals.contacts_listen, who.size, who.size),
-                Modifier.padding(start = (16 * (minOf(who.size, MAX_FACES) - 1) + 30).dp),
+                Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
             )
         }
@@ -119,3 +124,6 @@ private fun Face(c: Contact, modifier: Modifier, size: Int = 24) {
 }
 
 private const val MAX_FACES = 5
+private const val FACE = 24
+/** How far each face sits right of the one before. */
+private const val OVERLAP = 16

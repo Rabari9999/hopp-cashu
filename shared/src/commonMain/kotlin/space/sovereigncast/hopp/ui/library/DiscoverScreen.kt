@@ -369,14 +369,28 @@ private fun PersonLine(name: String, img: String?, note: String, search: Boolean
 }
 
 @Composable
-private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) = Row(
-    Modifier.fillMaxWidth().padding(start = 16.dp, end = if (action != null) 4.dp else 16.dp, top = 16.dp, bottom = 4.dp),
-    verticalAlignment = if (action != null) Alignment.CenterVertically else Alignment.Bottom,
-) {
-    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-    if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (action != null) TextButton(onClick = onAction) { Text(action) }
+private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) {
+    // A longer note goes under the title: beside it, it left the title one letter's width on a phone
+    // (device feedback 2026-11-02, "With your Nostr contacts").
+    if (note != null && action == null && note.length > SHORT_NOTE) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+            Text(text, style = MaterialTheme.typography.titleMedium)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = if (action != null) 4.dp else 16.dp, top = 16.dp, bottom = 4.dp),
+        verticalAlignment = if (action != null) Alignment.CenterVertically else Alignment.Bottom,
+    ) {
+        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (action != null) TextButton(onClick = onAction) { Text(action) }
+    }
 }
+
+/** A header's note that still fits beside its title on a phone. */
+private const val SHORT_NOTE = 24
 
 /** Languages the Podcast Index knows many shows in, by their own names. */
 private val LANGUAGES = listOf("de", "en", "es", "fr", "it", "nl", "pt", "pl", "sv", "da", "no", "fi", "cs", "tr", "ja")

@@ -511,7 +511,7 @@ class DiscoverViewModel(
 
     init {
         // Discover opened: what the contacts share, read again when older than ten minutes (device feedback 2026-11-02).
-        contacts?.let { c -> viewModelScope.launch { if (c.state.value.note?.seeing == true) c.refresh(maxAge = 600) } }
+        contacts?.let { c -> viewModelScope.launch { c.refresh(maxAge = 600) } }
     }
 
     /** "With your Nostr contacts" (ADR 0024, 7): what they share, most of them first; shows the listener
