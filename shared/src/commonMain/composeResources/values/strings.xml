@@ -1047,7 +1047,7 @@
     <string name="wallet_reach_node">Recipients with a node address (keysend)</string>
     <string name="wallet_reach_node_note">Many podcasts receive this way – often the hosts themselves.</string>
     <string name="wallet_reach_node_off">Many podcasts receive this way – often the hosts themselves. Their share is neither sent nor set aside, and it does not go to the others.</string>
-    <string name="wallet_reach_keysend_wallets">Alby Hub, Zeus and LNbits can keysend, for example. Whether a connection may is up to the wallet.</string>
+    <string name="wallet_reach_keysend_wallets">Alby Hub on LDK or LND can keysend, for example; Zeus and Primal pay invoices only. Whether a connection may is up to the wallet.</string>
     <string name="wallet_silent">The wallet is not answering right now. Some wallets answer only while their app is open – in coinos, turn on “Answer while closed”.</string>
     <string name="wallet_retry">Try again</string>
     <string name="wallet_what">What my wallet can do</string>

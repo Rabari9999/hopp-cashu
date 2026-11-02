@@ -6,6 +6,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🐛 Fehlerbehebungen
+- **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
+
 ## [0.3.2] - 2026-11-01
 
 ### 🆕 New Features
