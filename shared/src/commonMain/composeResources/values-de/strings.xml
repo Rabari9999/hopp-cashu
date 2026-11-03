@@ -1234,4 +1234,20 @@
     <string name="sync_key_title">Abgleich-Schlüssel</string>
     <string name="sync_key_text">Hopp signiert den Abgleich mit diesem Schlüssel, nicht mit deinem eigenen. Nimmt dein Relay nur Events von Schlüsseln an, die es kennt, trag diesen dort in die Freigabeliste ein. Er ändert sich, wenn du den Schlüssel erneuerst.</string>
     <string name="sync_key_copy">Kopieren</string>
+    <!-- The listener's picture at the top, with a menu (maintainer 2026-11-03) -->
+    <string name="profile_menu">Dein Profil</string>
+    <string name="nostr_sign_in_short">Anmelden</string>
+    <string name="support_copied">Kopiert</string>
+    <!-- The listener's own tags on shows (maintainer 2026-11-03, as in AntennaPod) -->
+    <string name="tags_title">Tags</string>
+    <string name="tags_menu">Tags …</string>
+    <string name="tags_all">Alle</string>
+    <string name="tags_untagged">Ohne Tag</string>
+    <string name="tags_new">Neuer Tag</string>
+    <string name="tags_add">Hinzufügen</string>
+    <string name="tags_note">Nur für dich, auf all deinen Geräten. Ein langer Druck auf einen Tag in der Bibliothek bearbeitet ihn.</string>
+    <string name="tag_shows">Shows mit diesem Tag</string>
+    <string name="tag_rename">Umbenennen</string>
+    <string name="tag_delete">Tag löschen</string>
+    <string name="tag_delete_confirm">„%1$s“ von allen Shows entfernen?</string>
 </resources>

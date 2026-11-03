@@ -164,7 +164,11 @@ class HomeViewModel(
 
     // A quiet day on Home (device feedback 2026-10-12): the shows themselves,
     // when they come out next, and what of them is still unheard.
-    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
+    /** "Your shows" as the library's tag filter picks them (maintainer 2026-11-03). */
+    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(
+        combine(podcasts.shows, settings.settings.map { it.libraryTag }.distinctUntilChanged()) { shows, tag -> space.sovereigncast.hopp.data.Tags.filter(shows, tag) },
+        emptyList(),
+    )
     val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
     val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
 
@@ -195,9 +199,17 @@ class LibraryViewModel(
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }
     val shows: StateFlow<List<Show>?> = state(
-        combine(podcasts.shows, episodes.countsPerShow, settings.settings.map { it.librarySort }.distinctUntilChanged()) { shows, counts, sort -> sorted(shows, counts, sort) },
+        combine(podcasts.shows, episodes.countsPerShow, settings.settings.map { it.librarySort to it.libraryTag }.distinctUntilChanged()) { shows, counts, (sort, tag) ->
+            sorted(space.sovereigncast.hopp.data.Tags.filter(shows, tag), counts, sort)
+        },
         null,
     )
+    /** The listener's tags, and the one the library shows (maintainer 2026-11-03); a tap on the chosen one shows all again. */
+    val tags: StateFlow<List<String>> = state(podcasts.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
+    val tag: StateFlow<String> = state(settings.settings.map { it.libraryTag }, "")
+    fun filterTag(tag: String) = viewModelScope.launch { settings.update { it.copy(libraryTag = if (it.libraryTag == tag) "" else tag) } }
+    /** Every show, unfiltered — the count in the "Shows" title says how many there are. */
+    val showCount: StateFlow<Int?> = state(podcasts.shows.map { it.size }, null)
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
     /** "Up next" and the downloads in the library itself, each a section that folds (Dennis, maintainer 2026-11-02). */
@@ -386,6 +398,9 @@ class ShowViewModel(
     /** The listener shares with mutual Nostr contacts: the menu offers to leave this show out (ADR 0024, 4a). */
     val sharingWithContacts: StateFlow<Boolean> = state(contacts?.state?.map { it.note?.sharing == true } ?: kotlinx.coroutines.flow.flowOf(false), false)
     fun setSharedWithContacts(shared: Boolean) = viewModelScope.launch { podcasts.setContactsHidden(podcastId, !shared) }
+    /** The show's own tags, and every tag the listener has (maintainer 2026-11-03). */
+    fun setTags(tags: List<String>) = viewModelScope.launch { podcasts.setTags(podcastId, tags) }
+    val allTags: StateFlow<List<String>> = state(podcasts.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
     /** Unsubscribed — here or anywhere else while this page waited in a stack. */
     val gone: StateFlow<Boolean> = state(podcasts.show(podcastId).map { it == null }, false)
     private val limit = MutableStateFlow(PAGE)

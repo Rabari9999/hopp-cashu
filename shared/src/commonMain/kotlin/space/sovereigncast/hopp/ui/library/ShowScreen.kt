@@ -69,6 +69,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.tags_menu
 import space.sovereigncast.hopp.resources.month_year
 import space.sovereigncast.hopp.resources.show_copy_feed
 import space.sovereigncast.hopp.resources.share_title
@@ -147,6 +148,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     var confirm by remember { mutableStateOf(false) }
     var confirmAllPlayed by remember { mutableStateOf(false) }
     var playback by remember { mutableStateOf(false) }
+    var tagging by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     var donating by remember { mutableStateOf<String?>(null) }
     val hasWallet = koinViewModel<ValueBarViewModel>().connected.collectAsState().value != null
@@ -233,7 +235,9 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         val sharing by vm.sharingWithContacts.collectAsState()
                         show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
                             onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true },
-                            sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts) }
+                            sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts, onTags = { tagging = true }) }
+                        val allTags by vm.allTags.collectAsState()
+                        show?.takeIf { tagging }?.let { s -> TagsSheet(s, allTags, onTags = vm::setTags) { tagging = false } }
                     }
                     show?.let { s -> space.sovereigncast.hopp.ui.components.ContactListeners(s.podcastGuid, s.feedUrl, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) }
                     show?.lastError?.let {
@@ -409,6 +413,7 @@ private fun ShowMenu(
     autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit,
     /** Whether the show goes to mutual Nostr contacts; null while the listener shares nothing (ADR 0024, 4a). */
     sharedWithContacts: Boolean? = null, onSharedWithContacts: (Boolean) -> Unit = {},
+    onTags: () -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -428,6 +433,7 @@ private fun ShowMenu(
                     onClick = { onSharedWithContacts(!shared) },
                 )
             }
+            DropdownMenuItem(text = { Text(stringResource(Res.string.tags_menu)) }, onClick = { open = false; onTags() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })

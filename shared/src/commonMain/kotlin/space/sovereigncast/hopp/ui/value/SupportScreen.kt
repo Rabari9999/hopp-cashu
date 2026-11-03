@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.LaunchedEffect
+import space.sovereigncast.hopp.resources.support_copied
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import space.sovereigncast.hopp.ui.components.HoppIcons
@@ -70,22 +73,25 @@ fun SupportScreen(onOpenWallet: () -> Unit, vm: ValueBarViewModel = koinViewMode
                 val uri = LocalUriHandler.current
                 var noApp by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(12.dp)
+                var copied by remember { mutableStateOf(false) }
+                val copy = { actions.copyText(Settings.SUPPORT_ADDRESS, Settings.SUPPORT_ADDRESS); copied = true }
+                LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(2_000); copied = false } }
+                // One line, the same everywhere (maintainer 2026-11-03: in the browser an empty line made it look restless):
+                // the hop, the address, copy; on a phone a tap on the field opens a wallet app — the arrow says so.
                 Row(
                     Modifier.fillMaxWidth().clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-                        .clickable(enabled = opens) { noApp = runCatching { uri.openUri("lightning:" + Settings.SUPPORT_ADDRESS) }.isFailure }
-                        .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .clickable { if (opens) noApp = runCatching { uri.openUri("lightning:" + Settings.SUPPORT_ADDRESS) }.isFailure else copy() }
+                        .padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(HoppIcons.Hop, null, Modifier.size(22.dp), tint = Hopp.colors.value)
+                    Icon(HoppIcons.Hop, null, Modifier.size(20.dp), tint = Hopp.colors.value)
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.support_other_wallet), color = muted, style = MaterialTheme.typography.bodySmall)
-                        // The address on a line of its own: beside the button it broke in two on a phone.
-                        Text(Settings.SUPPORT_ADDRESS, fontWeight = FontWeight.SemiBold)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (opens) stringResource(Res.string.support_tap_opens) else "", Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
-                            TextButton(onClick = { actions.copyText(Settings.SUPPORT_ADDRESS, Settings.SUPPORT_ADDRESS) }) { Text(stringResource(Res.string.share_copy)) }
-                        }
+                        Text(stringResource(if (copied) Res.string.support_copied else Res.string.support_other_wallet), color = muted, style = MaterialTheme.typography.bodySmall)
+                        // A size smaller: whole on a phone's line beside copy and the arrow.
+                        Text(Settings.SUPPORT_ADDRESS, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
+                    IconButton(onClick = copy, modifier = Modifier.size(40.dp)) { Icon(HoppIcons.Copy, stringResource(Res.string.share_copy), Modifier.size(20.dp)) }
+                    if (opens) Icon(HoppIcons.ChevronRight, stringResource(Res.string.support_tap_opens), Modifier.size(20.dp), tint = muted)
                 }
                 if (noApp) Text(stringResource(Res.string.support_no_wallet_app), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(Res.string.support_share), color = muted, style = MaterialTheme.typography.bodySmall)

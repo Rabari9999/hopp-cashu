@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -165,6 +167,52 @@ class NostrContactsLayoutTest {
         waitFor("Hopp es libre")
         rule.waitForIdle()
         shoot("es-support")
+    }
+
+    /**
+     * Maintainer 2026-11-03: tags on a show, the library's row of them, a tag's own page; the tour's language;
+     * the profile picture's menu — pictures to look at.
+     */
+    @Test
+    fun tagsTheTourLanguageAndTheProfileMenu() {
+        looking()
+        rule.setContent { App() }
+        tap("Entdecken")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Als Feed öffnen"); waitFor("Abonnieren")
+        tap("Abonnieren"); waitFor("✓ Abonniert")
+        if (!has("Folgen durchsuchen")) tap("✓ Abonniert")
+        waitFor("Folgen durchsuchen")
+        rule.onNode(hasContentDescription("Show-Optionen")).performClick()
+        waitFor("Tags …"); tap("Tags …")
+        waitFor("Neuer Tag")
+        rule.onAllNodes(hasSetTextAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performTextInput("Bitcoin")
+        tap("Hinzufügen")
+        rule.waitForIdle()
+        shoot("tags-sheet")
+        tap("Fertig")
+        tap("Bibliothek"); waitFor("Ohne Tag")
+        rule.waitForIdle()
+        shoot("tags-library")
+        rule.onNode(hasText("Bitcoin") and hasClickAction()).performTouchInput { longClick() }
+        waitFor("Shows mit diesem Tag")
+        rule.waitForIdle()
+        shoot("tag-page")
+        // The profile picture's menu, in the top bar beside the cogwheel.
+        tap("Home")
+        rule.onNode(hasContentDescription("Dein Profil")).performClick()
+        waitFor("Aus Hopp abmelden")
+        rule.waitForIdle()
+        shoot("profile-menu")
+    }
+
+    @Test
+    fun theTourOffersItsLanguage() {
+        runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(onboardingDone = false) } }
+        rule.setContent { App() }
+        waitFor("Überspringen")
+        rule.waitForIdle()
+        shoot("tour")
     }
 
     /** Each window as it is drawn — a sheet is one of its own. */

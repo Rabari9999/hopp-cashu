@@ -725,18 +725,22 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {
         Text(stringResource(Res.string.nostr_sign_out), color = MaterialTheme.colorScheme.error)
     }
-    if (confirmSignOut) AlertDialog(
-        onDismissRequest = { confirmSignOut = false },
-        title = { Text(stringResource(Res.string.nostr_sign_out)) },
-        text = { Text(stringResource(when {
-            !vm.keysInApp -> Res.string.nostr_sign_out_text_web
-            me.holdsKey -> Res.string.nostr_sign_out_text
-            else -> Res.string.nostr_sign_out_text_amber
-        })) },
-        confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(Res.string.cancel)) } },
-    )
+    if (confirmSignOut) SignOutDialog(me, vm) { confirmSignOut = false }
 }
+
+/** Signing out, asked first — what goes and what stays said for where the key is. Here and from the profile menu. */
+@Composable
+internal fun SignOutDialog(me: NostrIdentity, vm: NostrIdentityViewModel, onDismiss: () -> Unit) = AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(stringResource(Res.string.nostr_sign_out)) },
+    text = { Text(stringResource(when {
+        !vm.keysInApp -> Res.string.nostr_sign_out_text_web
+        me.holdsKey -> Res.string.nostr_sign_out_text
+        else -> Res.string.nostr_sign_out_text_amber
+    })) },
+    confirmButton = { TextButton(onClick = { onDismiss(); vm.signOut() }) { Text(stringResource(Res.string.nostr_sign_out_confirm), color = MaterialTheme.colorScheme.error) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+)
 
 /**
  * What the listener's Nostr contacts listen to (ADR 0024): sharing with mutual contacts and

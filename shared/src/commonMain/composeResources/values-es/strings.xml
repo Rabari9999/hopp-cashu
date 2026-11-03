@@ -1234,4 +1234,20 @@
     <string name="sync_key_title">Clave de sincronización</string>
     <string name="sync_key_text">Hopp firma lo que sincroniza con esta clave, no con la tuya. Si tu relay solo acepta eventos de claves que conoce, añade esta a su lista de permitidos. Cambia cuando renuevas la clave.</string>
     <string name="sync_key_copy">Copiar</string>
+    <!-- The listener's picture at the top, with a menu (maintainer 2026-11-03) -->
+    <string name="profile_menu">Tu perfil</string>
+    <string name="nostr_sign_in_short">Iniciar sesión</string>
+    <string name="support_copied">Copiado</string>
+    <!-- The listener's own tags on shows (maintainer 2026-11-03, as in AntennaPod) -->
+    <string name="tags_title">Etiquetas</string>
+    <string name="tags_menu">Etiquetas …</string>
+    <string name="tags_all">Todos</string>
+    <string name="tags_untagged">Sin etiqueta</string>
+    <string name="tags_new">Nueva etiqueta</string>
+    <string name="tags_add">Añadir</string>
+    <string name="tags_note">Solo para ti, en todos tus dispositivos. Una pulsación larga sobre una etiqueta en la biblioteca la edita.</string>
+    <string name="tag_shows">Podcasts con esta etiqueta</string>
+    <string name="tag_rename">Cambiar nombre</string>
+    <string name="tag_delete">Eliminar etiqueta</string>
+    <string name="tag_delete_confirm">¿Quitar «%1$s» de todos los podcasts?</string>
 </resources>

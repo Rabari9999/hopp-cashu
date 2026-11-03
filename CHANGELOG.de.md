@@ -15,6 +15,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Bibliothek:** Als Nächstes und deine Downloads direkt in der Bibliothek, in aufklappbaren Bereichen.
 - **Als Nächstes:** Neue Folgen kommen ans Ende von „Als Nächstes“, sobald Hopp sie findet – auf all deinen Geräten, nicht mehr erst nach dem Download auf dem Handy.
 - **Sync:** Zeigt den Abgleich-Schlüssel, um ihn bei Relays freizuschalten, die nur bekannte Schlüssel annehmen.
+- **Bibliothek:** Versieh deine Shows mit eigenen Tags – so vielen du willst – und filtere die Bibliothek danach.
+- **App:** Dein Profilbild oben: Nostr-Seite, Hörstatistik und Abmelden, einen Tipp entfernt.
+- **Tour:** Die Sprache gleich am Anfang wählen.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.

@@ -21,6 +21,7 @@ class SyncMigrationTest {
     /** Version 21: no show left out of what is shared with Nostr contacts (ADR 0024). */
     private fun version21(driver: JdbcSqliteDriver) {
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN tags", 0)
         driver.execute(null, "DROP TABLE contact_cache", 0)
     }
 

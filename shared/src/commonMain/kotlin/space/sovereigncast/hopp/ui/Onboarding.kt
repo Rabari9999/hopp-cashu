@@ -33,6 +33,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -147,7 +151,10 @@ fun OnboardingScreen(
     // other — the page's text was cut off (device check 2026-10-20): side by side there.
     BoxWithConstraints(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
         val sideBySide = maxWidth > maxHeight && maxHeight < 480.dp
-        @Composable fun Skip() = Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+        @Composable fun Skip() = Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The language right at the start (maintainer 2026-11-03), up here: below, the welcome page would grow and the rest jump.
+            if (pager.currentPage == 0) TourLanguage()
+            Spacer(Modifier.weight(1f))
             if (!last) TextButton(onClick = { onDone(false) }) { Text(stringResource(Res.string.onboarding_skip)) }
             else Spacer(Modifier.height(48.dp))
         }
@@ -246,6 +253,35 @@ fun OnboardingScreen(
                 Pages(Modifier.weight(1f).fillMaxWidth())
                 Dots()
                 Buttons()
+            }
+        }
+    }
+}
+
+/**
+ * The tour's language, on its first page (maintainer 2026-11-03): in a browser Hopp's own choice — a menu of the
+ * languages, and Hopp starts again in the one picked, the tour from its beginning; in the apps the system's page
+ * for Hopp's language (Android 13 and later, iOS). Nothing where neither is there.
+ */
+@Composable
+private fun TourLanguage() {
+    val actions = LocalPlatformActions.current
+    val languages = actions.appLanguages
+    val current = space.sovereigncast.hopp.ui.components.Languages.of(actions.appLanguage ?: space.sovereigncast.hopp.ui.components.Languages.current())
+    if (languages == null && !actions.canPickLanguage) return
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { if (languages != null) open = true else actions.openLanguageSettings() }) {
+            Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Globe, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(current.name + if (languages != null) " ▾" else " ›")
+        }
+        if (languages != null) androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            languages.forEach { (code, name) ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(name, fontWeight = if (code == current.code) FontWeight.Bold else null) },
+                    onClick = { open = false; if (code != current.code) actions.setAppLanguage(code) },
+                )
             }
         }
     }

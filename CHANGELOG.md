@@ -15,6 +15,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Library:** Up next and your downloads in the library itself, in sections that fold.
 - **Up next:** New episodes go to the end of "Up next" as soon as Hopp finds them, on all your devices – no longer only once downloaded on the phone.
 - **Sync:** Shows the sync key, to allow it on relays that take only keys they know.
+- **Library:** Give your shows tags of your own – as many as you like – and filter the library by them.
+- **App:** Your profile picture at the top: the Nostr page, your listening statistics and signing out, one tap away.
+- **Tour:** Choose the language right at the start.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.

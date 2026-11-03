@@ -100,6 +100,12 @@ import space.sovereigncast.hopp.resources.queue_empty
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.selected
+import space.sovereigncast.hopp.resources.tags_all
+import space.sovereigncast.hopp.resources.tags_untagged
 
 /** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 each a section
  *  that folds, as on Home, up next and the downloads right there (Dennis, maintainer 2026-11-02:
@@ -110,6 +116,8 @@ fun LibraryScreen(
     onShow: (Long) -> Unit,
     onQueue: () -> Unit,
     onDownloads: () -> Unit,
+    /** A tag's own page: its shows, renamed, deleted (a long press on its chip). */
+    onTag: (String) -> Unit = {},
     vm: LibraryViewModel = koinViewModel(),
 ) {
     val shows by vm.shows.collectAsState()
@@ -123,6 +131,9 @@ fun LibraryScreen(
     val downloaded by vm.downloaded.collectAsState()
     val collapsed by vm.collapsed.collectAsState()
     val nav = LocalEpisodeNav.current
+    val tags by vm.tags.collectAsState()
+    val tag by vm.tag.collectAsState()
+    val showCount by vm.showCount.collectAsState()
     var confirmAllPlayed by remember { mutableStateOf(false) }
     if (confirmAllPlayed) {
         val unheard = counts.values.sumOf { it.unheard }
@@ -135,7 +146,8 @@ fun LibraryScreen(
     }
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
-        if (list.isEmpty()) {
+        // Empty only without any show — a tag that picks none still shows its row, to pick another.
+        if (list.isEmpty() && showCount == 0) {
             EmptyState(stringResource(Res.string.library_empty), stringResource(Res.string.inbox_no_shows))
             return@PullToRefreshBox
         }
@@ -175,7 +187,10 @@ fun LibraryScreen(
                 }
                 val showsOpen = LIB_SHOWS !in collapsed
                 item(key = "h-shows", span = full) {
-                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, showsOpen, list.size, { vm.toggle(LIB_SHOWS) }) { confirmAllPlayed = true }
+                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, showsOpen, showCount ?: list.size, { vm.toggle(LIB_SHOWS) }, { confirmAllPlayed = true }) {
+                        // The listener's tags, once there is one (maintainer 2026-11-03): a tap filters, a long press edits.
+                        if (tags.isNotEmpty()) TagRow(tags, tag.takeIf { t -> t == Settings.TAG_UNTAGGED || tags.any { it.equals(t, ignoreCase = true) } } ?: "", vm::filterTag, onTag)
+                    }
                 }
                 if (showsOpen) items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
@@ -196,6 +211,7 @@ fun LibraryScreen(
 private fun ShowsHeader(
     asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int,
     open: Boolean, count: Int, onToggle: () -> Unit, onAllPlayed: () -> Unit,
+    below: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 0f else -90f)
@@ -243,6 +259,7 @@ private fun ShowsHeader(
                     }
             }
         }
+        if (open) below()
         if (open && unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
             val style = MaterialTheme.typography.bodySmall
             Text(stringResource(Res.string.library_unheard, unheard) + " · ", style = style, color = colors.onSurfaceVariant)
@@ -374,4 +391,38 @@ private fun latestLabel(epochSeconds: Long): String {
         in 2..13 -> stringResource(Res.string.home_days_ago, days)
         else -> formatDate(epochSeconds)
     }
+}
+
+/**
+ * The listener's tags as a row (maintainer 2026-11-03, as in AntennaPod): all, each tag, the shows without one.
+ * A tap picks one — again, all; a long press on a tag opens its page.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun TagRow(tags: List<String>, chosen: String, onPick: (String) -> Unit, onEdit: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 6.dp, end = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        TagChip(stringResource(Res.string.tags_all), chosen.isEmpty(), onClick = { if (chosen.isNotEmpty()) onPick(chosen) })
+        tags.forEach { t -> TagChip(t, chosen.equals(t, ignoreCase = true), onClick = { onPick(t) }, onLongClick = { onEdit(t) }) }
+        TagChip(stringResource(Res.string.tags_untagged), chosen == Settings.TAG_UNTAGGED, onClick = { onPick(Settings.TAG_UNTAGGED) })
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun TagChip(label: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(50)
+    Text(
+        label,
+        Modifier.clip(shape).border(1.dp, if (selected) colors.onSurface else colors.outlineVariant, shape)
+            .background(if (selected) colors.onSurface else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Tab)
+            .semantics { this.selected = selected }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        color = if (selected) colors.surface else colors.onSurface,
+        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1,
+    )
 }

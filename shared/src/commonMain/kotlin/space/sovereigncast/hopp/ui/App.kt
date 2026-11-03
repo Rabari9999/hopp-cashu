@@ -184,6 +184,8 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object StatsRoute
 /** "Support Hopp": a donation to Hopp's Lightning address (maintainer 2026-11-02). */
 @Serializable object SupportRoute
+/** One tag's own page (maintainer 2026-11-03). */
+@Serializable data class TagRoute(val tag: String)
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -254,6 +256,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(PersonRoute::class) == true || destination?.hasRoute(ShowRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
         destination?.hasRoute(SupportRoute::class) == true -> stringResource(Res.string.wallet_support)
+        destination?.hasRoute(TagRoute::class) == true -> entry?.toRoute<TagRoute>()?.tag.orEmpty()
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -438,6 +441,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             )
                         }
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        // At the rail's foot, above the cogwheel: the same picture and menu as in the top bar.
+                        space.sovereigncast.hopp.ui.identity.ProfileButton(
+                            onNostr = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) }, onStats = { nav.navigate(StatsRoute) },
+                        )
                         NavigationRailItem(
                             selected = inSettings,
                             // From one of its pages: back to Settings itself, not a second one on top (review 2026-10-31).
@@ -469,6 +476,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
                                         RefreshButton(feeds)
                                     }
+                                    // The listener's picture, a menu with signing out (maintainer 2026-11-03).
+                                    if (onTab != null && !rail) space.sovereigncast.hopp.ui.identity.ProfileButton(
+                                        onNostr = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) }, onStats = { nav.navigate(StatsRoute) },
+                                    )
                                     if (onTab != null && !rail) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
                                         // A cogwheel: Hopp has no account (device feedback 2026-10-10).
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
@@ -516,6 +527,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 LibraryScreen(
                                     onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
+                                    onTag = { nav.navigate(TagRoute(it)) },
                                 )
                             } }
                             composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
@@ -602,6 +614,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 ) }
                             }
                             composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
+                            composable<TagRoute> { e -> Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.TagScreen(e.toRoute<TagRoute>().tag, onGone = { nav.popBackStack() }) } }
                             composable<SupportRoute> { Readable { space.sovereigncast.hopp.ui.value.SupportScreen(onOpenWallet = { nav.navigate(WalletRoute) }) } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()

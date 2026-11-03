@@ -90,6 +90,46 @@ class SubscriptionsSyncTest {
         assertEquals(0L, phone.row("https://pod.test/selfhosted.xml").contacts_hidden)
     }
 
+    /**
+     * Maintainer 2026-11-03: tags on shows, as in AntennaPod — any number, on every device; renamed and taken off
+     * there too. An entry from a Hopp before tags (none named at all) leaves a device's tags alone.
+     */
+    @Test
+    fun tagsFollowToEveryDeviceAndAnOlderHoppLeavesThem() = runBlocking<Unit> {
+        val phone = Device()
+        val a = (phone.podcasts.subscribe("https://pod.test/nodesignal.xml") as SubscribeResult.Subscribed).podcastId
+        val b = (phone.podcasts.subscribe("https://pod.test/selfhosted.xml") as SubscribeResult.Subscribed).podcastId
+        phone.podcasts.setTags(a, listOf("Bitcoin", " politik ", "bitcoin"))
+        phone.podcasts.setTagFor("Bitcoin", setOf(a, b))
+        assertEquals(listOf("Bitcoin", "politik"), phone.podcasts.show(a).first()!!.tags, "trimmed, once whatever the case, A–Z")
+        phone.sync.enable()
+        val tablet = Device()
+        tablet.sync.enable()
+        assertEquals("Bitcoin\npolitik", tablet.row("https://pod.test/nodesignal.xml").tags)
+        assertEquals("Bitcoin", tablet.row("https://pod.test/selfhosted.xml").tags)
+
+        tablet.ms += 30_000
+        tablet.podcasts.renameTag("politik", "Politik")
+        tablet.podcasts.renameTag("Bitcoin", null)
+        tablet.sync.syncNow()
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        assertEquals(listOf("Politik"), phone.podcasts.show(a).first()!!.tags)
+        assertEquals(emptyList(), phone.podcasts.show(b).first()!!.tags)
+
+        // A Hopp before tags changes the show's speed: its entry names no tags, and they stay.
+        val show = SyncDocs.showKey(phone.row("https://pod.test/nodesignal.xml").podcast_guid, "https://pod.test/nodesignal.xml")
+        tablet.ms += 30_000
+        tablet.journal.record(SyncDocs.SUBSCRIPTIONS, show, kotlinx.serialization.json.buildJsonObject {
+            put("url", kotlinx.serialization.json.JsonPrimitive("https://pod.test/nodesignal.xml")); put("speed", kotlinx.serialization.json.JsonPrimitive(1.5f)); put("autoDl", kotlinx.serialization.json.JsonPrimitive(true))
+        })
+        tablet.sync.syncNow()
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        assertEquals(1.5f, phone.podcasts.show(a).first()!!.playbackSpeed)
+        assertEquals(listOf("Politik"), phone.podcasts.show(a).first()!!.tags)
+    }
+
     @Test
     fun withSyncOffNothingIsNotedOrSent() = runBlocking<Unit> {
         val phone = Device()

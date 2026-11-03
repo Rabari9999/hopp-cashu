@@ -18,6 +18,7 @@ import kotlinx.serialization.json.put
 import space.sovereigncast.hopp.data.MAX_SKIP_SECONDS
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.data.SubscribeResult
+import space.sovereigncast.hopp.data.Tags
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.platform.ioDispatcher
 
@@ -36,7 +37,8 @@ object SyncDocs {
     fun showKey(guid: String?, feedUrl: String) = guid?.takeIf { it.isNotBlank() }?.let { "guid:$it" } ?: "url:$feedUrl"
 
     /** Title and image are for the restore offer only; kept short, so no feed's oddity makes an entry too large (M-04). */
-    fun show(feedUrl: String, title: String?, image: String?, speed: Float?, autoDownload: Boolean, introSeconds: Int = 0, outroSeconds: Int = 0, contactsHidden: Boolean = false): JsonObject = buildJsonObject {
+    fun show(feedUrl: String, title: String?, image: String?, speed: Float?, autoDownload: Boolean, introSeconds: Int = 0, outroSeconds: Int = 0, contactsHidden: Boolean = false,
+             tags: List<String> = emptyList()): JsonObject = buildJsonObject {
         put("url", feedUrl)
         title?.let { put("title", it.take(300)) }
         image?.takeIf { it.length <= 2048 }?.let { put("image", it) }
@@ -47,7 +49,14 @@ object SyncDocs {
         if (outroSeconds > 0) put("outro", outroSeconds)
         // Left out of what is shared with mutual Nostr contacts (ADR 0024, 4a); only when so.
         if (contactsHidden) put("noShare", true)
+        // The listener's tags (maintainer 2026-11-03) — always, an empty list too: an entry from a Hopp before them
+        // has none at all, and leaves the tags a device has as they are.
+        put("tags", kotlinx.serialization.json.JsonArray(tags.map { JsonPrimitive(it) }))
     }
+
+    /** The tags an entry names; null where it names none at all (a Hopp before tags). */
+    internal fun JsonObject.tags(): List<String>? = (this["tags"] as? kotlinx.serialization.json.JsonArray)
+        ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.let(Tags::clean)
 
     /** An episode's position and played state; its favourite apart, so the two never overwrite each other. */
     fun progressKey(show: String, guid: String) = "pos\n$show\n$guid"
@@ -110,12 +119,13 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
         val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
     }
 
-    private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int, val contactsHidden: Boolean = false)
+    private data class Local(val id: Long, val key: String, val url: String, val speed: Float?, val autoDownload: Boolean, val intro: Int, val outro: Int, val contactsHidden: Boolean = false,
+                             val tags: List<String> = emptyList())
 
     private suspend fun local(): List<Local> = withContext(ioDispatcher) {
         db.podcastQueries.selectAll().awaitAsList().map {
             Local(it.id, SyncDocs.showKey(it.podcast_guid, it.feed_url), it.feed_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
-                it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L)
+                it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L, Tags.parse(it.tags))
         }
     }
 
@@ -123,7 +133,7 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
         db.podcastQueries.selectAll().awaitAsList().associate {
             SyncDocs.showKey(it.podcast_guid, it.feed_url) to
                 SyncEntry(it.subscribed_at * 1000, d = SyncDocs.show(it.feed_url, it.title, it.image_url, it.playback_speed?.toFloat(), it.auto_download == 1L,
-                    it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L))
+                    it.skip_intro_seconds.toInt(), it.skip_outro_seconds.toInt(), it.contacts_hidden == 1L, Tags.parse(it.tags)))
         }
     }
 
@@ -161,6 +171,8 @@ class SubscriptionsDocument(private val db: HoppDatabase, private val podcasts: 
                                 if ((mine?.intro ?: 0) != intro || (mine?.outro ?: 0) != outro) podcasts.setSkip(id, intro, outro, sync = false)
                                 val hidden = e.d.bool("noShare") == true
                                 if ((mine?.contactsHidden ?: false) != hidden) podcasts.setContactsHidden(id, hidden, sync = false)
+                                // Tags only where the entry names them: one from a Hopp before tags leaves them alone.
+                                e.d.tags()?.let { tags -> if ((mine?.tags ?: emptyList()) != tags) podcasts.setTags(id, tags, sync = false) }
                                 key
                             }
                         }

@@ -68,6 +68,8 @@ data class Settings(
     val libraryAsList: Boolean = false,
     /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
     val librarySort: String = SORT_NEWEST,
+    /** The library's tag filter (maintainer 2026-11-03): "" all, [TAG_UNTAGGED] the shows without one, else a tag. */
+    val libraryTag: String = "",
     /** Light, dark or as the system (the browser) says (maintainer 2026-10-30) — this device's, not synced. */
     val theme: String = THEME_SYSTEM,
     /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
@@ -134,6 +136,8 @@ data class Settings(
         val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
         const val LANGUAGE_ALL = "*"
         const val SORT_NEWEST = "newest"
+        /** The shows without a tag — not a tag of its own: a tag never starts with a space. */
+        const val TAG_UNTAGGED = " untagged"
         const val SORT_TITLE = "title"
         const val SORT_UNHEARD = "unheard"
         val sortChoices = listOf(SORT_NEWEST, SORT_TITLE, SORT_UNHEARD)
@@ -154,7 +158,7 @@ data class Settings(
          *  budgets, storage or anything else of this device. */
         val SYNCED = setOf(
             "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
-            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
+            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden", "library_tag",
             // Downloads, background refresh and what boosts and zaps report (maintainer 2026-10-23).
             "auto_downloads", "downloads_to_queue", "refresh_hours", "refresh_wifi_only",
             "boost_feedback", "quick_boost_feedback", "zap_feedback",
@@ -190,6 +194,7 @@ data class Settings(
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
+                libraryTag = values["library_tag"] ?: d.libraryTag,
                 theme = values["theme"]?.takeIf { it in themeChoices } ?: d.theme,
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
@@ -250,6 +255,7 @@ data class Settings(
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,
+        "library_tag" to libraryTag,
         "theme" to theme,
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),

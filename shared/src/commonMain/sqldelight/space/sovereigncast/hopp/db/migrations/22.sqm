@@ -1,0 +1,2 @@
+-- Version 22 → 23 (maintainer 2026-11-03): the listener's own tags on a show, one per line — as in AntennaPod.
+ALTER TABLE podcast ADD COLUMN tags TEXT NOT NULL DEFAULT '';

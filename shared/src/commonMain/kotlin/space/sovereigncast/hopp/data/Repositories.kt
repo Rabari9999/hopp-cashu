@@ -59,6 +59,8 @@ data class Show(
     val skipOutroSeconds: Int = 0,
     /** Left out of what is shared with mutual Nostr contacts (ADR 0024, 4a). */
     val contactsHidden: Boolean = false,
+    /** The listener's own tags (maintainer 2026-11-03), A–Z. */
+    val tags: List<String> = emptyList(),
 )
 
 /** The most a show may skip at an episode's start or end: ten minutes. */
@@ -143,7 +145,8 @@ class PodcastRepository(
         if (!sync) return
         q.selectById(id).awaitAsOneOrNull()?.let { r ->
             journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
-                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt(), r.contacts_hidden == 1L))
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt(), r.contacts_hidden == 1L,
+                    Tags.parse(r.tags)))
         }
     }
 
@@ -159,6 +162,7 @@ class PodcastRepository(
     private fun space.sovereigncast.hopp.db.Podcast.toShow() = Show(
         id, feed_url, title, author, image_url, last_error, auto_download == 1L, playback_speed?.toFloat(), podcast_guid,
         categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(), contacts_hidden == 1L,
+        Tags.parse(tags),
     )
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(ioDispatcher) {
@@ -337,6 +341,28 @@ class PodcastRepository(
     suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
     /** Show [id] left out of what is shared with mutual Nostr contacts, or shared again (ADR 0024, 4a). */
     suspend fun setContactsHidden(id: Long, hidden: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setContactsHidden(if (hidden) 1 else 0, id); noteShow(id, sync) }
+
+    /** A show's own tags (maintainer 2026-11-03), on every device. */
+    suspend fun setTags(id: Long, tags: List<String>, sync: Boolean = true) = withContext(ioDispatcher) { q.setTags(Tags.join(Tags.clean(tags)), id); noteShow(id, sync) }
+
+    /** [tag] on the shows [on] and off all others — a tag's own page, its shows ticked. */
+    suspend fun setTagFor(tag: String, on: Set<Long>) = withContext(ioDispatcher) {
+        for (r in q.selectAll().awaitAsList()) {
+            val has = Tags.parse(r.tags)
+            val want = if (r.id in on) has + tag else has - tag
+            if (Tags.clean(want) != has) { q.setTags(Tags.join(Tags.clean(want)), r.id); noteShow(r.id, true) }
+        }
+    }
+
+    /** [old] renamed to [new] on every show — or gone where [new] is null. */
+    suspend fun renameTag(old: String, new: String?) = withContext(ioDispatcher) {
+        for (r in q.selectAll().awaitAsList()) {
+            val has = Tags.parse(r.tags)
+            if (has.none { it.equals(old, ignoreCase = true) }) continue
+            val want = has.filterNot { it.equals(old, ignoreCase = true) } + listOfNotNull(new)
+            q.setTags(Tags.join(Tags.clean(want)), r.id); noteShow(r.id, true)
+        }
+    }
     /** What is shared with mutual Nostr contacts: every show not left out, newest first (ADR 0024, 4). */
     suspend fun shared() = withContext(ioDispatcher) { q.selectShared().awaitAsList() }
     /** Seconds skipped at the start and the end of each episode of show [id]; 0 for none, null: as it is —

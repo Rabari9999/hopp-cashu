@@ -1234,4 +1234,20 @@
     <string name="sync_key_title">Sync key</string>
     <string name="sync_key_text">Hopp signs what it syncs with this key, not with your own. If your relay only takes events from keys it knows, add this one to its allow list. It changes when you renew the key.</string>
     <string name="sync_key_copy">Copy</string>
+    <!-- The listener's picture at the top, with a menu (maintainer 2026-11-03) -->
+    <string name="profile_menu">Your profile</string>
+    <string name="nostr_sign_in_short">Sign in</string>
+    <string name="support_copied">Copied</string>
+    <!-- The listener's own tags on shows (maintainer 2026-11-03, as in AntennaPod) -->
+    <string name="tags_title">Tags</string>
+    <string name="tags_menu">Tags …</string>
+    <string name="tags_all">All</string>
+    <string name="tags_untagged">No tag</string>
+    <string name="tags_new">New tag</string>
+    <string name="tags_add">Add</string>
+    <string name="tags_note">Only for you, on all your devices. A long press on a tag in the library edits it.</string>
+    <string name="tag_shows">Shows with this tag</string>
+    <string name="tag_rename">Rename</string>
+    <string name="tag_delete">Delete tag</string>
+    <string name="tag_delete_confirm">Take "%1$s" off every show?</string>
 </resources>
