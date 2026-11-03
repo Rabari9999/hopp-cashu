@@ -97,13 +97,12 @@ import space.sovereigncast.hopp.resources.library_shows
 import space.sovereigncast.hopp.resources.inbox_no_shows
 import space.sovereigncast.hopp.resources.home_all
 import space.sovereigncast.hopp.resources.queue_empty
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.heading
 import space.sovereigncast.hopp.resources.tags_all
 import space.sovereigncast.hopp.resources.tags_untagged
 import androidx.compose.ui.draw.drawBehind
@@ -111,9 +110,10 @@ import space.sovereigncast.hopp.resources.tags_hint
 import space.sovereigncast.hopp.resources.tags_add_chip
 import space.sovereigncast.hopp.resources.tag_edit
 
-/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 each a section
- *  that folds, as on Home, up next and the downloads right there (Dennis, maintainer 2026-11-02:
- *  two taps to the list he cares most about). "Continue listening" moved to Home. */
+/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 up next and the
+ *  downloads each a section that folds, as on Home, right there (Dennis, maintainer 2026-11-02:
+ *  two taps to the list he cares most about). The shows are what the library is for and never
+ *  fold (maintainer 2026-11-03). "Continue listening" moved to Home. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -194,14 +194,13 @@ fun LibraryScreen(
                         Box(Modifier.bleed(8.dp)) { EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) { PlayButton(item); EpisodeMenu(item) } }
                     }
                 }
-                val showsOpen = LIB_SHOWS !in collapsed
                 item(key = "h-shows", span = full) {
-                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, showsOpen, showCount ?: list.size, { vm.toggle(LIB_SHOWS) }, { confirmAllPlayed = true }) {
+                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, { confirmAllPlayed = true }) {
                         // The listener's tags, always (maintainer 2026-11-03): a tap filters, "+ Tag" makes one, a long press edits.
                         TagRow(tags, tag.takeIf { t -> t == Settings.TAG_UNTAGGED || tags.any { it.equals(t, ignoreCase = true) } } ?: "", vm::filterTag, onTag) { creating = true }
                     }
                 }
-                if (showsOpen) items(list, key = { it.id }) { show ->
+                items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
                     // A long press: its tags, right here (maintainer 2026-11-03).
                     if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp, onLongClick = { tagging = show.id }) { onShow(show.id) }
@@ -219,29 +218,17 @@ fun LibraryScreen(
  */
 @Composable
 private fun ShowsHeader(
-    asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int,
-    open: Boolean, count: Int, onToggle: () -> Unit, onAllPlayed: () -> Unit,
+    asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int, onAllPlayed: () -> Unit,
     below: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
-    val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 0f else -90f)
     val title = stringResource(Res.string.library_shows)
     Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 12.dp, bottom = 4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Folds like Home's sections: the title and its arrow.
-            Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = title, onClick = onToggle)
-                    .padding(vertical = 8.dp).semantics { stateDescription = if (open) "open" else "closed" },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Icon(HoppIcons.ChevronDown, null, Modifier.padding(start = 4.dp).size(22.dp).rotate(turn), tint = colors.onSurfaceVariant)
-                if (!open) Text(" $count", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
-            }
-            if (!open) return@Row
+            Text(title, Modifier.weight(1f).padding(vertical = 8.dp).semantics { heading() }, style = MaterialTheme.typography.titleMedium)
             var open by remember { mutableStateOf(false) }
             Box {
                 TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
@@ -269,8 +256,8 @@ private fun ShowsHeader(
                     }
             }
         }
-        if (open) below()
-        if (open && unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+        below()
+        if (unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
             val style = MaterialTheme.typography.bodySmall
             Text(stringResource(Res.string.library_unheard, unheard) + " · ", style = style, color = colors.onSurfaceVariant)
             Text(
@@ -372,7 +359,6 @@ private fun Header(text: String) = Text(
 /** Folded sections of the library, kept with Home's. */
 private const val LIB_QUEUE = "lib-queue"
 private const val LIB_DOWNLOADS = "lib-downloads"
-private const val LIB_SHOWS = "lib-shows"
 
 /** As wide as the grid with its side padding: a row in line with the page, as on Home. */
 private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { measurable, constraints ->

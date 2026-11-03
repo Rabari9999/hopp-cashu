@@ -19,12 +19,16 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Dein Profilbild oben: Nostr-Seite, Hörstatistik und Abmelden, einen Tipp entfernt.
 - **Tour:** Die Sprache gleich am Anfang wählen.
 - **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
+- **Nostr:** Profilname und -bild direkt in Hopp setzen; das Bild geht verkleinert und ohne Metadaten hoch.
+- **Einstellungen:** „Was ist neu“ unter „Über Hopp“ zeigt, was jede Version gebracht hat – nach einem Update einmal auch als Zeile auf Home.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
 - **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
 - **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.
 - **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
+- **Privatsphäre:** Die Seite nennt auch Nostr-Kontakte, Spenden, die Sync-Relays von Hopp, den Bild-Server und im Browser den Server von Hopp Web.
+- **App:** Die Seitenleiste ist breiter, lange Namen passen mit Luft hinein.
 
 ## [0.3.2] - 2026-11-01
 

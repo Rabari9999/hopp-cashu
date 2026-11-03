@@ -211,7 +211,8 @@ class TestApp : Application() {
         stopKoin()
         val app = this
         val platform = object : Platform {
-            override val app = AppInfo("0.0.1", "Android", "Phone")
+            // A build between releases, as a beta: "What's new" shows what is in the works.
+            override val app = AppInfo("0.3.2-dev.test", "Android", "Phone")
             // A file, like on the device.
             override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), app, "hopp.db")
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
@@ -268,7 +269,11 @@ class TestApp : Application() {
         }
         // The first-start tour has its own test; every other one starts past it.
         kotlinx.coroutines.runBlocking {
-            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(onboardingDone = true) }
+            // … and past the line on Home that says what an update brought: it has its own test too.
+            val version = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.platform.AppInfo>().version
+            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>().update {
+                it.copy(onboardingDone = true, whatsNewSeen = space.sovereigncast.hopp.data.Changelog.seenKey(version).orEmpty())
+            }
         }
     }
 }
@@ -331,6 +336,23 @@ class AndroidAppFlowTest {
         tap("Test Show"); waitFor("✓ Subscribed")
         tap("✓ Subscribed"); tap("Unsubscribe")
         waitFor("No subscriptions yet.")
+    }
+
+    /** After an update, once (maintainer 2026-11-03): a line under the greeting leads to what the version brought. */
+    @Test
+    fun whatsNewIsSaidOnceAfterAnUpdate() {
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(whatsNewSeen = "") } }
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Home"); waitFor("What’s new ›", substring = true)
+        rule.onNode(hasText("What’s new ›", substring = true) and hasClickAction()).performClick()
+        waitFor("Your version")
+        back()
+        rule.waitUntil(10_000) { !has("What’s new ›", substring = true) }
+        // And it stays in About.
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("About Hopp") and hasClickAction()).performScrollTo().performClick()
+        waitFor("What’s new")
     }
 
     /** Home's own button, the result opened, back — then Home is Home again,
@@ -1622,7 +1644,7 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
         rule.waitUntil(10_000) { has("Hopp collects nothing.", substring = true) }
         check(has("Podcast Index")) { screen().toString() }
-        check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
+        check(has("Hopp/0.3.2-dev.test (Android; Phone)", substring = true)) { screen().toString() }
         // One line a party; the details on a tap (device feedback 2026-10-16: too much text).
         check(!has("Tip")) { "details on the page itself" }
         tap("Podcast Index")

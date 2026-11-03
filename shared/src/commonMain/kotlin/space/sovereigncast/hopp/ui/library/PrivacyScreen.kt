@@ -106,6 +106,9 @@ private val PARTIES = listOf(
     // Zaps on comments (device feedback 2026-10-19).
     Party(Res.string.pv_zap_who, Res.string.pv_zap_sees, Res.string.pv_zap_when, Res.string.pv_zap_tip, Res.string.pv_zap_title, Res.string.pv_zap_line),
     Party(Res.string.pv_nostr_who, Res.string.pv_nostr_sees, Res.string.pv_nostr_when, Res.string.pv_nostr_tip, Res.string.pv_nostr_title, Res.string.pv_nostr_line),
+    // Since 0.3.3: who sees a shared list (ADR 0024), and where a profile picture goes (maintainer 2026-11-03).
+    Party(Res.string.pv_contacts_who, Res.string.pv_contacts_sees, Res.string.pv_contacts_when, Res.string.pv_contacts_tip, Res.string.pv_contacts_title, Res.string.pv_contacts_line),
+    Party(Res.string.pv_blossom_who, Res.string.pv_blossom_sees, Res.string.pv_blossom_when, Res.string.pv_blossom_tip, Res.string.pv_blossom_title, Res.string.pv_blossom_line),
     Party(Res.string.pv_extra_who, Res.string.pv_extra_sees, Res.string.pv_extra_when, Res.string.pv_extra_tip, Res.string.pv_extra_title, Res.string.pv_extra_line),
     Party(Res.string.pv_share_who, Res.string.pv_share_sees, Res.string.pv_share_when, Res.string.pv_share_tip, Res.string.pv_share_title, Res.string.pv_share_line),
     Party(Res.string.pv_backup_who, Res.string.pv_backup_sees, Res.string.pv_backup_when, Res.string.pv_backup_tip, Res.string.pv_backup_who, Res.string.pv_backup_line),
@@ -116,7 +119,23 @@ private val PARTIES = listOf(
  *  this device only, and downloads are in Caches, both outside the backup. */
 private val BACKUP_IOS = Party(Res.string.pv_backup_who_ios, Res.string.pv_backup_sees, Res.string.pv_backup_when_ios, Res.string.pv_backup_tip_ios, Res.string.pv_backup_who_ios, Res.string.pv_backup_line)
 
-private fun parties(ios: Boolean) = if (!ios) PARTIES else PARTIES.map { if (it.who == Res.string.pv_backup_who) BACKUP_IOS else it }
+/** In the browser (ADR 0022, 6): the feed proxy fetches the feeds, so hosts see the listener only when
+ *  they play; the proxy is a party of its own; and what stays is this browser's, in no system backup. */
+private val HOSTS_WEB = Party(Res.string.pv_hosts_who, Res.string.pv_hosts_sees_web, Res.string.pv_hosts_when_web, Res.string.pv_hosts_tip, Res.string.pv_hosts_title, Res.string.pv_hosts_line_web)
+private val SERVER_WEB = Party(Res.string.pv_web_who, Res.string.pv_web_sees, Res.string.pv_web_when, Res.string.pv_web_tip, Res.string.pv_web_title, Res.string.pv_web_line)
+private val BROWSER = Party(Res.string.pv_browser_who, Res.string.pv_browser_sees, Res.string.pv_browser_when, Res.string.pv_browser_tip, Res.string.pv_browser_who, Res.string.pv_browser_line)
+
+private fun parties(app: AppInfo): List<Party> = when {
+    app.isWeb -> PARTIES.flatMap {
+        when (it.who) {
+            Res.string.pv_hosts_who -> listOf(HOSTS_WEB, SERVER_WEB)
+            Res.string.pv_backup_who -> listOf(BROWSER)
+            else -> listOf(it)
+        }
+    }
+    app.isIos -> PARTIES.map { if (it.who == Res.string.pv_backup_who) BACKUP_IOS else it }
+    else -> PARTIES
+}
 
 /**
  * Who sees what (ADR 0015). Device feedback 2026-10-16: a wall of cards, hard
@@ -167,15 +186,18 @@ fun PrivacyScreen(onPage: (SettingsPage) -> Unit = {}, onWallet: () -> Unit = {}
 
         Text(stringResource(Res.string.privacy_who_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp))) {
-            parties(app.isIos).forEachIndexed { i, p ->
+            parties(app).forEachIndexed { i, p ->
                 if (i > 0) androidx.compose.material3.HorizontalDivider(color = colors.outlineVariant)
                 ListRow(stringResource(p.title), stringResource(p.line)) { open = p }
             }
         }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(16.dp))) {
             ListRow(stringResource(Res.string.privacy_ua_title), app.userAgent) { device = Res.string.privacy_ua_title }
-            androidx.compose.material3.HorizontalDivider(color = colors.outlineVariant)
-            ListRow(stringResource(Res.string.privacy_backup_title), stringResource(Res.string.privacy_device_line)) { device = Res.string.privacy_backup_title }
+            // The browser holds no key and no wallet connection: "This browser" above says what stays.
+            if (!app.isWeb) {
+                androidx.compose.material3.HorizontalDivider(color = colors.outlineVariant)
+                ListRow(stringResource(Res.string.privacy_backup_title), stringResource(Res.string.privacy_device_line)) { device = Res.string.privacy_backup_title }
+            }
         }
     }
 

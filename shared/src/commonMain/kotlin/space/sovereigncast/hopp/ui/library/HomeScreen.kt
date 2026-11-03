@@ -122,6 +122,8 @@ fun HomeScreen(
     snackbar: SnackbarHostState? = null,
     onSyncSettings: () -> Unit = {},
     onQueue: () -> Unit = {},
+    /** "What's new", from the line shown once after an update. */
+    onWhatsNew: () -> Unit = {},
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
@@ -191,6 +193,12 @@ fun HomeScreen(
             return@PullToRefreshBox
         }
         val edit = { editing = true }
+        // Once after an update (maintainer 2026-11-03): not on a new install, whose tour marked it seen.
+        val news = yourRelease()?.takeIf { r -> current?.let { it.onboardingDone && it.whatsNewSeen != r.seenKey } == true }
+        val seen = { key: String -> vm.update { it.copy(whatsNewSeen = key) }; Unit }
+        val newsLine: @Composable () -> Unit = {
+            news?.let { r -> WhatsNewLine(r, onOpen = { seen(r.seenKey); onWhatsNew() }, onDismiss = { seen(r.seenKey) }) }
+        }
         // The sections in the listener's order, into a list — one, or each of two columns. [wide]: "Your shows" as a grid.
         val sections: LazyListScope.(List<String>, Boolean) -> Unit = { keys, wide ->
             keys.forEach { key ->
@@ -289,10 +297,12 @@ fun HomeScreen(
             // A greeting, and what the last refresh brought (device feedback 2026-10-12): never an empty page while there are shows.
             if (maxWidth < HomeSections.TWO_COLUMNS) LazyColumn {
                 item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true } }
+                if (news != null) item(key = "h-news") { newsLine() }
                 sections(order, false)
             } else Column(Modifier.fillMaxSize()) {
                 // A large window (maintainer 2026-11-03): listening on the left, the shows on the right, the greeting over both.
                 Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true }
+                newsLine()
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     LazyColumn(Modifier.weight(1.35f).fillMaxHeight()) { sections(order.filter { it in HomeSections.listening }, true) }
                     LazyColumn(Modifier.weight(1f).fillMaxHeight()) { sections(order.filter { it !in HomeSections.listening }, true) }

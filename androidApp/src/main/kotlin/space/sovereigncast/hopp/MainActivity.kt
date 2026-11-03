@@ -13,6 +13,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.ui.App
 import space.sovereigncast.hopp.ui.IncomingLinks
 import space.sovereigncast.hopp.ui.PlatformActions
@@ -37,6 +39,27 @@ class MainActivity : ComponentActivity(), PlatformActions {
         pendingExport = null
         uri ?: return@registerForActivityResult
         contentResolver.openOutputStream(uri)?.use { it.write(text.encodeToByteArray()) }
+    }
+
+    // A profile picture (maintainer 2026-11-03): the system's photo picker, no permission asked.
+    private var onImage: ((ByteArray) -> Unit)? = null
+    private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val callback = onImage ?: return@registerForActivityResult
+        onImage = null
+        uri ?: return@registerForActivityResult
+        lifecycleScope.launch {
+            val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                ProfileImage.square(contentResolver, uri, space.sovereigncast.hopp.ui.PROFILE_PICTURE_SIZE)
+            }
+            bytes?.let(callback)
+        }
+    }
+
+    override val canPickImage: Boolean get() = true
+
+    override fun pickProfileImage(onImage: (ByteArray) -> Unit) {
+        this.onImage = onImage
+        pickImage.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     private var onQr: ((String) -> Unit)? = null

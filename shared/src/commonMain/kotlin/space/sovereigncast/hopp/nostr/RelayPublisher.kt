@@ -52,12 +52,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * 2026-10-20, M-04/M-08 — the relay holding the list was the one not
      * answering, and the new list went out without what it held).
      */
-    data class Latest(val event: Event?, val complete: Boolean)
+    data class Latest(val event: Event?, val complete: Boolean, val endedOn: Set<String> = emptySet())
 
     suspend fun latestChecked(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Latest {
         // A relay that closed the request, or was cut off, did not answer to the end: not complete.
-        val got = gather(relays, settle) { url -> latestOn(kind, author, url) }
-        return Latest(got.results.flatMap { it.events }.maxByOrNull { it.created_at }, got.complete && got.results.all { it.ended })
+        val got = gather(relays, settle) { url -> latestOn(kind, author, url)?.let { url to it } }
+        val answers = got.results.map { it.second }
+        return Latest(answers.flatMap { it.events }.maxByOrNull { it.created_at }, got.complete && answers.all { it.ended },
+            got.results.filter { it.second.ended }.map { it.first }.toSet())
     }
 
     /**

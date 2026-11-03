@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -310,6 +311,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     /** Where the tour was left for one of its pages, to come back to. */
     var tourPage by rememberSaveable { mutableStateOf(0) }
     val connectedWallet by koinInject<space.sovereigncast.hopp.value.WalletRepository>().wallet.collectAsState()
+    // What this version brought, for a new install's tour to mark as seen.
+    val appInfo = koinInject<space.sovereigncast.hopp.platform.AppInfo>()
+    val whatsNewKey = remember(appInfo) {
+        space.sovereigncast.hopp.data.Changelog.seenKey(appInfo.version, appInfo.isWeb || space.sovereigncast.hopp.data.Changelog.between(appInfo.version))
+    }
     val tourScope = rememberCoroutineScope()
     // A crash last time: offer the report, once per start (ADR 0015).
     val crashes: CrashReports = koinInject()
@@ -341,7 +347,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                 IncomingLinks.handOverOpml(text)
                 if (tour || appSettings?.onboardingDone == false) {
                     tour = false
-                    settingsRepo.update { it.copy(onboardingDone = true) }
+                    settingsRepo.update { it.doneTour(whatsNewKey) }
                 }
                 withContext(Dispatchers.Main) {
                     player.minimize()
@@ -429,11 +435,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   Row(Modifier.fillMaxSize()) {
                     // The tabs at the top, where the eye starts, and the settings at the foot of the rail —
                     // not alone in the window's far corner (UX review 2026-10-30).
-                    if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH), containerColor = MaterialTheme.colorScheme.surface) {
                         androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                         val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
                             NavigationRailItem(
+                                modifier = Modifier.fillMaxWidth(),
                                 selected = currentTab == tab && !inSettings,
                                 onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, null) },
@@ -446,6 +453,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             onNostr = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) }, onStats = { nav.navigate(StatsRoute) },
                         )
                         NavigationRailItem(
+                            modifier = Modifier.fillMaxWidth(),
                             selected = inSettings,
                             // From one of its pages: back to Settings itself, not a second one on top (review 2026-10-31).
                             onClick = {
@@ -520,7 +528,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                         unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
                                     onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) },
-                                    onQueue = { nav.navigate(QueueRoute) })
+                                    onQueue = { nav.navigate(QueueRoute) },
+                                    onWhatsNew = { nav.navigate(SettingsPageRoute(SettingsPage.WhatsNew.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
@@ -662,7 +671,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     // Leaves the tour for a page; back on that page comes back to the tour at [at].
                     fun leaveTour(page: SettingsPage, at: Int) {
                         tour = false
-                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        tourScope.launch { settingsRepo.update { it.doneTour(whatsNewKey) } }
                         nav.navigate(SettingsPageRoute(page.name, fromTour = at))
                     }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(
@@ -680,7 +689,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) { connectWallet ->
                         tourPage = 0
                         tour = false
-                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        tourScope.launch { settingsRepo.update { it.doneTour(whatsNewKey) } }
                         if (connectWallet) nav.navigate(WalletRoute)
                     }
                 }

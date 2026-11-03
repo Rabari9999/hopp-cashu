@@ -75,6 +75,18 @@ the backup rules. Downloaded episodes are excluded too (large, re-downloadable).
 The listener's payment history therefore can reach Google's or Apple's backup;
 the "who sees what" page says so.
 
+### Amendment 2026-11-03: the parties of 0.3.3
+
+The "who sees what" page names, besides the parties above: the listener's
+mutual Nostr contacts (what is shared with them, ADR 0024), the relays of
+the listener's contacts and Hopp's sync relays, a donation through "Support
+Hopp" and the provider of any Lightning address (the IP address), the hosts
+of profile pictures, and the image server a profile picture is uploaded to
+(ADR 0021, amendment 2026-11-03). In the browser the feed hosts see the
+listener only when an episode plays, Hopp Web's server (the feed proxy, ADR
+0022, 6) is a party of its own, and "this browser" takes the place of the
+system backup.
+
 ## Consequences
 
 - **Server work (podcasting_tools):** add `('hopp/', 'Hopp')` to

@@ -74,6 +74,16 @@ data class NostrIdentity(
 @Serializable
 data class RelayEntry(val url: String, val read: Boolean = true, val write: Boolean = true)
 
+/** What the relays hold as the listener's profile (kind 0), before a change to it. */
+sealed interface ProfileRead {
+    /** Its content, every field — the change keeps what it does not touch. */
+    data class Found(val content: kotlinx.serialization.json.JsonObject) : ProfileRead
+    /** None, and the relays said so: a new account. */
+    data object Empty : ProfileRead
+    /** Not known — no relay that would have it answered. Nothing is written then. */
+    data object Unknown : ProfileRead
+}
+
 /** A relay to add that is no `wss://` address. */
 class BadRelayAddress : Exception("not a wss:// relay address")
 
@@ -228,6 +238,57 @@ class IdentityRepository(
         return now.copy(name = name ?: now.name, picture = picture ?: now.picture).also(::save)
     }
 
+    /** Where the listener's profile is looked for: Hopp's relays, the indexes and their own write relays. */
+    private fun profileRelays(me: NostrIdentity): List<String> {
+        val lookup = DEFAULT_RELAYS + INDEX_RELAYS
+        return lookup + me.relays.filter { it.write }.map { it.url }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
+    }
+
+    /**
+     * The profile as the relays hold it, so a change keeps all of it but name and picture
+     * (maintainer 2026-11-03). [ProfileRead.Empty] only when none was found and an index and
+     * one more relay said so to the end — a new account has none; anything less is
+     * [ProfileRead.Unknown], and nothing is written over what may be there (as M-04/M-08).
+     */
+    suspend fun readProfile(): ProfileRead {
+        val me = _identity.value ?: return ProfileRead.Unknown
+        val got = publisher.latestChecked(0, me.pubkey, profileRelays(me))
+        got.event?.let { e ->
+            return runCatching { ProfileRead.Found(json.parseToJsonElement(e.content).jsonObject) }.getOrElse { ProfileRead.Unknown }
+        }
+        val sure = got.complete || (got.endedOn.any { it in INDEX_RELAYS } && got.endedOn.size >= 2)
+        return if (sure) ProfileRead.Empty else ProfileRead.Unknown
+    }
+
+    /**
+     * Name and picture into the profile [base] as read ([readProfile]) — everything else in it
+     * kept — signed by whoever signs for the listener and sent where profiles are looked up.
+     * [picture] null takes the picture out. Returns the relays that took it.
+     */
+    suspend fun saveProfile(name: String, picture: String?, base: kotlinx.serialization.json.JsonObject): Set<String> {
+        val me = _identity.value ?: return emptySet()
+        val signer = signer() ?: return emptySet()
+        val content = kotlinx.serialization.json.JsonObject(base.toMutableMap().apply {
+            val n = name.trim()
+            if (n.isEmpty()) { remove("name"); remove("display_name") } else { put("name", JsonPrimitive(n)); put("display_name", JsonPrimitive(n)) }
+            if (picture == null) remove("picture") else put("picture", JsonPrimitive(picture))
+        })
+        val event = signer.sign(UnsignedEvent(0, content.toString(), emptyList(), clock.now()))
+        val to = (me.relays.filter { it.write }.map { it.url }.take(MAX_WRITE_RELAYS) + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
+        val took = space.sovereigncast.hopp.nostr.withRelayPool { publisher.publish(event, to) }
+        if (took.isNotEmpty() && _identity.value?.pubkey == me.pubkey) {
+            _identity.value?.let { save(it.copy(name = name.trim().ifEmpty { null }, picture = picture?.takeIf { p -> p.startsWith("https://") })) }
+        }
+        return took
+    }
+
+    /** Where a picture goes: the listener's own Blossom servers (kind 10063), else Hopp's choice. */
+    suspend fun blossomServers(): List<String> {
+        val me = _identity.value ?: return listOf(space.sovereigncast.hopp.nostr.Blossom.DEFAULT_SERVER)
+        val list = publisher.latest(space.sovereigncast.hopp.nostr.Blossom.SERVER_LIST_KIND, me.pubkey, profileRelays(me))
+        return space.sovereigncast.hopp.nostr.Blossom.servers(list).ifEmpty { listOf(space.sovereigncast.hopp.nostr.Blossom.DEFAULT_SERVER) }
+    }
+
     /**
      * A new key with a profile: kind 0 with the name, kind 10002 with Hopp's
      * relays. Published best effort — the identity exists either way, and
@@ -249,7 +310,10 @@ class IdentityRepository(
         val me = _identity.value?.takeIf { it.holdsKey } ?: return emptySet()
         val signer = signer() ?: return emptySet()
         val now = clock.now()
-        val profile = signer.sign(UnsignedEvent(0, buildJsonObject { me.name?.let { put("name", it) } }.toString(), emptyList(), now))
+        val profile = signer.sign(UnsignedEvent(0, buildJsonObject {
+            me.name?.let { put("name", it); put("display_name", it) }
+            me.picture?.let { put("picture", it) }
+        }.toString(), emptyList(), now))
         // The listener's own list once there is one — published again, never overwritten with Hopp's.
         val list = me.relays.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
         val relays = signer.sign(UnsignedEvent(10002, "", tags(list), now))

@@ -19,12 +19,16 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** Your profile picture at the top: the Nostr page, your listening statistics and signing out, one tap away.
 - **Tour:** Choose the language right at the start.
 - **Home:** On large screens in two columns: listening on the left, your shows on the right.
+- **Nostr:** Set your profile name and picture in Hopp; the picture goes up small and without its metadata.
+- **Settings:** "What's new" under About Hopp shows what each version brought – once after an update also as a line on Home.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
 - **Wallet:** The hint which wallets can send keysend names the right ones.
 - **Sync:** Episodes you listened to on one device show under "Recently played" on the others too.
 - **App:** Counts read right: "1 episode", not "1 episodes".
+- **Privacy:** The page also names Nostr contacts, donations, Hopp's sync relays, the image server and, in the browser, Hopp Web's server.
+- **App:** The side rail is wider, so long labels fit with room to spare.
 
 ## [0.3.2] - 2026-11-01
 

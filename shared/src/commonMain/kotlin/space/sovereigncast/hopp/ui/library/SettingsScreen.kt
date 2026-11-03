@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -117,6 +118,7 @@ enum class SettingsPage(val title: StringResource) {
     Nostr(Res.string.nostr_title),
     SharedShows(Res.string.contacts_shared_title),
     About(Res.string.settings_about_title),
+    WhatsNew(Res.string.whats_new_title),
 }
 
 /**
@@ -243,9 +245,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
     if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(onSharedShows = { onPage(SettingsPage.SharedShows) }); return }
     if (page == SettingsPage.PerShow) { PerShowPage(vm); return }
     if (page == SettingsPage.SharedShows) { SharedShowsPage(vm); return }
+    if (page == SettingsPage.WhatsNew) { WhatsNewPage(app); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
-            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow, SettingsPage.SharedShows -> Unit
+            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow, SettingsPage.SharedShows, SettingsPage.WhatsNew -> Unit
             SettingsPage.Playback -> {
                 // Every show plays at this speed until the listener gives it one of its own
                 // in the player (device feedback 2026-10-19).
@@ -423,6 +426,21 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                     WebBuildInfo()
                 } }
+                // What this version brought, read in Hopp (maintainer 2026-11-03).
+                yourRelease(app)?.let { r ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
+                            .clickable { onPage(SettingsPage.WhatsNew) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("✦", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(Res.string.whats_new_title), fontWeight = FontWeight.Bold)
+                            Text(whatsNewSummary(r), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("›", color = colors.onSurfaceVariant, style = MaterialTheme.typography.titleLarge)
+                    }
+                }
                 OutlinedButton(onClick = onTour) {
                     Icon(Icons.Rounded.Star, null, Modifier.size(18.dp))
                     androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))

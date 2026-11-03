@@ -47,6 +47,18 @@ F-Droid needs to publish our signature.
   declarations; device checklist; TalkBack/VoiceOver walkthrough of the core
   flows (recommended, not blocking — ADR 0016).
 
+### What's new, in the app (2026-11-03, maintainer)
+
+The changelogs travel with every build: `:shared:generateChangelog` turns
+`CHANGELOG.md` and `CHANGELOG.de.md` into Kotlin strings, and Settings →
+About Hopp → "What's new" reads them — offline, exactly what that build
+holds, never fetched from GitLab (no new party, ADR 0015). German in
+German, English otherwise. A release shows its own section; a build between
+releases (a beta, Hopp Web) shows "Unreleased" as in the works. Once after
+an update a line under Home's greeting leads there; a new install's tour
+marks it as seen. Both changelogs must therefore list the same number of
+entries per release (`ChangelogTest`).
+
 ## Consequences
 
 - Setting up and registering the runner is part of phase 0.

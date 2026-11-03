@@ -61,4 +61,6 @@ data class AppInfo(val version: String, val platform: String, val deviceClass: S
     val userAgent: String get() = "Hopp/$version ($platform; $deviceClass)"
     /** On iOS — where the system's names and settings are Apple's, not Google's. */
     val isIos: Boolean get() = platform == "iOS"
+    /** Hopp Web (ADR 0022). */
+    val isWeb: Boolean get() = platform == "Web"
 }

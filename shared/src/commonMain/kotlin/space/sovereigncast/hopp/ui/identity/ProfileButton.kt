@@ -42,6 +42,7 @@ import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.nostr_sign_in_short
 import space.sovereigncast.hopp.resources.nostr_sign_out
 import space.sovereigncast.hopp.resources.nostr_title
+import space.sovereigncast.hopp.resources.profile_edit
 import space.sovereigncast.hopp.resources.profile_menu
 import space.sovereigncast.hopp.resources.stats_title
 
@@ -74,6 +75,7 @@ fun ProfileButton(onNostr: () -> Unit, onStats: () -> Unit, identities: Identity
                 }
             }
             HorizontalDivider()
+            DropdownMenuItem(text = { Text(stringResource(Res.string.profile_edit)) }, onClick = { open = false; ProfileEditRequest.request(); onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.nostr_title)) }, onClick = { open = false; onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.stats_title)) }, onClick = { open = false; onStats() })
             DropdownMenuItem(

@@ -8,6 +8,11 @@ interface PlatformActions {
     fun pickOpml(onText: (String) -> Unit)
     /** Saves or shares an exported OPML file. */
     fun exportOpml(text: String)
+    /** Whether a picture can be picked here for the Nostr profile (maintainer 2026-11-03). */
+    val canPickImage: Boolean get() = false
+    /** Lets the listener pick a picture; calls back with it made square, [PROFILE_PICTURE_SIZE] px, as a JPEG
+     *  without the original's metadata (no place it was taken) — nothing when closed or unreadable. */
+    fun pickProfileImage(onImage: (ByteArray) -> Unit) = Unit
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
     /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
@@ -83,5 +88,8 @@ object NoPlatformActions : PlatformActions {
     override fun pickOpml(onText: (String) -> Unit) = Unit
     override fun exportOpml(text: String) = Unit
 }
+
+/** A profile picture's side, in pixels: sharp in any client's circle, small to upload. */
+const val PROFILE_PICTURE_SIZE = 512
 
 val LocalPlatformActions = staticCompositionLocalOf<PlatformActions> { NoPlatformActions }

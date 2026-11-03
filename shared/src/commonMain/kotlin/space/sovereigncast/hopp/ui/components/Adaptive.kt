@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.dp
 /** From here the window is no phone held upright: a navigation rail instead of the bar. */
 val MEDIUM_WIDTH: Dp = 600.dp
 
+/** The rail's width: room for a long label, "Einstellungen", with air on both sides
+ *  (maintainer 2026-11-03: at Material's 80 dp it nearly touched the edge). */
+val RAIL_WIDTH: Dp = 104.dp
+
 /** From here the content (beside the rail) holds a list and its detail side by side. */
 val EXPANDED_WIDTH: Dp = 840.dp
 

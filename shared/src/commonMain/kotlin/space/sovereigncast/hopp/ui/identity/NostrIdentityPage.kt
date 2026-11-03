@@ -168,6 +168,8 @@ class NostrIdentityViewModel(
     private val settings: SettingsRepository,
     private val sync: space.sovereigncast.hopp.sync.SyncManager? = null,
     private val contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
+    /** Where a profile picture goes (maintainer 2026-11-03); null: none is uploaded. */
+    private val blossom: space.sovereigncast.hopp.nostr.Blossom? = null,
 ) : ViewModel() {
     /** What the listener's Nostr contacts listen to (ADR 0024): the switches and the contacts read. */
     val contactsState: StateFlow<space.sovereigncast.hopp.contacts.ContactsState> =
@@ -286,10 +288,117 @@ class NostrIdentityViewModel(
         }
     }
 
-    /** The name also becomes the boost name when there is none yet (ADR 0021, 4). */
-    fun create(name: String) = work {
+    /** The name also becomes the boost name when there is none yet (ADR 0021, 4). With [picture]
+     *  (maintainer 2026-11-03), uploaded once the key is there and put into the new profile. */
+    fun create(name: String, picture: ByteArray? = null) = work {
         if (settings.current().senderName.isBlank() && name.isNotBlank()) settings.update { it.copy(senderName = name.trim()) }
         _published.value = identities.create(name).size
+        if (picture != null) {
+            val url = runCatching { upload(picture) }.getOrNull()
+            if (url == null) _pictureFailed.value = true
+            else _published.value = identities.saveProfile(name, url, kotlinx.serialization.json.JsonObject(emptyMap())).size
+        }
+    }
+
+    /** The picture chosen at the start could not be uploaded: said once on the page, with the way to try again. */
+    private val _pictureFailed = MutableStateFlow(false)
+    val pictureFailed: StateFlow<Boolean> = _pictureFailed.asStateFlow()
+
+    /** Onto the listener's own Blossom servers in their order, else Hopp's choice; the first that takes it. */
+    private suspend fun upload(bytes: ByteArray): String {
+        val blossom = blossom ?: throw space.sovereigncast.hopp.nostr.BlossomFailed(null)
+        val signer = identities.signer() ?: throw space.sovereigncast.hopp.nostr.BlossomFailed(null)
+        var last: Exception? = null
+        for (server in identities.blossomServers().take(3)) {
+            try {
+                return blossom.upload(server, bytes, "image/jpeg", signer, kotlin.time.Clock.System.now().epochSeconds)
+            } catch (e: SignerRejected) {
+                throw e
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                last = e
+            }
+        }
+        throw last ?: space.sovereigncast.hopp.nostr.BlossomFailed(null)
+    }
+
+    /** The profile window (maintainer 2026-11-03): what the relays hold, then saving name and picture into it. */
+    data class ProfileEditor(
+        val reading: Boolean = true,
+        /** The profile as read — kept whole but name and picture; null while reading or when not known. */
+        val base: kotlinx.serialization.json.JsonObject? = null,
+        /** Not found and not known to be empty: nothing is saved. */
+        val unknown: Boolean = false,
+        val step: Step? = null,
+        val error: Error? = null,
+        val errorDetail: String? = null,
+        val done: Boolean = false,
+    ) {
+        enum class Step { Uploading, Signing }
+        enum class Error { Upload, Relays, Signer }
+        /** The picture in the profile as read. */
+        val picture: String? get() = (base?.get("picture") as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.startsWith("https://") }
+    }
+
+    /** What becomes of the picture on saving. */
+    sealed interface PictureChange {
+        data object Keep : PictureChange
+        data object Remove : PictureChange
+        data class Address(val url: String) : PictureChange
+        data class Upload(val bytes: ByteArray) : PictureChange
+    }
+
+    private val _editor = MutableStateFlow<ProfileEditor?>(null)
+    val editor: StateFlow<ProfileEditor?> = _editor.asStateFlow()
+
+    fun openProfileEditor() {
+        _editor.value = ProfileEditor()
+        viewModelScope.launch {
+            val read = runCatching { identities.readProfile() }.getOrDefault(space.sovereigncast.hopp.identity.ProfileRead.Unknown)
+            _editor.value = when (read) {
+                is space.sovereigncast.hopp.identity.ProfileRead.Found -> ProfileEditor(reading = false, base = read.content)
+                space.sovereigncast.hopp.identity.ProfileRead.Empty -> ProfileEditor(reading = false, base = kotlinx.serialization.json.JsonObject(emptyMap()))
+                space.sovereigncast.hopp.identity.ProfileRead.Unknown -> ProfileEditor(reading = false, unknown = true)
+            }
+        }
+    }
+
+    fun closeProfileEditor() { _editor.value = null }
+
+    fun saveProfile(name: String, picture: PictureChange, asBoostName: Boolean) {
+        val st = _editor.value ?: return
+        val base = st.base ?: return
+        if (st.step != null) return
+        viewModelScope.launch {
+            try {
+                val url = when (picture) {
+                    PictureChange.Keep -> st.picture
+                    PictureChange.Remove -> null
+                    is PictureChange.Address -> picture.url
+                    is PictureChange.Upload -> {
+                        _editor.value = st.copy(step = ProfileEditor.Step.Uploading, error = null)
+                        upload(picture.bytes)
+                    }
+                }
+                _editor.value = st.copy(step = ProfileEditor.Step.Signing, error = null)
+                val took = identities.saveProfile(name, url, base)
+                if (took.isEmpty()) { _editor.value = st.copy(error = ProfileEditor.Error.Relays); return@launch }
+                if (asBoostName && name.isNotBlank()) settings.update { it.copy(senderName = name.trim()) }
+                _pictureFailed.value = false
+                _editor.value = st.copy(done = true)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: SignerRejected) {
+                _editor.value = st.copy(error = ProfileEditor.Error.Signer)
+            } catch (e: Exception) {
+                val uploading = _editor.value?.step == ProfileEditor.Step.Uploading
+                _editor.value = st.copy(
+                    error = if (uploading) ProfileEditor.Error.Upload else ProfileEditor.Error.Relays,
+                    errorDetail = (e as? space.sovereigncast.hopp.nostr.BlossomFailed)?.reason ?: e.message,
+                )
+            }
+        }
     }
 
     /** A remote signer (NIP-46): connecting, a code shown for it, or what went wrong. */
@@ -510,8 +619,15 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
     val toRestore = rememberSaveable { NostrSignInRequest.take() }
     var signIn by rememberSaveable { mutableStateOf(toRestore) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val actions = LocalPlatformActions.current
+    // A picture for the new profile, optional (maintainer 2026-11-03) — where a key is made here and a picture can be picked.
+    var picture by remember { mutableStateOf<ByteArray?>(null) }
+    val withPicture = vm.keysInApp && actions.canPickImage
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.value), contentAlignment = Alignment.Center) {
+        if (withPicture) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ProfilePicture(80.dp, null, picture, name.ifBlank { "+" }) { actions.pickProfileImage { picture = it } }
+            Text(stringResource(Res.string.profile_picture_optional), color = muted, style = MaterialTheme.typography.bodySmall)
+        } else Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.value), contentAlignment = Alignment.Center) {
             androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.onValue)
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -523,7 +639,7 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
         return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
-    Button(onClick = { vm.create(name) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+    Button(onClick = { vm.create(name, picture) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_start), fontWeight = FontWeight.Bold)
     }
     Text(stringResource(Res.string.nostr_public_line), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -759,15 +875,15 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     var confirmSignOut by remember { mutableStateOf(false) }
 
+    val loading by vm.loadingProfile.collectAsState()
+    // The profile window (maintainer 2026-11-03): from the picture or the name, from the profile menu, or an empty profile's card.
+    var editing by remember { mutableStateOf(ProfileEditRequest.take()) }
+    if (editing) ProfileSheet(me, settings?.senderName.orEmpty(), vm) { editing = false }
+    if (!loading && me.name == null && me.picture == null) EmptyProfileCard { editing = true }
     // Who: picture, name, the npub short with a copy button.
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-            val picture = me.picture
-            if (picture != null) coil3.compose.AsyncImage(picture, null, Modifier.size(56.dp), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-            else Text((me.name ?: "N").take(1).uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-        Column(Modifier.weight(1f)) {
-            val loading by vm.loadingProfile.collectAsState()
+        ProfilePicture(56.dp, me.picture, null, me.name ?: "N") { editing = true }
+        Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = stringResource(Res.string.profile_edit)) { editing = true }) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(me.name ?: stringResource(Res.string.nostr_profile_loading).takeIf { loading } ?: "Nostr", style = MaterialTheme.typography.titleLarge)
                 if (loading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -776,6 +892,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         }
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
+    val pictureFailed by vm.pictureFailed.collectAsState()
+    if (pictureFailed) Text(stringResource(Res.string.profile_welcome_failed), Modifier.clickable { editing = true }, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
     actions.tabOnly?.let { tabOnly ->
         val active by tabOnly.active.collectAsState()

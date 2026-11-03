@@ -10,6 +10,25 @@ private fun pickTextFile(accept: String, onText: (String) -> Unit): Unit = js(""
   input.click();
 }""")
 
+// A picture, square and small, as a JPEG drawn anew on a canvas — none of the file's metadata comes along
+// (createImageBitmap turns it upright first). Base64 across to Kotlin; nothing for a file too large or no picture.
+private fun pickImageFile(size: Int, onImage: (String) -> Unit): Unit = js("""{
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = () => {
+    const f = input.files && input.files[0];
+    if (!f || f.size > 30 * 1024 * 1024) return;
+    createImageBitmap(f, { imageOrientation: 'from-image' }).then(img => {
+      const side = Math.min(img.width, img.height);
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, size, size);
+      g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+      c.toBlob(b => { if (!b) return; const r = new FileReader(); r.onload = () => onImage(String(r.result).split(',')[1] || ''); r.readAsDataURL(b); }, 'image/jpeg', 0.85);
+    }).catch(() => {});
+  };
+  input.click();
+}""")
+
 private fun saveText(name: String, type: String, text: String): Unit = js("""{
   const url = URL.createObjectURL(new Blob([text], { type: type }));
   const a = document.createElement('a'); a.href = url; a.download = name; a.click();
@@ -73,6 +92,11 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     override fun setAppLanguage(code: String?) = storeLanguage(code)
     override fun pickOpml(onText: (String) -> Unit) = pickTextFile(".opml,.xml,text/xml,text/x-opml,application/xml", onText)
     override fun exportOpml(text: String) = saveText("hopp-subscriptions.opml", "text/x-opml", text)
+    override val canPickImage: Boolean get() = true
+    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+    override fun pickProfileImage(onImage: (ByteArray) -> Unit) = pickImageFile(space.sovereigncast.hopp.ui.PROFILE_PICTURE_SIZE) { b64 ->
+        runCatching { kotlin.io.encoding.Base64.decode(b64) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let(onImage)
+    }
     override fun shareText(text: String, subject: String) = share(text, subject)
     override fun copyText(text: String, label: String) = clipboard(text)
     override fun openNostr(entity: String) = openTab("https://njump.me/$entity")

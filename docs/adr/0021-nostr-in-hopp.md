@@ -729,6 +729,23 @@ switches.
      round after it when something waits — sync goes before the feeds.
      Test: `ProgressSyncTest`.
 
+**Amendment 2026-11-03 (maintainer): the profile set in Hopp.** Name and
+picture can be changed from the Nostr page, the profile menu, or a card
+shown while the profile is empty — the same window in the apps and the
+browser, for every way in (a key in Hopp, a signer app, a bunker, an
+extension). The profile (kind 0) is read first and every field but
+`name`, `display_name` and `picture` kept; when no relay that would hold it
+answered, nothing is written over it (`ProfileRead.Unknown`, as M-04/M-08),
+while "none" from an index and one more relay is a new account
+(`ProfileRead.Empty`). A picked photo is made upright, square and 512 px on
+the device and drawn anew as a JPEG — no metadata, no place it was taken —
+then uploaded to a Blossom server (BUD-01/02, a kind-24242 event for that
+file's SHA-256, five minutes): the listener's own (kind 10063, BUD-03),
+else `blossom.band` (nostr.build). A pasted https address works instead. A
+new key in the apps can take a picture at the start. Kinds 0 and 24242
+are not asked of a signer for good: it asks each time. ADR 0015 gains the
+image server as a party. Tests: `ProfileEditTest`, `NostrIdentityTest`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode

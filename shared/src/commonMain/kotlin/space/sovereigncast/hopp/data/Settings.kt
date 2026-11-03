@@ -80,6 +80,9 @@ data class Settings(
     val homeOrder: List<String> = emptyList(),
     /** Home's new order of 0.3.3 was looked at once: who had Hopp's old one keeps it (maintainer 2026-11-02). */
     val homeOrder033: Boolean = false,
+    /** The "What's new" a line on Home last pointed to — [space.sovereigncast.hopp.data.Changelog.Release.seenKey];
+     *  this device's, as the version installed is (maintainer 2026-11-03). */
+    val whatsNewSeen: String = "",
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
     /** Single entries under Home's "Take part" the listener hid, oldest first ([space.sovereigncast.hopp.ui.library.TakePart],
@@ -116,6 +119,10 @@ data class Settings(
      *  2026-10-26): who always shares the audio link need not switch to it each time. This device only. */
     val shareAs: String = "",
 ) {
+    /** The tour done. The first time — a new install — what this version brought is no news ([whatsNew], the key). */
+    fun doneTour(whatsNew: String?): Settings =
+        copy(onboardingDone = true, whatsNewSeen = if (!onboardingDone && whatsNew != null) whatsNew else whatsNewSeen)
+
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
         val skipForwardChoices = listOf(10, 15, 30, 45, 60)
@@ -199,6 +206,7 @@ data class Settings(
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeOrder033 = values["home_order_033"]?.toBooleanStrictOrNull() ?: d.homeOrder033,
+                whatsNewSeen = values["whats_new_seen"] ?: d.whatsNewSeen,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 takePartHidden = values["take_part_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.distinct()?.takeLast(TAKE_PART_HIDDEN_MAX) ?: d.takePartHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
@@ -260,6 +268,7 @@ data class Settings(
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_order_033" to homeOrder033.toString(),
+        "whats_new_seen" to whatsNewSeen,
         "home_hidden" to homeHidden.joinToString("\n"),
         "take_part_hidden" to takePartHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),
