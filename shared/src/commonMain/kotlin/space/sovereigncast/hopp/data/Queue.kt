@@ -58,6 +58,31 @@ class QueueRepository(
         if (noted.isNotEmpty()) journal.changed(SyncDocs.QUEUE)
     }
 
+    /**
+     * What is in "Up next" here and sync knows nothing of — put there by a finished download before 0.3.3,
+     * which was never noted (maintainer 2026-11-03) — noted now, as of the episode's release, so a change
+     * made since on another device still wins. Once per start; nothing to do after the first.
+     */
+    suspend fun noteUnknownOnce() {
+        if (unknownNoted || !journal.enabled) return
+        unknownNoted = true
+        // A device new to sync brings its queue in by the snapshot, where the relays have none.
+        if (!journal.knows(SyncDocs.QUEUE)) return
+        withContext(ioDispatcher) {
+            var any = false
+            for (q in qq.selectKeys().awaitAsList()) {
+                val r = db.episodeQueries.syncKeysOf(q.episode_id).awaitAsOneOrNull() ?: continue
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                val key = SyncDocs.queueKey(show, r.guid)
+                if (journal.current(SyncDocs.QUEUE, key) != null) continue
+                journal.record(SyncDocs.QUEUE, key, SyncDocs.queued(show, r.guid, q.sort_key), notify = false, atMs = (r.published_at ?: 0) * 1000)
+                any = true
+            }
+            if (any) journal.changed(SyncDocs.QUEUE)
+        }
+    }
+    private var unknownNoted = false
+
     /** "Up next" from another device (sync): the episode at [sortKey], or out of it; not noted again. */
     suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(ioDispatcher) {
         if (sortKey == null) qq.remove(episodeId) else qq.put(episodeId, sortKey)

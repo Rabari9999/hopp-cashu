@@ -128,6 +128,35 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(x), phone.queueGuids())
     }
 
+    /** What a finished download put in "Up next" before 0.3.3 was never synced: noted at the next start. */
+    @Test
+    fun whatADownloadPutInUpNextBeforeGoesOutAtTheNextStart() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (a, b) = guids(phone).take(2)
+        val day = (phone.episode(feed, a).published_at!! + 86_400) * 1000
+        phone.ms = day
+        phone.queue.playLast(phone.id(a))
+        phone.sync.enable()
+        val browser = SyncDevice(relay, scope, nsec)
+        browser.ms = day + 1_000
+        browser.sync.enable()
+        // As a download did it until now: in the queue here only.
+        phone.db.queueQueries.addLast(phone.id(b))
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        browser.ms += 120_000
+        browser.sync.syncNow()
+        assertEquals(listOf(a), browser.queueGuids(), "the same start: still unknown")
+
+        val again = SyncDevice(relay, scope, nsec, db = phone.db, secrets = phone.secrets)
+        again.ms = phone.ms + 600_000
+        again.sync.syncNow()
+        browser.ms += 1_200_000
+        browser.sync.syncNow()
+        assertEquals(listOf(a, b), browser.queueGuids())
+    }
+
     @Test
     fun listeningHabitsFollowTheWalletAndBudgetStay() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)
