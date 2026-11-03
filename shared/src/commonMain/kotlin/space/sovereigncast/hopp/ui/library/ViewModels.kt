@@ -186,7 +186,7 @@ internal fun sorted(shows: List<Show>, counts: Map<Long, space.sovereigncast.hop
 }
 
 class LibraryViewModel(
-    podcasts: PodcastRepository,
+    private val podcastsRepo: PodcastRepository,
     private val episodes: EpisodeRepository,
     private val queue: QueueRepository,
     downloads: DownloadRepository,
@@ -199,17 +199,25 @@ class LibraryViewModel(
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }
     val shows: StateFlow<List<Show>?> = state(
-        combine(podcasts.shows, episodes.countsPerShow, settings.settings.map { it.librarySort to it.libraryTag }.distinctUntilChanged()) { shows, counts, (sort, tag) ->
+        combine(podcastsRepo.shows, episodes.countsPerShow, settings.settings.map { it.librarySort to it.libraryTag }.distinctUntilChanged()) { shows, counts, (sort, tag) ->
             sorted(space.sovereigncast.hopp.data.Tags.filter(shows, tag), counts, sort)
         },
         null,
     )
     /** The listener's tags, and the one the library shows (maintainer 2026-11-03); a tap on the chosen one shows all again. */
-    val tags: StateFlow<List<String>> = state(podcasts.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
+    val tags: StateFlow<List<String>> = state(podcastsRepo.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
     val tag: StateFlow<String> = state(settings.settings.map { it.libraryTag }, "")
     fun filterTag(tag: String) = viewModelScope.launch { settings.update { it.copy(libraryTag = if (it.libraryTag == tag) "" else tag) } }
+    /** A show's tags from the library (a long press on it), and a new tag with its shows at once (maintainer 2026-11-03). */
+    fun setTags(id: Long, tags: List<String>) = viewModelScope.launch { podcastsRepo.setTags(id, tags) }
+    fun createTag(name: String, shows: Set<Long>) = viewModelScope.launch {
+        val tag = name.trim().take(space.sovereigncast.hopp.data.Tags.MAX_LENGTH)
+        if (tag.isNotEmpty()) { podcastsRepo.setTagFor(tag, shows); settings.update { it.copy(libraryTag = tag) } }
+    }
+    /** Every show, unfiltered and A–Z — the new tag's list. */
+    val allShows: StateFlow<List<Show>> = state(podcastsRepo.shows.map { l -> l.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }) }, emptyList())
     /** Every show, unfiltered — the count in the "Shows" title says how many there are. */
-    val showCount: StateFlow<Int?> = state(podcasts.shows.map { it.size }, null)
+    val showCount: StateFlow<Int?> = state(podcastsRepo.shows.map { it.size }, null)
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
     /** "Up next" and the downloads in the library itself, each a section that folds (Dennis, maintainer 2026-11-02). */

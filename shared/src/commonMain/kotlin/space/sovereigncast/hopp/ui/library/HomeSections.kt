@@ -79,6 +79,11 @@ object HomeSections {
      *  what was heard last. */
     val default = listOf(TAKE_PART, CONTINUE, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
 
+    /** In a large window, the left column (maintainer 2026-11-03): what is listened to; the rest goes right. */
+    val listening = setOf(CONTINUE, QUEUE, NEW, RECENT)
+    /** From this width Home is two columns. */
+    val TWO_COLUMNS = 1000.dp
+
     /** Hopp's own order before 0.3.3: kept for a listener who had it, "Up next" put in after "Continue". */
     val before033 = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
 

@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -510,17 +511,15 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
     var signIn by rememberSaveable { mutableStateOf(toRestore) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Comment, null, Modifier.size(36.dp))
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.value), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.onValue)
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Text(stringResource(if (vm.keysInApp) Res.string.nostr_hero_text else Res.string.nostr_hero_text_web), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
     if (!vm.keysInApp) {
-        // The browser holds no key (ADR 0022, 2): the ways in with a signer, right here.
-        Text(stringResource(Res.string.nostr_web_note), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodyMedium)
-        LocalPlatformActions.current.tabOnly?.let { TabOnlyRow(it) }
-        SignIn(busy, vm)
+        // The browser holds no key (ADR 0022, 2): the ways in with a signer, right here — as cards (maintainer 2026-11-03).
+        WebWays(busy, vm)
         return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
@@ -597,6 +596,103 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     TextButton(onClick = { bunker = !bunker }) { Text(stringResource(Res.string.nostr_bunker_row) + if (bunker) " ▴" else " ▾") }
     if (bunker) BunkerLogin(vm)
 }
+
+/**
+ * Signing in in a browser (maintainer 2026-11-03): three ways as cards, the easiest first — an extension (on a
+ * computer; on a phone, where none can be installed, only when one is there all the same), a signer app by its
+ * code, a bunker address — a line under them that the browser keeps no key, and "Not my device" at the foot.
+ */
+@Composable
+private fun WebWays(busy: Boolean, vm: NostrIdentityViewModel) {
+    val actions = LocalPlatformActions.current
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val state by vm.bunker.collectAsState()
+    val signerError by vm.signerError.collectAsState()
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    val extension = vm.signerApp && vm.signerIsExtension
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (extension) {
+            WayCard(Res.string.web_way_extension, stringResource(Res.string.web_way_extension_note), enabled = !busy) { vm.signInWithSigner() }
+            signerError?.let {
+                Text(stringResource(if (it == NostrIdentityViewModel.SignerError.Rejected) Res.string.nostr_extension_rejected else Res.string.nostr_extension_failed),
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+        } else if (!actions.mobileBrowser) {
+            WayCard(Res.string.web_way_extension, stringResource(Res.string.web_way_extension_none), enabled = true, dimmed = true) {
+                runCatching { uri.openUri("https://getalby.com/") }
+            }
+        }
+        WayCard(Res.string.web_way_signer, stringResource(Res.string.web_way_signer_note), enabled = true, expanded = open == "code") {
+            if (open == "code") { open = null; vm.cancelBunker() } else { open = "code"; vm.showConnectCode() }
+        }
+        if (open == "code") when (val s = state) {
+            is NostrIdentityViewModel.Bunker.Offer -> {
+                space.sovereigncast.hopp.ui.components.QrImage(s.uri, stringResource(Res.string.nostr_bunker_qr),
+                    Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = 220.dp).padding(vertical = 4.dp))
+                androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                    OutlinedButton(onClick = { runCatching { uri.openUri(s.uri) } }) { Text(stringResource(Res.string.nostr_bunker_open)) }
+                    OutlinedButton(onClick = { actions.copyText(s.uri, "nostrconnect") }) { Text(stringResource(Res.string.nostr_copy)) }
+                }
+                Waiting(stringResource(Res.string.nostr_bunker_waiting), vm)
+            }
+            NostrIdentityViewModel.Bunker.Connecting -> Waiting(stringResource(Res.string.nostr_bunker_connecting), vm)
+            is NostrIdentityViewModel.Bunker.Failed -> BunkerFailed(s)
+            else -> Unit
+        }
+        WayCard(Res.string.web_way_bunker, stringResource(Res.string.web_way_bunker_note), enabled = true, expanded = open == "bunker") {
+            if (open == "bunker") open = null else { open = "bunker"; vm.cancelBunker() }
+        }
+        if (open == "bunker") BunkerAddress(vm, state)
+        vm.authUrl.collectAsState().value?.let { url ->
+            Text(stringResource(Res.string.nostr_bunker_auth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = { runCatching { uri.openUri(url) } }) { Text(stringResource(Res.string.nostr_bunker_auth_open)) }
+        }
+        Text(stringResource(Res.string.web_no_key), Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        actions.tabOnly?.let { HorizontalDivider(Modifier.padding(vertical = 4.dp)); TabOnlyRow(it) }
+    }
+}
+
+/** One way in, as a card: its name, a line, and where it leads; [expanded] while its part is open below it. */
+@Composable
+private fun WayCard(title: org.jetbrains.compose.resources.StringResource, note: String, enabled: Boolean, expanded: Boolean = false, dimmed: Boolean = false, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).border(1.dp, if (expanded) colors.onSurface else colors.outlineVariant, shape)
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp)
+            .then(if (dimmed) Modifier.alpha(0.6f) else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        Text(if (expanded) "⌃" else "›", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+    }
+}
+
+/** A bunker:// address pasted (or scanned) and connected. */
+@Composable
+private fun BunkerAddress(vm: NostrIdentityViewModel, state: NostrIdentityViewModel.Bunker) {
+    val actions = LocalPlatformActions.current
+    var address by remember { mutableStateOf("") } // may carry the bunker's secret (H9)
+    if (state == NostrIdentityViewModel.Bunker.Connecting) { Waiting(stringResource(Res.string.nostr_bunker_connecting), vm); return }
+    OutlinedTextField(address, { address = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.nostr_bunker_hint)) })
+    (state as? NostrIdentityViewModel.Bunker.Failed)?.let { BunkerFailed(it) }
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { vm.connectBunker(address) }, enabled = address.trim().startsWith("bunker://")) { Text(stringResource(Res.string.nostr_bunker_connect)) }
+        if (actions.canScanQr) OutlinedButton(onClick = { actions.scanQr { text -> address = text.trim(); vm.connectBunker(address) } }) {
+            Text(stringResource(Res.string.nostr_bunker_scan))
+        }
+    }
+}
+
+@Composable
+private fun BunkerFailed(f: NostrIdentityViewModel.Bunker.Failed) = Text(
+    if (f.usedUp) stringResource(Res.string.nostr_bunker_used_up) else stringResource(Res.string.nostr_bunker_failed, f.reason),
+    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+)
 
 @Composable
 private fun BunkerLogin(vm: NostrIdentityViewModel) {

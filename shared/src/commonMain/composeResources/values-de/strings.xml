@@ -682,8 +682,8 @@
     <string name="nostr_extension_failed">Die Erweiterung hat nicht geantwortet.</string>
     <string name="nostr_via_extension">Dein Schlüssel bleibt in deiner Browser-Erweiterung.</string>
     <string name="nostr_web_note">Im Browser hält Hopp keinen Schlüssel: Melde dich mit einer Erweiterung wie Alby oder nos2x an oder mit einem Signer, der deinen Schlüssel verwahrt – Amber, nsec.app.</string>
-    <string name="nostr_tab_only">Das ist nicht mein Gerät</string>
-    <string name="nostr_tab_only_note">Hopp speichert nichts in diesem Browser: Wird der Tab geschlossen, sind Anmeldung und Bibliothek weg.</string>
+    <string name="nostr_tab_only">Nicht mein Gerät</string>
+    <string name="nostr_tab_only_note">Nichts bleibt in diesem Browser.</string>
     <string name="nostr_tab_only_on">In diesem Browser wird nichts gespeichert. Schließen oder Neuladen des Tabs meldet dich ab und vergisst die Bibliothek.</string>
     <string name="nostr_sign_out_text_amber">Hopp vergisst die Verbindung zu deiner Signer-App. Dein Schlüssel bleibt dort; was du veröffentlicht hast, bleibt auf Nostr.</string>
     <string name="nostr_sign_out_text_web">Hopp vergisst die Verbindung zu deinem Signer und löscht alles, was es in diesem Browser gespeichert hat: Bibliothek, Hörstand, Einstellungen. Dein Schlüssel bleibt bei deinem Signer; was du veröffentlicht und abgeglichen hast, bleibt auf Nostr.</string>
@@ -795,9 +795,9 @@
     <string name="nostr_import_button">Schlüssel verwenden</string>
     <string name="nostr_import_unreadable">Das ist kein Nostr-Schlüssel (nsec1… oder ncryptsec1…).</string>
     <string name="nostr_import_wrong_password">Mit diesem Passwort öffnet sich die Sicherung nicht.</string>
-    <string name="nostr_hero_title">Mitreden auf Nostr</string>
-    <string name="nostr_hero_text">Kommentieren, liken und als Person abstimmen. Dein Konto ist ein Schlüssel – Hopp erstellt ihn für dich.</string>
-    <string name="nostr_hero_text_web">Kommentieren, liken und als Person abstimmen – mit deinem Nostr-Account.</string>
+    <string name="nostr_hero_title">Mit Nostr anmelden</string>
+    <string name="nostr_hero_text">Ein Konto für Abgleich, Kommentare, Boosts und deine Nostr-Kontakte. Hopp legt es für dich an.</string>
+    <string name="nostr_hero_text_web">Ein Konto für Abgleich, Kommentare, Boosts und deine Nostr-Kontakte.</string>
     <string name="nostr_start">Loslegen</string>
     <string name="nostr_public_line">Was du auf Nostr veröffentlichst, ist öffentlich und bleibt.</string>
     <string name="nostr_have_account">Ich habe schon einen Nostr-Account</string>
@@ -1250,4 +1250,19 @@
     <string name="tag_rename">Umbenennen</string>
     <string name="tag_delete">Tag löschen</string>
     <string name="tag_delete_confirm">„%1$s“ von allen Shows entfernen?</string>
+    <!-- Signing in in a browser: three ways as cards (maintainer 2026-11-03) -->
+    <string name="web_way_extension">Browser-Erweiterung</string>
+    <string name="web_way_extension_note">Alby, nos2x</string>
+    <string name="web_way_extension_none">Keine gefunden · Alby holen</string>
+    <string name="web_way_signer">Signer-App</string>
+    <string name="web_way_signer_note">Amber, nsec.app · Code scannen</string>
+    <string name="web_way_bunker">Bunker-Adresse</string>
+    <string name="web_way_bunker_note">bunker://… einfügen</string>
+    <string name="web_no_key">Hopp speichert im Browser keinen Schlüssel.</string>
+    <!-- Tags made in the library itself (maintainer 2026-11-03) -->
+    <string name="tags_hint">Shows mit Tags ordnen</string>
+    <string name="tags_add_chip">+ Tag</string>
+    <string name="tags_which">Welche Shows bekommen ihn?</string>
+    <string name="tags_create">Anlegen</string>
+    <string name="tag_edit">%1$s bearbeiten</string>
 </resources>

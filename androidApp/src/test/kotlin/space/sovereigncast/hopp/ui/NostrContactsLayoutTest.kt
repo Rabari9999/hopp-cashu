@@ -215,6 +215,29 @@ class NostrContactsLayoutTest {
         shoot("tour")
     }
 
+    /** A large window (maintainer 2026-11-03): Home in two columns; the library's tag row with "+ Tag" and its sheet. */
+    @Test @Config(qualifiers = "de-w1280dp-h800dp")
+    fun homeInTwoColumnsAndANewTag() {
+        rule.setContent { App() }
+        tap("Entdecken")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Als Feed öffnen"); waitFor("Abonnieren")
+        tap("Abonnieren"); waitFor("✓ Abonniert")
+        if (!has("Folgen durchsuchen")) tap("✓ Abonniert")
+        waitFor("Folgen durchsuchen")
+        val more = rule.onAllNodes(hasContentDescription("Mehr") and hasClickAction())
+        more[0].performClick(); waitFor("Als Nächstes abspielen"); tap("Als Nächstes abspielen")
+        tap("Home"); waitFor("Als Nächstes")
+        rule.waitForIdle()
+        shoot("home-wide")
+        tap("Bibliothek"); waitFor("Shows mit Tags ordnen")
+        rule.waitForIdle()
+        shoot("library-wide")
+        tap("+ Tag"); waitFor("Welche Shows bekommen ihn?")
+        rule.waitForIdle()
+        shoot("new-tag")
+    }
+
     /** Each window as it is drawn — a sheet is one of its own. */
     private fun shoot(what: String) {
         java.io.File("build/contacts-layout").mkdirs()

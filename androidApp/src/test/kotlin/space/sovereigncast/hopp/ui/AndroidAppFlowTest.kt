@@ -1946,7 +1946,7 @@ class AndroidAppFlowTest {
         repeat(4) { tap("Next") }
         waitFor("Nostr, if you like")
         tap("Set up")
-        waitFor("Join the conversation on Nostr")
+        waitFor("Sign in with Nostr")
         until { settings().onboardingDone }
     }
 
@@ -1978,7 +1978,7 @@ class AndroidAppFlowTest {
         // Back — on a device the sign-in sheet takes the first one — leads to the tour, not Home.
         repeat(2) { if (!has("Welcome to Hopp")) { systemBack(); rule.waitForIdle() } }
         waitFor("Welcome to Hopp")
-        check(!has("Join the conversation on Nostr")) { "the Nostr page stayed on top of the tour" }
+        check(!has("Sign in with Nostr")) { "the Nostr page stayed on top of the tour" }
         // From the second page, by the arrow: back on the second page.
         tap("Next")
         tap("I’m coming from another podcast app")

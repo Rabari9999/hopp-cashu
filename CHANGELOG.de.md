@@ -18,6 +18,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Bibliothek:** Versieh deine Shows mit eigenen Tags – so vielen du willst – und filtere die Bibliothek danach.
 - **App:** Dein Profilbild oben: Nostr-Seite, Hörstatistik und Abmelden, einen Tipp entfernt.
 - **Tour:** Die Sprache gleich am Anfang wählen.
+- **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.

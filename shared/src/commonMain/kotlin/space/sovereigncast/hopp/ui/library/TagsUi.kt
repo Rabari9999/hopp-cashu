@@ -55,6 +55,10 @@ import space.sovereigncast.hopp.resources.tags_add
 import space.sovereigncast.hopp.resources.tags_new
 import space.sovereigncast.hopp.resources.tags_note
 import space.sovereigncast.hopp.resources.tags_title
+import space.sovereigncast.hopp.resources.tags_which
+import space.sovereigncast.hopp.resources.tags_create
+import space.sovereigncast.hopp.resources.per_show_search
+import androidx.compose.foundation.layout.heightIn
 
 /**
  * A show's tags (maintainer 2026-11-03, as in AntennaPod): every tag the listener has, picked or not with a
@@ -145,4 +149,44 @@ fun TagScreen(tag: String, onGone: () -> Unit, podcasts: PodcastRepository = koi
         confirmButton = { TextButton(onClick = { confirm = false; scope.launch { podcasts.renameTag(name, null); onGone() } }) { Text(stringResource(Res.string.tag_delete), color = colors.error) } },
         dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+/**
+ * A new tag from the library (maintainer 2026-11-03): its name and the shows that get it, in one step —
+ * then the library shows them under it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewTagSheet(shows: List<Show>, onCreate: (String, Set<Long>) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var picked by remember { mutableStateOf(emptySet<Long>()) }
+    var query by remember { mutableStateOf("") }
+    val found = query.trim().let { q -> if (q.isEmpty()) shows else shows.filter { it.title.contains(q, ignoreCase = true) } }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(stringResource(Res.string.tags_new), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            OutlinedTextField(name, { name = it.replace("\n", "").take(Tags.MAX_LENGTH) }, Modifier.fillMaxWidth(), singleLine = true,
+                placeholder = { Text(stringResource(Res.string.tags_new)) })
+            Text(stringResource(Res.string.tags_which), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Worth it only with more shows than a screen holds — as "Per show".
+            if (shows.size > 8) OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
+                placeholder = { Text(stringResource(Res.string.per_show_search)) })
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                items(found, key = { it.id }) { s ->
+                    val on = s.id in picked
+                    Row(
+                        Modifier.fillMaxWidth().clickable { picked = if (on) picked - s.id else picked + s.id }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Cover(s.imageUrl, 36.dp, corner = 8.dp)
+                        Text(s.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Checkbox(on, onCheckedChange = { picked = if (on) picked - s.id else picked + s.id })
+                    }
+                }
+            }
+            Button(onClick = { onCreate(name, picked) }, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.tags_create) + if (picked.isNotEmpty()) " · " + picked.size else "")
+            }
+        }
+    }
 }

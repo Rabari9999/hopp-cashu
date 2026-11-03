@@ -18,6 +18,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Library:** Give your shows tags of your own – as many as you like – and filter the library by them.
 - **App:** Your profile picture at the top: the Nostr page, your listening statistics and signing out, one tap away.
 - **Tour:** Choose the language right at the start.
+- **Home:** On large screens in two columns: listening on the left, your shows on the right.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.

@@ -682,8 +682,8 @@
     <string name="nostr_extension_failed">The extension did not answer.</string>
     <string name="nostr_via_extension">Your key stays in your browser extension.</string>
     <string name="nostr_web_note">In the browser Hopp keeps no key: sign in with an extension such as Alby or nos2x, or with a signer that holds your key — Amber, nsec.app.</string>
-    <string name="nostr_tab_only">This is not my device</string>
-    <string name="nostr_tab_only_note">Hopp keeps nothing in this browser: when the tab closes, your sign-in and library are gone.</string>
+    <string name="nostr_tab_only">Not my device</string>
+    <string name="nostr_tab_only_note">Nothing stays in this browser.</string>
     <string name="nostr_tab_only_on">Nothing is kept in this browser. Closing or reloading the tab signs you out and forgets the library.</string>
     <string name="nostr_sign_out_text_amber">Hopp forgets the connection to your signer app. Your key stays in it; what you published stays on Nostr.</string>
     <string name="nostr_sign_out_text_web">Hopp forgets the connection to your signer and deletes everything it kept in this browser: library, progress, settings. Your key stays with your signer; what you published and synced stays on Nostr.</string>
@@ -795,9 +795,9 @@
     <string name="nostr_import_button">Use key</string>
     <string name="nostr_import_unreadable">That is not a Nostr key (nsec1… or ncryptsec1…).</string>
     <string name="nostr_import_wrong_password">This password does not open the backup.</string>
-    <string name="nostr_hero_title">Join the conversation on Nostr</string>
-    <string name="nostr_hero_text">Comment, like and vote as a person. Your account is a key — Hopp makes it for you.</string>
-    <string name="nostr_hero_text_web">Comment, like and vote as a person — with your Nostr account.</string>
+    <string name="nostr_hero_title">Sign in with Nostr</string>
+    <string name="nostr_hero_text">One account for sync, comments, boosts and your Nostr contacts. Hopp makes it for you.</string>
+    <string name="nostr_hero_text_web">One account for sync, comments, boosts and your Nostr contacts.</string>
     <string name="nostr_start">Get started</string>
     <string name="nostr_public_line">What you publish on Nostr is public and stays.</string>
     <string name="nostr_have_account">I already have a Nostr account</string>
@@ -1250,4 +1250,19 @@
     <string name="tag_rename">Rename</string>
     <string name="tag_delete">Delete tag</string>
     <string name="tag_delete_confirm">Take "%1$s" off every show?</string>
+    <!-- Signing in in a browser: three ways as cards (maintainer 2026-11-03) -->
+    <string name="web_way_extension">Browser extension</string>
+    <string name="web_way_extension_note">Alby, nos2x</string>
+    <string name="web_way_extension_none">None found · get Alby</string>
+    <string name="web_way_signer">Signer app</string>
+    <string name="web_way_signer_note">Amber, nsec.app · scan a code</string>
+    <string name="web_way_bunker">Bunker address</string>
+    <string name="web_way_bunker_note">Paste bunker://…</string>
+    <string name="web_no_key">Hopp keeps no key in the browser.</string>
+    <!-- Tags made in the library itself (maintainer 2026-11-03) -->
+    <string name="tags_hint">Sort your shows with tags</string>
+    <string name="tags_add_chip">+ Tag</string>
+    <string name="tags_which">Which shows get it?</string>
+    <string name="tags_create">Create</string>
+    <string name="tag_edit">Edit %1$s</string>
 </resources>

@@ -106,6 +106,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.selected
 import space.sovereigncast.hopp.resources.tags_all
 import space.sovereigncast.hopp.resources.tags_untagged
+import androidx.compose.ui.draw.drawBehind
+import space.sovereigncast.hopp.resources.tags_hint
+import space.sovereigncast.hopp.resources.tags_add_chip
+import space.sovereigncast.hopp.resources.tag_edit
 
 /** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 each a section
  *  that folds, as on Home, up next and the downloads right there (Dennis, maintainer 2026-11-02:
@@ -134,6 +138,11 @@ fun LibraryScreen(
     val tags by vm.tags.collectAsState()
     val tag by vm.tag.collectAsState()
     val showCount by vm.showCount.collectAsState()
+    var tagging by remember { mutableStateOf<Long?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    val allShows by vm.allShows.collectAsState()
+    allShows.firstOrNull { it.id == tagging }?.let { s -> TagsSheet(s, tags, onTags = { vm.setTags(s.id, it) }) { tagging = null } }
+    if (creating) NewTagSheet(allShows, onCreate = { name, ids -> vm.createTag(name, ids); creating = false }) { creating = false }
     var confirmAllPlayed by remember { mutableStateOf(false) }
     if (confirmAllPlayed) {
         val unheard = counts.values.sumOf { it.unheard }
@@ -188,14 +197,15 @@ fun LibraryScreen(
                 val showsOpen = LIB_SHOWS !in collapsed
                 item(key = "h-shows", span = full) {
                     ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, showsOpen, showCount ?: list.size, { vm.toggle(LIB_SHOWS) }, { confirmAllPlayed = true }) {
-                        // The listener's tags, once there is one (maintainer 2026-11-03): a tap filters, a long press edits.
-                        if (tags.isNotEmpty()) TagRow(tags, tag.takeIf { t -> t == Settings.TAG_UNTAGGED || tags.any { it.equals(t, ignoreCase = true) } } ?: "", vm::filterTag, onTag)
+                        // The listener's tags, always (maintainer 2026-11-03): a tap filters, "+ Tag" makes one, a long press edits.
+                        TagRow(tags, tag.takeIf { t -> t == Settings.TAG_UNTAGGED || tags.any { it.equals(t, ignoreCase = true) } } ?: "", vm::filterTag, onTag) { creating = true }
                     }
                 }
                 if (showsOpen) items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
-                    if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp) { onShow(show.id) }
-                    else ShowCard(show, c, large) { onShow(show.id) }
+                    // A long press: its tags, right here (maintainer 2026-11-03).
+                    if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp, onLongClick = { tagging = show.id }) { onShow(show.id) }
+                    else ShowCard(show, c, large, onLongClick = { tagging = show.id }) { onShow(show.id) }
                 }
             }
         }
@@ -301,13 +311,13 @@ private fun UnheardCount(n: Int) {
 
 /** A show as a card: the cover fills the cell, its unheard episodes on it, title and author below. */
 @Composable
-private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: () -> Unit) {
+private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val corner = if (large) 18.dp else 16.dp
     // Round at the top like the cover, barely at the bottom: rounded there too, the
     // card's corner cut into the author's line (as it once did on Home's strip).
     Column(
         Modifier.padding(8.dp).clip(RoundedCornerShape(topStart = corner, topEnd = corner, bottomStart = 4.dp, bottomEnd = 4.dp))
-            .clickable(onClick = onClick).padding(bottom = 4.dp),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(bottom = 4.dp),
     ) {
         Box {
             CoverFill(show.imageUrl, corner = corner)
@@ -326,12 +336,12 @@ private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: (
 
 /** A show as a row of the list: cover, title, author, its episodes and whether it is a Sovereigncast show. */
 @Composable
-private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () -> Unit) {
+private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val sc: SovereigncastRepository = koinInject()
     val isSc by remember(show.id) { sc.layer(show.id).map { it != null } }.collectAsState(false)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Cover(show.imageUrl, cover, corner = 14.dp)
@@ -399,25 +409,41 @@ private fun latestLabel(epochSeconds: Long): String {
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun TagRow(tags: List<String>, chosen: String, onPick: (String) -> Unit, onEdit: (String) -> Unit) {
+private fun TagRow(tags: List<String>, chosen: String, onPick: (String) -> Unit, onEdit: (String) -> Unit, onNew: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 6.dp, end = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        TagChip(stringResource(Res.string.tags_all), chosen.isEmpty(), onClick = { if (chosen.isNotEmpty()) onPick(chosen) })
-        tags.forEach { t -> TagChip(t, chosen.equals(t, ignoreCase = true), onClick = { onPick(t) }, onLongClick = { onEdit(t) }) }
-        TagChip(stringResource(Res.string.tags_untagged), chosen == Settings.TAG_UNTAGGED, onClick = { onPick(Settings.TAG_UNTAGGED) })
+        if (tags.isEmpty()) Text(stringResource(Res.string.tags_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else {
+            TagChip(stringResource(Res.string.tags_all), chosen.isEmpty(), onClick = { if (chosen.isNotEmpty()) onPick(chosen) })
+            tags.forEach { t -> TagChip(t, chosen.equals(t, ignoreCase = true), onClick = { onPick(t) }, onLongClick = { onEdit(t) }) }
+            TagChip(stringResource(Res.string.tags_untagged), chosen == Settings.TAG_UNTAGGED, onClick = { onPick(Settings.TAG_UNTAGGED) })
+        }
+        TagChip(stringResource(Res.string.tags_add_chip), false, dashed = true, onClick = onNew)
     }
+    // The chosen tag's own page, without a long press (maintainer 2026-11-03).
+    if (chosen.isNotEmpty() && chosen != Settings.TAG_UNTAGGED) Text(
+        stringResource(Res.string.tag_edit, chosen) + " ›",
+        Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) { onEdit(chosen) }.padding(vertical = 6.dp),
+        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+    )
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun TagChip(label: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+internal fun TagChip(label: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, dashed: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(50)
+    val outline = if (selected) colors.onSurface else colors.outlineVariant
     Text(
         label,
-        Modifier.clip(shape).border(1.dp, if (selected) colors.onSurface else colors.outlineVariant, shape)
+        Modifier.clip(shape)
+            .then(if (dashed) Modifier.drawBehind {
+                drawRoundRect(outline, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
+            } else Modifier.border(1.dp, outline, shape))
             .background(if (selected) colors.onSurface else Color.Transparent)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Tab)
             .semantics { this.selected = selected }

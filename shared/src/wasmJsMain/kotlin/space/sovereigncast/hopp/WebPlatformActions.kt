@@ -44,6 +44,9 @@ private fun overrideLanguage(code: String): Unit = js("""{
 /** The language the listener chose in Hopp, in place of the browser's — before the app starts. */
 internal fun applyChosenLanguage() { storedLanguage()?.takeIf { it in LANGUAGES }?.let(::overrideLanguage) }
 
+// A phone or tablet, by what the browser says of itself — an iPad asks for the desktop site, so its touch screen tells.
+private fun isMobileBrowser(): Boolean = js("/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))")
+
 private val LANGUAGES = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
 
 /** What the browser can do for the shared UI (ADR 0022): files by picker and download, the
@@ -53,6 +56,7 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
     // Paid from the browser's own wallet, an extension's (WebLN — ADR 0022, 4, stage W3).
     override val canPay: Boolean get() = true
+    override val mobileBrowser: Boolean get() = isMobileBrowser()
     override val paysWithBrowser: Boolean get() = true
     override val canNotify: Boolean get() = false
     override val updateReady: kotlinx.coroutines.flow.StateFlow<String?> get() = WebUpdates.ready

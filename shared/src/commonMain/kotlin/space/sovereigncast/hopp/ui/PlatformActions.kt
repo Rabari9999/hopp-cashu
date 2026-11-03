@@ -32,6 +32,8 @@ interface PlatformActions {
     fun shareFile(path: String, name: String) = Unit
     /** Puts text on the clipboard (device feedback 2026-10-12: nothing could be copied). */
     fun copyText(text: String, label: String) = Unit
+    /** A browser on a phone or tablet, where no extension can be installed — its sign-in offers none (maintainer 2026-11-03). */
+    val mobileBrowser: Boolean get() = false
     /** Opens [entity] (`npub1…`, NIP-19) as a NIP-21 `nostr:` link in the listener's Nostr app;
      *  without one, on njump.me in the browser. */
     fun openNostr(entity: String) = Unit

@@ -513,7 +513,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             popEnterTransition = { sharedAxisIn(forward = false) },
                             popExitTransition = { sharedAxisOut(forward = false) },
                         ) {
-                            composable<HomeRoute> { Readable(LIST_WIDTH) {
+                            composable<HomeRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) }, snackbar = snackbar,
                                     onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
@@ -542,7 +542,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onOpenWallet = { nav.navigate(WalletRoute) },
                                 ) }
                             }
-                            composable<DiscoverRoute> { Readable(LIST_WIDTH) {
+                            composable<DiscoverRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 DiscoverScreen(
                                     onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) },
                                     onPerson = { p -> nav.navigate(PersonRoute(p.name, p.img, p.href, p.role, p.show)) },

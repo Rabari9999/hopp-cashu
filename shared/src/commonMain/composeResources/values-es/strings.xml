@@ -682,8 +682,8 @@
     <string name="nostr_extension_failed">La extensión no respondió.</string>
     <string name="nostr_via_extension">Tu clave se queda en la extensión de tu navegador.</string>
     <string name="nostr_web_note">En el navegador, Hopp no guarda ninguna clave: inicia sesión con una extensión como Alby o nos2x, o con un firmante que guarde tu clave — Amber, nsec.app.</string>
-    <string name="nostr_tab_only">Este no es mi dispositivo</string>
-    <string name="nostr_tab_only_note">Hopp no guarda nada en este navegador: al cerrar la pestaña, tu sesión y tu biblioteca desaparecen.</string>
+    <string name="nostr_tab_only">No es mi dispositivo</string>
+    <string name="nostr_tab_only_note">Nada se queda en este navegador.</string>
     <string name="nostr_tab_only_on">No se guarda nada en este navegador. Cerrar o recargar la pestaña cierra tu sesión y olvida la biblioteca.</string>
     <string name="nostr_sign_out_text_amber">Hopp olvida la conexión con tu app firmante. Tu clave se queda en ella; lo que publicaste se queda en Nostr.</string>
     <string name="nostr_sign_out_text_web">Hopp olvida la conexión con tu firmante y borra todo lo que guardó en este navegador: biblioteca, progreso, ajustes. Tu clave se queda en tu firmante; lo que publicaste y sincronizaste se queda en Nostr.</string>
@@ -795,9 +795,9 @@
     <string name="nostr_import_button">Usar clave</string>
     <string name="nostr_import_unreadable">Eso no es una clave de Nostr (nsec1… o ncryptsec1…).</string>
     <string name="nostr_import_wrong_password">Esta contraseña no abre la copia de seguridad.</string>
-    <string name="nostr_hero_title">Únete a la conversación en Nostr</string>
-    <string name="nostr_hero_text">Comenta, da me gusta y vota como persona. Tu cuenta es una clave — Hopp la crea por ti.</string>
-    <string name="nostr_hero_text_web">Comenta, da me gusta y vota como persona — con tu cuenta de Nostr.</string>
+    <string name="nostr_hero_title">Inicia sesión con Nostr</string>
+    <string name="nostr_hero_text">Una cuenta para sincronizar, comentar, enviar boosts y tus contactos de Nostr. Hopp la crea por ti.</string>
+    <string name="nostr_hero_text_web">Una cuenta para sincronizar, comentar, enviar boosts y tus contactos de Nostr.</string>
     <string name="nostr_start">Empezar</string>
     <string name="nostr_public_line">Lo que publicas en Nostr es público y se queda.</string>
     <string name="nostr_have_account">Ya tengo una cuenta de Nostr</string>
@@ -1250,4 +1250,19 @@
     <string name="tag_rename">Cambiar nombre</string>
     <string name="tag_delete">Eliminar etiqueta</string>
     <string name="tag_delete_confirm">¿Quitar «%1$s» de todos los podcasts?</string>
+    <!-- Signing in in a browser: three ways as cards (maintainer 2026-11-03) -->
+    <string name="web_way_extension">Extensión del navegador</string>
+    <string name="web_way_extension_note">Alby, nos2x</string>
+    <string name="web_way_extension_none">No encontrada · consigue Alby</string>
+    <string name="web_way_signer">App firmante</string>
+    <string name="web_way_signer_note">Amber, nsec.app · escanea un código</string>
+    <string name="web_way_bunker">Dirección bunker</string>
+    <string name="web_way_bunker_note">Pega bunker://…</string>
+    <string name="web_no_key">Hopp no guarda ninguna clave en el navegador.</string>
+    <!-- Tags made in the library itself (maintainer 2026-11-03) -->
+    <string name="tags_hint">Ordena tus podcasts con etiquetas</string>
+    <string name="tags_add_chip">+ Etiqueta</string>
+    <string name="tags_which">¿Qué podcasts la llevan?</string>
+    <string name="tags_create">Crear</string>
+    <string name="tag_edit">Editar %1$s</string>
 </resources>

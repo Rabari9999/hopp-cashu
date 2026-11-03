@@ -106,6 +106,7 @@ import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 
 /**
  * Home (device feedback 2026-10-08, replaces the New tab of ADR 0012): the
@@ -190,12 +191,9 @@ fun HomeScreen(
             return@PullToRefreshBox
         }
         val edit = { editing = true }
-        LazyColumn {
-            // A greeting, and what the last refresh brought (device feedback 2026-10-12):
-            // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true } }
-            // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
-            HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
+        // The sections in the listener's order, into a list — one, or each of two columns. [wide]: "Your shows" as a grid.
+        val sections: LazyListScope.(List<String>, Boolean) -> Unit = { keys, wide ->
+            keys.forEach { key ->
                 when (key) {
                     HomeSections.NEW -> {
                     if (newest.isNotEmpty()) {
@@ -229,7 +227,7 @@ fun HomeScreen(
                         item(key = "h-yourshows") {
                             SectionHeader(stringResource(Res.string.home_your_shows), open, shows.size, { vm.toggle("yourshows") }, stringResource(Res.string.home_all, shows.size), onLibrary, edit)
                         }
-                        if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow) }
+                        if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow, grid = wide) }
                     }
                     }
                     HomeSections.TAKE_PART -> {
@@ -282,6 +280,22 @@ fun HomeScreen(
                     }
                     // Last by default: what was heard is the least likely next step (device feedback 2026-10-10).
                     HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav, edit)
+                }
+            }
+        }
+        // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
+        val order = HomeSections.order(savedOrder).filter { it !in hidden }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            // A greeting, and what the last refresh brought (device feedback 2026-10-12): never an empty page while there are shows.
+            if (maxWidth < HomeSections.TWO_COLUMNS) LazyColumn {
+                item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true } }
+                sections(order, false)
+            } else Column(Modifier.fillMaxSize()) {
+                // A large window (maintainer 2026-11-03): listening on the left, the shows on the right, the greeting over both.
+                Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true }
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    LazyColumn(Modifier.weight(1.35f).fillMaxHeight()) { sections(order.filter { it in HomeSections.listening }, true) }
+                    LazyColumn(Modifier.weight(1f).fillMaxHeight()) { sections(order.filter { it !in HomeSections.listening }, true) }
                 }
             }
         }
@@ -496,6 +510,8 @@ private val WEEKDAYS = listOf(Res.string.wd_1, Res.string.wd_2, Res.string.wd_3,
 private fun ShowsStrip(
     shows: List<space.sovereigncast.hopp.data.Show>, rhythms: Map<Long, space.sovereigncast.hopp.data.Rhythm>,
     actions: List<ShowAction>, now: Long, onShow: (Long) -> Unit,
+    /** A grid of the first [GRID_SHOWS] instead of a strip — in a column of a large window (maintainer 2026-11-03). */
+    grid: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val releases = actions.filter { it.kind == ShowAction.Kind.ReleaseBoosting }
@@ -505,6 +521,21 @@ private fun ShowsStrip(
     // the strip is shown. A lazy row keeps its first item in view, so the new
     // first one sat off the left edge (device feedback 2026-10-16): back to the
     // start, unless the listener has scrolled on.
+    if (grid) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            val columns = (maxWidth / 112.dp).toInt().coerceIn(3, 6)
+            val tile = (maxWidth - 12.dp * (columns - 1)) / columns
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = columns) {
+                ordered.take(columns * 2).forEach { show ->
+                    Column(Modifier.width(tile).clip(STRIP_TILE_SHAPE).clickable(onClickLabel = show.title) { onShow(show.id) }.padding(bottom = 4.dp)) {
+                        Cover(show.imageUrl, tile, corner = 14.dp)
+                        Text(show.title, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        return
+    }
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     val first = ordered.firstOrNull()?.id
     androidx.compose.runtime.LaunchedEffect(first) { if (state.firstVisibleItemIndex <= 1) state.scrollToItem(0) }
