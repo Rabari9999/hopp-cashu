@@ -289,6 +289,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
                     vm.setAutoDownloads(on)
                 }
+                // Up top with the downloads, where it was before (maintainer 2026-11-03: under refresh it was easily missed).
+                Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
+                    vm.update { it.copy(newToQueue = on) }
+                }
                 // What the episodes take, and all of them gone at once (device
                 // feedback 2026-10-14; where they are said more than it helped).
                 val bytes by vm.downloadBytes.collectAsState()
@@ -323,8 +327,8 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     vm.update { it.copy(refreshWifiOnly = on) }
                 }
                 Note(stringResource(if (whileOpen) Res.string.settings_refresh_text_open else Res.string.settings_refresh_text))
-                // What a refresh finds goes to "Up next" — in the browser too, on every device alike (maintainer 2026-11-03).
-                Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
+                // What a refresh finds goes to "Up next" — in the browser too, which has no downloads block (maintainer 2026-11-03).
+                if (!actions.canDownload) Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
                     vm.update { it.copy(newToQueue = on) }
                 }
             }
