@@ -1453,15 +1453,14 @@ class AndroidAppFlowTest {
         rule.onNode(androidx.compose.ui.test.isToggleable() and androidx.compose.ui.test.isOn()).assertExists()
     }
 
-    /** Auto-download and unsubscribe live in the show's menu now. */
+    /** Auto-download lives in the show's menu; unsubscribing only on "✓ Subscribed", not twice (maintainer 2026-11-03). */
     @Test
     fun theShowMenuHoldsItsSettings() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         rule.onNode(hasContentDescription("Show options")).performClick()
         waitFor("Download new episodes on Wi-Fi")
-        tap("Unsubscribe")
-        waitFor("Unsubscribe from Test Show? Positions of this show are removed.")
+        check(!has("Unsubscribe")) { "unsubscribe twice: ${screen()}" }
     }
 
     /** The round's card opens what the community page shows; the sheet boosts too. */

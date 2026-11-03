@@ -703,9 +703,12 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     val restoring by vm.restoring.collectAsState()
     SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
-    if (settings?.nostrSync == true) SyncStatusLine(vm)
-    // Only where the key is elsewhere: a lost phone that held the key itself has it, sync key or not.
-    if (settings?.nostrSync == true && !me.holdsKey) RenewSyncKey(vm)
+    if (settings?.nostrSync == true) {
+        SyncStatusLine(vm)
+        // One row (maintainer 2026-11-03): sync now, the sync key to show — for a relay that takes only keys it
+        // knows — and, only where the key is elsewhere, a new one (a lost phone that held the key itself has it).
+        SyncActions(vm, renew = !me.holdsKey)
+    }
     ContactsSection(vm, onSharedShows)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
@@ -846,10 +849,7 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
             }
         }?.let { line -> if (status.pending > 0) line + " · " + stringResource(Res.string.sync_pending, status.pending) else line }
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text.orEmpty(), Modifier.weight(1f), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
-        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
-    }
+    Text(text.orEmpty(), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
     val authUrl by vm.signerAuthUrl.collectAsState()
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
     authUrl?.let { url ->
@@ -863,25 +863,56 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
 private fun relayLine(answered: Int, asked: Int): String =
     if (answered == 0 || asked == 0) stringResource(Res.string.sync_no_relay) else stringResource(Res.string.sync_too_few, answered, asked)
 
-/** A new sync key, for a lost device or a browser no longer used (ADR 0022, 3) — asked first. */
+/**
+ * Under the sync line, in one row: a round now; the sync key's public half (Dennis, maintainer 2026-11-03: a relay
+ * that takes only its owner's or known keys — Haven, NIP-05 — can be told this one); where [renew], a new sync key
+ * for a lost device or a browser no longer used (ADR 0022, 3) — asked first.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun RenewSyncKey(vm: NostrIdentityViewModel) {
+private fun SyncActions(vm: NostrIdentityViewModel, renew: Boolean, keys: space.sovereigncast.hopp.sync.SyncKeys = org.koin.compose.koinInject()) {
+    val status by vm.syncStatus.collectAsState()
     val renewing by vm.renewing.collectAsState()
     val renewed by vm.renewed.collectAsState()
     var confirm by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    var showKey by remember { mutableStateOf<String?>(null) }
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalArrangement = Arrangement.Center) {
+        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+        TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
+        if (renew) {
+            if (renewing) CircularProgressIndicator(Modifier.padding(12.dp).size(18.dp), strokeWidth = 2.dp)
+            else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew_short)) }
+        }
+    }
+    renewed?.let { r ->
         Text(
-            when (renewed) {
+            when (r) {
                 space.sovereigncast.hopp.sync.Renewal.Done -> stringResource(Res.string.sync_renewed)
                 space.sovereigncast.hopp.sync.Renewal.Unfinished -> stringResource(Res.string.sync_renew_unfinished)
                 space.sovereigncast.hopp.sync.Renewal.NotRenewed -> stringResource(Res.string.sync_renew_failed)
-                null -> ""
             },
-            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            color = if (renewed == space.sovereigncast.hopp.sync.Renewal.NotRenewed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (r == space.sovereigncast.hopp.sync.Renewal.NotRenewed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (renewing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-        else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew)) }
+    }
+    showKey?.let { hex ->
+        val npub = space.sovereigncast.hopp.nostr.Bech32.encode("npub", hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+        val actions = LocalPlatformActions.current
+        val title = stringResource(Res.string.sync_key_title)
+        AlertDialog(
+            onDismissRequest = { showKey = null },
+            title = { Text(title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(Res.string.sync_key_text), style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Text(npub, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { actions.copyText(npub, title) }) { Text(stringResource(Res.string.sync_key_copy)) } },
+            dismissButton = { TextButton(onClick = { showKey = null }) { Text(stringResource(Res.string.boost_close)) } },
+        )
     }
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },

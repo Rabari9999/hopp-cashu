@@ -264,7 +264,8 @@ private fun ShowsHeader(
  * little presence in the dark theme, where that ring is black too. Now a brighter
  * red, a white ring in both themes and a small shadow lift it off any cover — dark,
  * light or red — and the figure is a size larger. Since 2026-11-01 the logo's orange, the
- * figure black on it (ADR 0019): red always looked like an error (maintainer).
+ * figure black on it (ADR 0019): red always looked like an error (maintainer). Since 2026-11-03 without
+ * the white ring (maintainer): the orange and the small shadow carry it.
  */
 @Composable
 private fun UnheardCount(n: Int) {
@@ -272,7 +273,7 @@ private fun UnheardCount(n: Int) {
     val label = stringResource(Res.string.library_unheard, n)
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(Hopp.colors.value)
+        Modifier.shadow(3.dp, shape).clip(shape).background(Hopp.colors.value)
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp).padding(horizontal = 6.dp)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,

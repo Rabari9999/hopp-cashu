@@ -238,6 +238,12 @@ class SyncKeys(
         return majority(publisher.publish(signer.sign(UnsignedEvent(DELETION, "sync key renewed", addresses + listOf(listOf("k", "${Nip78.KIND}")), last)), to)) && all
     }
 
+    /**
+     * The sync key's public half as this device holds it, hex — null before it has one. Shown on the Nostr page,
+     * so a relay that takes only keys it knows can be told this one (Dennis, maintainer 2026-11-03). Never asks.
+     */
+    fun publicKey(): String? = identity.identity.value?.pubkey?.let { held(it) }?.key?.let { KeyPair.fromHex(it).publicKeyHex }
+
     /** This device forgets the key — sync turned off, or signed out. The keyring stays on the relays. */
     fun forget() {
         secrets.put(SECRET, null)

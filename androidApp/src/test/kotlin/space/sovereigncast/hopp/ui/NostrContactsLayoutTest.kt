@@ -99,6 +99,22 @@ class NostrContactsLayoutTest {
         shoot("shared-shows")
     }
 
+    /** Sync on: its line and, in one row, sync now, the key to show and to renew (maintainer 2026-11-03). */
+    @Test
+    fun theSyncRowFitsAPhone() {
+        looking()
+        runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(nostrSync = true) } }
+        rule.setContent { App() }
+        rule.waitForIdle()
+        rule.onNode(hasContentDescription("Einstellungen")).performClick()
+        waitFor("Nostr-Identität")
+        rule.onNode(hasText("Nostr-Identität") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Schlüssel zeigen")
+        rule.onAllNodesWithText("Schlüssel zeigen").onFirst().performScrollTo()
+        rule.waitForIdle()
+        shoot("sync-row")
+    }
+
     /** "Support Hopp" (maintainer 2026-11-02): the page, without a wallet — the way to connect one, the address. */
     @Test
     fun theSupportPageFitsAPhone() {

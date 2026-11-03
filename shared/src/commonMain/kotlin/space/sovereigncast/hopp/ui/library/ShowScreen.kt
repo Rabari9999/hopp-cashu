@@ -231,7 +231,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
                         val sharing by vm.sharingWithContacts.collectAsState()
-                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
+                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
                             onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true },
                             sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts) }
                     }
@@ -406,7 +406,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 /** The show's settings, out of the way: auto-download, its playback, unsubscribe. */
 @Composable
 private fun ShowMenu(
-    autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit,
+    autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit,
     /** Whether the show goes to mutual Nostr contacts; null while the listener shares nothing (ADR 0024, 4a). */
     sharedWithContacts: Boolean? = null, onSharedWithContacts: (Boolean) -> Unit = {},
 ) {
@@ -431,7 +431,6 @@ private fun ShowMenu(
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })
-            DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })
         }
     }
 }

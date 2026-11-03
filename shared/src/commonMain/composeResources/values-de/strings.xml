@@ -1169,19 +1169,19 @@
         <item quantity="other">%1$d Folgen in deinen Abos</item>
     </plurals>
     <string name="contacts_title">Nostr-Kontakte</string>
-    <string name="contacts_intro">Was die Leute hören, denen du auf Nostr folgst – deine Kontaktliste, keine eigene Liste.</string>
-    <string name="contacts_share">Meine Abos mit gegenseitigen Nostr-Kontakten teilen</string>
-    <string name="contacts_share_note">Alle, denen du auf Nostr folgst, die dir folgen und Hopp nutzen. Versiegelt: Niemand sonst kann sie lesen.</string>
-    <string name="contacts_see">Zeigen, was meine Nostr-Kontakte hören</string>
-    <string name="contacts_see_note">Was gegenseitige Kontakte teilen, und was die Leute, denen du folgst, öffentlich geboostet, kommentiert oder gezappt haben.</string>
+    <string name="contacts_intro">Abos und Boosts der Leute, denen du auf Nostr folgst.</string>
+    <string name="contacts_share">Meine Abos teilen</string>
+    <string name="contacts_share_note">Nur mit Kontakten, die dir auch folgen und Hopp nutzen. Verschlüsselt.</string>
+    <string name="contacts_see">Zeigen, was meine Kontakte hören</string>
+    <string name="contacts_see_note">Was sie teilen, boosten und kommentieren – in Entdecken und bei den Shows.</string>
     <string name="contacts_reading">Schaue nach deinen Kontakten …</string>
     <string name="contacts_elsewhere">Auf einem anderen Gerät eingeschaltet.</string>
     <string name="contacts_take_over">Übernehmen</string>
-    <string name="contacts_none">Du folgst auf Nostr noch niemandem – das geht mit der Kontaktliste eines Nostr-Kontos, das du schon nutzt.</string>
-    <string name="contacts_counts">Du folgst %1$d Leuten auf Nostr; %2$d folgen dir zurück, davon %3$d mit Hopp.</string>
+    <string name="contacts_none">Du folgst auf Nostr noch niemandem.</string>
+    <string name="contacts_counts">%1$d Kontakte · %2$d folgen dir zurück · %3$d davon mit Hopp</string>
     <string name="contacts_failed">Das hat nicht geklappt: %1$s</string>
     <string name="contacts_public_title">Öffentlich auf Nostr</string>
-    <string name="contacts_public_text">Hopp veröffentlicht eine Notiz, dass du das nutzt, mit zwei eigenen Schlüsseln. Was du abonniert hast, steht nie darin – das geht nur versiegelt an deine gegenseitigen Kontakte.</string>
+    <string name="contacts_public_text">Hopp macht öffentlich, dass du das nutzt. Deine Abos bleiben verschlüsselt.</string>
     <string name="contacts_public_confirm">Einschalten</string>
     <string name="show_share_contacts">Mit Nostr-Kontakten teilen</string>
     <string name="discover_contacts">Bei deinen Nostr-Kontakten</string>
@@ -1199,7 +1199,7 @@
         <item quantity="one">%1$d deiner Nostr-Kontakte hört das, hat es geboostet oder kommentiert</item>
         <item quantity="other">%1$d deiner Nostr-Kontakte hören das, haben es geboostet oder kommentiert</item>
     </plurals>
-    <string name="contacts_renew_text">Jemand folgt dir nicht mehr zurück, oder du ihm nicht mehr: Ein neuer Schlüssel hält ab jetzt fern, was du teilst.</string>
+    <string name="contacts_renew_text">Ein Kontakt folgt dir nicht mehr gegenseitig. Ein neuer Schlüssel schließt ihn aus.</string>
     <string name="contacts_renew">Schlüssel erneuern</string>
     <string name="contacts_did_share">teilt das Abo</string>
     <string name="contacts_did_boost">hat geboostet</string>
@@ -1207,9 +1207,9 @@
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Geteilte Shows</string>
     <string name="contacts_shared_summary">%1$d von %2$d geteilt</string>
-    <string name="contacts_shared_later">Gilt, sobald du das Teilen einschaltest</string>
-    <string name="contacts_shared_text">Diese Abos sehen deine gegenseitigen Nostr-Kontakte, versiegelt. Ein neues Abo ist geteilt, bis du es hier ausschaltest.</string>
-    <string name="contacts_shared_text_off">Das Teilen ist aus, es geht nichts hinaus. Was du hier ausschaltest, bleibt draußen, sobald du das Teilen einschaltest.</string>
+    <string name="contacts_shared_later">Teilen ist aus</string>
+    <string name="contacts_shared_text">Deine gegenseitigen Kontakte sehen diese Abos. Neue werden mitgeteilt.</string>
+    <string name="contacts_shared_text_off">Teilen ist aus. Was du hier ausschaltest, bleibt auch später privat.</string>
     <string name="contacts_shared_group">Geteilt · %1$d</string>
     <string name="contacts_hidden_group">Nicht geteilt · %1$d</string>
     <string name="contacts_share_all">Alle teilen</string>
@@ -1219,13 +1219,19 @@
     <string name="settings_support_note">Eine Spende per Lightning</string>
     <string name="support_text">Hopp ist frei, ohne Werbung und ohne Tracking. Es lebt davon, dass Hörer zurückgeben, was es ihnen wert ist.</string>
     <string name="support_to">An %1$s, aus deiner Wallet</string>
-    <string name="support_other_wallet">Mit jeder anderen Wallet: an diese Lightning-Adresse senden.</string>
+    <string name="support_other_wallet">Mit jeder anderen Wallet</string>
     <string name="support_share">Oder ein kleiner Anteil jedes Boosts und des Streamings, in den Wallet-Einstellungen.</string>
     <!-- Up next on Home and in the library; Home arranged in place (Dennis, maintainer 2026-11-02) -->
     <string name="home_edit_done">Fertig</string>
     <string name="home_edit_note">Zum Anordnen ziehen, zum Ausblenden ausschalten. Ein langer Druck auf einen Bereichstitel führt auch hierher.</string>
     <string name="queue_more">+ %1$d weitere</string>
     <string name="month_year">%1$s %2$s</string>
-    <string name="support_wallet_app">Mit Wallet-App spenden</string>
+    <string name="support_tap_opens">Tippen öffnet deine Wallet-App</string>
     <string name="support_no_wallet_app">Keine App auf diesem Gerät nimmt Lightning-Adressen an. Kopier die Adresse stattdessen in deine Wallet.</string>
+    <!-- The sync key's public half, for relays that take only known keys (Dennis, maintainer 2026-11-03) -->
+    <string name="sync_key_show">Schlüssel zeigen</string>
+    <string name="sync_renew_short">Schlüssel erneuern</string>
+    <string name="sync_key_title">Abgleich-Schlüssel</string>
+    <string name="sync_key_text">Hopp signiert den Abgleich mit diesem Schlüssel, nicht mit deinem eigenen. Nimmt dein Relay nur Events von Schlüsseln an, die es kennt, trag diesen dort in die Freigabeliste ein. Er ändert sich, wenn du den Schlüssel erneuerst.</string>
+    <string name="sync_key_copy">Kopieren</string>
 </resources>

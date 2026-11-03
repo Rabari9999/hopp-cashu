@@ -152,9 +152,10 @@ fun PlayButton(item: EpisodeItem) {
  *  used to look it up each, which costs on every row scrolled into view. */
 val LocalEpisodeActions = staticCompositionLocalOf<EpisodeActionsViewModel?> { null }
 
-/** The ⋮ of every episode row (ADR 0012): up next, download, played. */
+/** The ⋮ of every episode row (ADR 0012): up next, download, played — and the favourite, where no heart
+ *  beside it says so already ([favorite] false: the episode's page, maintainer 2026-11-03). */
 @Composable
-fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
+fun EpisodeMenu(item: EpisodeItem, favorite: Boolean = true, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
     var open by remember { mutableStateOf(false) }
     var confirmOlder by remember { mutableStateOf(false) }
     Box {
@@ -191,7 +192,7 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
             )
             // This one and every older one (device feedback 2026-10-14, as in Castamatic).
             DropdownMenuItem(text = { Text(stringResource(Res.string.mark_played_older)) }, onClick = { pick { confirmOlder = true } })
-            DropdownMenuItem(
+            if (favorite) DropdownMenuItem(
                 text = { Text(stringResource(if (item.favorite) Res.string.favorite_remove else Res.string.favorite_add)) },
                 onClick = { pick { vm.setFavorite(item, !item.favorite) } },
             )

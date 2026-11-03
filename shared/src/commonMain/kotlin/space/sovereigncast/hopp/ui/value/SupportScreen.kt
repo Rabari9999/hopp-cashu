@@ -3,10 +3,8 @@ package space.sovereigncast.hopp.ui.value
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +14,19 @@ import androidx.compose.ui.platform.LocalUriHandler
 import space.sovereigncast.hopp.storePaysForContent
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.resources.support_no_wallet_app
-import space.sovereigncast.hopp.resources.support_wallet_app
+import space.sovereigncast.hopp.resources.support_tap_opens
+import space.sovereigncast.hopp.resources.share_copy
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import space.sovereigncast.hopp.ui.components.HoppIcons
+import space.sovereigncast.hopp.ui.theme.Hopp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -52,18 +62,32 @@ fun SupportScreen(onOpenWallet: () -> Unit, vm: ValueBarViewModel = koinViewMode
         },
         footer = {
             Column(Modifier.padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(Res.string.support_other_wallet), color = muted, style = MaterialTheme.typography.bodySmall)
-                // On a phone, any wallet app that takes a Lightning address — no wallet connected to Hopp needed
-                // (maintainer 2026-11-03). Not in the browser, which has no such app, nor where the store forbids it.
-                if (storePaysForContent() && !LocalPlatformActions.current.paysWithBrowser) {
-                    val uri = LocalUriHandler.current
-                    var noApp by remember { mutableStateOf(false) }
-                    OutlinedButton(onClick = { noApp = runCatching { uri.openUri("lightning:" + Settings.SUPPORT_ADDRESS) }.isFailure }) {
-                        Text(stringResource(Res.string.support_wallet_app))
+                // The address and the way to a wallet app in one field (maintainer 2026-11-03): on a phone a tap opens
+                // any wallet app that takes a Lightning address — no wallet connected to Hopp needed. Not in the
+                // browser, which has no such app, nor where the store forbids it. Copied anywhere.
+                val actions = LocalPlatformActions.current
+                val opens = storePaysForContent() && !actions.paysWithBrowser
+                val uri = LocalUriHandler.current
+                var noApp by remember { mutableStateOf(false) }
+                val shape = RoundedCornerShape(12.dp)
+                Row(
+                    Modifier.fillMaxWidth().clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                        .clickable(enabled = opens) { noApp = runCatching { uri.openUri("lightning:" + Settings.SUPPORT_ADDRESS) }.isFailure }
+                        .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(HoppIcons.Hop, null, Modifier.size(22.dp), tint = Hopp.colors.value)
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(Res.string.support_other_wallet), color = muted, style = MaterialTheme.typography.bodySmall)
+                        // The address on a line of its own: beside the button it broke in two on a phone.
+                        Text(Settings.SUPPORT_ADDRESS, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (opens) stringResource(Res.string.support_tap_opens) else "", Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { actions.copyText(Settings.SUPPORT_ADDRESS, Settings.SUPPORT_ADDRESS) }) { Text(stringResource(Res.string.share_copy)) }
+                        }
                     }
-                    if (noApp) Text(stringResource(Res.string.support_no_wallet_app), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
-                SelectionContainer { Text(Settings.SUPPORT_ADDRESS, fontWeight = FontWeight.SemiBold) }
+                if (noApp) Text(stringResource(Res.string.support_no_wallet_app), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Text(stringResource(Res.string.support_share), color = muted, style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = onOpenWallet, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) { Text(stringResource(Res.string.settings_wallet)) }
             }

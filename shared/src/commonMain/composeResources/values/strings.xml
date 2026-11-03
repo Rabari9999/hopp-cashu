@@ -1169,19 +1169,19 @@
         <item quantity="other">%1$d episodes in your subscriptions</item>
     </plurals>
     <string name="contacts_title">Nostr contacts</string>
-    <string name="contacts_intro">What the people you follow on Nostr listen to — your contact list, no list of its own.</string>
-    <string name="contacts_share">Share my subscriptions with mutual Nostr contacts</string>
-    <string name="contacts_share_note">Everyone you follow on Nostr who follows you back and uses Hopp. Sealed: nobody else can read them.</string>
-    <string name="contacts_see">Show what my Nostr contacts listen to</string>
-    <string name="contacts_see_note">What mutual contacts share, and what the people you follow boosted, commented on or zapped in public.</string>
+    <string name="contacts_intro">Subscriptions and boosts of the people you follow on Nostr.</string>
+    <string name="contacts_share">Share my subscriptions</string>
+    <string name="contacts_share_note">Only with contacts who follow you back and use Hopp. Encrypted.</string>
+    <string name="contacts_see">Show what my contacts listen to</string>
+    <string name="contacts_see_note">What they share, boost and comment on – in Discover and on shows.</string>
     <string name="contacts_reading">Looking at your contacts …</string>
     <string name="contacts_elsewhere">Turned on on another device.</string>
     <string name="contacts_take_over">Take over</string>
-    <string name="contacts_none">You follow nobody on Nostr yet — this works with the contact list of a Nostr account you already use.</string>
-    <string name="contacts_counts">You follow %1$d people on Nostr; %2$d follow you back, %3$d of them with Hopp.</string>
+    <string name="contacts_none">You don't follow anyone on Nostr yet.</string>
+    <string name="contacts_counts">%1$d contacts · %2$d follow you back · %3$d of them with Hopp</string>
     <string name="contacts_failed">That did not go through: %1$s</string>
     <string name="contacts_public_title">Public on Nostr</string>
-    <string name="contacts_public_text">Hopp publishes a note that you use this, with two keys of its own. What you subscribe to is never in it — that goes sealed to your mutual contacts only.</string>
+    <string name="contacts_public_text">Hopp makes public that you use this. Your subscriptions stay encrypted.</string>
     <string name="contacts_public_confirm">Turn on</string>
     <string name="show_share_contacts">Share with Nostr contacts</string>
     <string name="discover_contacts">With your Nostr contacts</string>
@@ -1199,7 +1199,7 @@
         <item quantity="one">%1$d of your Nostr contacts listens to this, boosted or commented on it</item>
         <item quantity="other">%1$d of your Nostr contacts listen to this, boosted or commented on it</item>
     </plurals>
-    <string name="contacts_renew_text">Someone no longer follows you back, or you no longer follow them: a new key keeps what you share from now on from them.</string>
+    <string name="contacts_renew_text">A contact no longer follows you both ways. A new key keeps them out.</string>
     <string name="contacts_renew">Renew key</string>
     <string name="contacts_did_share">shares the subscription</string>
     <string name="contacts_did_boost">boosted</string>
@@ -1207,9 +1207,9 @@
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Shared shows</string>
     <string name="contacts_shared_summary">%1$d of %2$d shared</string>
-    <string name="contacts_shared_later">Applies once you turn sharing on</string>
-    <string name="contacts_shared_text">Your mutual Nostr contacts see these subscriptions, sealed. A new subscription is shared until you turn it off here.</string>
-    <string name="contacts_shared_text_off">Sharing is off, so nothing goes out. What you turn off here stays out once you turn sharing on.</string>
+    <string name="contacts_shared_later">Sharing is off</string>
+    <string name="contacts_shared_text">Your mutual contacts see these subscriptions. New ones are shared too.</string>
+    <string name="contacts_shared_text_off">Sharing is off. What you switch off here stays private later too.</string>
     <string name="contacts_shared_group">Shared · %1$d</string>
     <string name="contacts_hidden_group">Not shared · %1$d</string>
     <string name="contacts_share_all">Share all</string>
@@ -1219,13 +1219,19 @@
     <string name="settings_support_note">A donation via Lightning</string>
     <string name="support_text">Hopp is free, with no ads and no tracking. It lives on listeners giving back what it is worth to them.</string>
     <string name="support_to">To %1$s, from your wallet</string>
-    <string name="support_other_wallet">With any other wallet: send to this Lightning address.</string>
+    <string name="support_other_wallet">With any other wallet</string>
     <string name="support_share">Or give a small share of every boost and of streaming, in the wallet settings.</string>
     <!-- Up next on Home and in the library; Home arranged in place (Dennis, maintainer 2026-11-02) -->
     <string name="home_edit_done">Done</string>
     <string name="home_edit_note">Drag to arrange, switch off to hide. A long press on a section title gets you here too.</string>
     <string name="queue_more">+ %1$d more</string>
     <string name="month_year">%1$s %2$s</string>
-    <string name="support_wallet_app">Donate with a wallet app</string>
+    <string name="support_tap_opens">Tap to open your wallet app</string>
     <string name="support_no_wallet_app">No app on this device takes Lightning addresses. Copy the address into your wallet instead.</string>
+    <!-- The sync key's public half, for relays that take only known keys (Dennis, maintainer 2026-11-03) -->
+    <string name="sync_key_show">Show key</string>
+    <string name="sync_renew_short">Renew key</string>
+    <string name="sync_key_title">Sync key</string>
+    <string name="sync_key_text">Hopp signs what it syncs with this key, not with your own. If your relay only takes events from keys it knows, add this one to its allow list. It changes when you renew the key.</string>
+    <string name="sync_key_copy">Copy</string>
 </resources>

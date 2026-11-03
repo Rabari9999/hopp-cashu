@@ -14,6 +14,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Home:** „Als Nächstes“ direkt auf Home und dort sortierbar; die Bereiche ordnest du direkt auf Home an, über den Regler oder einen langen Druck auf einen Titel.
 - **Bibliothek:** Als Nächstes und deine Downloads direkt in der Bibliothek, in aufklappbaren Bereichen.
 - **Als Nächstes:** Neue Folgen kommen ans Ende von „Als Nächstes“, sobald Hopp sie findet – auf all deinen Geräten, nicht mehr erst nach dem Download auf dem Handy.
+- **Sync:** Zeigt den Abgleich-Schlüssel, um ihn bei Relays freizuschalten, die nur bekannte Schlüssel annehmen.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.

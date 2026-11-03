@@ -1169,19 +1169,19 @@
         <item quantity="other">%1$d episodios en tus suscripciones</item>
     </plurals>
     <string name="contacts_title">Contactos de Nostr</string>
-    <string name="contacts_intro">Lo que escuchan las personas a las que sigues en Nostr — tu lista de contactos, sin una lista aparte.</string>
-    <string name="contacts_share">Compartir mis suscripciones con contactos mutuos de Nostr</string>
-    <string name="contacts_share_note">Todas las personas a las que sigues en Nostr que también te siguen y usan Hopp. Sellado: nadie más puede leerlas.</string>
-    <string name="contacts_see">Mostrar lo que escuchan mis contactos de Nostr</string>
-    <string name="contacts_see_note">Lo que comparten los contactos mutuos y lo que las personas a las que sigues han boosteado, comentado o zapeado en público.</string>
+    <string name="contacts_intro">Suscripciones y boosts de la gente a la que sigues en Nostr.</string>
+    <string name="contacts_share">Compartir mis suscripciones</string>
+    <string name="contacts_share_note">Solo con contactos que también te siguen y usan Hopp. Cifrado.</string>
+    <string name="contacts_see">Mostrar lo que escuchan mis contactos</string>
+    <string name="contacts_see_note">Lo que comparten, boostean y comentan, en Explorar y en los podcasts.</string>
     <string name="contacts_reading">Revisando tus contactos …</string>
     <string name="contacts_elsewhere">Activado en otro dispositivo.</string>
     <string name="contacts_take_over">Usar aquí</string>
-    <string name="contacts_none">Aún no sigues a nadie en Nostr — esto funciona con la lista de contactos de una cuenta de Nostr que ya uses.</string>
-    <string name="contacts_counts">Sigues a %1$d personas en Nostr; %2$d también te siguen, %3$d de ellas con Hopp.</string>
+    <string name="contacts_none">Aún no sigues a nadie en Nostr.</string>
+    <string name="contacts_counts">%1$d contactos · %2$d te siguen · %3$d de ellos con Hopp</string>
     <string name="contacts_failed">No se pudo completar: %1$s</string>
     <string name="contacts_public_title">Público en Nostr</string>
-    <string name="contacts_public_text">Hopp publica una nota que indica que usas esta función, con dos claves propias. Aquello a lo que te suscribes nunca aparece en ella — eso va sellado solo a tus contactos mutuos.</string>
+    <string name="contacts_public_text">Hopp publica que usas esto. Tus suscripciones siguen cifradas.</string>
     <string name="contacts_public_confirm">Activar</string>
     <string name="show_share_contacts">Compartir con contactos de Nostr</string>
     <string name="discover_contacts">Entre tus contactos de Nostr</string>
@@ -1199,7 +1199,7 @@
         <item quantity="one">%1$d de tus contactos de Nostr escucha esto, lo ha boosteado o comentado</item>
         <item quantity="other">%1$d de tus contactos de Nostr escuchan esto, lo han boosteado o comentado</item>
     </plurals>
-    <string name="contacts_renew_text">Alguien ya no te sigue, o tú ya no lo sigues: una clave nueva le impide ver lo que compartas a partir de ahora.</string>
+    <string name="contacts_renew_text">Un contacto ya no te sigue mutuamente. Una clave nueva lo deja fuera.</string>
     <string name="contacts_renew">Renovar clave</string>
     <string name="contacts_did_share">comparte la suscripción</string>
     <string name="contacts_did_boost">boosteó</string>
@@ -1207,9 +1207,9 @@
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Podcasts compartidos</string>
     <string name="contacts_shared_summary">%1$d de %2$d compartidos</string>
-    <string name="contacts_shared_later">Se aplica cuando actives compartir</string>
-    <string name="contacts_shared_text">Tus contactos mutuos de Nostr ven estas suscripciones, cifradas. Una suscripción nueva se comparte hasta que la desactives aquí.</string>
-    <string name="contacts_shared_text_off">Compartir está desactivado, así que no sale nada. Lo que desactives aquí seguirá fuera cuando actives compartir.</string>
+    <string name="contacts_shared_later">Compartir está desactivado</string>
+    <string name="contacts_shared_text">Tus contactos mutuos ven estas suscripciones. Las nuevas también se comparten.</string>
+    <string name="contacts_shared_text_off">Compartir está desactivado. Lo que desactives aquí seguirá siendo privado.</string>
     <string name="contacts_shared_group">Compartidos · %1$d</string>
     <string name="contacts_hidden_group">No compartidos · %1$d</string>
     <string name="contacts_share_all">Compartir todos</string>
@@ -1219,13 +1219,19 @@
     <string name="settings_support_note">Una donación por Lightning</string>
     <string name="support_text">Hopp es libre, sin anuncios y sin rastreo. Vive de que quienes escuchan devuelvan lo que les vale.</string>
     <string name="support_to">A %1$s, desde tu billetera</string>
-    <string name="support_other_wallet">Con cualquier otra billetera: envía a esta dirección Lightning.</string>
+    <string name="support_other_wallet">Con cualquier otra billetera</string>
     <string name="support_share">O una pequeña parte de cada boost y del streaming, en los ajustes de la billetera.</string>
     <!-- Up next on Home and in the library; Home arranged in place (Dennis, maintainer 2026-11-02) -->
     <string name="home_edit_done">Listo</string>
     <string name="home_edit_note">Arrastra para ordenar, desactiva para ocultar. También llegas aquí con una pulsación larga sobre el título de una sección.</string>
     <string name="queue_more">+ %1$d más</string>
     <string name="month_year">%1$s de %2$s</string>
-    <string name="support_wallet_app">Donar con una app de billetera</string>
+    <string name="support_tap_opens">Toca para abrir tu app de billetera</string>
     <string name="support_no_wallet_app">Ninguna app de este dispositivo acepta direcciones Lightning. Copia la dirección en tu billetera.</string>
+    <!-- The sync key's public half, for relays that take only known keys (Dennis, maintainer 2026-11-03) -->
+    <string name="sync_key_show">Mostrar clave</string>
+    <string name="sync_renew_short">Renovar clave</string>
+    <string name="sync_key_title">Clave de sincronización</string>
+    <string name="sync_key_text">Hopp firma lo que sincroniza con esta clave, no con la tuya. Si tu relay solo acepta eventos de claves que conoce, añade esta a su lista de permitidos. Cambia cuando renuevas la clave.</string>
+    <string name="sync_key_copy">Copiar</string>
 </resources>

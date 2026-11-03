@@ -14,6 +14,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Home:** "Up next" right on Home, reorderable there; arrange Home's sections in place with the tune button or a long press on a title.
 - **Library:** Up next and your downloads in the library itself, in sections that fold.
 - **Up next:** New episodes go to the end of "Up next" as soon as Hopp finds them, on all your devices – no longer only once downloaded on the phone.
+- **Sync:** Shows the sync key, to allow it on relays that take only keys they know.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
