@@ -20,10 +20,10 @@ import space.sovereigncast.hopp.resources.settings_updates
 import space.sovereigncast.hopp.resources.settings_updates_note
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
-import space.sovereigncast.hopp.resources.settings_downloads_queue
+import space.sovereigncast.hopp.resources.settings_new_to_queue
 import space.sovereigncast.hopp.resources.settings_auto_downloads
 import space.sovereigncast.hopp.resources.settings_auto_downloads_note
-import space.sovereigncast.hopp.resources.settings_downloads_queue_note
+import space.sovereigncast.hopp.resources.settings_new_to_queue_note
 import space.sovereigncast.hopp.resources.nostr_title
 import space.sovereigncast.hopp.resources.nostr_entry_none
 import space.sovereigncast.hopp.resources.settings_downloads_delete_confirm
@@ -289,9 +289,6 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
                     vm.setAutoDownloads(on)
                 }
-                Toggle(stringResource(Res.string.settings_downloads_queue), stringResource(Res.string.settings_downloads_queue_note), s.downloadsToQueue) { on ->
-                    vm.update { it.copy(downloadsToQueue = on) }
-                }
                 // What the episodes take, and all of them gone at once (device
                 // feedback 2026-10-14; where they are said more than it helped).
                 val bytes by vm.downloadBytes.collectAsState()
@@ -326,6 +323,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     vm.update { it.copy(refreshWifiOnly = on) }
                 }
                 Note(stringResource(if (whileOpen) Res.string.settings_refresh_text_open else Res.string.settings_refresh_text))
+                // What a refresh finds goes to "Up next" — in the browser too, on every device alike (maintainer 2026-11-03).
+                Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
+                    vm.update { it.copy(newToQueue = on) }
+                }
             }
             SettingsPage.Notifications -> {
                 // Hopp has no push yet (ADR 0007): the messages are what a payment came to —

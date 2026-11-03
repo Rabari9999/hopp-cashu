@@ -96,9 +96,11 @@ data class Settings(
     /** A boost to an episode also as a public Nostr comment, as Fountain does — the
      *  boost dialog's switch starts there (ADR 0021, 6; device feedback 2026-10-16). */
     val nostrBoosts: Boolean = false,
-    /** A finished download goes to the end of "Up next", as in AntennaPod
-     *  (device feedback 2026-10-19). */
-    val downloadsToQueue: Boolean = true,
+    /** A new episode of a subscribed show goes to the end of "Up next" when a refresh finds it, on every
+     *  device and in step with sync (maintainer 2026-11-03: until then a finished download put it there,
+     *  on the phone only — the browser downloads nothing and never saw it). Its key is still
+     *  "downloads_to_queue": the same choice the listener made before. */
+    val newToQueue: Boolean = true,
     /** New episodes of shows that allow it download by themselves, on Wi-Fi only; off: only what the
      *  listener asks for (device feedback 2026-10-22: too much came that was never heard). */
     val autoDownloads: Boolean = true,
@@ -200,7 +202,7 @@ data class Settings(
                 mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
                 zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
-                downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
+                newToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.newToQueue,
                 autoDownloads = values["auto_downloads"]?.toBooleanStrictOrNull() ?: d.autoDownloads,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
                 nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
@@ -260,7 +262,7 @@ data class Settings(
         "muted_local" to mutedLocally.joinToString("\n"),
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
-        "downloads_to_queue" to downloadsToQueue.toString(),
+        "downloads_to_queue" to newToQueue.toString(),
         "auto_downloads" to autoDownloads.toString(),
         "zap_privacy" to zapPrivacy,
         "nostr_sync" to nostrSync.toString(),

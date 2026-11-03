@@ -34,6 +34,30 @@ class QueueRepository(
         }
     }
 
+    /**
+     * New episodes a refresh found, to the end of "Up next", oldest first (maintainer 2026-11-03) — not one
+     * heard, and not one sync knows already: in "Up next" from another device, or taken out of it there.
+     * Noted for sync as of when the episode came out, so the other devices' later changes to it win
+     * (one taken out on the phone overnight does not come back when the browser refreshes next morning).
+     */
+    suspend fun addNew(episodes: List<Pair<Long, Long?>>) = withContext(ioDispatcher) {
+        val noted = mutableListOf<Long>()
+        for ((id, publishedAt) in episodes) {
+            val r = db.episodeQueries.syncKeysOf(id).awaitAsOneOrNull() ?: continue
+            if (r.played == 1L) continue
+            val key = SyncDocs.queueKey(SyncDocs.showKey(r.podcast_guid, r.feed_url), r.guid)
+            if (journal.current(SyncDocs.QUEUE, key) != null) continue
+            qq.addLast(id)
+            noted += id
+            if (journal.enabled) {
+                val sort = qq.selectKeys().awaitAsList().firstOrNull { it.episode_id == id }?.sort_key ?: continue
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                journal.record(SyncDocs.QUEUE, key, SyncDocs.queued(show, r.guid, sort), notify = false, atMs = (publishedAt ?: 0) * 1000)
+            }
+        }
+        if (noted.isNotEmpty()) journal.changed(SyncDocs.QUEUE)
+    }
+
     /** "Up next" from another device (sync): the episode at [sortKey], or out of it; not noted again. */
     suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(ioDispatcher) {
         if (sortKey == null) qq.remove(episodeId) else qq.put(episodeId, sortKey)

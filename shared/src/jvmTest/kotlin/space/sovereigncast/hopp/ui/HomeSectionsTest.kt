@@ -14,10 +14,10 @@ import kotlin.test.assertEquals
 
 /** The order of Home's sections (device feedback 2026-10-13). */
 class HomeSectionsTest {
-    /** Since 0.3.3 listening first: what is under way, what comes next (Dennis, maintainer 2026-11-02). */
+    /** Since 0.3.3 taking part on top, always (maintainer 2026-11-03), then listening: what is under way, what comes next (Dennis, 2026-11-02). */
     @Test
-    fun hoppsOwnOrderPutsListeningFirst() {
-        assertEquals(listOf(CONTINUE, QUEUE, NEW, TAKE_PART, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT), HomeSections.order(emptyList()))
+    fun hoppsOwnOrderPutsTakingPartFirstThenListening() {
+        assertEquals(listOf(TAKE_PART, CONTINUE, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT), HomeSections.order(emptyList()))
     }
 
     @Test
@@ -37,6 +37,6 @@ class HomeSectionsTest {
     @Test
     fun aSavedOrderLosesWhatHoppDroppedAndGainsWhatItAdded() {
         val saved = listOf(RECENT, "fromshows", NEW, CONTINUE, TAKE_PART, FAVORITES, BOOSTED)
-        assertEquals(listOf(RECENT, NEW, CONTINUE, QUEUE, TAKE_PART, YOUR_SHOWS, FAVORITES, BOOSTED), HomeSections.order(saved))
+        assertEquals(listOf(RECENT, NEW, YOUR_SHOWS, CONTINUE, QUEUE, TAKE_PART, FAVORITES, BOOSTED), HomeSections.order(saved))
     }
 }

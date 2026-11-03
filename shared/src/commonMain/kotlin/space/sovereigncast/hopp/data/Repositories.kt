@@ -34,6 +34,8 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.FetchResult
 import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncDocs.bool
+import space.sovereigncast.hopp.sync.SyncDocs.long
 import space.sovereigncast.hopp.sync.SyncJournal
 
 /** Seconds since the epoch, injectable for tests. */
@@ -130,6 +132,8 @@ class PodcastRepository(
     private val journal: SyncJournal = SyncJournal.Off,
     /** Whether automatic downloads are on at all (Settings.autoDownloads); a show's own switch comes on top. */
     private val autoDownloads: suspend () -> Boolean = { true },
+    /** New episodes a refresh found — id and when each came out, oldest first ("Up next", Settings.newToQueue). */
+    private val onNewEpisodes: suspend (List<Pair<Long, Long?>>) -> Unit = {},
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
@@ -248,20 +252,26 @@ class PodcastRepository(
                 q.updateFromFeed(p.podcastGuid, p.title ?: row.title, p.author, p.imageUrl,
                     json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, p.categories.joinToString("\n"), id)
                 val known = eq.guidsOfPodcast(id).awaitAsList().toSet()
-                var added = 0
+                val added = mutableListOf<Episode>()
                 for (e in feed.episodes) {
                     if (e.guid in known) {
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
                             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
                     } else {
-                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added++
+                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added += e
                     }
                 }
                 added
             }
         }
-        if (added > 0 && fetch) downloads.schedule(manual = false)
-        return added
+        if (added.isNotEmpty() && fetch) downloads.schedule(manual = false)
+        // Out in the last days only: a feed that brings back its old episodes fills nobody's "Up next".
+        val fresh = added.filter { (it.publishedAt ?: now) >= now - NEW_TO_QUEUE_DAYS * 86_400 }.sortedBy { it.publishedAt ?: now }
+        if (fresh.isNotEmpty()) runCatching {
+            val ids = withContext(ioDispatcher) { fresh.mapNotNull { e -> eq.selectByGuid(id, e.guid).awaitAsOneOrNull()?.let { it.id to e.publishedAt } } }
+            onNewEpisodes(ids)
+        }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        return added.size
     }
 
     /** Every subscription — or of them only [only] — looked at again, [parallel] at a time. */
@@ -350,6 +360,9 @@ class PodcastRepository(
             if (queued) DownloadState.QUEUED.toLong() else DownloadState.NONE.toLong())
     }
 }
+
+/** A new episode older than this many days does not go to "Up next" by itself. */
+private const val NEW_TO_QUEUE_DAYS = 7
 
 /** Fewer heard in a row than this: their single entries are no burden ([EpisodeRepository.deriveHeardUpTo]). */
 private const val MIN_RUN = 10
@@ -537,6 +550,31 @@ class EpisodeRepository(
      * were marked heard there). The mark starts where the run does, and joins one the show has only
      * where the two meet.
      */
+    /**
+     * "Recently played" said again where sync does not say yet that it was listened to (maintainer
+     * 2026-11-03): heard before 0.3.3, the entries had no `listened`, and the other devices kept the
+     * episode out of the section. Once per start; an entry that says it already is left alone, so
+     * after one round nothing goes out again. As of when it was heard, so the order stays.
+     */
+    suspend fun announceListenedOnce(limit: Long = 20) {
+        if (listenedAnnounced || !journal.enabled) return
+        listenedAnnounced = true
+        withContext(ioDispatcher) {
+            var any = false
+            for (r in eq.recentlyListenedForSync(limit).awaitAsList()) {
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                val key = SyncDocs.progressKey(show, r.guid)
+                val now = journal.current(SyncDocs.PROGRESS, key)
+                if (now != null && !now.del && now.d.bool("played") == true && now.d.long("listened") != null) continue
+                journal.record(SyncDocs.PROGRESS, key, SyncDocs.progress(show, r.guid, 0, true, r.played_at ?: continue, r.last_played_at),
+                    urgent = false, notify = false)
+                any = true
+            }
+            if (any) journal.changed(SyncDocs.PROGRESS, urgent = false)
+        }
+    }
+    private var listenedAnnounced = false
+
     suspend fun deriveHeardUpToOnce() {
         if (heardUpToDerived) return
         heardUpToDerived = true

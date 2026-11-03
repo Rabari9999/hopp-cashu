@@ -50,7 +50,7 @@ internal class SyncDevice(
     val store = SyncStore(db) { ms }
     val journal = SyncJournal(store)
     val settings = SettingsRepository(db, journal)
-    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal) { settings.current().autoDownloads }
+    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal, autoDownloads = { settings.current().autoDownloads })
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val queue = QueueRepository(db, journal)
     val listening = space.sovereigncast.hopp.data.ListeningRepository(db, secrets, { ms / 1000 }, journal) { kotlinx.datetime.TimeZone.UTC }

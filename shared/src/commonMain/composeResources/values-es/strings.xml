@@ -831,8 +831,8 @@
     <string name="image_close">Cerrar la imagen</string>
     <string name="settings_default_speed">Velocidad predeterminada</string>
     <string name="settings_default_speed_note">Para todos los podcasts, salvo los que tienen velocidad propia en “Por podcast”. La velocidad que elijas en el reproductor se queda con ese podcast; si vuelves a elegir la predeterminada, seguirá a esta.</string>
-    <string name="settings_downloads_queue">Descargas a “A continuación”</string>
-    <string name="settings_downloads_queue_note">Cada descarga terminada va al final de la cola, para que puedas escuchar de corrido.</string>
+    <string name="settings_new_to_queue">Episodios nuevos en «A continuación»</string>
+    <string name="settings_new_to_queue_note">Cada episodio nuevo de tus podcasts va al final de la cola en cuanto Hopp lo encuentra, en todos tus dispositivos.</string>
     <string name="comments_zap">Zapear</string>
     <string name="zap_title">Zapear a %1$s</string>
     <string name="zap_looking">Buscando la dirección Lightning de %1$s…</string>
@@ -1226,4 +1226,6 @@
     <string name="home_edit_note">Arrastra para ordenar, desactiva para ocultar. También llegas aquí con una pulsación larga sobre el título de una sección.</string>
     <string name="queue_more">+ %1$d más</string>
     <string name="month_year">%1$s de %2$s</string>
+    <string name="support_wallet_app">Donar con una app de billetera</string>
+    <string name="support_no_wallet_app">Ninguna app de este dispositivo acepta direcciones Lightning. Copia la dirección en tu billetera.</string>
 </resources>

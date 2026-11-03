@@ -10,9 +10,10 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Nostr:** See what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
 - **Nostr:** Share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
 - **Nostr:** One page lists all your shows and whether each is shared with your Nostr contacts.
-- **Settings:** Support Hopp with a donation via Lightning.
+- **Settings:** Support Hopp with a donation via Lightning – from the connected wallet or any wallet app.
 - **Home:** "Up next" right on Home, reorderable there; arrange Home's sections in place with the tune button or a long press on a title.
 - **Library:** Up next and your downloads in the library itself, in sections that fold.
+- **Up next:** New episodes go to the end of "Up next" as soon as Hopp finds them, on all your devices – no longer only once downloaded on the phone.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.

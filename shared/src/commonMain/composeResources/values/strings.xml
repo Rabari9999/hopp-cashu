@@ -831,8 +831,8 @@
     <string name="image_close">Close the picture</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_default_speed_note">For every show but those with a speed of their own under “Per show”. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
-    <string name="settings_downloads_queue">Downloads to “Up next”</string>
-    <string name="settings_downloads_queue_note">Each finished download goes to the end of the queue, so you can listen straight through.</string>
+    <string name="settings_new_to_queue">New episodes in "Up next"</string>
+    <string name="settings_new_to_queue_note">Each new episode of your shows goes to the end of the queue when Hopp finds it – on all your devices.</string>
     <string name="comments_zap">Zap</string>
     <string name="zap_title">Zap %1$s</string>
     <string name="zap_looking">Looking for %1$s’s Lightning address…</string>
@@ -1226,4 +1226,6 @@
     <string name="home_edit_note">Drag to arrange, switch off to hide. A long press on a section title gets you here too.</string>
     <string name="queue_more">+ %1$d more</string>
     <string name="month_year">%1$s %2$s</string>
+    <string name="support_wallet_app">Donate with a wallet app</string>
+    <string name="support_no_wallet_app">No app on this device takes Lightning addresses. Copy the address into your wallet instead.</string>
 </resources>

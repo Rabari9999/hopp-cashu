@@ -23,10 +23,11 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
      * replaces when that is later — a device whose clock runs behind still
      * wins with a change made after seeing the other's.
      */
-    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false): SyncEntry {
+    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, atMs: Long? = null): SyncEntry {
         return db.transactionWithResult {
             val before = entry(doc, key)
-            val entry = SyncEntry(maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
+            // [atMs] never ahead of now: an episode dated in the future would look like a clock gone wrong elsewhere.
+            val entry = SyncEntry(atMs?.takeIf { before == null && it > 0 }?.coerceAtMost(nowMs()) ?: maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
             put(doc, key, entry, pending = true)
             entry
         }

@@ -33,7 +33,7 @@ class ProgressDocument(
         key.startsWith("pos\n") && entry.t < nowMs - KEPT.inWholeMilliseconds
 
     // The shows heard from their oldest episode on get their "heard up to" — once per start.
-    override suspend fun prepare() { episodes.deriveHeardUpToOnce() }
+    override suspend fun prepare() { episodes.deriveHeardUpToOnce(); episodes.announceListenedOnce() }
 
     override suspend fun describe(entries: Map<String, SyncEntry>): String = withContext(ioDispatcher) {
         val live = entries.filterValues { !it.del }

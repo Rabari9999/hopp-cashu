@@ -258,6 +258,14 @@ syncKeysOf:
 SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url
 FROM episode e JOIN podcast p ON p.id = e.podcast_id WHERE e.id = ?;
 
+-- What "Recently played" holds, newest first, with what sync needs to say so.
+recentlyListenedForSync:
+SELECT e.guid, e.played_at, e.last_played_at, p.podcast_guid, p.feed_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.played = 1 AND e.played_at IS NOT NULL AND e.last_played_at IS NOT NULL
+ORDER BY e.played_at DESC
+LIMIT :limit;
+
 progressForSync:
 SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.played_at, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url,
        p.played_through, p.played_through_at, p.played_through_from

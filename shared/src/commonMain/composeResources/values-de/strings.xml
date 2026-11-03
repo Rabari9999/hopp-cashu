@@ -831,8 +831,8 @@
     <string name="image_close">Bild schließen</string>
     <string name="settings_default_speed">Standard-Geschwindigkeit</string>
     <string name="settings_default_speed_note">Für alle Shows, außer denen mit eigenem Tempo unter „Pro Show“. Wählst du im Player eine Geschwindigkeit, bekommt die Show sie als eigene; wählst du dort wieder den Standard, folgt sie diesem.</string>
-    <string name="settings_downloads_queue">Downloads in „Als Nächstes“</string>
-    <string name="settings_downloads_queue_note">Jede fertig heruntergeladene Folge kommt ans Ende der Warteschlange – so hörst du einfach durch.</string>
+    <string name="settings_new_to_queue">Neue Folgen in „Als Nächstes“</string>
+    <string name="settings_new_to_queue_note">Jede neue Folge deiner Shows kommt ans Ende der Warteschlange, sobald Hopp sie findet – auf all deinen Geräten.</string>
     <string name="comments_zap">Zappen</string>
     <string name="zap_title">%1$s zappen</string>
     <string name="zap_looking">Lightning-Adresse von %1$s wird gesucht …</string>
@@ -1226,4 +1226,6 @@
     <string name="home_edit_note">Zum Anordnen ziehen, zum Ausblenden ausschalten. Ein langer Druck auf einen Bereichstitel führt auch hierher.</string>
     <string name="queue_more">+ %1$d weitere</string>
     <string name="month_year">%1$s %2$s</string>
+    <string name="support_wallet_app">Mit Wallet-App spenden</string>
+    <string name="support_no_wallet_app">Keine App auf diesem Gerät nimmt Lightning-Adressen an. Kopier die Adresse stattdessen in deine Wallet.</string>
 </resources>

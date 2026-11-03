@@ -38,6 +38,12 @@ every day in the first release.
   *(Amended 2026-10-19, maintainer: as in AntennaPod, a finished download goes
   to the end of the queue — not one already played or playing, and one already
   in it keeps its place; a setting under Downloads, on by default.)*
+  *(Amended 2026-11-03, maintainer: a new episode goes to the end of the queue
+  when a refresh finds it — on every device, the browser too, in step with
+  sync — no longer when its download finishes, which only a phone saw. Out in
+  the last seven days only; one sync already knows, in the queue or taken out
+  of it elsewhere, is left alone, and it is noted as of its release, so a later
+  change on another device wins. The same setting, now under refresh.)*
 - **Sleep timer:** minutes, end of episode, and **end of chapter**.
 - **Value for value in the player:** boost button with amount presets and a
   message, a view of the split (who gets how much), streaming indicator with

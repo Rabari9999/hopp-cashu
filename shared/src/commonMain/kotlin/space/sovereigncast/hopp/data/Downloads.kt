@@ -300,16 +300,8 @@ class DownloadRepository(
             SystemFileSystem.atomicMove(part, target)
             eq.setDownloaded(target.toString(), files.size(target), id)
         }
-        enqueue(id)
-    }
-
-    /** A finished download to the end of "Up next", as in AntennaPod (device feedback
-     *  2026-10-19) — not one already heard, nor the one playing. */
-    private suspend fun enqueue(id: Long) {
-        if (!settings.current().downloadsToQueue || id == playing()) return
-        withContext(ioDispatcher) {
-            if (eq.selectById(id).awaitAsOneOrNull()?.played == 0L) db.queueQueries.addLast(id)
-        }
+        // "Up next" is no longer filled by a finished download: a refresh puts new episodes there, on every
+        // device and in step (Settings.newToQueue, maintainer 2026-11-03).
     }
 
     /** The most one download may take: [MAX_EPISODE_BYTES], or the storage limit if that is smaller. */

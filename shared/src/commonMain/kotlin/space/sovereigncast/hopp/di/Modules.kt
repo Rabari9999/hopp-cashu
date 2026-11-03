@@ -158,7 +158,12 @@ fun sharedModule(platform: Platform) = module {
     single { SettingsRepository(get(), get()) }
     single { QueueRepository(get(), get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads) }
-    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { platform.downloads && get<SettingsRepository>().current().autoDownloads } }
+    single {
+        PodcastRepository(get(), get(), get(), get(), get(), get(),
+            autoDownloads = { platform.downloads && get<SettingsRepository>().current().autoDownloads },
+            onNewEpisodes = { new -> if (get<SettingsRepository>().current().newToQueue) get<QueueRepository>().addNew(new) },
+        )
+    }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single {
         val koin = getKoin()

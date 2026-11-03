@@ -74,9 +74,10 @@ object HomeSections {
     const val RECENT = "recent"
     const val QUEUE = "queue"
 
-    /** Hopp's own order since 0.3.3 (Dennis, maintainer 2026-11-02): listening first — what is under
-     *  way and what comes next — then what is new, what to take part in, the shows, what was heard last. */
-    val default = listOf(CONTINUE, QUEUE, NEW, TAKE_PART, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
+    /** Hopp's own order since 0.3.3: what to take part in on top, always (maintainer 2026-11-03), then
+     *  listening — what is under way, what comes next (Dennis, 2026-11-02) — what is new, the shows,
+     *  what was heard last. */
+    val default = listOf(TAKE_PART, CONTINUE, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
 
     /** Hopp's own order before 0.3.3: kept for a listener who had it, "Up next" put in after "Continue". */
     val before033 = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
