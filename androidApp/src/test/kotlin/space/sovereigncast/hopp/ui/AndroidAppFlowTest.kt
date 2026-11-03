@@ -418,12 +418,12 @@ class AndroidAppFlowTest {
         waitFor("Ep 1")
         menuOf(1); waitFor("Play next"); tap("Play next")
         // On Home too, right there (Dennis, maintainer 2026-11-02).
-        tap("Home"); waitFor("Up next")
+        tap("Home"); waitFor("Playlist")
         // In the library itself since 0.3.3 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
-        tap("Library"); waitFor("Up next"); waitFor("Ep 1")
+        tap("Library"); waitFor("Playlist"); waitFor("Ep 1")
         tap("All 1 ›"); waitFor("Ep 1")
-        rule.onNode(hasContentDescription("Remove from up next")).performClick()
-        waitFor("Nothing up next")
+        rule.onNode(hasContentDescription("Remove from the playlist")).performClick()
+        waitFor("The playlist is empty")
     }
 
     @Test
@@ -1057,6 +1057,21 @@ class AndroidAppFlowTest {
         tap("Ep 1"); waitFor("Chapters") // the episode page's tab (Ep 1 has chapters, no notes)
         check(!has("Episodes")) { "still on the show page: ${screen()}" }
         check(has("01.06.2026 · 45 MB")) { screen().toString() }
+    }
+
+    /** The playlist (Dennis, maintainer 2026-11-03): what plays is its "Now", on top, and what comes next below;
+     *  "Continue listening" is gone from Home. */
+    @Test
+    fun thePlaylistStartsWithWhatPlays() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        rule.onAllNodes(hasContentDescription("Play") and hasClickAction())[0].performClick()
+        until { engine().state.value.isPlaying }
+        tap("Home")
+        waitFor("NOW · PLAYING")
+        check(has("NEXT") && has("Ep 1") && !has("Continue listening")) { screen().toString() }
     }
 
     /** The round button in the row plays without opening the player. */

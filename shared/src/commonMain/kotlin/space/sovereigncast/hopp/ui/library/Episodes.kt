@@ -250,21 +250,30 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
 }
 
 /**
- * Up next, reorderable by dragging the handle (ADR 0012). The order is
- * kept locally while dragging and written once the drag ends.
+ * The playlist after "Now" (ADR 0012), reorderable by dragging the handle. The order is
+ * kept locally while dragging and written once the drag ends. [header] and [footer]: items
+ * of their own around it — "Now" and the like — which stay where they are.
  */
 @Composable
-fun QueueList(items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit) {
+fun QueueList(
+    items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
+    header: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {}, footer: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {},
+) {
     var order by remember { mutableStateOf(items) }
     LaunchedEffect(items) { order = items }
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
+    // By key: the header's items come before the episodes.
     val reorderable = rememberReorderableLazyListState(listState) { from, to ->
-        order = order.toMutableList().apply { add(to.index, removeAt(from.index)) }
+        val f = order.indexOfFirst { it.id == from.key }
+        val t = order.indexOfFirst { it.id == to.key }
+        if (f < 0 || t < 0) return@rememberReorderableLazyListState
+        order = order.toMutableList().apply { add(t, removeAt(f)) }
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val dragLabel = stringResource(Res.string.queue_drag)
     LazyColumn(state = listState) {
+        header()
         items(order, key = { it.id }) { item ->
             ReorderableItem(reorderable, key = item.id) { dragging ->
                 Surface(tonalElevation = if (dragging) 4.dp else 0.dp) {
@@ -281,5 +290,6 @@ fun QueueList(items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove:
                 }
             }
         }
+        footer()
     }
 }

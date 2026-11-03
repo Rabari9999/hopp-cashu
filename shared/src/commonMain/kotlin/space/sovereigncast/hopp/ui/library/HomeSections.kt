@@ -66,6 +66,8 @@ import space.sovereigncast.hopp.resources.queue_title
  */
 object HomeSections {
     const val NEW = "new"
+    /** "Continue listening", gone into the playlist ([QUEUE]) on 2026-11-03 (Dennis, maintainer): a saved
+     *  order's place of it is the playlist's. */
     const val CONTINUE = "continue"
     const val YOUR_SHOWS = "yourshows"
     const val TAKE_PART = "shows"
@@ -75,12 +77,12 @@ object HomeSections {
     const val QUEUE = "queue"
 
     /** Hopp's own order since 0.3.3: what to take part in on top, always (maintainer 2026-11-03), then
-     *  listening — what is under way, what comes next (Dennis, 2026-11-02) — what is new, the shows,
-     *  what was heard last. */
-    val default = listOf(TAKE_PART, CONTINUE, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
+     *  listening — the playlist: what plays and what comes next (Dennis, 2026-11-02 and -03) — what is
+     *  new, the shows, what was heard last. */
+    val default = listOf(TAKE_PART, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
 
     /** In a large window, the left column (maintainer 2026-11-03): what is listened to; the rest goes right. */
-    val listening = setOf(CONTINUE, QUEUE, NEW, RECENT)
+    val listening = setOf(QUEUE, NEW, RECENT)
     /** From this width Home is two columns. */
     val TWO_COLUMNS = 1000.dp
 
@@ -89,7 +91,6 @@ object HomeSections {
 
     val titles: Map<String, StringResource> = mapOf(
         NEW to Res.string.nav_new,
-        CONTINUE to Res.string.library_continue,
         QUEUE to Res.string.queue_title,
         YOUR_SHOWS to Res.string.home_your_shows,
         TAKE_PART to Res.string.home_take_part,
@@ -105,7 +106,9 @@ object HomeSections {
      */
     fun order(saved: List<String>): List<String> {
         val own = default
-        val known = saved.filter { it in titles }.distinct()
+        // The playlist where "Continue listening" was, it having been the first of the two.
+        val merged = if (CONTINUE in saved) saved.filter { it != QUEUE }.map { if (it == CONTINUE) QUEUE else it } else saved
+        val known = merged.filter { it in titles }.distinct()
         if (known.isEmpty()) return own
         val result = known.toMutableList()
         own.forEachIndexed { i, key ->

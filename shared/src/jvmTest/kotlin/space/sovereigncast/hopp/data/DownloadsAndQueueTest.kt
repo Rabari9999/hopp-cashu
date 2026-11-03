@@ -324,6 +324,26 @@ class DownloadsAndQueueTest {
         assertEquals(emptyList(), queue.items.first(), "switched off")
     }
 
+    /** Dennis, maintainer 2026-11-03: "Continue listening" goes into the playlist — what was begun and not in
+     *  "Up next" joins its top once, newest first, but the one the player has ("Now"); emptying keeps progress. */
+    @Test
+    fun whatWasBegunJoinsThePlaylistOnce() = test {
+        val id = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        items = 4
+        podcasts.refresh(id)
+        val (e1, e2, e3, e4) = listOf(1, 2, 3, 4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e4)
+        // Begun, newest last: e1, then e2, then e3 (the one the player has); e4 is queued already.
+        listOf(e1, e2, e3, e4).forEachIndexed { i, e -> episodes.applyProgress(e, 60_000, played = false, atSeconds = now + i) }
+        queue.adoptInProgress(episodes.inProgress.first(), except = e3)
+        assertEquals(listOf(e2, e1, e4), queue.items.first().map { it.id })
+        queue.adoptInProgress(episodes.inProgress.first(), except = e3)
+        assertEquals(listOf(e2, e1, e4), queue.items.first().map { it.id }, "nothing twice")
+        queue.clear()
+        assertEquals(emptyList(), queue.items.first())
+        assertEquals(60_000, byTitle(id, "Ep 1").positionMs, "progress kept")
+    }
+
     /** Device feedback 2026-10-25: queued by its download, then marked heard and its download
      *  removed, an episode still started after the one before it — streamed. Heard, it leaves. */
     @Test

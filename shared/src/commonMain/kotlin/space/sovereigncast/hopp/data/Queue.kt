@@ -13,8 +13,9 @@ import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 
-/** "Up next" (ADR 0012): play next, play last, reorder; the player takes the
- *  first one when an episode ends. The episode playing is never in it. */
+/** "Up next" (ADR 0012), since 2026-11-03 the playlist after the episode playing (Dennis, maintainer):
+ *  play next, play last, reorder; the player takes the first one when an episode ends. The episode
+ *  playing is never in it — it is the playlist's "Now". */
 class QueueRepository(
     private val db: HoppDatabase,
     /** What the listener puts in, takes out and moves, noted for sync (ADR 0021, 5). An
@@ -129,6 +130,29 @@ class QueueRepository(
 
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) { qq.remove(episodeId); note(listOf(episodeId)) }
 
+    /** Everything out of the playlist at once — the episodes keep their progress. */
+    suspend fun clear() = withContext(ioDispatcher) {
+        val all = qq.selectAll().awaitAsList()
+        db.transaction { all.forEach { qq.remove(it) } }
+        note(all)
+    }
+
+    /**
+     * Once, as "Continue listening" goes (Dennis, maintainer 2026-11-03): the episodes begun and not
+     * finished that were not in "Up next" yet — [inProgress], newest first — to the playlist's top in that
+     * order, so none is lost; not [except], the one the player has, which is the playlist's "Now".
+     */
+    suspend fun adoptInProgress(inProgress: List<EpisodeItem>, except: Long?) = withContext(ioDispatcher) {
+        val queued = qq.selectAll().awaitAsList().toSet()
+        val adopt = inProgress.filter { !it.played && it.positionMs > 0 && it.id != except && it.id !in queued }.distinctBy { it.id }.take(ADOPT_MAX)
+        if (adopt.isEmpty()) return@withContext
+        db.transaction {
+            var key = qq.minKey().awaitAsOne()
+            adopt.asReversed().forEach { key -= 1; qq.put(it.id, key) }
+        }
+        note(adopt.map { it.id })
+    }
+
     /** The whole order at once, as the list looks after a drag. */
     suspend fun reorder(episodeIds: List<Long>) = withContext(ioDispatcher) {
         db.transaction { episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
@@ -146,5 +170,7 @@ class QueueRepository(
         /** The farthest place in "Up next" — far beyond any real queue, and never near a Long's end
          *  (delta audit 2026-10-22, MN-06: a place from sync at Long.MAX_VALUE wrapped to the front). */
         const val SORT_MAX = 1_000_000_000_000_000L
+        /** As many as "Continue listening" showed. */
+        const val ADOPT_MAX = 20
     }
 }

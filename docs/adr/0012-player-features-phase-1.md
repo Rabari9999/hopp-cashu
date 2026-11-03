@@ -89,6 +89,17 @@ value and is easy to revisit.
 Video via `alternateEnclosure` and cross-device sync (phase 2), live items
 (phase 3), home-screen widgets (phase 3; the Android player widget came with 0.3.1).
 
+**Amendment 2026-11-03 (Dennis, maintainer): one playlist.** "Continue listening" and
+"Up next" are one list, the playlist: on top "Now" — the episode the player has, not part
+of the queue and not movable — then the queue in the listener's order. Home, the library,
+the playlist's own page (count, length, emptying it), now playing's sheet and Android
+Auto's folder show the same. "Continue listening" is gone as a section; a saved Home
+order puts the playlist where it was. On the update, what was begun and not in "Up next"
+joined the playlist's top once, newest first, at most 20 (`QueueRepository.adoptInProgress`,
+`Settings.playlistMerged`, per device; sync joins them). The rules stay: an interrupted
+episode goes back to the top, the next one plays at the end, a heard one leaves, a removed
+one keeps its progress ("Recently played").
+
 ## Consequences
 
 - The playback engine interface (ADR 0003) must expose chapter boundaries, so

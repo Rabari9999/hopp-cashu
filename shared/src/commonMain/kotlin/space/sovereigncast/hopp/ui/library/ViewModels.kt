@@ -75,6 +75,7 @@ class HomeViewModel(
     sync: space.sovereigncast.hopp.sync.SyncManager? = null,
     identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
     private val queueRepo: QueueRepository? = null,
+    private val player: space.sovereigncast.hopp.player.PlayerController? = null,
 ) : RefreshingViewModel(feeds) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
@@ -97,6 +98,16 @@ class HomeViewModel(
                     else -> s.copy(homeOrder033 = true)
                 }
             }
+        }
+        // "Continue listening" went into the playlist (Dennis, maintainer 2026-11-03): what was begun there and
+        // not in "Up next" joins the playlist's top, once — not on a new install, which has nothing begun.
+        viewModelScope.launch {
+            var adopt = false
+            settings.update { s -> if (s.playlistMerged) s else { adopt = s.onboardingDone; s.copy(playlistMerged = true) } }
+            val q = queueRepo ?: return@launch
+            if (!adopt) return@launch
+            val begun = episodes.inProgress.first()
+            q.adoptInProgress(begun, except = player?.current?.value?.item?.id ?: begun.firstOrNull()?.id)
         }
     }
 
@@ -138,7 +149,6 @@ class HomeViewModel(
     }
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(podcasts.shows.map { it.isNotEmpty() }, null)
-    val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress.map { it.take(HOME_ROWS) }, emptyList())
     val favorites: StateFlow<List<EpisodeItem>> = state(episodes.favorites, emptyList())
     val recentlyPlayed: StateFlow<List<EpisodeItem>> = state(episodes.recentlyPlayed(HOME_ROWS.toLong()), emptyList())
     /** Boosted episodes that still exist, with the sats sent to each. */
@@ -162,7 +172,7 @@ class HomeViewModel(
     val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
     val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
 
-    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2; const val QUEUE_ROWS = 8 }
+    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2; const val QUEUE_ROWS = 5 }
 }
 
 /** [shows] in the library's [sort]; A–Z among equals, and shows without episodes last. */
@@ -229,6 +239,8 @@ class QueueViewModel(private val queue: QueueRepository) : ViewModel() {
     val items: StateFlow<List<EpisodeItem>?> = state(queue.items, null)
     fun remove(item: EpisodeItem) = viewModelScope.launch { queue.remove(item.id) }
     fun reorder(ids: List<Long>) = viewModelScope.launch { queue.reorder(ids) }
+    /** The playlist emptied — the episodes keep their progress. */
+    fun clear() = viewModelScope.launch { queue.clear() }
 }
 
 class DownloadsViewModel(private val downloads: DownloadRepository) : ViewModel() {

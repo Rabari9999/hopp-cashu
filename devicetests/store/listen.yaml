@@ -1,5 +1,5 @@
 # Store screenshots, part 1b: one episode of a show playing, for the stats and
-# "Continue listening" — SHOW is the show's title, EPISODE its episode's (a
+# the playlist — SHOW is the show's title, EPISODE its episode's (a
 # pattern, the first match is taken), QUERY what the show's search is given
 # when the episode lies further down. Left playing; README says for how long.
 appId: ${APP_ID}
@@ -9,7 +9,7 @@ name: Store listening
 - tapOn: "Library"
 - runFlow:
     when:
-      notVisible: "Up next"
+      notVisible: "Playlist"
     commands:
       - tapOn: "Library"
 - scrollUntilVisible:

@@ -59,7 +59,7 @@ name: Per show and share
 - tapOn: "Library"
 - runFlow:
     when:
-      notVisible: "Up next"
+      notVisible: "Playlist"
     commands:
       - tapOn: "Library"
 # The full title: on a phone on its side the mini player's line starts with "Nodesignal" too.

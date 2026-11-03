@@ -83,6 +83,9 @@ data class Settings(
     /** The "What's new" a line on Home last pointed to — [space.sovereigncast.hopp.data.Changelog.Release.seenKey];
      *  this device's, as the version installed is (maintainer 2026-11-03). */
     val whatsNewSeen: String = "",
+    /** The episodes begun that were only under "Continue listening" went into the playlist, once (Dennis,
+     *  maintainer 2026-11-03) — this device's: each brings in what it has, and sync joins them. */
+    val playlistMerged: Boolean = false,
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
     /** Single entries under Home's "Take part" the listener hid, oldest first ([space.sovereigncast.hopp.ui.library.TakePart],
@@ -207,6 +210,7 @@ data class Settings(
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeOrder033 = values["home_order_033"]?.toBooleanStrictOrNull() ?: d.homeOrder033,
                 whatsNewSeen = values["whats_new_seen"] ?: d.whatsNewSeen,
+                playlistMerged = values["playlist_merged"]?.toBooleanStrictOrNull() ?: d.playlistMerged,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 takePartHidden = values["take_part_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.distinct()?.takeLast(TAKE_PART_HIDDEN_MAX) ?: d.takePartHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
@@ -269,6 +273,7 @@ data class Settings(
         "home_order" to homeOrder.joinToString("\n"),
         "home_order_033" to homeOrder033.toString(),
         "whats_new_seen" to whatsNewSeen,
+        "playlist_merged" to playlistMerged.toString(),
         "home_hidden" to homeHidden.joinToString("\n"),
         "take_part_hidden" to takePartHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),

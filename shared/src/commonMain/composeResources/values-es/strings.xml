@@ -94,10 +94,10 @@
     <string name="dl_waiting">Descarga en espera</string>
     <string name="dl_progress">Descargando · %1$s</string>
     <string name="dl_failed">Falló la descarga</string>
-    <string name="queue_title">A continuación</string>
-    <string name="queue_empty">Nada a continuación</string>
+    <string name="queue_title">Lista de reproducción</string>
+    <string name="queue_empty">La lista de reproducción está vacía</string>
     <string name="queue_empty_text">Elige “Reproducir a continuación” en el menú de un episodio.</string>
-    <string name="queue_remove">Quitar de A continuación</string>
+    <string name="queue_remove">Quitar de la lista</string>
     <string name="queue_drag">Arrastra para reordenar</string>
     <string name="downloads_title">Descargas</string>
     <string name="downloads_empty">No hay descargas</string>
@@ -500,7 +500,7 @@
     <string name="onboarding_subscribe_title">Suscríbete a podcasts</string>
     <string name="onboarding_subscribe_text">En Explorar buscas en el Podcast Index, pegas la dirección de un feed o importas tus suscripciones de otra app en OPML. Puedes ver cada podcast antes de suscribirte.</string>
     <string name="onboarding_library_title">Tu biblioteca</string>
-    <string name="onboarding_library_text">Inicio muestra lo nuevo, lo que puedes seguir escuchando y lo que pasa en tus podcasts. La biblioteca guarda tus podcasts, la cola y las descargas; los episodios nuevos se descargan solos con wifi.</string>
+    <string name="onboarding_library_text">Inicio muestra tu lista de reproducción, lo nuevo y lo que pasa en tus podcasts. La biblioteca guarda tus podcasts, la lista y las descargas; los episodios nuevos se descargan solos con wifi.</string>
     <string name="onboarding_v4v_title">Value for Value</string>
     <string name="onboarding_v4v_text">Los podcasts viven de quienes los escuchan. Un boost envía sats —bitcoin por Lightning— directamente a las personas detrás de un podcast, con un mensaje y repartidos como el podcast lo decida. El streaming envía unos pocos sats por minuto mientras escuchas, solo si lo activas. Con los podcasts de Sovereigncast, además, puedes adelantar episodios y votar temas.</string>
     <string name="onboarding_wallet_title">Conecta tu billetera</string>
@@ -831,7 +831,7 @@
     <string name="image_close">Cerrar la imagen</string>
     <string name="settings_default_speed">Velocidad predeterminada</string>
     <string name="settings_default_speed_note">Para todos los podcasts, salvo los que tienen velocidad propia en “Por podcast”. La velocidad que elijas en el reproductor se queda con ese podcast; si vuelves a elegir la predeterminada, seguirá a esta.</string>
-    <string name="settings_new_to_queue">Episodios nuevos en «A continuación»</string>
+    <string name="settings_new_to_queue">Episodios nuevos a la lista de reproducción</string>
     <string name="settings_new_to_queue_note">Cada episodio nuevo de tus podcasts va al final de la cola en cuanto Hopp lo encuentra, en todos tus dispositivos.</string>
     <string name="comments_zap">Zapear</string>
     <string name="zap_title">Zapear a %1$s</string>
@@ -922,11 +922,11 @@
     <string name="onboarding_nostr_restore">Restaurar</string>
     <string name="sync_restore_title">Restaurar desde tus otros dispositivos</string>
     <string name="sync_restore_counts">Podcasts: %1$d · en curso: %2$d</string>
-    <string name="sync_restore_text">Tus suscripciones, tu progreso, “A continuación”, tus hábitos de escucha y los ajustes de descarga están en tus relays, cifrados con tu clave. Al restaurar se activa la sincronización entre tus dispositivos.</string>
+    <string name="sync_restore_text">Tus suscripciones, tu progreso, tu lista de reproducción, tus hábitos de escucha y los ajustes de descarga están en tus relays, cifrados con tu clave. Al restaurar se activa la sincronización entre tus dispositivos.</string>
     <string name="sync_restore_button">Restaurar</string>
     <string name="sync_restore_later">Ahora no</string>
     <string name="sync_title">Sincronizar entre dispositivos</string>
-    <string name="sync_note">Suscripciones, progreso, “A continuación”, hábitos de escucha y ajustes de descarga, cifrados con tu clave en tus relays — sin servidor de Hopp.</string>
+    <string name="sync_note">Suscripciones, progreso, lista de reproducción, hábitos de escucha y ajustes de descarga, cifrados con tu clave en tus relays — sin servidor de Hopp.</string>
     <string name="sync_running">Sincronizando…</string>
     <string name="sync_last_now">Sincronizado hace un momento</string>
     <string name="sync_last_minutes">Sincronizado hace %1$d min</string>
@@ -970,8 +970,8 @@
     <string name="opml_incoming_import">Suscribirse</string>
     <string name="opml_incoming_close">Cerrar</string>
     <plurals name="sync_restored_shows">
-        <item quantity="one">✓ Tu biblioteca ha vuelto: %1$d podcast, con progreso, favoritos y “A continuación”.</item>
-        <item quantity="other">✓ Tu biblioteca ha vuelto: %1$d podcasts, con progreso, favoritos y “A continuación”.</item>
+        <item quantity="one">✓ Tu biblioteca ha vuelto: %1$d podcast, con progreso, favoritos y la lista de reproducción.</item>
+        <item quantity="other">✓ Tu biblioteca ha vuelto: %1$d podcasts, con progreso, favoritos y la lista de reproducción.</item>
     </plurals>
     <string name="sync_restored">✓ Sincronizado con tus otros dispositivos.</string>
     <string name="home_sync_label">Sincronización</string>
@@ -1050,8 +1050,8 @@
         <item quantity="other">%1$d posiciones</item>
     </plurals>
     <plurals name="home_sync_got_queue">
-        <item quantity="one">%1$d en A continuación</item>
-        <item quantity="other">%1$d en A continuación</item>
+        <item quantity="one">%1$d en la lista</item>
+        <item quantity="other">%1$d en la lista</item>
     </plurals>
     <plurals name="home_sync_got_settings">
         <item quantity="one">%1$d ajuste</item>
@@ -1332,4 +1332,9 @@
     <string name="profile_bad_address">Solo direcciones https</string>
     <string name="profile_picture">Foto de perfil</string>
     <string name="sync_menu_off">La sincronización está desactivada · activarla ›</string>
+    <string name="playlist_now_playing">Ahora · sonando</string>
+    <string name="playlist_now_paused">Ahora · en pausa</string>
+    <string name="playlist_after">Después</string>
+    <string name="playlist_clear">Vaciar la lista</string>
+    <string name="playlist_clear_confirm">¿Quitar los %1$d episodios de la lista? Su progreso se mantiene.</string>
 </resources>

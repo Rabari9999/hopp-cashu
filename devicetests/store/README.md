@@ -21,7 +21,7 @@ build, English and German.
    Nodesignal's own playback (1.3×, intro 30 s) (English UI):
    `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta devicetests/store/setup.yaml`
    Then `listen.yaml` plays an episode of three shows in turn, for the
-   stats and "Continue listening" — Nodesignal's E298 last, the player's
+   stats and the playlist — Nodesignal's E298 last, the player's
    picture; each left playing a few minutes, then paused with
    `adb shell input keyevent KEYCODE_MEDIA_PAUSE`:
    ```bash

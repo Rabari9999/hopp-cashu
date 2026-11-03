@@ -509,13 +509,20 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             val queue: QueueViewModel = koinViewModel()
             val items by queue.items.collectAsState()
             Text(stringResource(Res.string.queue_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            val list = items.orEmpty()
-            if (list.isEmpty()) {
-                Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
-            } else {
-                Box(Modifier.heightIn(max = 480.dp)) {
-                    QueueList(list, onPlay = { model.play(it); showQueue = false }, onRemove = queue::remove, onReorder = queue::reorder)
-                }
+            // The playlist (Dennis, maintainer 2026-11-03): this episode as "Now", then what comes after it.
+            val now = space.sovereigncast.hopp.ui.library.playlistNow()
+            val list = items.orEmpty().filter { it.id != now?.id }
+            Box(Modifier.heightIn(max = 520.dp)) {
+                QueueList(
+                    list, onPlay = { model.play(it); showQueue = false }, onRemove = queue::remove, onReorder = queue::reorder,
+                    header = {
+                        now?.let { n -> item(key = "now") { space.sovereigncast.hopp.ui.library.PlaylistNowCard(n, onOpen = { showQueue = false }) } }
+                        if (list.isNotEmpty() && now != null) item(key = "after") { space.sovereigncast.hopp.ui.library.PlaylistAfterLabel() }
+                        if (list.isEmpty()) item(key = "empty") {
+                            Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+                        }
+                    },
+                )
             }
             Spacer(Modifier.height(24.dp))
         }

@@ -94,10 +94,10 @@
     <string name="dl_waiting">Download waiting</string>
     <string name="dl_progress">Downloading · %1$s</string>
     <string name="dl_failed">Download failed</string>
-    <string name="queue_title">Up next</string>
-    <string name="queue_empty">Nothing up next</string>
+    <string name="queue_title">Playlist</string>
+    <string name="queue_empty">The playlist is empty</string>
     <string name="queue_empty_text">Choose “Play next” in an episode’s menu.</string>
-    <string name="queue_remove">Remove from up next</string>
+    <string name="queue_remove">Remove from the playlist</string>
     <string name="queue_drag">Drag to reorder</string>
     <string name="downloads_title">Downloads</string>
     <string name="downloads_empty">No downloads</string>
@@ -500,7 +500,7 @@
     <string name="onboarding_subscribe_title">Subscribe to shows</string>
     <string name="onboarding_subscribe_text">Under Discover you search the Podcast Index, paste a feed address or import your subscriptions from another app as OPML. Each show can be looked at before you subscribe.</string>
     <string name="onboarding_library_title">Your library</string>
-    <string name="onboarding_library_text">Home shows what is new, what to continue and what runs at your shows. The library holds your shows, up next and downloads — new episodes download on Wi-Fi by themselves.</string>
+    <string name="onboarding_library_text">Home shows your playlist, what is new and what runs at your shows. The library holds your shows, the playlist and downloads — new episodes download on Wi-Fi by themselves.</string>
     <string name="onboarding_v4v_title">Value for value</string>
     <string name="onboarding_v4v_text">Podcasts live on their listeners. A boost sends sats — bitcoin over Lightning — straight to the people behind a show, with a message, split the way the show sets it. Streaming sends a few sats per minute while you listen, only if you switch it on. Sovereigncast shows also let you bring episodes out sooner and vote on topics.</string>
     <string name="onboarding_wallet_title">Connect your wallet</string>
@@ -831,7 +831,7 @@
     <string name="image_close">Close the picture</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_default_speed_note">For every show but those with a speed of their own under “Per show”. A speed you choose in the player stays with that show; choosing the default again lets it follow this one.</string>
-    <string name="settings_new_to_queue">New episodes in "Up next"</string>
+    <string name="settings_new_to_queue">New episodes into the playlist</string>
     <string name="settings_new_to_queue_note">Each new episode of your shows goes to the end of the queue when Hopp finds it – on all your devices.</string>
     <string name="comments_zap">Zap</string>
     <string name="zap_title">Zap %1$s</string>
@@ -922,11 +922,11 @@
     <string name="onboarding_nostr_restore">Restore</string>
     <string name="sync_restore_title">Restore from your other devices</string>
     <string name="sync_restore_counts">Shows: %1$d · in progress: %2$d</string>
-    <string name="sync_restore_text">Your subscriptions, progress, “Up next”, listening habits and download settings are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
+    <string name="sync_restore_text">Your subscriptions, progress, playlist, listening habits and download settings are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
     <string name="sync_restore_button">Restore</string>
     <string name="sync_restore_later">Not now</string>
     <string name="sync_title">Sync across devices</string>
-    <string name="sync_note">Subscriptions, progress, “Up next”, listening habits and download settings, encrypted to your key on your relays — no Hopp server.</string>
+    <string name="sync_note">Subscriptions, progress, playlist, listening habits and download settings, encrypted to your key on your relays — no Hopp server.</string>
     <string name="sync_running">Syncing…</string>
     <string name="sync_last_now">Synced just now</string>
     <string name="sync_last_minutes">Synced %1$d min ago</string>
@@ -970,8 +970,8 @@
     <string name="opml_incoming_import">Subscribe</string>
     <string name="opml_incoming_close">Close</string>
     <plurals name="sync_restored_shows">
-        <item quantity="one">✓ Your library is back: %1$d show, with progress, favourites and “Up next”.</item>
-        <item quantity="other">✓ Your library is back: %1$d shows, with progress, favourites and “Up next”.</item>
+        <item quantity="one">✓ Your library is back: %1$d show, with progress, favourites and the playlist.</item>
+        <item quantity="other">✓ Your library is back: %1$d shows, with progress, favourites and the playlist.</item>
     </plurals>
     <string name="sync_restored">✓ In step with your other devices.</string>
     <string name="home_sync_label">Sync</string>
@@ -1050,8 +1050,8 @@
         <item quantity="other">%1$d positions</item>
     </plurals>
     <plurals name="home_sync_got_queue">
-        <item quantity="one">%1$d in Up next</item>
-        <item quantity="other">%1$d in Up next</item>
+        <item quantity="one">%1$d in the playlist</item>
+        <item quantity="other">%1$d in the playlist</item>
     </plurals>
     <plurals name="home_sync_got_settings">
         <item quantity="one">%1$d setting</item>
@@ -1332,4 +1332,9 @@
     <string name="profile_bad_address">Only https addresses</string>
     <string name="profile_picture">Profile picture</string>
     <string name="sync_menu_off">Sync is off · turn it on ›</string>
+    <string name="playlist_now_playing">Now · playing</string>
+    <string name="playlist_now_paused">Now · paused</string>
+    <string name="playlist_after">Next</string>
+    <string name="playlist_clear">Clear the playlist</string>
+    <string name="playlist_clear_confirm">Take all %1$d episodes out of the playlist? Their progress stays.</string>
 </resources>

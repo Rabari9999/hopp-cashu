@@ -1,7 +1,7 @@
 # Sync, part 1 (ADR 0021 stage 5): the first device. Runs on what the device
 # check left — Nodesignal subscribed, E297 streamed for a while, E298 begun after
 # its intro (the show skips 30 s) — and adds what else sync carries: listening
-# habits, a favourite, an episode in "Up next". Then a Nostr key made here
+# habits, a favourite, an episode in "Playlist". Then a Nostr key made here
 # for the test, sync turned on, and the key's backup (NIP-49, ${PASSWORD})
 # left on screen for the script to read and hand to the second device.
 appId: ${APP_ID}
@@ -33,12 +33,12 @@ name: Sync source
 - takeScreenshot: sync-1-playback
 - tapOn: "Back"
 - tapOn: "Back"
-# E296 a favourite, and last in "Up next".
+# E296 a favourite, and last in "Playlist".
 - tapOn: "Library"
 # The tab keeps its last page; a second tap is its start.
 - runFlow:
     when:
-      notVisible: "Up next"
+      notVisible: "Playlist"
     commands:
       - tapOn: "Library"
 - tapOn: "Nodesignal.*"

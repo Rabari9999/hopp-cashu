@@ -94,10 +94,10 @@
     <string name="dl_waiting">Download wartet</string>
     <string name="dl_progress">Lädt · %1$s</string>
     <string name="dl_failed">Download fehlgeschlagen</string>
-    <string name="queue_title">Als Nächstes</string>
-    <string name="queue_empty">Nichts als Nächstes</string>
+    <string name="queue_title">Playlist</string>
+    <string name="queue_empty">Die Playlist ist leer</string>
     <string name="queue_empty_text">Wähle „Als Nächstes abspielen“ im Menü einer Folge.</string>
-    <string name="queue_remove">Aus „Als Nächstes“ entfernen</string>
+    <string name="queue_remove">Aus der Playlist entfernen</string>
     <string name="queue_drag">Ziehen zum Sortieren</string>
     <string name="downloads_title">Downloads</string>
     <string name="downloads_empty">Keine Downloads</string>
@@ -500,7 +500,7 @@
     <string name="onboarding_subscribe_title">Shows abonnieren</string>
     <string name="onboarding_subscribe_text">Unter Entdecken suchst du im Podcast Index, fügst eine Feed-Adresse ein oder holst deine Abos per OPML aus einer anderen App. Jede Show kannst du dir vor dem Abonnieren ansehen.</string>
     <string name="onboarding_library_title">Deine Bibliothek</string>
-    <string name="onboarding_library_text">Home zeigt Neues, Weiterhören und was bei deinen Shows läuft. In der Bibliothek liegen deine Shows, die Warteschlange und Downloads – neue Folgen lädt Hopp im WLAN von selbst.</string>
+    <string name="onboarding_library_text">Home zeigt deine Playlist, Neues und was bei deinen Shows läuft. In der Bibliothek liegen deine Shows, die Playlist und Downloads – neue Folgen lädt Hopp im WLAN von selbst.</string>
     <string name="onboarding_v4v_title">Value for Value</string>
     <string name="onboarding_v4v_text">Podcasts leben von ihren Hörern. Mit einem Boost schickst du Sats – Bitcoin über Lightning – direkt an die Menschen hinter einer Show, mit Nachricht, aufgeteilt so, wie die Show es festlegt. Beim Streaming fließen ein paar Sats pro Minute, während du hörst – nur, wenn du es einschaltest. Bei Sovereigncast-Shows holst du außerdem Folgen früher raus und stimmst über Themen ab.</string>
     <string name="onboarding_wallet_title">Wallet verbinden</string>
@@ -831,7 +831,7 @@
     <string name="image_close">Bild schließen</string>
     <string name="settings_default_speed">Standard-Geschwindigkeit</string>
     <string name="settings_default_speed_note">Für alle Shows, außer denen mit eigenem Tempo unter „Pro Show“. Wählst du im Player eine Geschwindigkeit, bekommt die Show sie als eigene; wählst du dort wieder den Standard, folgt sie diesem.</string>
-    <string name="settings_new_to_queue">Neue Folgen in „Als Nächstes“</string>
+    <string name="settings_new_to_queue">Neue Folgen in die Playlist</string>
     <string name="settings_new_to_queue_note">Jede neue Folge deiner Shows kommt ans Ende der Warteschlange, sobald Hopp sie findet – auf all deinen Geräten.</string>
     <string name="comments_zap">Zappen</string>
     <string name="zap_title">%1$s zappen</string>
@@ -922,11 +922,11 @@
     <string name="onboarding_nostr_restore">Wiederherstellen</string>
     <string name="sync_restore_title">Von deinen anderen Geräten wiederherstellen</string>
     <string name="sync_restore_counts">Shows: %1$d · angefangen: %2$d</string>
-    <string name="sync_restore_text">Deine Abos, dein Hörstand, „Als Nächstes“, deine Hörgewohnheiten und Download-Einstellungen liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
+    <string name="sync_restore_text">Deine Abos, dein Hörstand, deine Playlist, deine Hörgewohnheiten und Download-Einstellungen liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
     <string name="sync_restore_button">Wiederherstellen</string>
     <string name="sync_restore_later">Nicht jetzt</string>
     <string name="sync_title">Zwischen Geräten abgleichen</string>
-    <string name="sync_note">Abos, Hörstand, „Als Nächstes“, Hörgewohnheiten und Download-Einstellungen, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
+    <string name="sync_note">Abos, Hörstand, Playlist, Hörgewohnheiten und Download-Einstellungen, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
     <string name="sync_running">Gleiche ab …</string>
     <string name="sync_last_now">Gerade abgeglichen</string>
     <string name="sync_last_minutes">Vor %1$d Min. abgeglichen</string>
@@ -970,8 +970,8 @@
     <string name="opml_incoming_import">Abonnieren</string>
     <string name="opml_incoming_close">Schließen</string>
     <plurals name="sync_restored_shows">
-        <item quantity="one">✓ Deine Bibliothek ist zurück: %1$d Show, mit Hörstand, Favoriten und „Als Nächstes“.</item>
-        <item quantity="other">✓ Deine Bibliothek ist zurück: %1$d Shows, mit Hörstand, Favoriten und „Als Nächstes“.</item>
+        <item quantity="one">✓ Deine Bibliothek ist zurück: %1$d Show, mit Hörstand, Favoriten und Playlist.</item>
+        <item quantity="other">✓ Deine Bibliothek ist zurück: %1$d Shows, mit Hörstand, Favoriten und Playlist.</item>
     </plurals>
     <string name="sync_restored">✓ Mit deinen anderen Geräten abgeglichen.</string>
     <string name="home_sync_label">Sync</string>
@@ -1050,8 +1050,8 @@
         <item quantity="other">%1$d Hörstände</item>
     </plurals>
     <plurals name="home_sync_got_queue">
-        <item quantity="one">%1$d in Als Nächstes</item>
-        <item quantity="other">%1$d in Als Nächstes</item>
+        <item quantity="one">%1$d in der Playlist</item>
+        <item quantity="other">%1$d in der Playlist</item>
     </plurals>
     <plurals name="home_sync_got_settings">
         <item quantity="one">%1$d Einstellung</item>
@@ -1332,4 +1332,9 @@
     <string name="profile_bad_address">Nur https-Adressen</string>
     <string name="profile_picture">Profilbild</string>
     <string name="sync_menu_off">Abgleich ist aus · einschalten ›</string>
+    <string name="playlist_now_playing">Jetzt · läuft</string>
+    <string name="playlist_now_paused">Jetzt · pausiert</string>
+    <string name="playlist_after">Danach</string>
+    <string name="playlist_clear">Playlist leeren</string>
+    <string name="playlist_clear_confirm">Alle %1$d Folgen aus der Playlist nehmen? Ihr Hörstand bleibt.</string>
 </resources>

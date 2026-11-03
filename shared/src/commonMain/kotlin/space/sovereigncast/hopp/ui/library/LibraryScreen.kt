@@ -125,7 +125,6 @@ fun LibraryScreen(
     vm: LibraryViewModel = koinViewModel(),
 ) {
     val shows by vm.shows.collectAsState()
-    val queueCount by vm.queueCount.collectAsState()
     val downloadCount by vm.downloadCount.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val counts by vm.counts.collectAsState()
@@ -134,6 +133,7 @@ fun LibraryScreen(
     val queue by vm.queueItems.collectAsState()
     val downloaded by vm.downloaded.collectAsState()
     val collapsed by vm.collapsed.collectAsState()
+    val playing = playlistNow()
     val nav = LocalEpisodeNav.current
     val tags by vm.tags.collectAsState()
     val tag by vm.tag.collectAsState()
@@ -174,15 +174,16 @@ fun LibraryScreen(
             val canDownload = LocalPlatformActions.current.canDownload
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
                 val full: (androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope) -> GridItemSpan = { GridItemSpan(it.maxLineSpan) }
+                // The playlist, as on Home (Dennis, maintainer 2026-11-03): "Now", then what comes next.
                 val queueOpen = LIB_QUEUE !in collapsed
+                val after = queue.filter { it.id != playing?.id }
+                val inPlaylist = after.size + (if (playing != null) 1 else 0)
                 item(key = "h-queue", span = full) {
-                    SectionHeader(stringResource(Res.string.queue_title), queueOpen, queueCount, { vm.toggle(LIB_QUEUE) },
-                        stringResource(Res.string.home_all, queueCount).takeIf { queueCount > 0 }, onQueue, modifier = Modifier.bleed(8.dp))
+                    SectionHeader(stringResource(Res.string.queue_title), queueOpen, inPlaylist, { vm.toggle(LIB_QUEUE) },
+                        stringResource(Res.string.home_all, inPlaylist).takeIf { inPlaylist > 0 }, onQueue, modifier = Modifier.bleed(8.dp))
                 }
                 if (queueOpen) item(key = "queue", span = full) {
-                    if (queue.isEmpty()) Text(stringResource(Res.string.queue_empty), Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    else Box(Modifier.bleed(8.dp)) { QueuePreview(queue, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
+                    Box(Modifier.bleed(8.dp)) { PlaylistBody(playing, after, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
                 }
                 if (canDownload && downloadCount > 0) {
                     val open = LIB_DOWNLOADS !in collapsed

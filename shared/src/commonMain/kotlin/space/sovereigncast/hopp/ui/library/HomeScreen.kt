@@ -128,7 +128,6 @@ fun HomeScreen(
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
-    val inProgress by vm.inProgress.collectAsState()
     val played by vm.recentlyPlayed.collectAsState()
     val boosted by vm.recentlyBoosted.collectAsState()
     val actions by vm.actions.collectAsState()
@@ -152,7 +151,6 @@ fun HomeScreen(
     val lastChecked by vm.lastChecked.collectAsState()
     // Greeting, "updated … ago" and countdowns move with the clock.
     val now by produceState(nowSeconds()) { while (true) { delay(30_000); value = nowSeconds() } }
-    val continueTitle = stringResource(Res.string.library_continue)
     val recentTitle = stringResource(Res.string.home_recent)
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
@@ -169,6 +167,7 @@ fun HomeScreen(
         val greetName by vm.greetName.collectAsState()
         var allActions by remember { mutableStateOf(false) }
         val queue by vm.queue.collectAsState()
+        val playing = playlistNow()
         // Home arranged in place (Dennis, maintainer 2026-11-02): the tune button or a long press on a title.
         var editing by rememberSaveable { mutableStateOf(false) }
         val current by vm.current.collectAsState()
@@ -211,16 +210,17 @@ fun HomeScreen(
                         }
                     }
                     }
-                    HomeSections.CONTINUE -> section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav, edit)
                     HomeSections.QUEUE -> {
-                    // What comes next, in its order, arranged right here (Dennis, maintainer 2026-11-02).
-                    if (queue.isNotEmpty()) {
-                        val open = "queue" !in collapsed
-                        item(key = "h-queue") {
-                            SectionHeader(stringResource(Res.string.queue_title), open, queue.size, { vm.toggle("queue") }, stringResource(Res.string.home_all, queue.size), onQueue, edit)
-                        }
-                        if (open) item(key = "queue") { QueuePreview(queue, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
+                    // The playlist (Dennis, maintainer 2026-11-02 and -03): "Now" on top, what comes next in its
+                    // order below, arranged right here — "Continue listening" and "Up next" in one.
+                    val open = "queue" !in collapsed
+                    val after = queue.filter { it.id != playing?.id }
+                    val count = after.size + (if (playing != null) 1 else 0)
+                    item(key = "h-queue") {
+                        SectionHeader(stringResource(Res.string.queue_title), open, count, { vm.toggle("queue") },
+                            stringResource(Res.string.home_all, count).takeIf { count > 0 }, onQueue, edit)
                     }
+                    if (open) item(key = "queue") { PlaylistBody(playing, after, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
                     }
                     HomeSections.YOUR_SHOWS -> {
                     // The shows themselves, when each comes out next — Release Boosting's countdown first.
