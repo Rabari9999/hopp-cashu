@@ -1331,4 +1331,5 @@
     <string name="profile_welcome_failed">The picture could not be uploaded — try again in your profile.</string>
     <string name="profile_bad_address">Only https addresses</string>
     <string name="profile_picture">Profile picture</string>
+    <string name="sync_menu_off">Sync is off · turn it on ›</string>
 </resources>

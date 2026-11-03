@@ -200,6 +200,12 @@ class SyncManager(
     /** A round, every relay on one connection ([withRelayPool]): many short ones were turned away (device check 2026-10-23). */
     suspend fun syncNow(interactive: Boolean = false): SyncStatus = withRelayPool { syncNowInPool(interactive) }
 
+    /** A round the listener asked for — from the profile menu or the sync window — in sync's own scope, so
+     *  that it goes on when the menu or the page it came from closes; [rewrite] as in [rewrite]. */
+    fun requestRound(rewrite: String? = null) {
+        scope.launch { runCatching { if (rewrite == null) syncNow(interactive = true) else rewrite(rewrite) } }
+    }
+
     /** A round in which [doc], read in part, is written anew whole from this device — the listener's word
      *  on the sync page (maintainer 2026-10-30: "Incomplete" for good, nothing to be done). */
     suspend fun rewrite(doc: String): SyncStatus = withRelayPool { syncNowInPool(interactive = true, rewrite = doc) }

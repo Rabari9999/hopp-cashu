@@ -17,6 +17,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sync:** Zeigt den Abgleich-Schlüssel, um ihn bei Relays freizuschalten, die nur bekannte Schlüssel annehmen.
 - **Bibliothek:** Versieh deine Shows mit eigenen Tags – so vielen du willst – und filtere die Bibliothek danach.
 - **App:** Dein Profilbild oben: Nostr-Seite, Hörstatistik und Abmelden, einen Tipp entfernt.
+- **Sync:** Wie der Abgleich gelaufen ist, zeigt dein Profilbild; sein Menü öffnet die Details oder gleicht sofort ab.
 - **Tour:** Die Sprache gleich am Anfang wählen.
 - **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
 - **Nostr:** Profilname und -bild direkt in Hopp setzen; das Bild geht verkleinert und ohne Metadaten hoch.

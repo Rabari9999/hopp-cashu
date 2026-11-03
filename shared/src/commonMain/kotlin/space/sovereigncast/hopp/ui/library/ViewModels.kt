@@ -118,16 +118,6 @@ class HomeViewModel(
     fun hideTakePart(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = TakePart.add(it.takePartHidden, key)) } }
     fun showTakePartAgain(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = it.takePartHidden - key) } }
 
-    /** Sync's state for Home's greeting line — null while sync is off (maintainer 2026-10-22). */
-    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus?> = state(
-        sync?.let { s -> combine(settings.settings.map { it.nostrSync }, s.status) { on, st -> st.takeIf { on } } } ?: kotlinx.coroutines.flow.flowOf(null),
-        null,
-    )
-    private val syncer = sync
-    /** A round now, from the sync window; the signer may ask. */
-    fun syncNow() { val s = syncer ?: return; viewModelScope.launch { s.syncNow(interactive = true) } }
-    /** A document read in part, written anew whole from this device (the sync page, maintainer 2026-10-30). */
-    fun rewrite(doc: String) { val s = syncer ?: return; viewModelScope.launch { s.rewrite(doc) } }
 
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())

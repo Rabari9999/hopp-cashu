@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -122,23 +123,42 @@ class HomeLayoutTest {
         rule.waitUntil(10_000) { screen().any { "Nakamoto" in it } }
     }
 
-    /** Maintainer 2026-10-22: with sync on, Home's line says how it went, and a tap tells a little more. */
+    /** Maintainer 2026-10-22: sync says how it went, a tap tells a little more — since 2026-11-03 at the profile
+     *  picture: off, its menu asks to turn it on; on, a mark at the picture and a row that opens the sync sheet. */
     @Test
     fun homeShowsHowSyncWent() {
         home()
-        check(!has("In sync") && rule.onAllNodes(hasContentDescription("Sync")).fetchSemanticsNodes().isEmpty()) { "sync is off" }
-        runBlocking {
-            val koin = org.koin.mp.KoinPlatform.getKoin()
-            koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
-            koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
-        }
-        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sync") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(hasContentDescription("Sync") and hasClickAction()).performClick()
+        check(rule.onAllNodes(hasTestTag("profile-button")).fetchSemanticsNodes().isEmpty()) { "no account, no picture" }
+        runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto") }
+        openProfileMenu()
+        waitFor("Sync is off · turn it on ›")
+        rule.onNode(hasTestTag("sync-row")).performClick()
+        waitFor("Sync across devices")
+        rule.onNode(hasContentDescription("Back")).performClick()
+        runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait() }
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("In sync", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        shoot("picture")
+        openProfileMenu()
+        shoot("menu")
+        rule.onNode(hasTestTag("sync-row")).performClick()
         waitFor("In sync")
         // Each relay listed, one short line each (maintainer 2026-10-29).
         check(has("nos.lol") && has("Still to send") && has("nothing")) { screen().toString() }
         tap("Settings")
         waitFor("Sync across devices")
+    }
+
+    private fun openProfileMenu() {
+        val pic = hasTestTag("profile-button") and hasClickAction()
+        rule.waitUntil(10_000) { rule.onAllNodes(pic).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(pic).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasTestTag("sync-row")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** The profile menu's sync row, to the sync sheet. */
+    private fun openSyncSheet() {
+        openProfileMenu()
+        rule.onNode(hasTestTag("sync-row")).performClick()
     }
 
     /**
@@ -160,9 +180,7 @@ class HomeLayoutTest {
             koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
             koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
         }
-        val mark = hasContentDescription("Sync")
-        rule.waitUntil(10_000) { rule.onAllNodes(mark and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(mark and hasClickAction()).performClick()
+        openSyncSheet()
         waitFor(done)
         rule.waitForIdle()
         // The relays are listed one by one after a round, not as a row of the table.
@@ -237,7 +255,7 @@ class HomeLayoutTest {
         OkRelays.refusing = limited to "rate-limited: slow down"
         OkRelays.unreachable = gone.takeIf { unreachable != null }
         try {
-            // Home's greeting, where the sync mark is, comes with a show.
+            // Home comes with a show; sync's state is at the profile picture on its bar.
             runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>().subscribe("https://pod.test/feed.xml") }
             rule.setContent { App() }
             runBlocking {
@@ -245,9 +263,7 @@ class HomeLayoutTest {
                 koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
                 koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
             }
-            val mark = hasContentDescription("Sync")
-            rule.waitUntil(10_000) { rule.onAllNodes(mark and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-            rule.onNode(mark and hasClickAction()).performClick()
+            openSyncSheet()
             runCatching { waitFor(refused) }.onFailure { error("no refusal on the sheet: ${screen()}") }
             unreachable?.let { check(has(it)) { "no line for the relay out of reach: ${screen()}" } }
             done?.let { check(has(it)) { "not a round that went through: ${screen()}" } }

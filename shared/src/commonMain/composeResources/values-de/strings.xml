@@ -1331,4 +1331,5 @@
     <string name="profile_welcome_failed">Das Bild ließ sich nicht hochladen – im Profil kannst du es noch einmal versuchen.</string>
     <string name="profile_bad_address">Nur https-Adressen</string>
     <string name="profile_picture">Profilbild</string>
+    <string name="sync_menu_off">Abgleich ist aus · einschalten ›</string>
 </resources>

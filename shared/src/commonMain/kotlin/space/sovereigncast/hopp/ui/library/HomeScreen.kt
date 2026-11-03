@@ -120,7 +120,6 @@ fun HomeScreen(
     onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow,
     onAction: (ShowAction) -> Unit = { onShow(it.podcastId) },
     snackbar: SnackbarHostState? = null,
-    onSyncSettings: () -> Unit = {},
     onQueue: () -> Unit = {},
     /** "What's new", from the line shown once after an update. */
     onWhatsNew: () -> Unit = {},
@@ -168,11 +167,6 @@ fun HomeScreen(
         val savedOrder by vm.savedOrder.collectAsState()
         val hidden by vm.hidden.collectAsState()
         val greetName by vm.greetName.collectAsState()
-        val syncStatus by vm.syncStatus.collectAsState()
-        var syncOpen by remember { mutableStateOf(false) }
-        syncStatus?.takeIf { syncOpen }?.let { st ->
-            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }, onRewrite = vm::rewrite) { syncOpen = false }
-        }
         var allActions by remember { mutableStateOf(false) }
         val queue by vm.queue.collectAsState()
         // Home arranged in place (Dennis, maintainer 2026-11-02): the tune button or a long press on a title.
@@ -296,12 +290,12 @@ fun HomeScreen(
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
             // A greeting, and what the last refresh brought (device feedback 2026-10-12): never an empty page while there are shows.
             if (maxWidth < HomeSections.TWO_COLUMNS) LazyColumn {
-                item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true } }
+                item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit) }
                 if (news != null) item(key = "h-news") { newsLine() }
                 sections(order, false)
             } else Column(Modifier.fillMaxSize()) {
                 // A large window (maintainer 2026-11-03): listening on the left, the shows on the right, the greeting over both.
-                Greeting(newest.size, lastChecked, now, greetName, edit, syncStatus) { syncOpen = true }
+                Greeting(newest.size, lastChecked, now, greetName, edit)
                 newsLine()
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     LazyColumn(Modifier.weight(1.35f).fillMaxHeight()) { sections(order.filter { it in HomeSections.listening }, true) }
@@ -417,8 +411,7 @@ private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
  *  alone it was out of sight below six sections). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null,
-                     sync: space.sovereigncast.hopp.sync.SyncStatus? = null, onSync: () -> Unit = {}) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     // By name when the listener gave one for their boosts (device feedback 2026-10-13).
@@ -443,12 +436,9 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
             FittingLine(hello, MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-            // One line, the sync mark at its end, always seen (maintainer 2026-10-22: a wrap looked poor).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(listOfNotNull(news, updated).joinToString(" · "), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (sync != null && (sync.running || sync.lastSyncedMs != null || sync.problem != null)) SyncMark(sync, onSync)
-            }
+            // One line (maintainer 2026-10-22: a wrap looked poor). Sync's state is at the profile picture since 2026-11-03.
+            Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
             Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)

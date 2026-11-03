@@ -1331,4 +1331,5 @@
     <string name="profile_welcome_failed">No se pudo subir la imagen; vuelve a intentarlo en tu perfil.</string>
     <string name="profile_bad_address">Solo direcciones https</string>
     <string name="profile_picture">Foto de perfil</string>
+    <string name="sync_menu_off">La sincronización está desactivada · activarla ›</string>
 </resources>

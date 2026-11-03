@@ -17,6 +17,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** Shows the sync key, to allow it on relays that take only keys they know.
 - **Library:** Give your shows tags of your own – as many as you like – and filter the library by them.
 - **App:** Your profile picture at the top: the Nostr page, your listening statistics and signing out, one tap away.
+- **Sync:** How sync went shows at your profile picture; its menu opens the details or syncs at once.
 - **Tour:** Choose the language right at the start.
 - **Home:** On large screens in two columns: listening on the left, your shows on the right.
 - **Nostr:** Set your profile name and picture in Hopp; the picture goes up small and without its metadata.

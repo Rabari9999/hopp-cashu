@@ -527,7 +527,6 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
                                         unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
-                                    onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) },
                                     onQueue = { nav.navigate(QueueRoute) },
                                     onWhatsNew = { nav.navigate(SettingsPageRoute(SettingsPage.WhatsNew.name)) })
                             } }

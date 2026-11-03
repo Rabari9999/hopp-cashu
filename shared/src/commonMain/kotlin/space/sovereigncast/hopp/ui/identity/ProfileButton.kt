@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -50,19 +51,31 @@ import space.sovereigncast.hopp.resources.stats_title
  * The listener's picture at the top — beside the cogwheel, or at the rail's foot — with a menu: who,
  * the Nostr page, the listening statistics, and signing out (maintainer 2026-11-03: three steps deep it
  * was too far, above all in a browser on someone else's computer). In the apps only while signed in —
- * Hopp has no account; in the browser, signed out, it leads to signing in.
+ * Hopp has no account; in the browser, signed out, it leads to signing in. Since 2026-11-03 sync's state
+ * sits at the picture and leads the menu (maintainer): its row opens the sync window, ↻ starts a round,
+ * and with sync off it asks to turn it on.
  */
 @Composable
-fun ProfileButton(onNostr: () -> Unit, onStats: () -> Unit, identities: IdentityRepository = koinInject()) {
+fun ProfileButton(
+    onNostr: () -> Unit, onStats: () -> Unit, identities: IdentityRepository = koinInject(),
+    settingsRepo: space.sovereigncast.hopp.data.SettingsRepository = koinInject(),
+    sync: space.sovereigncast.hopp.sync.SyncManager = koinInject(),
+) {
     val me by identities.identity.collectAsState()
     val signedIn = me
     if (signedIn == null && identities.keysInApp) return
     var open by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
-    val label = stringResource(if (signedIn == null) Res.string.nostr_sign_in_short else Res.string.profile_menu)
+    var syncSheet by remember { mutableStateOf(false) }
+    val syncOn = settingsRepo.settings.collectAsState(null).value?.nostrSync == true
+    val status by sync.status.collectAsState()
+    val syncing = status.takeIf { syncOn && signedIn != null }
+    val label = if (signedIn == null) stringResource(Res.string.nostr_sign_in_short)
+        else stringResource(Res.string.profile_menu) + (syncing?.let { " · " + space.sovereigncast.hopp.ui.library.syncStateLabel(it) } ?: "")
     Box {
-        IconButton(onClick = { if (signedIn == null) onNostr() else open = true }, modifier = Modifier.semantics { contentDescription = label }) {
+        IconButton(onClick = { if (signedIn == null) onNostr() else open = true }, modifier = Modifier.testTag("profile-button").semantics { contentDescription = label }) {
             if (signedIn == null) Icon(Icons.Rounded.Person, null)
+            else if (syncing != null) space.sovereigncast.hopp.ui.library.SyncBadge(syncing, 28.dp) { Picture(signedIn, 28.dp, null) }
             else Picture(signedIn, 28.dp, null)
         }
         if (signedIn != null) DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -74,7 +87,13 @@ fun ProfileButton(onNostr: () -> Unit, onStats: () -> Unit, identities: Identity
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            HorizontalDivider()
+            space.sovereigncast.hopp.ui.library.SyncMenuRow(
+                syncing, kotlin.time.Clock.System.now().toEpochMilliseconds(),
+                onOpen = { open = false; syncSheet = true },
+                onSyncNow = { sync.requestRound() },
+                onTurnOn = { open = false; onNostr() },
+            )
+            HorizontalDivider(Modifier.padding(top = 4.dp))
             DropdownMenuItem(text = { Text(stringResource(Res.string.profile_edit)) }, onClick = { open = false; ProfileEditRequest.request(); onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.nostr_title)) }, onClick = { open = false; onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.stats_title)) }, onClick = { open = false; onStats() })
@@ -85,6 +104,15 @@ fun ProfileButton(onNostr: () -> Unit, onStats: () -> Unit, identities: Identity
         }
     }
     // The Nostr page's model only now: made at the start, it would look for a profile and a library on the relays each time.
+    if (syncSheet) {
+        val now by androidx.compose.runtime.produceState(kotlin.time.Clock.System.now().toEpochMilliseconds()) {
+            while (true) { kotlinx.coroutines.delay(30_000); value = kotlin.time.Clock.System.now().toEpochMilliseconds() }
+        }
+        space.sovereigncast.hopp.ui.library.SyncSheet(
+            status, now, onSyncNow = { sync.requestRound() }, onSettings = { syncSheet = false; onNostr() },
+            onRewrite = { sync.requestRound(rewrite = it) },
+        ) { syncSheet = false }
+    }
     if (confirm && signedIn != null) SignOutDialog(signedIn, koinViewModel<NostrIdentityViewModel>()) { confirm = false }
 }
 
