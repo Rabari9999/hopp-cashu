@@ -5,5 +5,9 @@ appId: ${APP_ID}
     clearState: true
     permissions:
       notifications: allow
+# A first start after a new install takes a while on an emulator (device check 2026-11-04).
+- extendedWaitUntil:
+    visible: "Skip"
+    timeout: 30000
 - tapOn: "Skip"
 - assertVisible: "Home"

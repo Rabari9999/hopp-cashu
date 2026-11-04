@@ -42,6 +42,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -436,7 +440,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   Row(Modifier.fillMaxSize()) {
                     // The tabs at the top, where the eye starts, and the settings at the foot of the rail —
                     // not alone in the window's far corner (UX review 2026-10-30).
-                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH), containerColor = MaterialTheme.colorScheme.surface) {
+                    // Its own width beside what the window keeps at its start — a phone's camera cutout on its side
+                    // (device check 2026-11-04: the rail moved its items over by it, "Discover" broke, the pill was cut).
+                    val railStart = androidx.compose.foundation.layout.WindowInsets.safeDrawing
+                        .only(androidx.compose.foundation.layout.WindowInsetsSides.Start).asPaddingValues()
+                        .calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH + railStart), containerColor = MaterialTheme.colorScheme.surface) {
                         androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                         val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
