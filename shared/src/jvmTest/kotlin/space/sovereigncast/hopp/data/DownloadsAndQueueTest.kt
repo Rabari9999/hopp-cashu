@@ -196,6 +196,21 @@ class DownloadsAndQueueTest {
         assertNull(queue.peek())
     }
 
+    /** "Undo" puts an entry back where it was (maintainer 2026-11-04: it came back at the end); what
+     *  came since stays after the rest, what went stays out. */
+    @Test
+    fun anEntryTakenOutComesBackWhereItWas() = test {
+        items = 4
+        val id = subscribe()
+        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e1); queue.playLast(e2); queue.playNext(e3)
+        assertEquals(listOf(e3, e1, e2), queue.items.first().map { it.id })
+        val before = queue.removeKeepingOrder(e1)
+        queue.playLast(e4); queue.remove(e2)
+        queue.putBack(e1, before)
+        assertEquals(listOf(e3, e1, e4), queue.items.first().map { it.id })
+    }
+
     @Test
     fun newEpisodesDownloadOnWifiAndRequestedOnesAnywhere() = test {
         val id = subscribe()

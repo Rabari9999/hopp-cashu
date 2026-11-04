@@ -258,11 +258,11 @@ class EpisodeActionsViewModel(
     val progress: StateFlow<Map<Long, Float>> = downloads.progress
     fun playNext(item: EpisodeItem) = viewModelScope.launch { queue.playNext(item.id) }
     fun playLast(item: EpisodeItem) = viewModelScope.launch { queue.playLast(item.id) }
-    /** Out of the playlist, and back where it was in [order] when [undo] says so (maintainer 2026-11-04) —
-     *  here, not in the row, which is gone by then. */
-    fun removeFromQueue(item: EpisodeItem, order: List<Long>, undo: suspend () -> Boolean) = viewModelScope.launch {
-        queue.remove(item.id)
-        if (undo()) { queue.playLast(item.id); queue.reorder(order) }
+    /** Out of the playlist, and back where it was when [undo] says so (maintainer 2026-11-04) — here, not
+     *  in the row, which is gone by then. */
+    fun removeFromQueue(item: EpisodeItem, undo: suspend () -> Boolean) = viewModelScope.launch {
+        val before = queue.removeKeepingOrder(item.id)
+        if (undo()) queue.putBack(item.id, before)
     }
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }

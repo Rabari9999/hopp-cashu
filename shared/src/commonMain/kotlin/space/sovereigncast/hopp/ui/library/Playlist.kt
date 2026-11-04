@@ -188,12 +188,12 @@ val LocalSnackbar = staticCompositionLocalOf<SnackbarHostState?> { null }
  * moved, not taken out). Swiped to the left it leaves the playlist, and "Undo" puts it back where it
  * was; a long press — a right-click — opens what else there is ([PlaylistActions]); in the browser a ⋮
  * does too, where a mouse does not swipe. A screen reader has both as actions of the row.
- * [order]: the playlist as it is, for the way back; [onOpen]: the episode's page, where there is one.
+ * [onOpen]: the episode's page, where there is one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlaylistEntry(
-    item: EpisodeItem, order: List<Long>, onClick: (EpisodeItem) -> Unit, onOpen: ((EpisodeItem) -> Unit)?,
+    item: EpisodeItem, onClick: (EpisodeItem) -> Unit, onOpen: ((EpisodeItem) -> Unit)?,
     color: Color, app: AppInfo = koinInject(), before: @Composable () -> Unit = {}, handle: @Composable () -> Unit,
 ) {
     val vm = LocalEpisodeActions.current ?: koinViewModel()
@@ -202,7 +202,7 @@ internal fun PlaylistEntry(
     val removed = stringResource(Res.string.playlist_removed)
     val undo = stringResource(Res.string.playlist_undo)
     val remove = {
-        vm.removeFromQueue(item, order) {
+        vm.removeFromQueue(item) {
             val host = snackbar ?: return@removeFromQueue false
             host.currentSnackbarData?.dismiss()
             host.showSnackbar(removed, undo, duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed

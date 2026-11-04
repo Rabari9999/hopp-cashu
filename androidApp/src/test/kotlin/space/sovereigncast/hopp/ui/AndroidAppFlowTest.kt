@@ -1085,15 +1085,18 @@ class AndroidAppFlowTest {
         tap("Discover"); subscribe()
         waitFor("Ep 1")
         menuOf(1); waitFor("Play next"); tap("Play next")
-        tap("Home"); waitFor("Ep 1")
         val queue = koin.get<space.sovereigncast.hopp.data.QueueRepository>()
         fun queued() = kotlinx.coroutines.runBlocking { queue.items.first().map { it.title } }
+        // Ep 2 after it (maintainer 2026-11-04: what came back went to the end, not where it was).
+        menuOf(0); waitFor("Play last"); tap("Play last")
+        until { queued() == listOf("Ep 1", "Ep 2") }
+        tap("Home"); waitFor("Ep 1")
         val entry = hasText("Ep 1") and hasClickAction()
         rule.onNode(entry).performTouchInput { swipeLeft() }
         until { "Ep 1" !in queued() }
         waitFor("Removed from the playlist")
         tap("Undo")
-        until { "Ep 1" in queued() }
+        until { queued() == listOf("Ep 1", "Ep 2") }
         waitFor("Ep 1")
         rule.onNode(entry).performTouchInput { longClick() }
         waitFor("Go to the episode")

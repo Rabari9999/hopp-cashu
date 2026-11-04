@@ -234,7 +234,7 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
                 Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
                     // Opaque over what a swipe shows beneath it.
                     PlaylistEntry(
-                        item, items.map { it.id }, onClick = onOpen, onOpen = onOpen,
+                        item, onClick = onOpen, onOpen = onOpen,
                         color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
                         before = { PlayButton(item) },
                     ) {
@@ -285,7 +285,7 @@ fun QueueList(
             ReorderableItem(reorderable, key = item.id) { dragging ->
                 Surface(tonalElevation = if (dragging) 4.dp else 0.dp) {
                     PlaylistEntry(
-                        item, items.map { it.id }, onClick = onPlay, onOpen = onOpen,
+                        item, onClick = onPlay, onOpen = onOpen,
                         color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface,
                     ) {
                         IconButton(

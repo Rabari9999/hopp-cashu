@@ -130,6 +130,27 @@ class QueueRepository(
 
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) { qq.remove(episodeId); note(listOf(episodeId)) }
 
+    /** Out of the playlist, and the order it was in — to [putBack] it (maintainer 2026-11-04). */
+    suspend fun removeKeepingOrder(episodeId: Long): List<Long> = withContext(ioDispatcher) {
+        val before = db.transactionWithResult { qq.selectAll().awaitAsList().also { qq.remove(episodeId) } }
+        note(listOf(episodeId))
+        before
+    }
+
+    /**
+     * [episodeId] back where it was in [before] ("Undo"; maintainer 2026-11-04: it came back at the end).
+     * What went since stays out; what came since keeps its place after the rest.
+     */
+    suspend fun putBack(episodeId: Long, before: List<Long>) = withContext(ioDispatcher) {
+        val order = db.transactionWithResult {
+            val now = qq.selectAll().awaitAsList()
+            if (episodeId in now) return@transactionWithResult emptyList()
+            (before.filter { it == episodeId || it in now } + now.filter { it !in before })
+                .also { all -> all.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
+        }
+        note(order)
+    }
+
     /** Everything out of the playlist at once — the episodes keep their progress. */
     suspend fun clear() = withContext(ioDispatcher) {
         val all = qq.selectAll().awaitAsList()
