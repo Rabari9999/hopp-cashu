@@ -1,0 +1,17 @@
+# A settings row opened for sure (device check 2026-11-04): on iOS a tap right after the scroll could
+# go nowhere — retryTapIfNoChange took the list's settling for a change — and the "Back" after it then
+# left the settings. Tapped while ${MARK}, a note of the list near the row, is still in sight.
+appId: ${APP_ID}
+---
+- scrollUntilVisible:
+    element: ${ROW}
+    centerElement: true
+- waitForAnimationToEnd
+- repeat:
+    while:
+      visible: ${MARK}
+    times: 3
+    commands:
+      - tapOn: ${ROW}
+      - waitForAnimationToEnd
+- assertNotVisible: ${MARK}

@@ -60,7 +60,11 @@ boot_android() {
         [[ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == 1 ]] && break
         sleep 2
     done
-    adb -s "$serial" install -r "$APK" > /dev/null || { echo "install failed on $name" >&2; return 1; }
+    # A beta signed with another key (the CI's, the store screenshots') cannot be updated over: it goes first.
+    if ! adb -s "$serial" install -r "$APK" > /dev/null 2>&1; then
+        adb -s "$serial" uninstall space.sovereigncast.hopp.beta > /dev/null 2>&1
+        adb -s "$serial" install "$APK" > /dev/null || { echo "install failed on $name" >&2; return 1; }
+    fi
 }
 
 # 0 is the device's natural way round: upright for the phone, on its side for the tablet.

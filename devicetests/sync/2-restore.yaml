@@ -39,12 +39,16 @@ name: Sync restore
 - extendedWaitUntil:
     visible: "Nodesignal.*"
     timeout: 60000
-- tapOn: "Playlist"
+# The playlist lies in the library itself (0.4.0); its title folds it — tapped only when it is folded.
+- runFlow:
+    when:
+      notVisible: "Nodesignal-Talk - E296.*"
+    commands:
+      - tapOn: "Playlist"
 - extendedWaitUntil:
     visible: "Nodesignal-Talk - E296.*"
     timeout: 30000
 - takeScreenshot: sync-2-up-next
-- tapOn: "Back"
 # Home: E297 now in the playlist, E296 a favourite.
 - tapOn: "Home"
 - extendedWaitUntil:
@@ -111,7 +115,12 @@ name: Sync restore
       notVisible: "Playlist"
     commands:
       - tapOn: "Library"
-- tapOn: "Nodesignal.*"
+# The show by its author: the playlist above the shows names the show on each of its episodes
+# (device check 2026-11-04).
+- scrollUntilVisible:
+    element: "Die Nodesignal Crew"
+    centerElement: true
+- tapOn: "Die Nodesignal Crew"
 - scrollUntilVisible:
     element: "Nodesignal-Talk - E296.*"
 - tapOn: "Nodesignal-Talk - E296.*"
@@ -152,9 +161,12 @@ name: Sync restore
 # Out now, not with the next round.
 - tapOn: "Home"
 - tapOn: "Settings"
-- scrollUntilVisible:
-    element: "Nostr identity"
-- tapOn: "Nostr identity"
+# Opened for sure: on iOS a tap right after the scroll could go nowhere (device check 2026-11-04).
+- runFlow:
+    file: ../flows/common/open-setting.yaml
+    env:
+      ROW: "Nostr identity"
+      MARK: "A donation via Lightning"
 - scrollUntilVisible:
     element: "Sync now"
 - tapOn: "Sync now"

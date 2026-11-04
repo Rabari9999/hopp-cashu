@@ -53,7 +53,11 @@ name: Subscribe and play
 - waitForAnimationToEnd
 - takeScreenshot: 03-mini-player
 # The full player: speed, the chips, the comments.
-- tapOn: ".* / 1:27:47"
+# Over Discover: the episode's page below the player has a "Comments" tab of its own, and a tap
+# meant for the player's went through to it — on a tablet onto the player's progress (device
+# check 2026-11-04).
+- tapOn: "Discover"
+- runFlow: common/open-player.yaml
 # The speed is found by its description: iOS reports that, not the "1×" it shows.
 - extendedWaitUntil:
     visible: "Playback speed"
@@ -64,16 +68,27 @@ name: Subscribe and play
 - takeScreenshot: 03-player-speed
 # The chips scroll sideways; Comments is the last one. On a phone on its side
 # they lie below the controls.
+# Centred: at the bottom edge, on a phone on its side, a swipe on the chips began in the system's
+# gesture area and moved nothing (device check 2026-11-04).
 - scrollUntilVisible:
     element: "Chapters"
-- swipe:
-    from: "Chapters"
-    direction: LEFT
-# A swipe on iOS moves the row less far; a second one at its end does nothing.
-- swipe:
-    from: "Transcript"
-    direction: LEFT
-- tapOn: "Comments"
+    centerElement: true
+# Only where Comments lies beyond the edge: on a tablet every chip is there, and a swipe beside
+# them moved the player instead (device check 2026-11-04).
+- runFlow:
+    when:
+      notVisible: "Comments"
+    commands:
+      - swipe:
+          from: "Chapters"
+          direction: LEFT
+      # A swipe on iOS moves the row less far; a second one at its end does nothing.
+      - swipe:
+          from: "Transcript"
+          direction: LEFT
+- tapOn:
+    text: "Comments"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "Load comments"
     timeout: 10000

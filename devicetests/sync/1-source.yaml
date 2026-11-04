@@ -41,7 +41,12 @@ name: Sync source
       notVisible: "Playlist"
     commands:
       - tapOn: "Library"
-- tapOn: "Nodesignal.*"
+# The show by its author: the playlist above the shows names the show on each of its episodes
+# (device check 2026-11-04).
+- scrollUntilVisible:
+    element: "Die Nodesignal Crew"
+    centerElement: true
+- tapOn: "Die Nodesignal Crew"
 - scrollUntilVisible:
     element: "Nodesignal-Talk - E296.*"
 - tapOn: "Nodesignal-Talk - E296.*"

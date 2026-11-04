@@ -91,7 +91,8 @@ name: Store screenshots
 - tapOn: "(Library|Bibliothek)"
 - waitForAnimationToEnd
 - takeScreenshot: 4-library
-- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+# By its author: the playlist above the shows names the show on each of its episodes.
+- tapOn: "Die Nodesignal Crew"
 - extendedWaitUntil:
     visible: "(Episodes|Folgen)"
     timeout: 15000

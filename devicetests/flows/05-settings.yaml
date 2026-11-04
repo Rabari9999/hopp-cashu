@@ -1,4 +1,5 @@
 # Every settings page the listener reaches without a wallet or an identity.
+# Each row opened through common/open-setting.yaml: tapped until the list has gone (device check 2026-11-04).
 # A row in the middle of the list is centred before the tap: at the bottom edge it lies under the mini player
 # once something plays, and the tap opened the player (device check 2026-10-23, on its side).
 appId: ${APP_ID}
@@ -17,36 +18,41 @@ name: Settings
     timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: 05-settings
-- scrollUntilVisible:
-    element: "Playback"
-    centerElement: true
-- tapOn: "Playback"
-- waitForAnimationToEnd
+- runFlow:
+    file: common/open-setting.yaml
+    env:
+      ROW: "Playback"
+      MARK: "Speed, skip intervals, skip silence"
 - takeScreenshot: 05-playback
 - tapOn: "Back"
-- scrollUntilVisible:
-    element: "Notifications"
-    centerElement: true
-- tapOn: "Notifications"
-- waitForAnimationToEnd
+- runFlow:
+    file: common/open-setting.yaml
+    env:
+      ROW: "Notifications"
+      MARK: "What boosts and zaps report"
 - takeScreenshot: 05-notifications
 - tapOn: "Back"
+# Wallet & payments lies above: scrolled to first (a direction cannot come from the env).
 - scrollUntilVisible:
     element: "Wallet & payments"
     direction: UP
-- tapOn: "Wallet & payments"
-- waitForAnimationToEnd
+- runFlow:
+    file: common/open-setting.yaml
+    env:
+      ROW: "Wallet & payments"
+      MARK: "Every boost and streamed sat, with who got what"
 - takeScreenshot: 05-wallet
 - tapOn: "Back"
-- scrollUntilVisible:
-    element: "Nostr identity"
-    centerElement: true
-- tapOn: "Nostr identity"
-- waitForAnimationToEnd
+- runFlow:
+    file: common/open-setting.yaml
+    env:
+      ROW: "Nostr identity"
+      MARK: "A donation via Lightning"
 - takeScreenshot: 05-nostr
 - tapOn: "Back"
-- scrollUntilVisible:
-    element: "Privacy"
-- tapOn: "Privacy"
-- waitForAnimationToEnd
+- runFlow:
+    file: common/open-setting.yaml
+    env:
+      ROW: "Privacy"
+      MARK: "Version, what’s new, tour, source code"
 - takeScreenshot: 05-privacy
