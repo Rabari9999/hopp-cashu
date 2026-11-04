@@ -78,6 +78,22 @@ class HomeLayoutTest {
         check(s.indexOf("New") < s.indexOf("Your shows")) { "not in the listener's order: $s" }
     }
 
+    /** The library's tag filter stays in the library (maintainer 2026-11-04): Home has all the shows. */
+    @Test
+    fun theLibrarysTagLeavesHomeAlone() {
+        home()
+        runBlocking {
+            val podcasts = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>()
+            podcasts.setTags(podcasts.shows.first().single().id, listOf("Tech"))
+            settings.update { s ->
+                s.copy(homeHidden = HomeSections.default.toSet() - HomeSections.YOUR_SHOWS, libraryTag = space.sovereigncast.hopp.data.Settings.TAG_UNTAGGED)
+            }
+        }
+        rule.waitUntil(10_000) { !has("New") }
+        waitFor("Your shows")
+        check(has("Test Show")) { "the library's filter took the show off Home: ${screen()}" }
+    }
+
     /** From Home to its settings, a section switched off, and back: it is gone. */
     @Test
     fun aSectionSwitchedOffLeavesHome() {

@@ -3,8 +3,11 @@ package space.sovereigncast.hopp.sync
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import space.sovereigncast.hopp.identity.IdentityRepository
+import space.sovereigncast.hopp.nostr.Nip46Exception
 import space.sovereigncast.hopp.nostr.SignerNeedsListener
+import space.sovereigncast.hopp.nostr.SignerNoAnswer
 import space.sovereigncast.hopp.nostr.SignerRejected
+import space.sovereigncast.hopp.nostr.SignerUnavailable
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -71,6 +74,9 @@ sealed interface SyncOutcome {
     /** A newer Hopp wrote this document: left as it is until this one is updated. */
     data object NeedsUpdate : SyncOutcome
     data class Failed(val error: Throwable) : SyncOutcome
+
+    /** It is the signer that sync waits for or that failed — every document would meet it the same. */
+    fun isTheSigner(): Boolean = this is WaitsForSigner || (this is Failed && (error is SignerNoAnswer || error is Nip46Exception || error is SignerUnavailable))
 }
 
 /**

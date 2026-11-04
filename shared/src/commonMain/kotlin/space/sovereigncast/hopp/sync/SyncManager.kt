@@ -236,9 +236,15 @@ class SyncManager(
                 when (val outcome = engine.sync(doc, interactive, rewrite = doc.name == rewrite)) {
                     is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
                     is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
-                    else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity) break }
+                    // Each document would ask the signer again, and wait for it again (2026-11-04).
+                    else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity || outcome.isTheSigner()) break }
                 }
             } }
+            // A round in the background asks no signer, so it learns nothing new of one: what the signer
+            // answered the listener's own round a moment ago stays shown (maintainer 2026-11-04: Amber's
+            // silence went under "your signer has to allow it", and nothing came in Amber).
+            val shown = _status.value.problem
+            if (!interactive && problem == SyncOutcome.WaitsForSigner && shown is SyncOutcome.Failed && shown.isTheSigner()) problem = shown
             val rounds = RelayRound.of(log.notes())
             rounds.forEach { r -> history[r.url] = ((history[r.url] ?: emptyList()) + r.ok).takeLast(HISTORY) }
             // A key moved off goes only after a round under the new one, all of it, read every document back

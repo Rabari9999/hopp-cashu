@@ -746,6 +746,26 @@ new key in the apps can take a picture at the start. Kinds 0 and 24242
 are not asked of a signer for good: it asks each time. ADR 0015 gains the
 image server as a party. Tests: `ProfileEditTest`, `NostrIdentityTest`.
 
+**Amendment 2026-11-04 (maintainer): a signer that never asked.** A listener
+signed in by QR code with Amber; sync said "your signer has to allow it once",
+and nothing came in Amber. Three causes, all Hopp's: a round in the background
+asks no bunker (M-08) but said the same; a request went to the signer's first
+relay alone, and where Amber did not listen there Hopp waited two minutes and
+gave up without a word (a cancellation, not an outcome); and the next round in
+the background wrote "has to allow it" over what the signer had answered.
+Since then a NIP-46 request goes on every relay of the signer at once, as the
+connect already did; silence is `SignerNoAnswer` and said as such, a refusal
+with the signer's reason; a round in the background keeps what the signer
+answered the listener's own round; a round stops at the first document the
+signer stands in the way of; relays that do not answer whether there is a
+keyring are a relay problem, not a signer one; and the line has a button,
+"Allow now", that starts the round which asks. Sync being why most sign in,
+the sign-in now also asks for good what makes the first sync key —
+`nip44_encrypt` and `sign_event` of kind 30078 — so the first device turns sync
+on without a second prompt. `nip44_decrypt` stays asked each time (amendment
+of 2026-10-21): each further device asks once to open the keyring. Tests:
+`BunkerTest`, `SyncKeysTest`, `IdentityTest`, `AndroidExternalSignerTest`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode

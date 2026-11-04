@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.semantics
 import space.sovereigncast.hopp.data.DownloadState
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,6 +83,8 @@ fun EpisodeRow(
     modifier: Modifier = Modifier,
     /** The show's cover where [item] comes without it — an episode without its own cover shows the show's. */
     showCover: String? = null,
+    /** A long press — with a mouse, a right-click: what else there is for it (the playlist's entries). */
+    onLongClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
@@ -88,7 +92,10 @@ fun EpisodeRow(
     val shown = LocalShownEpisode.current == item.id
     Row(
         modifier.fillMaxWidth().then(if (shown) Modifier.background(colors.secondaryContainer) else Modifier)
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+            .then(
+                if (onLongClick == null) Modifier.clickable(onClick = onClick)
+                else Modifier.onSecondaryClick(onLongClick).combinedClickable(onLongClick = onLongClick, onClick = onClick)
+            ).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

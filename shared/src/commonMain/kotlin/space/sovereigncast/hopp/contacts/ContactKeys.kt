@@ -17,6 +17,8 @@ import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.SignerUnavailable
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.SecretStore
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /** Nothing reached enough relays: the contacts note did not go out, and nothing changed here. */
 class ContactsNoteNotPublished(val took: Int, val asked: Int) : Exception("$took of $asked relays took the contacts note")
@@ -68,7 +70,9 @@ class ContactKeys(
      */
     suspend fun note(interactive: Boolean = false): Note? = lock.withLock {
         val me = identity.identity.value ?: return null
-        val newest = newestOnRelays(me.pubkey)
+        // Looked at on every refresh: not waited for to the slowest relay (maintainer 2026-11-04); a newer
+        // note a slow one has is seen at a later look.
+        val newest = newestOnRelays(me.pubkey, if (interactive) null else NOTE_SETTLE)
         val held = held()?.takeIf { it.owner == me.pubkey }
         if (newest == null) return held?.let { Note(it.share?.pub(), it.inbox?.pub(), it.at, opened = true) }
         if (held != null && (held.note == newest.id || held.at >= newest.created_at)) return Note(held.share?.pub(), held.inbox?.pub(), held.at, opened = true)
@@ -128,14 +132,14 @@ class ContactKeys(
     /** This device forgets the keys — signed out. The note stays on the relays. */
     fun forget() = secrets.put(SECRET, null)
 
-    private suspend fun newestOnRelays(owner: String): Event? {
+    private suspend fun newestOnRelays(owner: String, settle: Duration? = null): Event? {
         val filter = buildJsonObject {
             putJsonArray("kinds") { add(JsonPrimitive(Nip78.KIND)) }
             putJsonArray("authors") { add(JsonPrimitive(owner)) }
             putJsonArray("#d") { add(JsonPrimitive(DTAG)) }
             put("limit", 4)
         }
-        return publisher.query(listOf(filter), identity.syncRelays())
+        return publisher.query(listOf(filter), identity.syncRelays(), settle)
             .filter { it.pubkey == owner && it.kind == Nip78.KIND && it.tag("d") == DTAG }
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
     }
@@ -158,5 +162,7 @@ class ContactKeys(
         private const val SECRET = "contacts_keys"
         private const val VERSION = 1
         private const val DELETION = 5
+        /** How long the other relays get once one answered, for the note looked at on every refresh. */
+        private val NOTE_SETTLE = 3.seconds
     }
 }

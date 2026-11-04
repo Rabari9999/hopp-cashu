@@ -399,6 +399,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     HoppTheme(darkTheme = chosenDark ?: systemDark) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
+            space.sovereigncast.hopp.ui.library.LocalSnackbar provides snackbar,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
             space.sovereigncast.hopp.ui.components.LocalPageTitle provides pageTitle,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).

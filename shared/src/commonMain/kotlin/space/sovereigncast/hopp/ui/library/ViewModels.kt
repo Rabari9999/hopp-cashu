@@ -164,11 +164,8 @@ class HomeViewModel(
 
     // A quiet day on Home (device feedback 2026-10-12): the shows themselves,
     // when they come out next, and what of them is still unheard.
-    /** "Your shows" as the library's tag filter picks them (maintainer 2026-11-03). */
-    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(
-        combine(podcasts.shows, settings.settings.map { it.libraryTag }.distinctUntilChanged()) { shows, tag -> space.sovereigncast.hopp.data.Tags.filter(shows, tag) },
-        emptyList(),
-    )
+    /** All the shows: the library's tag filter stays in the library, where it is seen (maintainer 2026-11-04). */
+    val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
     val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
     val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
 
@@ -261,6 +258,12 @@ class EpisodeActionsViewModel(
     val progress: StateFlow<Map<Long, Float>> = downloads.progress
     fun playNext(item: EpisodeItem) = viewModelScope.launch { queue.playNext(item.id) }
     fun playLast(item: EpisodeItem) = viewModelScope.launch { queue.playLast(item.id) }
+    /** Out of the playlist, and back where it was in [order] when [undo] says so (maintainer 2026-11-04) —
+     *  here, not in the row, which is gone by then. */
+    fun removeFromQueue(item: EpisodeItem, order: List<Long>, undo: suspend () -> Boolean) = viewModelScope.launch {
+        queue.remove(item.id)
+        if (undo()) { queue.playLast(item.id); queue.reorder(order) }
+    }
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
     fun downloadNow(item: EpisodeItem) = viewModelScope.launch { downloads.startNow(item.id) }

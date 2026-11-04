@@ -100,6 +100,15 @@ joined the playlist's top once, newest first, at most 20 (`QueueRepository.adopt
 episode goes back to the top, the next one plays at the end, a heard one leaves, a removed
 one keeps its progress ("Recently played").
 
+**Amendment 2026-11-04 (maintainer): what an entry offers.** An entry after "Now" could
+only be played and moved; to skip one, the listener had to open its own page. Swiped to the
+left it now leaves the playlist, and "Undo" puts it back where it was; a long press — a
+right-click with a mouse — opens a sheet: play next, play last, heard, the download, out of
+the playlist, the episode's page. In the browser a ⋮ opens it too, where a mouse does not
+swipe; a screen reader has "Remove" and "More" as actions of the row. "Now" has the same on
+a long press, with "Skip": it stays where it is, the next one plays. The same everywhere the
+playlist shows; the playlist page's ✕ is gone. Tests: `AndroidAppFlowTest`.
+
 ## Consequences
 
 - The playback engine interface (ADR 0003) must expose chapter boundaries, so

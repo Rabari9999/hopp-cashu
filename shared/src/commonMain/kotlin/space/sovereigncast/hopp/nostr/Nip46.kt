@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -35,6 +36,9 @@ import kotlin.time.Duration.Companion.seconds
 
 /** The remote signer answered with an error, or something that is not an answer. */
 class Nip46Exception(message: String) : Exception(message)
+
+/** The signer did not answer in time: not listening on its relays, or the listener never saw the request. */
+class SignerNoAnswer : Exception("the signer did not answer")
 
 private fun isHexKey(s: String) = s.length == 64 && s.all { it in "0123456789abcdef" }
 
@@ -143,26 +147,50 @@ class Nip46Client(
         val id = secureRandomBytes(8).toHex()
         val content = buildJsonObject { put("id", id); put("method", method); putJsonArray("params") { params.forEach { add(JsonPrimitive(it)) } } }.toString()
         val event = Event.sign(clientKeys, KIND, Nip44.encrypt(content, conversationKey), listOf(listOf("p", remoteSignerPubkey)), now())
-        return withSession { session ->
-            coroutineScope {
-                val answer = async(start = CoroutineStart.UNDISPATCHED) {
-                    session.incoming.mapNotNull { text -> response(text, id) }.first { it.result != "auth_url" || it.error == null || run { onAuthUrl(it.error); false } }
+        // No answer in time is the signer's silence, not a cancellation: the caller can say so (2026-11-04:
+        // sync waited two minutes for Amber, then showed nothing at all).
+        val r = withTimeoutOrNull(wait) { answerOnAll(event, id) } ?: throw SignerNoAnswer()
+        r.error?.let { throw Nip46Exception(it) }
+        return r.result ?: throw Nip46Exception("an empty answer")
+    }
+
+    /**
+     * [event] sent on every relay of the signer at once, the answer to [id] from whichever has it
+     * first — as [awaitConnect] listens (maintainer 2026-11-04: Hopp asked on the first relay alone,
+     * and where the signer did not listen there, its prompt never came).
+     */
+    private suspend fun answerOnAll(event: Event, id: String): Response {
+        var last: Exception? = null
+        return channelFlow {
+            for (url in relays) launch {
+                try {
+                    val session = withTimeout(CONNECT_WAIT) { connector.connect(url) }
+                    try {
+                        val answer = async(start = CoroutineStart.UNDISPATCHED) {
+                            session.incoming.mapNotNull { text -> response(text, id) }
+                                .firstOrNull { it.result != "auth_url" || it.error == null || run { onAuthUrl(it.error); false } }
+                        }
+                        session.send(buildJsonArray {
+                            add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
+                            add(buildJsonObject {
+                                putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
+                                putJsonArray("#p") { add(JsonPrimitive(clientKeys.publicKeyHex)) }
+                                putJsonArray("authors") { add(JsonPrimitive(remoteSignerPubkey)) }
+                                put("since", now() - 10)
+                            })
+                        }.toString())
+                        session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
+                        answer.await()?.let { send(it) }
+                    } finally {
+                        withContext(NonCancellable) { runCatching { session.close() } }
+                    }
+                } catch (e: Exception) {
+                    // A relay that does not open or drops the line: the others still carry the request.
+                    if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                    last = e
                 }
-                session.send(buildJsonArray {
-                    add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
-                    add(buildJsonObject {
-                        putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
-                        putJsonArray("#p") { add(JsonPrimitive(clientKeys.publicKeyHex)) }
-                        putJsonArray("authors") { add(JsonPrimitive(remoteSignerPubkey)) }
-                        put("since", now() - 10)
-                    })
-                }.toString())
-                session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
-                val r = withTimeout(wait) { answer.await() }
-                r.error?.let { throw Nip46Exception(it) }
-                r.result ?: throw Nip46Exception("an empty answer")
             }
-        }
+        }.firstOrNull() ?: throw Nip46Exception("no relay of the signer reachable" + (last?.message?.let { ": $it" } ?: ""))
     }
 
     private data class Response(val id: String, val result: String?, val error: String?)
@@ -177,16 +205,6 @@ class Nip46Client(
         val r = Response(o["id"]!!.jsonPrimitive.content, (o["result"] as? JsonPrimitive)?.contentOrNull, (o["error"] as? JsonPrimitive)?.contentOrNull)
         r.takeIf { it.id == id }
     }.getOrNull()
-
-    private suspend fun <T> withSession(block: suspend (RelaySession) -> T): T {
-        var last: Exception? = null
-        for (url in relays) {
-            // A relay that never answers is skipped, not waited on for good.
-            val session = try { withTimeout(CONNECT_WAIT) { connector.connect(url) } } catch (e: Exception) { last = e; continue }
-            try { return block(session) } finally { runCatching { session.close() } }
-        }
-        throw Nip46Exception("no relay of the signer reachable" + (last?.message?.let { ": $it" } ?: ""))
-    }
 
     companion object {
         const val KIND = 24133

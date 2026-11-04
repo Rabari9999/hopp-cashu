@@ -238,6 +238,29 @@ class NostrContactsLayoutTest {
         shoot("new-tag")
     }
 
+    /** A playlist entry's actions and "Removed · Undo" on a phone (maintainer 2026-11-04). */
+    @Test
+    fun playlistActionsAndUndo() {
+        rule.setContent { App() }
+        tap("Entdecken")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Als Feed öffnen"); waitFor("Abonnieren")
+        tap("Abonnieren"); waitFor("✓ Abonniert")
+        if (!has("Folgen durchsuchen")) tap("✓ Abonniert")
+        waitFor("Ep 1")
+        val more = rule.onAllNodes(hasContentDescription("Mehr") and hasClickAction())
+        more[1].performClick(); waitFor("Als Nächstes abspielen"); tap("Als Nächstes abspielen")
+        tap("Home"); waitFor("Ep 1")
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performTouchInput { longClick() }
+        waitFor("Zur Folge")
+        rule.waitForIdle()
+        shoot("playlist-actions")
+        tap("Aus der Playlist entfernen")
+        waitFor("Aus der Playlist entfernt")
+        rule.waitForIdle()
+        shoot("playlist-removed")
+    }
+
     /** Each window as it is drawn — a sheet is one of its own. */
     private fun shoot(what: String) {
         java.io.File("build/contacts-layout").mkdirs()

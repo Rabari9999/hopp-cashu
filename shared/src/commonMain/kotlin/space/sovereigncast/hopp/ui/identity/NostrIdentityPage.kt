@@ -1050,6 +1050,10 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         // Security audit 2026-10-22: a document only in part, or too large, is said as such (H-02, M-04).
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Incomplete -> stringResource(Res.string.sync_incomplete)
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.sync.SyncTooLarge -> stringResource(Res.string.sync_too_large)
+        // The signer's silence and its no, said as such (maintainer 2026-11-04) — not "has to allow it".
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.nostr.SignerNoAnswer -> stringResource(Res.string.sync_signer_silent)
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.nostr.Nip46Exception ->
+            stringResource(Res.string.sync_signer_refused, problem.error.message.orEmpty())
         // What the relays did, said as it was (delta audit 2026-10-22, LN-01): not "no relay" when two of three answered.
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed -> when (val e = problem.error) {
             is space.sovereigncast.hopp.sync.SyncNotReached -> relayLine(e.answered, e.asked)
@@ -1068,6 +1072,8 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         }?.let { line -> if (status.pending > 0) line + " · " + stringResource(Res.string.sync_pending, status.pending) else line }
     }
     Text(text.orEmpty(), color = if (problem != null && !status.running) MaterialTheme.colorScheme.error else muted, style = MaterialTheme.typography.bodySmall)
+    // Only a round the listener starts asks the signer: the way to it, right at the line (maintainer 2026-11-04).
+    if (problem?.isTheSigner() == true && !status.running) OutlinedButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_allow_now)) }
     val authUrl by vm.signerAuthUrl.collectAsState()
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
     authUrl?.let { url ->

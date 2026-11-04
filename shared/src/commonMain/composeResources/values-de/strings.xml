@@ -931,7 +931,11 @@
     <string name="sync_last_now">Gerade abgeglichen</string>
     <string name="sync_last_minutes">Vor %1$d Min. abgeglichen</string>
     <string name="sync_last_hours">Vor %1$d Std. abgeglichen</string>
-    <string name="sync_waits">Deine Signer-App muss es einmal erlauben.</string>
+    <string name="sync_waits">Deine Signer-App muss es einmal erlauben: Tippe auf „Jetzt erlauben“ und bestätige dort.</string>
+    <string name="sync_signer_silent">Dein Signer hat nicht geantwortet. Ist die Signer-App offen und online?</string>
+    <string name="sync_signer_refused">Dein Signer hat abgelehnt: %1$s</string>
+    <string name="sync_allow_now">Jetzt erlauben</string>
+    <string name="sync_allow_hint">Bestätige danach in deiner Signer-App.</string>
     <string name="sync_newer">Ein anderes Gerät hat ein neueres Hopp. Aktualisiere Hopp, um weiter abzugleichen.</string>
     <string name="sync_failed">Der Abgleich ist nicht durchgekommen. Hopp versucht es später wieder.</string>
     <string name="sync_no_relay">Kein Relay erreicht. Hopp versucht es später wieder.</string>
@@ -988,6 +992,8 @@
     <string name="home_sync_waiting">Wartet hier</string>
     <string name="home_sync_retry">Erneut versuchen</string>
     <string name="home_sync_short_signer">Dein Signer muss bestätigen</string>
+    <string name="home_sync_short_silent">Dein Signer hat nicht geantwortet</string>
+    <string name="home_sync_short_refused">Dein Signer hat abgelehnt</string>
     <string name="home_sync_short_newer">Braucht ein neueres Hopp</string>
     <string name="home_sync_short_part">Nur ein Teil kam an</string>
     <string name="home_sync_short_taken">Nur %1$d von %2$d Relays haben angenommen</string>
@@ -1337,4 +1343,8 @@
     <string name="playlist_after">Danach</string>
     <string name="playlist_clear">Playlist leeren</string>
     <string name="playlist_clear_confirm">Alle %1$d Folgen aus der Playlist nehmen? Ihr Hörstand bleibt.</string>
+    <string name="playlist_removed">Aus der Playlist entfernt</string>
+    <string name="playlist_undo">Rückgängig</string>
+    <string name="playlist_skip">Überspringen</string>
+    <string name="playlist_open">Zur Folge</string>
 </resources>

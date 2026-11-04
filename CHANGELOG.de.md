@@ -23,6 +23,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
 - **Nostr:** Profilname und -bild direkt in Hopp setzen; das Bild geht verkleinert und ohne Metadaten hoch.
 - **Einstellungen:** „Was ist neu“ unter „Über Hopp“ zeigt, was jede Version gebracht hat – nach einem Update einmal auch als Zeile auf Home.
+- **Playlist:** Wische eine Folge weg, um sie aus der Playlist zu nehmen, oder halte sie gedrückt für mehr – überspringen, als Nächstes, als gehört markieren, herunterladen.
 
 ### 🐛 Fixes
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
@@ -31,6 +32,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
 - **Privatsphäre:** Die Seite nennt auch Nostr-Kontakte, Spenden, die Sync-Relays von Hopp, den Bild-Server und im Browser den Server von Hopp Web.
 - **App:** Die Seitenleiste ist breiter, lange Namen passen mit Luft hinein.
+- **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
+- **Sync:** Mit einem per QR-Code verbundenen Signer fragt der Abgleich ihn wirklich und sagt, wenn keine Antwort kommt; der erste Sync-Schlüssel braucht keine zweite Bestätigung.
 
 ## [0.3.2] - 2026-11-01
 

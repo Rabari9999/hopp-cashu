@@ -931,7 +931,11 @@
     <string name="sync_last_now">Synced just now</string>
     <string name="sync_last_minutes">Synced %1$d min ago</string>
     <string name="sync_last_hours">Synced %1$d h ago</string>
-    <string name="sync_waits">Your signer app has to allow it once.</string>
+    <string name="sync_waits">Your signer app has to allow it once: tap “Allow now”, then confirm there.</string>
+    <string name="sync_signer_silent">Your signer did not answer. Is the signer app open and online?</string>
+    <string name="sync_signer_refused">Your signer said no: %1$s</string>
+    <string name="sync_allow_now">Allow now</string>
+    <string name="sync_allow_hint">Then confirm in your signer app.</string>
     <string name="sync_newer">Another device has a newer Hopp. Update Hopp to keep syncing.</string>
     <string name="sync_failed">Sync did not get through. Hopp tries again later.</string>
     <string name="sync_no_relay">No relay reached. Hopp tries again later.</string>
@@ -988,6 +992,8 @@
     <string name="home_sync_waiting">Waiting here</string>
     <string name="home_sync_retry">Try again</string>
     <string name="home_sync_short_signer">Your signer has to confirm</string>
+    <string name="home_sync_short_silent">Your signer did not answer</string>
+    <string name="home_sync_short_refused">Your signer said no</string>
     <string name="home_sync_short_newer">Needs a newer Hopp</string>
     <string name="home_sync_short_part">Only part of it arrived</string>
     <string name="home_sync_short_taken">Only %1$d of %2$d relays took it</string>
@@ -1337,4 +1343,8 @@
     <string name="playlist_after">Next</string>
     <string name="playlist_clear">Clear the playlist</string>
     <string name="playlist_clear_confirm">Take all %1$d episodes out of the playlist? Their progress stays.</string>
+    <string name="playlist_removed">Removed from the playlist</string>
+    <string name="playlist_undo">Undo</string>
+    <string name="playlist_skip">Skip</string>
+    <string name="playlist_open">Go to the episode</string>
 </resources>

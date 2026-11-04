@@ -170,13 +170,16 @@ fun sharedModule(platform: Platform) = module {
         space.sovereigncast.hopp.data.FeedRefresh(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<Clock>()::now,
             whileOpen = !platform.backgroundRefresh,
             before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
-            after = {
-                koin.get<SovereigncastRepository>().refresh()
-                // What the listener's Nostr contacts listen to, at most hourly (ADR 0024).
-                runCatching { koin.get<space.sovereigncast.hopp.contacts.ContactsRepository>().refresh() }
-                // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01).
+            after = { summary ->
+                kotlinx.coroutines.coroutineScope {
+                    launch { runCatching { koin.get<SovereigncastRepository>().refresh() } }
+                    // What the listener's Nostr contacts listen to, at most hourly (ADR 0024).
+                    launch { runCatching { koin.get<space.sovereigncast.hopp.contacts.ContactsRepository>().refresh() } }
+                }
+                // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01) —
+                // only when they brought one; an entry that waits for good is no reason for a round each time (2026-11-04).
                 val sync = koin.get<space.sovereigncast.hopp.sync.SyncManager>()
-                if (sync.status.value.pending > 0) sync.syncNow()
+                if (summary.newEpisodes > 0 && sync.status.value.pending > 0) sync.syncNow()
             })
     }
     single { space.sovereigncast.hopp.data.PeopleRepository(get()) }

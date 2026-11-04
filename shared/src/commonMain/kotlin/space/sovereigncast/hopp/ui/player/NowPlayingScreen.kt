@@ -512,17 +512,22 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             // The playlist (Dennis, maintainer 2026-11-03): this episode as "Now", then what comes after it.
             val now = space.sovereigncast.hopp.ui.library.playlistNow()
             val list = items.orEmpty().filter { it.id != now?.id }
+            // "Removed · Undo" in the sheet itself: now playing's own would be under it.
+            val undo = remember { SnackbarHostState() }
             Box(Modifier.heightIn(max = 520.dp)) {
+                androidx.compose.runtime.CompositionLocalProvider(space.sovereigncast.hopp.ui.library.LocalSnackbar provides undo) {
                 QueueList(
-                    list, onPlay = { model.play(it); showQueue = false }, onRemove = queue::remove, onReorder = queue::reorder,
+                    list, onPlay = { model.play(it); showQueue = false }, onReorder = queue::reorder, onOpen = null,
                     header = {
-                        now?.let { n -> item(key = "now") { space.sovereigncast.hopp.ui.library.PlaylistNowCard(n, onOpen = { showQueue = false }) } }
+                        now?.let { n -> item(key = "now") { space.sovereigncast.hopp.ui.library.PlaylistNowCard(n, onOpen = { showQueue = false }, hasNext = list.isNotEmpty()) } }
                         if (list.isNotEmpty() && now != null) item(key = "after") { space.sovereigncast.hopp.ui.library.PlaylistAfterLabel() }
                         if (list.isEmpty()) item(key = "empty") {
                             Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                         }
                     },
                 )
+                }
+                SnackbarHost(undo, Modifier.align(Alignment.BottomCenter))
             }
             Spacer(Modifier.height(24.dp))
         }

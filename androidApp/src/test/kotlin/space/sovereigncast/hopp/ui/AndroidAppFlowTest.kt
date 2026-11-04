@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeRight
@@ -411,6 +412,7 @@ class AndroidAppFlowTest {
     /** The ⋮ of the n-th episode row on screen, top to bottom. */
     private fun menuOf(row: Int) = rule.onAllNodes(hasContentDescription("More") and hasClickAction())[row].performClick()
 
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
     @Test
     fun playNextFillsUpNext() {
         rule.setContent { App() }
@@ -422,7 +424,8 @@ class AndroidAppFlowTest {
         // In the library itself since 0.4.0 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
         tap("Library"); waitFor("Playlist"); waitFor("Ep 1")
         tap("All 1 ›"); waitFor("Ep 1")
-        rule.onNode(hasContentDescription("Remove from the playlist")).performClick()
+        // As a screen reader takes it out (maintainer 2026-11-04: the ✕ gave way to a swipe and a sheet).
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performCustomAccessibilityActionWithLabel("Remove from the playlist")
         waitFor("The playlist is empty")
     }
 
@@ -1072,6 +1075,49 @@ class AndroidAppFlowTest {
         tap("Home")
         waitFor("NOW · PLAYING")
         check(has("NEXT") && has("Ep 1") && !has("Continue listening")) { screen().toString() }
+    }
+
+    /** Maintainer 2026-11-04: an entry of the playlist leaves it by a swipe and comes back with "Undo";
+     *  a long press has the rest. */
+    @Test
+    fun aPlaylistEntryIsSwipedAwayAndBack() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        tap("Home"); waitFor("Ep 1")
+        val queue = koin.get<space.sovereigncast.hopp.data.QueueRepository>()
+        fun queued() = kotlinx.coroutines.runBlocking { queue.items.first().map { it.title } }
+        val entry = hasText("Ep 1") and hasClickAction()
+        rule.onNode(entry).performTouchInput { swipeLeft() }
+        until { "Ep 1" !in queued() }
+        waitFor("Removed from the playlist")
+        tap("Undo")
+        until { "Ep 1" in queued() }
+        waitFor("Ep 1")
+        rule.onNode(entry).performTouchInput { longClick() }
+        waitFor("Go to the episode")
+        check(has("Play next") && has("Mark as played")) { screen().toString() }
+        tap("Remove from the playlist")
+        until { "Ep 1" !in queued() }
+    }
+
+    /** "Now" skipped from its long press: the next of the playlist plays (maintainer 2026-11-04). */
+    @Test
+    fun nowIsSkippedToTheNext() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        rule.onAllNodes(hasContentDescription("Play") and hasClickAction())[0].performClick()
+        until { engine().state.value.isPlaying }
+        tap("Home"); waitFor("NOW · PLAYING")
+        val playing = engine().state.value.itemId
+        rule.onNode(hasText("NOW · PLAYING") and hasClickAction()).performTouchInput { longClick() }
+        waitFor("Skip"); tap("Skip")
+        until { engine().state.value.itemId != playing && engine().state.value.isPlaying }
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        check(player.current.value?.item?.title == "Ep 1") { "plays ${player.current.value?.item?.title}" }
     }
 
     /** The round button in the row plays without opening the player. */

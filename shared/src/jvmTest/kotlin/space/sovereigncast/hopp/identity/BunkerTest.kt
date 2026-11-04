@@ -27,6 +27,7 @@ import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -59,7 +60,11 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
         relay.listeners += { e -> if (e.kind == 24133 && e.tag("p") == bunkerKeys.publicKeyHex) answer(e) }
     }
 
+    private val seen = mutableSetOf<String>()
+
     private fun answer(e: Event) {
+        // A request sent on several relays reaches the signer more than once: answered once, as by id.
+        if (!synchronized(seen) { seen.add(e.id) }) return
         val key = Nip44.conversationKey(bunkerKeys.secretKey, e.pubkey.hexToBytes())
         val o = Json.parseToJsonElement(Nip44.decrypt(e.content, key)).jsonObject
         val id = o["id"]!!.jsonPrimitive.content
@@ -152,8 +157,10 @@ class BunkerTest {
     @Test
     fun aBunkerEncryptsToTheListenerAndAKeyHereOpensIt() = runBlocking<Unit> {
         identities.signInWithBunker(bunker.address)
-        // Asked each time, never allowed for good (ADR 0021, 5): sync needs it once per device.
-        assertTrue("nip44" !in IdentityRepository.BUNKER_PERMS && "30078" !in IdentityRepository.BUNKER_PERMS)
+        // What makes the first sync key is allowed at sign-in (maintainer 2026-11-04); decryption never
+        // for good (ADR 0021, 5): a further device asks once to open the sync key.
+        assertTrue(IdentityRepository.BUNKER_PERMS.endsWith(",sign_event:30078,nip44_encrypt"), IdentityRepository.BUNKER_PERMS)
+        assertTrue("decrypt" !in IdentityRepository.BUNKER_PERMS)
         val signer = identities.signer()!!
         val sealed = signer.encryptToSelf("""{"v":1}""")
         assertEquals(listOf(bunker.userKeys.publicKeyHex, """{"v":1}"""), bunker.params[bunker.methods.lastIndexOf("nip44_encrypt")])
@@ -203,6 +210,26 @@ class BunkerTest {
         val address = bunker.address.replace("s3cret", "wrong")
         assertFailsWith<Nip46Exception> { identities.signInWithBunker(address) }
         assertNull(identities.identity.value)
+    }
+
+    /** Maintainer 2026-11-04: Hopp asked on the signer's first relay alone, and where the signer did not
+     *  listen there, no prompt came. A request goes on every relay of the signer at once. */
+    @Test
+    fun aRequestGoesOnEveryRelayOfTheSigner() = runBlocking<Unit> {
+        val elsewhere = FakeRelay()
+        val connector = RelayConnector { url -> if (url == "wss://quiet.test") elsewhere.connect(url) else relay.connect(url) }
+        val client = space.sovereigncast.hopp.nostr.Nip46Client(KeyPair.generate(), bunker.bunkerKeys.publicKeyHex, listOf("wss://quiet.test", "wss://relay.bunker.test"), connector, { now })
+        assertEquals(bunker.userKeys.publicKeyHex, withTimeout(5_000) { client.getPublicKey() })
+        assertEquals(listOf("get_public_key"), bunker.methods, "asked once, though on two relays")
+    }
+
+    /** A signer that never answers is said to be silent — not a cancellation nobody shows (2026-11-04). */
+    @Test
+    fun aSignerThatNeverAnswersIsSaidSo() = runBlocking<Unit> {
+        val elsewhere = FakeRelay()
+        val client = space.sovereigncast.hopp.nostr.Nip46Client(KeyPair.generate(), bunker.bunkerKeys.publicKeyHex, listOf("wss://quiet.test"),
+            RelayConnector { elsewhere.connect(it) }, { now }, timeout = 300.milliseconds)
+        assertFailsWith<space.sovereigncast.hopp.nostr.SignerNoAnswer> { client.getPublicKey() }
     }
 
     /** The signer wants a confirmation on its page first; the answer follows on the same id. */

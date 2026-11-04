@@ -30,9 +30,12 @@ internal class FakeSignerApp(val keys: KeyPair = KeyPair.generate()) : ExternalS
     }
     /** What the listener allowed for good; anything else would open the app. */
     var allowed = true
+    /** Asked with the listener there, it never answers — as a signer that does not listen. */
+    var silent = false
     override suspend fun nip44(signerPackage: String, encrypt: Boolean, text: String, peer: String, currentUser: String, interactive: Boolean): String {
         assertEquals(keys.publicKeyHex, currentUser)
         if (!allowed && !interactive) throw SignerNeedsListener()
+        if (silent) throw space.sovereigncast.hopp.nostr.SignerNoAnswer()
         if (reject) throw SignerRejected()
         requests += if (encrypt) "nip44_encrypt" else "nip44_decrypt"
         val key = Nip44.conversationKey(keys.secretKey, peer.hexToBytes())

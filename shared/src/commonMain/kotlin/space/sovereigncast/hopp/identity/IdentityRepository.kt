@@ -472,9 +472,9 @@ class IdentityRepository(
         private const val BUNKER_KEY = "nostr_bunker_client_key"
 
         /** What Hopp asks a remote signer to allow for good: NIP-98 for votes and suggestions,
-         *  since stage 3 comments, likes, the mute list and reports. Never encryption — see
-         *  [ExternalSigner.PERMISSIONS]. */
-        val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
+         *  since stage 3 comments, likes, the mute list and reports; since 2026-11-04 what makes the
+         *  first sync key. Never decryption — see [ExternalSigner.PERMISSIONS]. */
+        val BUNKER_PERMS = ExternalSigner.PERMISSIONS.joinToString(",") { p -> p.type + (p.kind?.let { ":$it" } ?: "") }
 
         /** Where Hopp waits for a signer that takes up a nostrconnect:// code — on all at once.
          *  Two that carry NIP-46 (2026-10-28: relay.nsec.app did not answer); each one more

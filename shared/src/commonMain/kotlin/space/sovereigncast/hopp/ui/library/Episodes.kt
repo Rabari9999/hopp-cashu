@@ -232,8 +232,12 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
             ReorderableItem {
                 // On the page's own ground; lifted only while dragged.
                 Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
-                    EpisodeRow(item, showPodcast = true, onClick = { onOpen(item) }) {
-                        PlayButton(item)
+                    // Opaque over what a swipe shows beneath it.
+                    PlaylistEntry(
+                        item, items.map { it.id }, onClick = onOpen, onOpen = onOpen,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+                        before = { PlayButton(item) },
+                    ) {
                         IconButton(onClick = {}, modifier = Modifier.draggableHandle().semantics { contentDescription = dragLabel }) {
                             Icon(HoppIcons.DragHandle, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -251,12 +255,15 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
 
 /**
  * The playlist after "Now" (ADR 0012), reorderable by dragging the handle. The order is
- * kept locally while dragging and written once the drag ends. [header] and [footer]: items
- * of their own around it — "Now" and the like — which stay where they are.
+ * kept locally while dragging and written once the drag ends. An entry leaves it by a swipe
+ * or from its actions ([PlaylistEntry]). [header] and [footer]: items of their own around
+ * it — "Now" and the like — which stay where they are. [onOpen]: the episode's page, where
+ * a tap does something else ([onPlay]).
  */
 @Composable
 fun QueueList(
-    items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
+    items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
+    onOpen: ((EpisodeItem) -> Unit)? = onPlay,
     header: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {}, footer: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {},
 ) {
     var order by remember { mutableStateOf(items) }
@@ -277,10 +284,10 @@ fun QueueList(
         items(order, key = { it.id }) { item ->
             ReorderableItem(reorderable, key = item.id) { dragging ->
                 Surface(tonalElevation = if (dragging) 4.dp else 0.dp) {
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
-                        IconButton(onClick = { onRemove(item) }) {
-                            Icon(Icons.Rounded.Close, stringResource(Res.string.queue_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    PlaylistEntry(
+                        item, items.map { it.id }, onClick = onPlay, onOpen = onOpen,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface,
+                    ) {
                         IconButton(
                             onClick = {},
                             modifier = Modifier.draggableHandle(onDragStopped = { onReorder(order.map { it.id }) })

@@ -23,6 +23,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Home:** On large screens in two columns: listening on the left, your shows on the right.
 - **Nostr:** Set your profile name and picture in Hopp; the picture goes up small and without its metadata.
 - **Settings:** "What's new" under About Hopp shows what each version brought – once after an update also as a line on Home.
+- **Playlist:** Swipe an episode away to take it out of the playlist, or press and hold it for more – skip, play next, mark as played, download.
 
 ### 🐛 Fixes
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
@@ -31,6 +32,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** Counts read right: "1 episode", not "1 episodes".
 - **Privacy:** The page also names Nostr contacts, donations, Hopp's sync relays, the image server and, in the browser, Hopp Web's server.
 - **App:** The side rail is wider, so long labels fit with room to spare.
+- **App:** Refreshing ends as soon as the feeds are in, no longer half a minute later.
+- **Sync:** With a signer connected by QR code, sync really asks it, and says when it does not answer; the first sync key needs no second confirmation.
 
 ## [0.3.2] - 2026-11-01
 

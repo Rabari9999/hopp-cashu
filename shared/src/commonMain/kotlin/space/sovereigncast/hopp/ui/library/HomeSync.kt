@@ -62,6 +62,8 @@ import space.sovereigncast.hopp.sync.RelayRound
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncManager
 import space.sovereigncast.hopp.sync.SyncKeyringNotKnown
+import space.sovereigncast.hopp.nostr.Nip46Exception
+import space.sovereigncast.hopp.nostr.SignerNoAnswer
 import space.sovereigncast.hopp.sync.SyncNotPublished
 import space.sovereigncast.hopp.sync.SyncNotReached
 import space.sovereigncast.hopp.sync.SyncOutcome
@@ -232,12 +234,17 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
             val inside = PaddingValues(horizontal = 12.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onSyncNow, enabled = !status.running, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
-                    FittingLine(stringResource(if (problem != null) Res.string.home_sync_retry else Res.string.sync_now), label, min = 11.sp)
+                    FittingLine(stringResource(when {
+                        problem?.isTheSigner() == true -> Res.string.sync_allow_now
+                        problem != null -> Res.string.home_sync_retry
+                        else -> Res.string.sync_now
+                    }), label, min = 11.sp)
                 }
                 OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
                     FittingLine(stringResource(Res.string.settings), label, min = 11.sp)
                 }
             }
+            if (problem?.isTheSigner() == true && !status.running) Text(stringResource(Res.string.sync_allow_hint), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             if (failing && status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             // A document the relays hold only in part (maintainer 2026-10-30: "Incomplete" for good): when Hopp
             // writes it anew by itself, and the way to have it done now, from what this device has.
@@ -488,6 +495,8 @@ internal fun problemLine(problem: SyncOutcome): String = when (problem) {
         is SyncKeyringNotKnown -> reach(e.answered, e.asked)
         is SyncNotPublished -> if (e.asked > 0) stringResource(Res.string.home_sync_short_taken, e.took, e.asked) else stringResource(Res.string.home_sync_short_failed)
         is SyncTooLarge -> stringResource(Res.string.home_sync_short_large)
+        is SignerNoAnswer -> stringResource(Res.string.home_sync_short_silent)
+        is Nip46Exception -> stringResource(Res.string.home_sync_short_refused)
         else -> stringResource(Res.string.home_sync_short_failed)
     }
     else -> stringResource(Res.string.home_sync_short_failed)

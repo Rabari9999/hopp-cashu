@@ -92,7 +92,8 @@ class SyncAuditTest {
         suspend fun record(key: String, v: String, deleted: Boolean = false) = store.record("test", key, JsonObject(mapOf("v" to JsonPrimitive(v))), deleted)
         /** The listener changes [key] here: in the app and in the store, as the repositories do. */
         suspend fun change(key: String, v: String) { ms += 1_000; doc.applied[key] = record(key, v) }
-        suspend fun syncKey() = keys.signer(interactive = false, create = false)?.pubkey
+        // Relays that do not answer whether there is a keyring: no key here either (2026-11-04).
+        suspend fun syncKey() = runCatching { keys.signer(interactive = false, create = false) }.getOrNull()?.pubkey
     }
 
     private fun Event.d() = tags.firstOrNull { it.size >= 2 && it[0] == "d" }?.get(1)

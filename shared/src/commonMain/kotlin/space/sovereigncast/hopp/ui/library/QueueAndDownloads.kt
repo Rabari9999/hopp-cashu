@@ -63,7 +63,7 @@ fun QueueScreen(vm: QueueViewModel = koinViewModel()) {
     val count = list.size + (if (now != null) 1 else 0)
     val left = playlistLeftMs(now, null, list)
     QueueList(
-        list, onPlay = nav.open, onRemove = vm::remove, onReorder = vm::reorder,
+        list, onPlay = nav.open, onReorder = vm::reorder,
         header = {
             item(key = "summary") {
                 Text(
@@ -72,7 +72,7 @@ fun QueueScreen(vm: QueueViewModel = koinViewModel()) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            now?.let { n -> item(key = "now") { PlaylistNowCard(n, nav.open) } }
+            now?.let { n -> item(key = "now") { PlaylistNowCard(n, nav.open, hasNext = list.isNotEmpty()) } }
             if (now != null && list.isNotEmpty()) item(key = "after") { PlaylistAfterLabel() }
         },
         footer = {

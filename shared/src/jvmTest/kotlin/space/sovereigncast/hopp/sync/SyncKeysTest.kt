@@ -234,6 +234,29 @@ class SyncKeysTest {
         assertEquals(setOf("show-a", "show-b"), tablet.doc.applied.keys)
     }
 
+    /** Maintainer 2026-11-04: the signer stayed silent for the listener's own round, and the next round in the
+     *  background said "your signer has to allow it" over that — while nothing ever came in the signer. */
+    @Test
+    fun theSignersSilenceIsNotWrittenOverInTheBackground() = runBlocking<Unit> {
+        val app = FakeSignerApp()
+        val phone = Device(app)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val tabletApp = FakeSignerApp(app.keys).apply { allowed = false; silent = true }
+        val tablet = Device(tabletApp)
+        tablet.sync.enable()
+        val failed = assertIs<SyncOutcome.Failed>(tablet.sync.status.value.problem)
+        assertIs<space.sovereigncast.hopp.nostr.SignerNoAnswer>(failed.error)
+        tablet.ms += 2 * 60_000
+        tablet.sync.syncNow()
+        assertEquals(failed, tablet.sync.status.value.problem)
+        // The listener's own round again, the signer answering: through.
+        tabletApp.silent = false
+        tablet.sync.syncNow(interactive = true)
+        assertNull(tablet.sync.status.value.problem)
+        assertEquals(setOf("show-a"), tablet.doc.applied.keys)
+    }
+
     @Test
     fun aRenewalTheSignerRefusesChangesNothing() = runBlocking<Unit> {
         val app = FakeSignerApp()

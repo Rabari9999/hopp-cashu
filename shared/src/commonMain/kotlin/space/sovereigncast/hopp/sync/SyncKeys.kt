@@ -138,12 +138,13 @@ class SyncKeys(
             }
             // None found, but this device has the key: a relay that lost it is no reason to change it — it gets it again.
             held != null -> { confirm(me.pubkey, held, held.event?.let(::parse), urls); held.key }
-            !create -> return null
             // Made only when a majority of the write relays answered to the end without one (H-01, MN-08): a
             // keyring is out only once a majority took it, so a majority that answers would have shown it.
             // A majority of the listener's own relays too: a keyring made before Hopp's relays held sync is on
-            // theirs alone, and Hopp's answering without it says nothing (2026-11-02).
+            // theirs alone, and Hopp's answering without it says nothing (2026-11-02). Asked before [create]:
+            // relays that did not answer are no signer to wait for (2026-11-04).
             found.asked == 0 || found.answered * 2 <= found.asked || !found.majorityOf(identity.writeRelays()) -> throw SyncKeyringNotKnown(found.answered, found.asked)
+            !create -> return null
             else -> make(me.pubkey, interactive, urls)
         }
         checkedAtMs = now
