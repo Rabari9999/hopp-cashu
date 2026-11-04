@@ -130,25 +130,38 @@ class QueueRepository(
 
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) { qq.remove(episodeId); note(listOf(episodeId)) }
 
-    /** Out of the playlist, and the order it was in — to [putBack] it (maintainer 2026-11-04). */
-    suspend fun removeKeepingOrder(episodeId: Long): List<Long> = withContext(ioDispatcher) {
-        val before = db.transactionWithResult { qq.selectAll().awaitAsList().also { qq.remove(episodeId) } }
+    /** An entry taken out of the playlist: the order it was in and its place there — to [putBack] it. */
+    class Taken(val order: List<Long>, val place: Long?)
+
+    /** Out of the playlist, remembering where it was (maintainer 2026-11-04). */
+    suspend fun removeKeepingOrder(episodeId: Long): Taken = withContext(ioDispatcher) {
+        val taken = db.transactionWithResult {
+            val place = qq.selectKeys().awaitAsList().firstOrNull { it.episode_id == episodeId }?.sort_key
+            Taken(qq.selectAll().awaitAsList(), place).also { qq.remove(episodeId) }
+        }
         note(listOf(episodeId))
-        before
+        taken
     }
 
     /**
-     * [episodeId] back where it was in [before] ("Undo"; maintainer 2026-11-04: it came back at the end).
-     * What went since stays out; what came since keeps its place after the rest.
+     * [episodeId] back where it was ("Undo"; maintainer 2026-11-04: it came back at the end) — on its own
+     * place while no other took it, so sync has nothing to send; else the order it was in again, what
+     * went since staying out and what came since after the rest.
      */
-    suspend fun putBack(episodeId: Long, before: List<Long>) = withContext(ioDispatcher) {
-        val order = db.transactionWithResult {
-            val now = qq.selectAll().awaitAsList()
-            if (episodeId in now) return@transactionWithResult emptyList()
-            (before.filter { it == episodeId || it in now } + now.filter { it !in before })
-                .also { all -> all.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
+    suspend fun putBack(episodeId: Long, taken: Taken) = withContext(ioDispatcher) {
+        val changed = db.transactionWithResult {
+            val keys = qq.selectKeys().awaitAsList().associate { it.episode_id to it.sort_key }
+            when {
+                episodeId in keys -> emptyList()
+                taken.place != null && taken.place !in keys.values -> { qq.put(episodeId, taken.place); listOf(episodeId) }
+                else -> {
+                    val now = qq.selectAll().awaitAsList()
+                    (taken.order.filter { it == episodeId || it in now } + now.filter { it !in taken.order })
+                        .also { all -> all.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
+                }
+            }
         }
-        note(order)
+        note(changed)
     }
 
     /** Everything out of the playlist at once — the episodes keep their progress. */
@@ -174,10 +187,24 @@ class QueueRepository(
         note(adopt.map { it.id })
     }
 
-    /** The whole order at once, as the list looks after a drag. */
+    /**
+     * The whole order at once, as the list looks after a drag. The places these episodes had are given
+     * out anew in the new order, and only an episode whose place changed is noted: one moved and moved
+     * back has its own place again, and sync has nothing to send (maintainer 2026-11-04). Places shared
+     * or missing: numbered 0, 1, 2 … as before.
+     */
     suspend fun reorder(episodeIds: List<Long>) = withContext(ioDispatcher) {
-        db.transaction { episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
-        note(episodeIds)
+        val moved = db.transactionWithResult {
+            val keys = qq.selectKeys().awaitAsList().associate { it.episode_id to it.sort_key }
+            val places = episodeIds.mapNotNull { keys[it] }.sorted()
+            if (places.size == episodeIds.size && places.toSet().size == places.size) {
+                episodeIds.zip(places).filter { (id, place) -> keys[id] != place }.onEach { (id, place) -> qq.put(id, place) }.map { it.first }
+            } else {
+                episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) }
+                episodeIds
+            }
+        }
+        note(moved)
     }
 
     /** Takes the first one off the queue. */

@@ -261,8 +261,8 @@ class EpisodeActionsViewModel(
     /** Out of the playlist, and back where it was when [undo] says so (maintainer 2026-11-04) — here, not
      *  in the row, which is gone by then. */
     fun removeFromQueue(item: EpisodeItem, undo: suspend () -> Boolean) = viewModelScope.launch {
-        val before = queue.removeKeepingOrder(item.id)
-        if (undo()) queue.putBack(item.id, before)
+        val taken = queue.removeKeepingOrder(item.id)
+        if (undo()) queue.putBack(item.id, taken)
     }
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }

@@ -33,6 +33,7 @@ internal class SyncDevice(
     relay: space.sovereigncast.hopp.nostr.RelayConnector, scope: CoroutineScope, nsec: String, var offline: Boolean = false,
     val db: HoppDatabase = testDatabase(),
     val secrets: MemorySecretStore = MemorySecretStore(),
+    publishDelay: kotlin.time.Duration = 1.hours,
 ) {
     var ms = 1_790_000_000_000L
     /** The episode playing here, as the player would say. */
@@ -67,7 +68,7 @@ internal class SyncDevice(
             QueueDocument(db, queue),
             StatsDocument(db, listening) { ms },
         )
-    }, { ms }, publishDelay = 1.hours)
+    }, { ms }, publishDelay = publishDelay)
 
     suspend fun urls() = db.podcastQueries.selectAll().awaitAsList().map { it.feed_url }.toSet()
     suspend fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).awaitAsOne()

@@ -285,7 +285,13 @@ class SyncManager(
         // A position joins whatever round is coming and never puts one off.
         if (!urgent && pending?.isActive == true) return
         pending?.cancel()
-        pending = scope.launch { delay(if (urgent) publishDelay else PROGRESS_EVERY); syncNow() }
+        pending = scope.launch {
+            delay(if (urgent) publishDelay else PROGRESS_EVERY)
+            // Taken back meanwhile — a section hidden and shown again: nothing to send, so no round and
+            // no relay asked (maintainer 2026-11-04). The other devices' changes come with the next one.
+            if (documents().none { engine.unpublished(it) }) return@launch
+            syncNow()
+        }
     }
 
     /** Hopp goes to the background: what is not out yet goes now. */

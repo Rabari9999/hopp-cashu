@@ -766,6 +766,20 @@ on without a second prompt. `nip44_decrypt` stays asked each time (amendment
 of 2026-10-21): each further device asks once to open the keyring. Tests:
 `BunkerTest`, `SyncKeysTest`, `IdentityTest`, `AndroidExternalSignerTest`.
 
+**Amendment 2026-11-04 (maintainer): a change taken back is no change.** A
+section hidden and shown again, an episode moved in the playlist and moved
+back, one taken out and put back with "Undo": each was a change noted for
+sync, and ten seconds later a round read every document from every relay and
+sent what was noted. Since then the store keeps, for an entry waiting to go
+out, the version the relays hold (`sync_entry.relay_*`, schema version 24); a
+change back to it makes the entry that version again — with its own time, so
+a real change made meanwhile on another device still wins — and nothing waits.
+A round after a change runs only while something waits; the other devices'
+changes come with the rounds at the start and at a refresh. Reordering the
+playlist hands the places its episodes had out anew in the new order and notes
+only those whose place changed; "Undo" puts an episode back on its own place.
+Tests: `TakenBackTest`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode

@@ -34,6 +34,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Die Seitenleiste ist breiter, lange Namen passen mit Luft hinein.
 - **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
 - **Sync:** Mit einem per QR-Code verbundenen Signer fragt der Abgleich ihn wirklich und sagt, wenn keine Antwort kommt; der erste Sync-Schlüssel braucht keine zweite Bestätigung.
+- **Sync:** Eine Änderung, die du gleich wieder zurücknimmst – ein Bereich aus- und wieder eingeblendet, eine Folge hin- und zurückgeschoben –, geht nicht mehr an die Relays.
 
 ## [0.3.2] - 2026-11-01
 
