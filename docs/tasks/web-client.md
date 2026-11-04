@@ -100,7 +100,7 @@ How to run and check it: [web/README.md](../../web/README.md).
       deleted at the next start.
 - [x] Link preview (Open Graph, English) and Hopp's icon in the tab, on the
       home screen and in a web manifest (2026-10-30).
-- [x] WebKit in the browser checks (2026-11-01, branch `0.3.3`):
+- [x] WebKit in the browser checks (2026-11-01, branch `0.4.0`):
       `node run.mjs --webkit`, each browser with a profile on disk (WebKit
       gives a throwaway context no OPFS, and Hopp ran on a database in memory
       there). All 27 checks pass, with sync 29, against
@@ -133,7 +133,7 @@ Hosting on `play.sovereigncast.space` with own headers, imprint and privacy
 policy, the signed hash of the web build, comments and boosts (W3), Umbrel
 (W4), NWC in the web (W5).
 
-## Stage W3 (0.3.3)
+## Stage W3 (0.4.0)
 
 - [x] **WebLN** (2026-11-01, ADR 0022, 13): the browser's wallet as a second
       kind of wallet behind `WalletClient` — boosts, streaming sats, zaps
@@ -146,7 +146,7 @@ policy, the signed hash of the web build, comments and boosts (W3), Umbrel
       streaming sats, a zap. Streaming works (maintainer 2026-11-02, the
       local build over the LAN); boost and zap with the next round.
 
-## The build's hash, its signature, the service worker (0.3.3)
+## The build's hash, its signature, the service worker (0.4.0)
 
 - [x] `release.json`, `sign.mjs`, `verify.mjs`, CI job `web-verify`
       (2026-11-02, ADR 0022, 14).

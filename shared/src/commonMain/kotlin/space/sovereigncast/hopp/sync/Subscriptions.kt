@@ -64,7 +64,7 @@ object SyncDocs {
 
     /**
      * [listenedSeconds]: when it was last played, for one heard — listened to, not only marked heard, so
-     * the other device lists it under "Recently played" too (maintainer 2026-11-02). Hopp before 0.3.3
+     * the other device lists it under "Recently played" too (maintainer 2026-11-02). Hopp before 0.4.0
      * passes over it; an entry without it is marked heard, as before.
      */
     fun progress(show: String, guid: String, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null): JsonObject = buildJsonObject {

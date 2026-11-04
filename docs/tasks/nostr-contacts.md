@@ -1,7 +1,7 @@
 # What your Nostr contacts listen to
 
-- **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.3.3.
-- **Status:** stages 1–5 built (2026-11-02, branch `0.3.3`); zaps and follows of a show's npub left.
+- **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.4.0.
+- **Status:** stages 1–5 built (2026-11-02, branch `0.4.0`); zaps and follows of a show's npub left.
 
 Only with a Nostr identity: without one, nothing of it is shown or done.
 

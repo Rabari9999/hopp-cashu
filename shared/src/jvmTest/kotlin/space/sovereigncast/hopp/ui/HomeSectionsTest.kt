@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 
 /** The order of Home's sections (device feedback 2026-10-13). */
 class HomeSectionsTest {
-    /** Since 0.3.3 taking part on top, always (maintainer 2026-11-03), then the playlist — what plays and what
+    /** Since 0.4.0 taking part on top, always (maintainer 2026-11-03), then the playlist — what plays and what
      *  comes next (Dennis, 2026-11-02 and -03). */
     @Test
     fun hoppsOwnOrderPutsTakingPartFirstThenThePlaylist() {
@@ -32,7 +32,7 @@ class HomeSectionsTest {
     fun thePlaylistTakesContinuesPlace() {
         assertEquals(listOf(RECENT, NEW, QUEUE, YOUR_SHOWS, TAKE_PART, FAVORITES, BOOSTED),
             HomeSections.order(listOf(RECENT, NEW, CONTINUE, YOUR_SHOWS, TAKE_PART, QUEUE, FAVORITES, BOOSTED)))
-        // Hopp's order before 0.3.3, kept for who had it.
+        // Hopp's order before 0.4.0, kept for who had it.
         assertEquals(listOf(TAKE_PART, YOUR_SHOWS, QUEUE, NEW, FAVORITES, BOOSTED, RECENT), HomeSections.order(HomeSections.before033))
     }
 

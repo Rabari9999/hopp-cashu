@@ -1,7 +1,7 @@
 # ADR 0016 — Languages and accessibility
 
 - **Status:** accepted; amended 2026-11-02 (maintainer): Spanish as a draft in
-  0.3.3, and the preparation for many languages
+  0.4.0, and the preparation for many languages
 - **Date:** 2026-10-07, amended 2026-11-02
 
 ## Decision
@@ -23,7 +23,7 @@
 
 ### Amendment 2026-11-02: Spanish, and room for many languages
 
-- **Spanish ships in 0.3.3 as a draft** (maintainer): translated in full from
+- **Spanish ships in 0.4.0 as a draft** (maintainer): translated in full from
   English with the German as reference, to be read by a native speaker before
   it is announced. Its open points are listed in `docs/translations.md`.
 - **One list of languages:** `Languages.kt` names each language with its own

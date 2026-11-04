@@ -3,7 +3,7 @@
 - **Status:** accepted by the maintainer 2026-11-01 (sealed sharing, the
   public contacts note, two switches); revised 2026-11-02 (maintainer): the
   wording, public signals — built
-  on branch `0.3.3` the same day (`docs/tasks/nostr-contacts.md`); zaps and
+  on branch `0.4.0` the same day (`docs/tasks/nostr-contacts.md`); zaps and
   follows of a show's npub not yet
 - **Date:** 2026-11-01, revised 2026-11-02
 

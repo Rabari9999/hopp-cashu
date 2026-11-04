@@ -78,7 +78,7 @@ data class Settings(
     /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own
      *  (device feedback 2026-10-13). */
     val homeOrder: List<String> = emptyList(),
-    /** Home's new order of 0.3.3 was looked at once: who had Hopp's old one keeps it (maintainer 2026-11-02). */
+    /** Home's new order of 0.4.0 was looked at once: who had Hopp's old one keeps it (maintainer 2026-11-02). */
     val homeOrder033: Boolean = false,
     /** The "What's new" a line on Home last pointed to — [space.sovereigncast.hopp.data.Changelog.Release.seenKey];
      *  this device's, as the version installed is (maintainer 2026-11-03). */

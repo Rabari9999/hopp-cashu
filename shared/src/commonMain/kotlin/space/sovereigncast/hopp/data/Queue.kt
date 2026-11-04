@@ -60,7 +60,7 @@ class QueueRepository(
     }
 
     /**
-     * What is in "Up next" here and sync knows nothing of — put there by a finished download before 0.3.3,
+     * What is in "Up next" here and sync knows nothing of — put there by a finished download before 0.4.0,
      * which was never noted (maintainer 2026-11-03) — noted now, as of the episode's release, so a change
      * made since on another device still wins. Once per start; nothing to do after the first.
      */

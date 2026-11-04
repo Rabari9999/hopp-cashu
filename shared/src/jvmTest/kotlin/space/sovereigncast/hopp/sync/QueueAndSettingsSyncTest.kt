@@ -128,7 +128,7 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(x), phone.queueGuids())
     }
 
-    /** What a finished download put in "Up next" before 0.3.3 was never synced: noted at the next start. */
+    /** What a finished download put in "Up next" before 0.4.0 was never synced: noted at the next start. */
     @Test
     fun whatADownloadPutInUpNextBeforeGoesOutAtTheNextStart() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)

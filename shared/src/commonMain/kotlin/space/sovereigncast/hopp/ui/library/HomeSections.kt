@@ -76,7 +76,7 @@ object HomeSections {
     const val RECENT = "recent"
     const val QUEUE = "queue"
 
-    /** Hopp's own order since 0.3.3: what to take part in on top, always (maintainer 2026-11-03), then
+    /** Hopp's own order since 0.4.0: what to take part in on top, always (maintainer 2026-11-03), then
      *  listening — the playlist: what plays and what comes next (Dennis, 2026-11-02 and -03) — what is
      *  new, the shows, what was heard last. */
     val default = listOf(TAKE_PART, QUEUE, NEW, YOUR_SHOWS, FAVORITES, BOOSTED, RECENT)
@@ -86,7 +86,7 @@ object HomeSections {
     /** From this width Home is two columns. */
     val TWO_COLUMNS = 1000.dp
 
-    /** Hopp's own order before 0.3.3: kept for a listener who had it, "Up next" put in after "Continue". */
+    /** Hopp's own order before 0.4.0: kept for a listener who had it, "Up next" put in after "Continue". */
     val before033 = listOf(TAKE_PART, YOUR_SHOWS, CONTINUE, NEW, FAVORITES, BOOSTED, RECENT)
 
     val titles: Map<String, StringResource> = mapOf(

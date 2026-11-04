@@ -332,7 +332,7 @@ class ProgressSyncTest {
         phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
         phone.ms += 60_000
         phone.episodes.setPlayed(phone.episode(feed, a).id, true)
-        // As Hopp before 0.3.3 wrote it: heard, without when it was played.
+        // As Hopp before 0.4.0 wrote it: heard, without when it was played.
         val show = SyncDocs.showKey(phone.row(feed).podcast_guid, feed)
         val playedAt = phone.episode(feed, a).played_at!!
         phone.journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, a), SyncDocs.progress(show, a, 0, true, playedAt))

@@ -70,10 +70,10 @@ class ChangelogTest {
 
     @Test
     fun theTourOfANewInstallMarksWhatIsNewAsSeen() {
-        val fresh = Settings().doneTour("0.3.3:16")
-        assertEquals("0.3.3:16", fresh.whatsNewSeen)
+        val fresh = Settings().doneTour("0.4.0:16")
+        assertEquals("0.4.0:16", fresh.whatsNewSeen)
         // An update keeps what was seen: the line shows once.
-        val updated = Settings(onboardingDone = true).doneTour("0.3.3:16")
+        val updated = Settings(onboardingDone = true).doneTour("0.4.0:16")
         assertEquals("", updated.whatsNewSeen)
     }
 }

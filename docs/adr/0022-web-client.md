@@ -344,9 +344,9 @@ The preparation in `shared` and stage W2 were built on branch `0.3.2`
   `worker-src blob:` for Coil's image decoder, `img-src https:` for the
   Media Session's cover.
 
-### 13. Built: stage W3, WebLN (2026-11-01, branch `0.3.3`)
+### 13. Built: stage W3, WebLN (2026-11-01, branch `0.4.0`)
 
-The order of 0.3.3 (maintainer, 2026-11-01): WebKit in the browser checks,
+The order of 0.4.0 (maintainer, 2026-11-01): WebKit in the browser checks,
 then W3, then the service worker and the signed build (§7), then testing.
 
 - **The browser's wallet is a second kind of wallet**, not a second payment
@@ -376,7 +376,7 @@ then W3, then the service worker and the signed build (§7), then testing.
   (WebKit, where Playwright's interception breaks `blob:` loads).
 - **No QR boost** (maintainer 2026-11-02, §4): W3 is done with WebLN.
 
-### 14. Built: the build's hash, its signature, the service worker (2026-11-02, branch `0.3.3`)
+### 14. Built: the build's hash, its signature, the service worker (2026-11-02, branch `0.4.0`)
 
 Asked by the maintainer the same day, after §7 was found not to hold: the
 hash also shown in Hopp, compared with the signature there.
@@ -400,7 +400,7 @@ hash also shown in Hopp, compared with the signature there.
   matches the list — one that does not is never offered — keeps it in Cache
   Storage with the server's headers (the CSP among them), and serves the
   page from it. The first build takes the page at once; a later one waits
-  and Hopp says "Hopp 0.3.3 is ready — Reload"; it takes over only then.
+  and Hopp says "Hopp 0.4.0 is ready — Reload"; it takes over only then.
   A tab open for long asks for one every hour. Hopp starts without a
   network. Only the tab that holds Hopp registers it.
 - **In Hopp:** Settings → About shows the build's hash and whether it is the

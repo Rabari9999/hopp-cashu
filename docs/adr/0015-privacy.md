@@ -75,7 +75,7 @@ the backup rules. Downloaded episodes are excluded too (large, re-downloadable).
 The listener's payment history therefore can reach Google's or Apple's backup;
 the "who sees what" page says so.
 
-### Amendment 2026-11-03: the parties of 0.3.3
+### Amendment 2026-11-03: the parties of 0.4.0
 
 The "who sees what" page names, besides the parties above: the listener's
 mutual Nostr contacts (what is shared with them, ADR 0024), the relays of

@@ -1,6 +1,6 @@
 # Translations
 
-Hopp speaks English, German and — as a draft since 0.3.3 — Spanish (ADR 0016).
+Hopp speaks English, German and — as a draft since 0.4.0 — Spanish (ADR 0016).
 
 ## Adding a language
 

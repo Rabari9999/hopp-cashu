@@ -419,7 +419,7 @@ class AndroidAppFlowTest {
         menuOf(1); waitFor("Play next"); tap("Play next")
         // On Home too, right there (Dennis, maintainer 2026-11-02).
         tap("Home"); waitFor("Playlist")
-        // In the library itself since 0.3.3 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
+        // In the library itself since 0.4.0 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
         tap("Library"); waitFor("Playlist"); waitFor("Ep 1")
         tap("All 1 ›"); waitFor("Ep 1")
         rule.onNode(hasContentDescription("Remove from the playlist")).performClick()

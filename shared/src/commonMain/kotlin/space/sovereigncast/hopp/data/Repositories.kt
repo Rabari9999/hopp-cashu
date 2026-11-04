@@ -578,7 +578,7 @@ class EpisodeRepository(
      */
     /**
      * "Recently played" said again where sync does not say yet that it was listened to (maintainer
-     * 2026-11-03): heard before 0.3.3, the entries had no `listened`, and the other devices kept the
+     * 2026-11-03): heard before 0.4.0, the entries had no `listened`, and the other devices kept the
      * episode out of the section. Once per start; an entry that says it already is left alone, so
      * after one round nothing goes out again. As of when it was heard, so the order stays.
      */

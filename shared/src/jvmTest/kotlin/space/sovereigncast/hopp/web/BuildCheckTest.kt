@@ -14,7 +14,7 @@ import kotlin.test.assertIs
 class BuildCheckTest {
     private val nodesignal = KeyPair.generate()
     private val relay = FakeRelay()
-    private val build = WebBuild("v0.3.3", "ab".repeat(32))
+    private val build = WebBuild("v0.4.0", "ab".repeat(32))
     private fun check(connector: RelayConnector = relay) =
         BuildCheck(RelayPublisher(connector), listOf("wss://relay.test"), { build }, signer = nodesignal.publicKeyHex)
     private fun sign(keys: KeyPair, version: String, hash: String, at: Long = 1_780_000_000) = Event.sign(
@@ -24,20 +24,20 @@ class BuildCheckTest {
 
     @Test
     fun theBuildNodesignalSignedIsSaidToMatch(): Unit = runBlocking {
-        val event = sign(nodesignal, "v0.3.3", build.hash)
+        val event = sign(nodesignal, "v0.4.0", build.hash)
         assertEquals(BuildStatus.Signed(event.id), check().status(build))
     }
 
     @Test
     fun anotherBuildUnderTheSameVersionDiffers(): Unit = runBlocking {
-        sign(nodesignal, "v0.3.3", "cd".repeat(32))
+        sign(nodesignal, "v0.4.0", "cd".repeat(32))
         assertEquals(BuildStatus.Differs("cd".repeat(32)), check().status(build))
     }
 
     /** Anyone can publish such an event: only Nodesignal's key counts. */
     @Test
     fun aSignatureBySomeoneElseCountsForNothing(): Unit = runBlocking {
-        sign(KeyPair.generate(), "v0.3.3", build.hash)
+        sign(KeyPair.generate(), "v0.4.0", build.hash)
         sign(nodesignal, "v0.3.2", "ef".repeat(32))
         assertEquals(BuildStatus.Unsigned, check().status(build))
     }

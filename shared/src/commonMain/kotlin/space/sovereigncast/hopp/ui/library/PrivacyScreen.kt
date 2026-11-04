@@ -106,7 +106,7 @@ private val PARTIES = listOf(
     // Zaps on comments (device feedback 2026-10-19).
     Party(Res.string.pv_zap_who, Res.string.pv_zap_sees, Res.string.pv_zap_when, Res.string.pv_zap_tip, Res.string.pv_zap_title, Res.string.pv_zap_line),
     Party(Res.string.pv_nostr_who, Res.string.pv_nostr_sees, Res.string.pv_nostr_when, Res.string.pv_nostr_tip, Res.string.pv_nostr_title, Res.string.pv_nostr_line),
-    // Since 0.3.3: who sees a shared list (ADR 0024), and where a profile picture goes (maintainer 2026-11-03).
+    // Since 0.4.0: who sees a shared list (ADR 0024), and where a profile picture goes (maintainer 2026-11-03).
     Party(Res.string.pv_contacts_who, Res.string.pv_contacts_sees, Res.string.pv_contacts_when, Res.string.pv_contacts_tip, Res.string.pv_contacts_title, Res.string.pv_contacts_line),
     Party(Res.string.pv_blossom_who, Res.string.pv_blossom_sees, Res.string.pv_blossom_when, Res.string.pv_blossom_tip, Res.string.pv_blossom_title, Res.string.pv_blossom_line),
     Party(Res.string.pv_extra_who, Res.string.pv_extra_sees, Res.string.pv_extra_when, Res.string.pv_extra_tip, Res.string.pv_extra_title, Res.string.pv_extra_line),

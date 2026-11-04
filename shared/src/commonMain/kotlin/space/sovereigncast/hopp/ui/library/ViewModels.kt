@@ -89,7 +89,7 @@ class HomeViewModel(
         viewModelScope.launch { runCatching { episodes.fillEnclosureLengths() } }
         viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().drop(1).collectLatest { sc.verifyAll() } }
         viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().drop(1).collectLatest { sc.refresh() } }
-        // Home's order changed with 0.3.3: who had Hopp's before keeps it, "Up next" after "Continue" (maintainer 2026-11-02).
+        // Home's order changed with 0.4.0: who had Hopp's before keeps it, "Up next" after "Continue" (maintainer 2026-11-02).
         viewModelScope.launch {
             settings.update { s ->
                 when {

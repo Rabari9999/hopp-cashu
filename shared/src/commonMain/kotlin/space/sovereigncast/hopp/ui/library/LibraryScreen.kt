@@ -110,7 +110,7 @@ import space.sovereigncast.hopp.resources.tags_hint
 import space.sovereigncast.hopp.resources.tags_add_chip
 import space.sovereigncast.hopp.resources.tag_edit
 
-/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.3.3 up next and the
+/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.4.0 up next and the
  *  downloads each a section that folds, as on Home, right there (Dennis, maintainer 2026-11-02:
  *  two taps to the list he cares most about). The shows are what the library is for and never
  *  fold (maintainer 2026-11-03). "Continue listening" moved to Home. */

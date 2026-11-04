@@ -1,7 +1,7 @@
 // Hopp Web's service worker (ADR 0022, 14). It keeps one build of Hopp — every file of
 // release.json, each checked against its SHA-256 there — and serves the page from it: Hopp starts
 // fast and without a network, and a new build takes over only when the listener says so ("Hopp
-// 0.3.3 is ready — reload"), never in the middle of listening, never half of one build and half
+// 0.4.0 is ready — reload"), never in the middle of listening, never half of one build and half
 // of another.
 //
 // What it is not: protection against the server. The browser fetches this file from the server

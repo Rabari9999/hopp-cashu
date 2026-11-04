@@ -25,7 +25,7 @@ data class Language(
  */
 object Languages {
     val all = listOf(
-        // English as Hopp has written it so far: a decimal point, dates with dots (as before 0.3.3).
+        // English as Hopp has written it so far: a decimal point, dates with dots (as before 0.4.0).
         Language("en", "English", decimal = '.', grouping = ',', dateSeparator = '.',
             otherTab = "Hopp is open in another tab." to "Close it, or switch to it."),
         Language("de", "Deutsch", decimal = ',', grouping = '.', dateSeparator = '.',
