@@ -20,13 +20,15 @@ build, English and German.
 2. `setup.yaml` — Nodesignal and the shows its podroll recommends, and
    Nodesignal's own playback (1.3×, intro 30 s) (English UI):
    `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta devicetests/store/setup.yaml`
-   Then `listen.yaml` plays an episode of three shows in turn, for the
+   Then `listen.yaml` plays an episode of three shows in turn — each show opened through
+   Discover's search and the episode through the show's own (since 0.4.0 the library's playlist and
+   downloads name the shows above them), for the
    stats and the playlist — Nodesignal's E298 last, the player's
    picture; each left playing a few minutes, then paused with
    `adb shell input keyevent KEYCODE_MEDIA_PAUSE`:
    ```bash
-   maestro … -e SHOW="Sound Money Bitcoin Podcast" -e EPISODE="#[0-9]+ .*" -e QUERY="" devicetests/store/listen.yaml       # 5 min
-   maestro … -e SHOW="Münzweg - der Bitcoin-Podcast" -e EPISODE="Münzweg #[0-9]+.*" -e QUERY="" devicetests/store/listen.yaml  # 6 min
+   maestro … -e SHOW="Sound Money Bitcoin Podcast" -e EPISODE="#350 .*" -e QUERY="#350" devicetests/store/listen.yaml       # 5 min
+   maestro … -e SHOW="Münzweg - der Bitcoin-Podcast" -e EPISODE="Münzweg #[0-9]+.*" -e QUERY="Münzweg #" devicetests/store/listen.yaml  # 6 min
    maestro … -e SHOW="Nodesignal - Deine Bitcoin-Frequenz" -e EPISODE="Nodesignal-Talk - E298.*" -e QUERY="E298" devicetests/store/listen.yaml  # 10 min
    ```
 3. Phone only: connect a wallet by hand (Settings → Wallet), one with little

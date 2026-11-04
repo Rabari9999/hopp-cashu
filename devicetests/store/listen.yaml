@@ -6,18 +6,32 @@ appId: ${APP_ID}
 name: Store listening
 ---
 - launchApp
-- tapOn: "Library"
+# The show through Discover's search: in the library the playlist above the shows names the show on
+# each of its episodes (store screenshots 2026-11-04).
+- tapOn: "Discover"
 - runFlow:
     when:
-      notVisible: "Playlist"
+      visible: "Cancel"
     commands:
-      - tapOn: "Library"
-- scrollUntilVisible:
-    element: ${SHOW}
-- tapOn: ${SHOW}
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: ${SHOW}
+- pressKey: Enter
+# The second match: the first is the search field itself, which holds the name now.
+- extendedWaitUntil:
+    visible:
+      text: ${SHOW}
+      index: 1
+    timeout: 30000
+- tapOn:
+    text: ${SHOW}
+    index: 1
 - extendedWaitUntil:
     visible: ".*Subscribed.*"
     timeout: 15000
+# From the search a show opens as its preview, whose episodes open nothing; "✓ Subscribed" opens the show.
+- tapOn: ".*Subscribed.*"
+- waitForAnimationToEnd
 - runFlow:
     when:
       true: ${QUERY != ""}
