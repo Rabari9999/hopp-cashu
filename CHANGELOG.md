@@ -36,6 +36,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** With a signer connected by QR code, sync really asks it, and says when it does not answer; the first sync key needs no second confirmation.
 - **Sync:** A change you take back right away – a section hidden and shown again, an episode moved and moved back – no longer goes to the relays.
 - **App:** On a phone on its side the side rail makes room for the camera, so its labels no longer break.
+- **Statistics:** The listening time in days shows from a tenth of a day, no longer as "0.0 days".
 
 ## [0.3.2] - 2026-11-01
 

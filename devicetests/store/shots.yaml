@@ -25,11 +25,8 @@ name: Store screenshots
     text: "(Play|Abspielen|Continue|Weiterhören).*"
     above: "(Show notes|Shownotes)"
 - waitForAnimationToEnd
-- runFlow:
-    when:
-      visible: ".* / 1:32:3\\d"
-    commands:
-      - tapOn: ".* / 1:32:3\\d"
+# The phone's mini player by its time, a large screen's player bar by "Open the player" (2026-11-04).
+- runFlow: ../flows/common/open-player.yaml
 - extendedWaitUntil:
     visible: "Boost"
     timeout: 15000
@@ -91,7 +88,10 @@ name: Store screenshots
 - tapOn: "(Library|Bibliothek)"
 - waitForAnimationToEnd
 - takeScreenshot: 4-library
-# By its author: the playlist above the shows names the show on each of its episodes.
+# By its author: the playlist above the shows names the show on each of its episodes. Below the
+# playlist and the downloads, scrolled to first.
+- scrollUntilVisible:
+    element: "Die Nodesignal Crew"
 - tapOn: "Die Nodesignal Crew"
 - extendedWaitUntil:
     visible: "(Episodes|Folgen)"
@@ -194,14 +194,23 @@ name: Store screenshots
 - extendedWaitUntil:
     visible: ".*(Subscribed|Abonniert).*"
     timeout: 60000
+- waitForAnimationToEnd
+# Subscribed before (a run cut off before its clean-up), the search opens the preview, whose episodes
+# open nothing and have no menu: "✓ Subscribed" opens the show.
+- runFlow:
+    when:
+      notVisible: "(More|Mehr)"
+    commands:
+      - tapOn: ".*(Subscribed|Abonniert).*"
+      - waitForAnimationToEnd
 - tapOn: "009. yawn-boarding"
 - tapOn:
     text: "(Play|Abspielen|Continue|Weiterhören).*"
     above: "(Show notes|Shownotes)"
 - extendedWaitUntil:
-    visible: ".* / 2:03:0\\d"
+    visible: "Pause"
     timeout: 30000
-- tapOn: ".* / 2:03:0\\d"
+- runFlow: ../flows/common/open-player.yaml
 - extendedWaitUntil:
     visible: "Boost"
     timeout: 15000
@@ -271,14 +280,23 @@ name: Store screenshots
       - tapOn:
           point: 50%, 8%
 - tapOn: "(Close player|Player schließen)"
-- tapOn: "(Library|Bibliothek)"
-# The tab keeps the page it showed last; a second tap is its start.
+# The show through Discover's search (its preview, then the show by "✓ Subscribed"): in the library
+# its new episode, downloaded meanwhile, bears its name above the shows (2026-11-04).
+- tapOn: "(Discover|Entdecken)"
 - runFlow:
     when:
-      notVisible: "Chad and Reeds Podcast"
+      visible: "(Cancel|Abbrechen)"
     commands:
-      - tapOn: "(Library|Bibliothek)"
+      - tapOn: "(Cancel|Abbrechen)"
+- tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
+- inputText: "Chad and Reeds"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Chad and Reeds Podcast"
+    timeout: 30000
 - tapOn: "Chad and Reeds Podcast"
+- tapOn: ".*(Subscribed|Abonniert)"
+- waitForAnimationToEnd
 - tapOn: ".*(Subscribed|Abonniert)"
 - extendedWaitUntil:
     visible: "(Unsubscribe|Abo beenden)"

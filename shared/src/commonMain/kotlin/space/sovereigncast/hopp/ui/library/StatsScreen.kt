@@ -134,8 +134,12 @@ fun StatsScreen(vm: StatsViewModel = koinViewModel()) {
                 StatsRange.All -> stringResource(Res.string.stats_heard_all)
             }, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             Text(listenDuration(s.heardMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(Res.string.stats_days, decimal(s.heardMs / 86_400_000.0)) + " · " +
-                org.jetbrains.compose.resources.pluralStringResource(Res.plurals.stats_episodes, s.episodes, s.episodes), color = colors.onSurfaceVariant)
+            // The days only once there is a tenth of one: "0.0 days of listening" said nothing (store screenshots 2026-11-04).
+            val days = s.heardMs / 86_400_000.0
+            Text(listOfNotNull(
+                if (days >= 0.1) stringResource(Res.string.stats_days, decimal(days)) else null,
+                org.jetbrains.compose.resources.pluralStringResource(Res.plurals.stats_episodes, s.episodes, s.episodes),
+            ).joinToString(" · "), color = colors.onSurfaceVariant)
             Bars(s)
             if (s.longestStreakDays > 1) Text(stringResource(Res.string.stats_streak, s.longestStreakDays), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             s.since?.let { Text(stringResource(Res.string.stats_since, formatDate(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
