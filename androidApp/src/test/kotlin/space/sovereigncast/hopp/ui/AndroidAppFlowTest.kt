@@ -1123,6 +1123,21 @@ class AndroidAppFlowTest {
         check(player.current.value?.item?.title == "Ep 1") { "plays ${player.current.value?.item?.title}" }
     }
 
+    /** A show subscribed already opens as itself from Discover, not as a preview whose episodes open
+     *  nothing (maintainer 2026-11-05). */
+    @Test
+    fun aSubscribedShowOpensAsItselfFromDiscover() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        rule.onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        waitFor("Open as feed"); tap("Open as feed")
+        // Its page: the episodes with their menus, which the preview has not.
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("More") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        check(!has("Subscribe")) { screen().toString() }
+        tap("Ep 2"); waitFor("Show notes")
+    }
+
     /** The round button in the row plays without opening the player. */
     @Test
     fun theRowsPlayButtonPlaysInPlace() {

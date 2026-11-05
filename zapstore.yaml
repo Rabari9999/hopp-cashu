@@ -18,8 +18,8 @@ description: |
 
   **Listening**
 
-  - ✅ Home with what is new and what you are listening to, library as cards or a list
-  - ✅ Up next, downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals
+  - ✅ Home with what is new and your playlist, library as cards or a list, sorted with tags of your own
+  - ✅ A playlist – what plays on top, what comes next below, reorderable – downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals
   - ✅ Speed, intro and outro skipping for each show; quiet shows made louder
   - ✅ Chapters with pictures, transcripts that read along, people, show notes, clips
   - ✅ Tap a person to see every episode with them
@@ -36,9 +36,10 @@ description: |
 
   **Nostr**
 
+  - ✅ See what your Nostr contacts listen to, boost and comment on; share your subscriptions with mutual contacts, sealed so only they can read them
   - ✅ Comments on every episode, Fountain's included: write, like and zap – publicly, privately or anonymously
-  - ✅ Identity made in Hopp, imported or kept in Amber; your own relays
-  - ✅ Sync between your devices: subscriptions, progress, favourites, up next, settings, statistics – encrypted, no Hopp server
+  - ✅ Identity made in Hopp, imported or kept in Amber or another signer; profile name and picture set in Hopp; your own relays
+  - ✅ Sync between your devices: subscriptions, progress, favourites, playlist, settings, statistics – encrypted, no Hopp server
   - ✅ Restore your library on a new device
 
   **Discover**
@@ -54,7 +55,7 @@ description: |
 
   - ✅ A privacy page: who sees what when you listen, and what you can do about it
   - ✅ Notifications for boosts and zaps, set for each on its own
-  - ✅ Phones and tablets, upright and sideways, light and dark, English and German
+  - ✅ Phones and tablets, upright and sideways, light and dark, English and German, Spanish as a preview
 
   Hopp is open source (MIT).
 tags:

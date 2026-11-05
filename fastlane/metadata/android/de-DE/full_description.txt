@@ -4,8 +4,8 @@
 
 <p><b>Hören</b></p>
 <ul>
-<li>✅ Home mit Neuem und dem, was du gerade hörst, Bibliothek als Karten oder Liste</li>
-<li>✅ Als Nächstes, Downloads im WLAN, Sleep-Timer, Stille überspringen, eigene Sprungweiten</li>
+<li>✅ Home mit Neuem und deiner Playlist, Bibliothek als Karten oder Liste, geordnet mit eigenen Tags</li>
+<li>✅ Eine Playlist – oben, was läuft, darunter, was kommt, sortierbar –, Downloads im WLAN, Sleep-Timer, Stille überspringen, eigene Sprungweiten</li>
 <li>✅ Tempo, Intro und Abspann überspringen je Show; leise Shows lauter</li>
 <li>✅ Kapitel mit Bildern, mitlaufende Transkripte, Mitwirkende, Shownotes, Clips</li>
 <li>✅ Tippe auf eine Person und sieh alle Folgen mit ihr</li>
@@ -24,9 +24,10 @@
 
 <p><b>Nostr</b></p>
 <ul>
+<li>✅ Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren; teile deine Abos versiegelt mit gegenseitigen Kontakten</li>
 <li>✅ Kommentare zu jeder Folge, auch die aus Fountain: schreiben, liken und zappen – öffentlich, privat oder anonym</li>
-<li>✅ Identität in Hopp erstellt, importiert oder in Amber verwahrt; eigene Relays</li>
-<li>✅ Sync zwischen deinen Geräten: Abos, Hörstand, Favoriten, Als Nächstes, Einstellungen, Statistik – verschlüsselt, ohne Hopp-Server</li>
+<li>✅ Identität in Hopp erstellt, importiert oder in Amber oder einem anderen Signer verwahrt; Profilname und -bild direkt in Hopp; eigene Relays</li>
+<li>✅ Sync zwischen deinen Geräten: Abos, Hörstand, Favoriten, Playlist, Einstellungen, Statistik – verschlüsselt, ohne Hopp-Server</li>
 <li>✅ Bibliothek auf einem neuen Gerät wiederherstellen</li>
 </ul>
 
@@ -45,7 +46,7 @@
 <ul>
 <li>✅ Eine Seite zur Privatsphäre: wer beim Hören was sieht – und was du dagegen tun kannst</li>
 <li>✅ Benachrichtigungen für Boosts und Zaps, für jeden Fall einzeln einstellbar</li>
-<li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch</li>
+<li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch, Spanisch als Vorschau</li>
 </ul>
 
 <p>Hopp ist Open Source (MIT).</p>

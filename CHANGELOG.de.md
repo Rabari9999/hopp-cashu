@@ -9,34 +9,35 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🆕 New Features
 - **Nostr:** Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren – in Entdecken und auf der Seite einer Show.
 - **Nostr:** Teile deine Abos mit gegenseitigen Nostr-Kontakten, versiegelt, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
-- **Nostr:** Eine Seite zeigt alle deine Shows und ob sie mit deinen Nostr-Kontakten geteilt werden.
-- **Einstellungen:** Hopp mit einer Spende per Lightning unterstützen – aus der verbundenen Wallet oder mit jeder Wallet-App.
 - **Playlist:** „Weiterhören“ und „Als Nächstes“ sind eine Playlist: oben, was läuft, darunter, was als Nächstes kommt, sortierbar – auf Home, in der Bibliothek und im Player.
-- **Home:** Die Bereiche ordnest du direkt auf Home an, über den Regler oder einen langen Druck auf einen Titel.
-- **Bibliothek:** Die Playlist und deine Downloads direkt in der Bibliothek, in aufklappbaren Bereichen.
-- **Playlist:** Neue Folgen kommen ans Ende der Playlist, sobald Hopp sie findet – auf all deinen Geräten, nicht mehr erst nach dem Download auf dem Handy.
-- **Sync:** Zeigt den Abgleich-Schlüssel, um ihn bei Relays freizuschalten, die nur bekannte Schlüssel annehmen.
+- **Playlist:** Wische eine Folge weg, um sie aus der Playlist zu nehmen, oder halte sie gedrückt für mehr – überspringen, als Nächstes, als gehört markieren, herunterladen.
 - **Bibliothek:** Versieh deine Shows mit eigenen Tags – so vielen du willst – und filtere die Bibliothek danach.
+- **Nostr:** Profilname und -bild direkt in Hopp setzen; das Bild geht verkleinert und ohne Metadaten hoch.
 - **App:** Dein Profilbild oben: Nostr-Seite, Hörstatistik und Abmelden, einen Tipp entfernt.
 - **Sync:** Wie der Abgleich gelaufen ist, zeigt dein Profilbild; sein Menü öffnet die Details oder gleicht sofort ab.
-- **Tour:** Die Sprache gleich am Anfang wählen.
-- **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
-- **Nostr:** Profilname und -bild direkt in Hopp setzen; das Bild geht verkleinert und ohne Metadaten hoch.
 - **Einstellungen:** „Was ist neu“ unter „Über Hopp“ zeigt, was jede Version gebracht hat – nach einem Update einmal auch als Zeile auf Home.
-- **Playlist:** Wische eine Folge weg, um sie aus der Playlist zu nehmen, oder halte sie gedrückt für mehr – überspringen, als Nächstes, als gehört markieren, herunterladen.
+- **Einstellungen:** Hopp mit einer Spende per Lightning unterstützen – aus der verbundenen Wallet oder mit jeder Wallet-App.
+- **App:** Hopp auf Spanisch, als Vorschau.
+- **Tour:** Die Sprache gleich am Anfang wählen.
+- **Bibliothek:** Die Playlist und deine Downloads direkt in der Bibliothek, in aufklappbaren Bereichen.
+- **Playlist:** Neue Folgen kommen ans Ende der Playlist, sobald Hopp sie findet – auf all deinen Geräten, nicht mehr erst nach dem Download auf dem Handy.
+- **Home:** Die Bereiche ordnest du direkt auf Home an, über den Regler oder einen langen Druck auf einen Titel.
+- **Home:** Auf großen Bildschirmen in zwei Spalten: links Hören, rechts deine Shows.
+- **Nostr:** Eine Seite zeigt alle deine Shows und ob sie mit deinen Nostr-Kontakten geteilt werden.
+- **Sync:** Zeigt den Abgleich-Schlüssel, um ihn bei Relays freizuschalten, die nur bekannte Schlüssel annehmen.
 
 ### 🐛 Fixes
-- **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
-- **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
-- **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.
-- **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
-- **Privatsphäre:** Die Seite nennt auch Nostr-Kontakte, Spenden, die Sync-Relays von Hopp, den Bild-Server und im Browser den Server von Hopp Web.
-- **App:** Die Seitenleiste ist breiter, lange Namen passen mit Luft hinein.
-- **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
 - **Sync:** Mit einem per QR-Code verbundenen Signer fragt der Abgleich ihn wirklich und sagt, wenn keine Antwort kommt; der erste Sync-Schlüssel braucht keine zweite Bestätigung.
+- **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
+- **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
+- **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.
 - **Sync:** Eine Änderung, die du gleich wieder zurücknimmst – ein Bereich aus- und wieder eingeblendet, eine Folge hin- und zurückgeschoben –, geht nicht mehr an die Relays.
-- **App:** Auf dem Handy quer macht die Seitenleiste Platz für die Kamera, ihre Beschriftungen brechen nicht mehr um.
+- **Entdecken:** Eine abonnierte Show öffnet sich aus der Suche direkt, nicht mehr als Vorschau, in der sich die Folgen nicht öffnen ließen.
+- **Privatsphäre:** Die Seite nennt auch Nostr-Kontakte, Spenden, die Sync-Relays von Hopp, den Bild-Server und im Browser den Server von Hopp Web.
+- **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.
+- **App:** Die Seitenleiste ist breiter und macht auf dem Handy quer Platz für die Kamera – lange Namen passen mit Luft hinein.
 - **Statistik:** Die Hörzeit in Tagen heißt richtig „Tage gehört“ statt „Tage am Stück“ und erscheint erst ab einem Zehntel Tag.
+- **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
 
 ## [0.3.2] - 2026-11-01
 

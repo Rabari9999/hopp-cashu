@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,6 +66,9 @@ fun ShowPreviewScreen(
     val vm: ShowPreviewViewModel = koinViewModel(key = "preview-$feedUrl") { parametersOf(feedUrl) }
     val state by vm.state.collectAsState()
     val subscribedId by vm.subscribedId.collectAsState()
+    // Subscribed already: the show's own page at once, not a preview whose episodes open nothing (maintainer
+    // 2026-11-05). A shared episode keeps the preview, which shows it on top.
+    LaunchedEffect(subscribedId) { subscribedId?.let { if (shared == null) onOpen(it) } }
     val working by vm.working.collectAsState()
     val error by vm.error.collectAsState()
     val layer by vm.layer.collectAsState()
