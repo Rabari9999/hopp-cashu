@@ -6,6 +6,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-05
+
 ### 🆕 New Features
 - **Nostr:** If you turn it on, see what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
 - **Nostr:** If you choose, share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.

@@ -6,6 +6,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-05
+
 ### 🆕 New Features
 - **Nostr:** Wenn du es einschaltest: Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren – in Entdecken und auf der Seite einer Show.
 - **Nostr:** Wenn du willst: Teile deine Abos versiegelt mit gegenseitigen Nostr-Kontakten, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
