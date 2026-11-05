@@ -7,8 +7,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Nostr:** See what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
-- **Nostr:** Share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
+- **Nostr:** If you turn it on, see what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
+- **Nostr:** If you choose, share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
 - **Playlist:** "Continue listening" and "Up next" are one playlist: what plays on top, then what comes next, reorderable – on Home, in the library and in the player.
 - **Playlist:** Swipe an episode away to take it out of the playlist, or press and hold it for more – skip, play next, mark as played, download.
 - **Library:** Give your shows tags of your own – as many as you like – and filter the library by them.

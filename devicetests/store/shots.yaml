@@ -16,6 +16,12 @@ name: Store screenshots
 - extendedWaitUntil:
     visible: "Nodesignal-Talk - E298.*"
     timeout: 30000
+# Home's line after an update ("What's new") is no part of the picture.
+- runFlow:
+    when:
+      visible: "(Dismiss|Ausblenden)"
+    commands:
+      - tapOn: "(Dismiss|Ausblenden)"
 - waitForAnimationToEnd
 - takeScreenshot: 1-home
 

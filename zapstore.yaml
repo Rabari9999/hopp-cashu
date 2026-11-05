@@ -36,7 +36,7 @@ description: |
 
   **Nostr**
 
-  - ✅ See what your Nostr contacts listen to, boost and comment on; share your subscriptions with mutual contacts, sealed so only they can read them
+  - ✅ Optional and off until you turn it on: see what your Nostr contacts listen to, boost and comment on; share your subscriptions with mutual contacts, sealed so only they can read them
   - ✅ Comments on every episode, Fountain's included: write, like and zap – publicly, privately or anonymously
   - ✅ Identity made in Hopp, imported or kept in Amber or another signer; profile name and picture set in Hopp; your own relays
   - ✅ Sync between your devices: subscriptions, progress, favourites, playlist, settings, statistics – encrypted, no Hopp server

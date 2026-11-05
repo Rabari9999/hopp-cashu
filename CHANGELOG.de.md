@@ -7,8 +7,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Nostr:** Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren – in Entdecken und auf der Seite einer Show.
-- **Nostr:** Teile deine Abos mit gegenseitigen Nostr-Kontakten, versiegelt, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
+- **Nostr:** Wenn du es einschaltest: Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren – in Entdecken und auf der Seite einer Show.
+- **Nostr:** Wenn du willst: Teile deine Abos versiegelt mit gegenseitigen Nostr-Kontakten, sodass nur sie sie lesen können; einzelne Shows lassen sich ausnehmen.
 - **Playlist:** „Weiterhören“ und „Als Nächstes“ sind eine Playlist: oben, was läuft, darunter, was als Nächstes kommt, sortierbar – auf Home, in der Bibliothek und im Player.
 - **Playlist:** Wische eine Folge weg, um sie aus der Playlist zu nehmen, oder halte sie gedrückt für mehr – überspringen, als Nächstes, als gehört markieren, herunterladen.
 - **Bibliothek:** Versieh deine Shows mit eigenen Tags – so vielen du willst – und filtere die Bibliothek danach.

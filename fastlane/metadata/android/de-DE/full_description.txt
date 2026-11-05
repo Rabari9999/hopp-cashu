@@ -24,7 +24,7 @@
 
 <p><b>Nostr</b></p>
 <ul>
-<li>✅ Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren; teile deine Abos versiegelt mit gegenseitigen Kontakten</li>
+<li>✅ Wahlweise und aus, bis du es einschaltest: Sieh, was deine Nostr-Kontakte hören, boosten und kommentieren; teile deine Abos versiegelt mit gegenseitigen Kontakten</li>
 <li>✅ Kommentare zu jeder Folge, auch die aus Fountain: schreiben, liken und zappen – öffentlich, privat oder anonym</li>
 <li>✅ Identität in Hopp erstellt, importiert oder in Amber oder einem anderen Signer verwahrt; Profilname und -bild direkt in Hopp; eigene Relays</li>
 <li>✅ Sync zwischen deinen Geräten: Abos, Hörstand, Favoriten, Playlist, Einstellungen, Statistik – verschlüsselt, ohne Hopp-Server</li>
