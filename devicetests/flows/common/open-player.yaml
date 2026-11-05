@@ -1,0 +1,14 @@
+# The full player from what is playing: the mini player's time on a phone; on a large screen the
+# player bar, whose time stands apart, by its "Open the player" ("Player öffnen" for the German store screenshots; device check 2026-11-04).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible: "(Open the player|Player öffnen)"
+    commands:
+      - tapOn: "(Open the player|Player öffnen)"
+- runFlow:
+    when:
+      visible: ".*[0-9]+:[0-9]+ / [0-9:]+"
+    commands:
+      - tapOn: ".*[0-9]+:[0-9]+ / [0-9:]+"

@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.semantics
 import space.sovereigncast.hopp.data.DownloadState
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.data.EpisodeItem
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.played
@@ -80,6 +83,8 @@ fun EpisodeRow(
     modifier: Modifier = Modifier,
     /** The show's cover where [item] comes without it — an episode without its own cover shows the show's. */
     showCover: String? = null,
+    /** A long press — with a mouse, a right-click: what else there is for it (the playlist's entries). */
+    onLongClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
@@ -87,7 +92,10 @@ fun EpisodeRow(
     val shown = LocalShownEpisode.current == item.id
     Row(
         modifier.fillMaxWidth().then(if (shown) Modifier.background(colors.secondaryContainer) else Modifier)
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+            .then(
+                if (onLongClick == null) Modifier.clickable(onClick = onClick)
+                else Modifier.onSecondaryClick(onLongClick).combinedClickable(onLongClick = onLongClick, onClick = onClick)
+            ).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -195,10 +203,13 @@ fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: 
 @Composable
 fun EpisodeSearchField(query: String, onChange: (String) -> Unit, found: Int?) {
     val colors = MaterialTheme.colorScheme
+    val name = stringResource(Res.string.episode_search)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         androidx.compose.material3.OutlinedTextField(
-            query, onChange, Modifier.fillMaxWidth(), singleLine = true,
-            placeholder = { Text(stringResource(Res.string.episode_search)) },
+            // Its name while empty, as the placeholder says it: in the browser a screen reader met a field
+            // without one (web checks 2026-11-05). Once typed in, what is in it is read.
+            query, onChange, Modifier.fillMaxWidth().semantics { if (query.isEmpty()) contentDescription = name }, singleLine = true,
+            placeholder = { Text(name) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
                 if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { onChange("") }) {
@@ -209,7 +220,7 @@ fun EpisodeSearchField(query: String, onChange: (String) -> Unit, found: Int?) {
         )
         if (found != null) Text(
             if (found == 0) stringResource(Res.string.episode_search_none)
-            else stringResource(Res.string.episode_search_found, found),
+            else pluralStringResource(Res.plurals.episode_search_found, found, found),
             Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
         )
     }

@@ -18,8 +18,18 @@ class SyncMigrationTest {
         driver.execute(null, "DROP TABLE sync_unapplied", 0)
     }
 
+    /** Version 21: no show left out of what is shared with Nostr contacts (ADR 0024). */
+    private fun version21(driver: JdbcSqliteDriver) {
+        // Nor the relays' version of a waiting entry (version 24).
+        listOf("relay_json", "relay_updated_at", "relay_deleted", "relay_kept_from").forEach { driver.execute(null, "ALTER TABLE sync_entry DROP COLUMN $it", 0) }
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN tags", 0)
+        driver.execute(null, "DROP TABLE contact_cache", 0)
+    }
+
     /** Version 19 from the current schema: a "heard up to" from the first episode always. */
     private fun version19(driver: JdbcSqliteDriver) {
+        version21(driver)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN played_through_from", 0)
     }
 

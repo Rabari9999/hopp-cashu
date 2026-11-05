@@ -325,6 +325,12 @@ class DirectoryRepository(
         return podcastIndex.byPerson(name, credentials)
     }
 
+    /** The show with this `podcast:guid`, if the index knows it — for what Nostr contacts boosted (ADR 0024, 6). */
+    suspend fun showForGuid(guid: String): DirectoryShow? {
+        val credentials = credentials() ?: return null
+        return runCatching { podcastIndex.byGuid(guid, credentials) }.getOrNull()
+    }
+
     /** The feed address of the show with this `podcast:guid`, if the index knows it. */
     suspend fun feedUrlForGuid(guid: String): String? {
         val credentials = credentials() ?: return null

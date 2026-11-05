@@ -19,12 +19,12 @@ A settings page lists it plainly:
 | Who | Sees | When |
 |---|---|---|
 | Feed hosts (PodHome, self-hosted instances, …) | IP address, User-Agent, which episode is fetched | every refresh and download |
-| Podcast Index | search queries; the subscription list if the batch check is on (ADR 0013); the device's language and a category (added 2026-10-19); a person's name (added 2026-10-27, ADR 0008) | search, podroll, Discover's popular and new value shows, optional refresh; a person's page when it opens |
+| Podcast Index | search queries; the `podcast:guid` of shows Nostr contacts boosted or commented on, to show them (ADR 0024, added 2026-11-02); the subscription list if the batch check is on (ADR 0013); the device's language and a category (added 2026-10-19); a person's name (added 2026-10-27, ADR 0008) | search, podroll, Discover's popular and new value shows, optional refresh; a person's page when it opens |
 | Sovereigncast instances | IP address, which show is viewed, sender name on boosts if given | community features; the preview of a show not subscribed yet, which asks the instance its feed names (added 2026-10-27, ADR 0002) |
 | The listener's wallet and NWC relay | payments | boosts, streaming |
 | Boost recipients | episode, playback position, message, optional name | boost metadata (Podcasting 2.0 standard) |
 | A commenter's Lightning address server | IP address, the amount, the zap request: which comment, the message, the listener's npub (in a private zap only for the author, encrypted; none in an anonymous one — chosen in the zap sheet, as in Amethyst, and always without an identity); it publishes the receipt on Nostr relays, in public | only when the listener zaps a comment (added 2026-10-19, ADR 0021) |
-| Nostr relays | signed public events; the IP address; with sync on, that the listener uses Hopp and when their library changes — the library itself sealed with a sync key that only their key opens (ADR 0021, 5, amended 2026-10-21) | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006); sync only when turned on (ADR 0021, 5, added 2026-10-20) |
+| Nostr relays | signed public events; the IP address; with sync on, that the listener uses Hopp and when their library changes — the library itself sealed with a sync key that only their key opens (ADR 0021, 5, amended 2026-10-21) | only with a Nostr identity: its profile when made (ADR 0021), later comments and public boosts (ADR 0006); sync only when turned on (ADR 0021, 5, added 2026-10-20), on the listener's write relays and Hopp's three for sync (`nos.lol`, `relay.primal.net`, `relay.nostr.net`; amended 2026-11-02); with the Nostr contacts feature on (ADR 0024), its contacts note — that the listener uses it, and two public keys — and requests for the contacts' lists, notes and public acts, by author |
 | Push gateway (sovereigncast.space) | device token ↔ endpoint, no content | only with push (ADR 0007) |
 | Hosts of images, chapters, transcripts | IP address | when loading; their URLs come from the feed |
 | Whoever opens a shared link (and www.sovereigncast.space, in a browser) | show, episode and time in the link; the page sees the opener's IP | only when the listener shares (added 2026-10-12) |
@@ -74,6 +74,18 @@ Nostr key, wallet seeds) — those are excluded by the platform and explicitly i
 the backup rules. Downloaded episodes are excluded too (large, re-downloadable).
 The listener's payment history therefore can reach Google's or Apple's backup;
 the "who sees what" page says so.
+
+### Amendment 2026-11-03: the parties of 0.4.0
+
+The "who sees what" page names, besides the parties above: the listener's
+mutual Nostr contacts (what is shared with them, ADR 0024), the relays of
+the listener's contacts and Hopp's sync relays, a donation through "Support
+Hopp" and the provider of any Lightning address (the IP address), the hosts
+of profile pictures, and the image server a profile picture is uploaded to
+(ADR 0021, amendment 2026-11-03). In the browser the feed hosts see the
+listener only when an episode plays, Hopp Web's server (the feed proxy, ADR
+0022, 6) is a party of its own, and "this browser" takes the place of the
+system backup.
 
 ## Consequences
 

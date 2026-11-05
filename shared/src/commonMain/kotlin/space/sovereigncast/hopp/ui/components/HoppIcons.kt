@@ -133,6 +133,14 @@ object HoppIcons {
         }
         path(fill = SolidColor(Color.Black)) { moveTo(12f, 4f); arcTo(8f, 8f, 0f, false, true, 12f, 20f); close() }
     }
+    /** Two sheets, one over the other: copy. */
+    val Copy = icon("copy") {
+        path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(10f, 8f); lineTo(18f, 8f); quadTo(20f, 8f, 20f, 10f); lineTo(20f, 18f); quadTo(20f, 20f, 18f, 20f)
+            lineTo(10f, 20f); quadTo(8f, 20f, 8f, 18f); lineTo(8f, 10f); quadTo(8f, 8f, 10f, 8f); close()
+            moveTo(16f, 8f); lineTo(16f, 6f); quadTo(16f, 4f, 14f, 4f); lineTo(6f, 4f); quadTo(4f, 4f, 4f, 6f); lineTo(4f, 14f); quadTo(4f, 16f, 6f, 16f); lineTo(8f, 16f)
+        }
+    }
     /** Three sliders: arranging something (Home's sections). */
     val Tune = icon("tune") {
         path(stroke = SolidColor(Color.Black), strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round) {

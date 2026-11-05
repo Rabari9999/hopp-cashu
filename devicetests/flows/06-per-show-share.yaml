@@ -14,7 +14,10 @@ name: Per show and share
 - scrollUntilVisible:
     element: "Playback"
     centerElement: true
-- tapOn: "Playback"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Playback"
+    retryTapIfNoChange: true
 - scrollUntilVisible:
     element: "Per show"
     centerElement: true
@@ -59,13 +62,16 @@ name: Per show and share
 - tapOn: "Library"
 - runFlow:
     when:
-      notVisible: "Up next"
+      notVisible: "Playlist"
     commands:
       - tapOn: "Library"
 # The full title: on a phone on its side the mini player's line starts with "Nodesignal" too.
+# The show by its author: the playlist above the shows names the show on each of its episodes
+# (device check 2026-11-04).
 - scrollUntilVisible:
-    element: "Nodesignal - Deine Bitcoin-Frequenz"
-- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+    element: "Die Nodesignal Crew"
+    centerElement: true
+- tapOn: "Die Nodesignal Crew"
 # Found by the show's own search, not by scrolling: on a phone on its side a swipe over the
 # mini player opens the player (device check 2026-10-27).
 - scrollUntilVisible:
@@ -75,9 +81,20 @@ name: Per show and share
 - inputText: "E298"
 - pressKey: Enter
 # The one found can lie under the mini player on a phone on its side (device check 2026-10-28).
-- scrollUntilVisible:
-    element: "Nodesignal-Talk - E298.*"
+# Centred where the mini player lies over the list; not on a large screen, whose player bar lies
+# apart and where the scroll went to the page beside the list (device check 2026-11-04).
+- runFlow:
+    when:
+      notVisible: "Open the player"
+    commands:
+      - scrollUntilVisible:
+          element: "Nodesignal-Talk - E298.*"
+          centerElement: true
+          timeout: 10000
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E298.*"
     timeout: 10000
+- waitForAnimationToEnd
 - tapOn: "Nodesignal-Talk - E298.*"
 - extendedWaitUntil:
     visible: "Play"
@@ -93,12 +110,11 @@ name: Per show and share
 - extendedWaitUntil:
     visible: "Pause"
     timeout: 30000
-# The full player, and its share choice — looked at, nothing sent. Opened over Home: the
-# pages below the player keep their share buttons in the hierarchy, and on a tablet upright
-# the episode's lay where the tap went (device check 2026-10-27).
-- tapOn: "Home"
-# Beside the show's name on a phone on its side.
-- tapOn: ".*[0-9]+:[0-9]+ / [0-9:]+"
+# The full player, and its share choice — looked at, nothing sent. Opened over Discover: the
+# pages below the player keep their buttons in the hierarchy — the episode's share (device
+# check 2026-10-27), Home's playlist its "Now" with a Pause of its own (2026-11-04).
+- tapOn: "Discover"
+- runFlow: common/open-player.yaml
 - extendedWaitUntil:
     visible: "Playback speed"
     timeout: 15000
@@ -138,17 +154,16 @@ name: Per show and share
 - extendedWaitUntil:
     notVisible: "Hopp link"
     timeout: 10000
-# Paused, so what was heard is written before the next flow ends the app. The player's own
-# button, beside its speed: Home below it has a "Pause" above "Boost" too.
-- tapOn:
-    text: "Pause"
-    rightOf: "Playback speed"
-- extendedWaitUntil:
-    visible:
-      text: "Play"
-      rightOf: "Playback speed"
-    timeout: 10000
+# Paused, so what was heard is written before the next flow ends the app — from the mini player
+# or the player bar over Discover, the one Pause there: in the player a tap meant for its own
+# went to the people below the title (device check 2026-11-04).
+- waitForAnimationToEnd
 - tapOn: "Close player"
+- waitForAnimationToEnd
+- tapOn: "Pause"
+- extendedWaitUntil:
+    notVisible: "Pause"
+    timeout: 10000
 # To the background, as a listener leaves the app: what was heard is written then — the next
 # flow starts the app anew and reads it in the stats (device check 2026-10-27).
 - pressKey: home

@@ -20,6 +20,8 @@ import space.sovereigncast.hopp.sync.SyncDocs.text
 class QueueDocument(private val db: HoppDatabase, private val queue: QueueRepository) : SyncedDocument {
     override val name = SyncDocs.QUEUE
 
+    override suspend fun prepare() { queue.noteUnknownOnce() }
+
     /** This device's queue joins only where the relays have nothing: its order has no time. */
     override suspend fun snapshot(): Map<String, SyncEntry> = withContext(ioDispatcher) {
         db.queueQueries.selectKeys().awaitAsList().mapNotNull { q ->

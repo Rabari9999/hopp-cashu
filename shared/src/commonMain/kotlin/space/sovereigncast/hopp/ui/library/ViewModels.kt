@@ -74,6 +74,8 @@ class HomeViewModel(
     feeds: space.sovereigncast.hopp.data.FeedRefresh,
     sync: space.sovereigncast.hopp.sync.SyncManager? = null,
     identities: space.sovereigncast.hopp.identity.IdentityRepository? = null,
+    private val queueRepo: QueueRepository? = null,
+    private val player: space.sovereigncast.hopp.player.PlayerController? = null,
 ) : RefreshingViewModel(feeds) {
     /** What runs at the listener's Sovereigncast shows (device feedback 2026-10-10). */
     val actions: StateFlow<List<space.sovereigncast.hopp.sovereigncast.ShowAction>> = state(sc.actions.map { it.orEmpty() }, emptyList())
@@ -87,7 +89,34 @@ class HomeViewModel(
         viewModelScope.launch { runCatching { episodes.fillEnclosureLengths() } }
         viewModelScope.launch { podcasts.shows.map { l -> l.map { it.id }.toSet() }.distinctUntilChanged().drop(1).collectLatest { sc.verifyAll() } }
         viewModelScope.launch { sc.verifiedShows().distinctUntilChanged().drop(1).collectLatest { sc.refresh() } }
+        // Home's order changed with 0.4.0: who had Hopp's before keeps it, "Up next" after "Continue" (maintainer 2026-11-02).
+        viewModelScope.launch {
+            settings.update { s ->
+                when {
+                    s.homeOrder033 -> s
+                    s.onboardingDone && s.homeOrder.isEmpty() -> s.copy(homeOrder = HomeSections.before033, homeOrder033 = true)
+                    else -> s.copy(homeOrder033 = true)
+                }
+            }
+        }
+        // "Continue listening" went into the playlist (Dennis, maintainer 2026-11-03): what was begun there and
+        // not in "Up next" joins the playlist's top, once — not on a new install, which has nothing begun.
+        viewModelScope.launch {
+            var adopt = false
+            settings.update { s -> if (s.playlistMerged) s else { adopt = s.onboardingDone; s.copy(playlistMerged = true) } }
+            val q = queueRepo ?: return@launch
+            if (!adopt) return@launch
+            val begun = episodes.inProgress.first()
+            q.adoptInProgress(begun, except = player?.current?.value?.item?.id ?: begun.firstOrNull()?.id)
+        }
     }
+
+    /** "Up next" on Home (Dennis, maintainer 2026-11-02), reorderable there. */
+    val queue: StateFlow<List<EpisodeItem>> = state(queueRepo?.items ?: kotlinx.coroutines.flow.flowOf(emptyList()), emptyList())
+    fun reorderQueue(ids: List<Long>) { val q = queueRepo ?: return; viewModelScope.launch { q.reorder(ids) } }
+    /** For arranging Home in place. */
+    val current: StateFlow<Settings?> = state(settings.settings, null)
+    fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
 
     /** "Take part" without what the listener hid there (device feedback 2026-10-22);
      *  [actions] stays whole — "Your shows" still counts down to a release. */
@@ -100,16 +129,6 @@ class HomeViewModel(
     fun hideTakePart(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = TakePart.add(it.takePartHidden, key)) } }
     fun showTakePartAgain(key: String) = viewModelScope.launch { settings.update { it.copy(takePartHidden = it.takePartHidden - key) } }
 
-    /** Sync's state for Home's greeting line — null while sync is off (maintainer 2026-10-22). */
-    val syncStatus: StateFlow<space.sovereigncast.hopp.sync.SyncStatus?> = state(
-        sync?.let { s -> combine(settings.settings.map { it.nostrSync }, s.status) { on, st -> st.takeIf { on } } } ?: kotlinx.coroutines.flow.flowOf(null),
-        null,
-    )
-    private val syncer = sync
-    /** A round now, from the sync window; the signer may ask. */
-    fun syncNow() { val s = syncer ?: return; viewModelScope.launch { s.syncNow(interactive = true) } }
-    /** A document read in part, written anew whole from this device (the sync page, maintainer 2026-10-30). */
-    fun rewrite(doc: String) { val s = syncer ?: return; viewModelScope.launch { s.rewrite(doc) } }
 
     /** Sections folded away — kept across starts (device feedback 2026-10-09). */
     val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
@@ -130,7 +149,6 @@ class HomeViewModel(
     }
     val inbox: StateFlow<List<EpisodeItem>?> = state(episodes.inbox, null)
     val hasShows: StateFlow<Boolean?> = state(podcasts.shows.map { it.isNotEmpty() }, null)
-    val inProgress: StateFlow<List<EpisodeItem>> = state(episodes.inProgress.map { it.take(HOME_ROWS) }, emptyList())
     val favorites: StateFlow<List<EpisodeItem>> = state(episodes.favorites, emptyList())
     val recentlyPlayed: StateFlow<List<EpisodeItem>> = state(episodes.recentlyPlayed(HOME_ROWS.toLong()), emptyList())
     /** Boosted episodes that still exist, with the sats sent to each. */
@@ -146,11 +164,12 @@ class HomeViewModel(
 
     // A quiet day on Home (device feedback 2026-10-12): the shows themselves,
     // when they come out next, and what of them is still unheard.
+    /** All the shows: the library's tag filter stays in the library, where it is seen (maintainer 2026-11-04). */
     val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
     val rhythms: StateFlow<Map<Long, space.sovereigncast.hopp.data.Rhythm>> = state(episodes.rhythms, emptyMap())
     val lastChecked: StateFlow<Long?> = state(podcasts.lastChecked, null)
 
-    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2 }
+    companion object { const val HOME_ROWS = 5; const val TAKE_PART_ROWS = 2; const val QUEUE_ROWS = 5 }
 }
 
 /** [shows] in the library's [sort]; A–Z among equals, and shows without episodes last. */
@@ -164,9 +183,9 @@ internal fun sorted(shows: List<Show>, counts: Map<Long, space.sovereigncast.hop
 }
 
 class LibraryViewModel(
-    podcasts: PodcastRepository,
+    private val podcastsRepo: PodcastRepository,
     private val episodes: EpisodeRepository,
-    queue: QueueRepository,
+    private val queue: QueueRepository,
     downloads: DownloadRepository,
     private val settings: SettingsRepository,
     feeds: space.sovereigncast.hopp.data.FeedRefresh,
@@ -177,11 +196,35 @@ class LibraryViewModel(
     val sort: StateFlow<String> = state(settings.settings.map { it.librarySort }, Settings.SORT_NEWEST)
     fun sortBy(sort: String) = viewModelScope.launch { settings.update { it.copy(librarySort = sort) } }
     val shows: StateFlow<List<Show>?> = state(
-        combine(podcasts.shows, episodes.countsPerShow, settings.settings.map { it.librarySort }.distinctUntilChanged()) { shows, counts, sort -> sorted(shows, counts, sort) },
+        combine(podcastsRepo.shows, episodes.countsPerShow, settings.settings.map { it.librarySort to it.libraryTag }.distinctUntilChanged()) { shows, counts, (sort, tag) ->
+            sorted(space.sovereigncast.hopp.data.Tags.filter(shows, tag), counts, sort)
+        },
         null,
     )
+    /** The listener's tags, and the one the library shows (maintainer 2026-11-03); a tap on the chosen one shows all again. */
+    val tags: StateFlow<List<String>> = state(podcastsRepo.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
+    val tag: StateFlow<String> = state(settings.settings.map { it.libraryTag }, "")
+    fun filterTag(tag: String) = viewModelScope.launch { settings.update { it.copy(libraryTag = if (it.libraryTag == tag) "" else tag) } }
+    /** A show's tags from the library (a long press on it), and a new tag with its shows at once (maintainer 2026-11-03). */
+    fun setTags(id: Long, tags: List<String>) = viewModelScope.launch { podcastsRepo.setTags(id, tags) }
+    fun createTag(name: String, shows: Set<Long>) = viewModelScope.launch {
+        val tag = name.trim().take(space.sovereigncast.hopp.data.Tags.MAX_LENGTH)
+        if (tag.isNotEmpty()) { podcastsRepo.setTagFor(tag, shows); settings.update { it.copy(libraryTag = tag) } }
+    }
+    /** Every show, unfiltered and A–Z — the new tag's list. */
+    val allShows: StateFlow<List<Show>> = state(podcastsRepo.shows.map { l -> l.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }) }, emptyList())
+    /** Every show, unfiltered — the count in the "Shows" title says how many there are. */
+    val showCount: StateFlow<Int?> = state(podcastsRepo.shows.map { it.size }, null)
     val queueCount: StateFlow<Int> = state(queue.items.map { it.size }, 0)
     val downloadCount: StateFlow<Int> = state(downloads.downloads.map { list -> list.count { it.downloadState == DownloadState.DONE } }, 0)
+    /** "Up next" and the downloads in the library itself, each a section that folds (Dennis, maintainer 2026-11-02). */
+    val queueItems: StateFlow<List<EpisodeItem>> = state(queue.items, emptyList())
+    fun reorderQueue(ids: List<Long>) = viewModelScope.launch { queue.reorder(ids) }
+    val downloaded: StateFlow<List<EpisodeItem>> = state(downloads.downloads.map { list -> list.filter { it.downloadState == DownloadState.DONE } }, emptyList())
+    val collapsed: StateFlow<Set<String>> = state(settings.settings.map { it.homeCollapsed }, emptySet())
+    fun toggle(section: String) = viewModelScope.launch {
+        settings.update { s -> s.copy(homeCollapsed = if (section in s.homeCollapsed) s.homeCollapsed - section else s.homeCollapsed + section) }
+    }
     /** Episodes and new ones per show, for the cards and the list. */
     val counts: StateFlow<Map<Long, space.sovereigncast.hopp.data.ShowCounts>> = state(episodes.countsPerShow, emptyMap())
     /** Cards (the default) or a list — the listener's choice, kept in the settings. */
@@ -193,6 +236,8 @@ class QueueViewModel(private val queue: QueueRepository) : ViewModel() {
     val items: StateFlow<List<EpisodeItem>?> = state(queue.items, null)
     fun remove(item: EpisodeItem) = viewModelScope.launch { queue.remove(item.id) }
     fun reorder(ids: List<Long>) = viewModelScope.launch { queue.reorder(ids) }
+    /** The playlist emptied — the episodes keep their progress. */
+    fun clear() = viewModelScope.launch { queue.clear() }
 }
 
 class DownloadsViewModel(private val downloads: DownloadRepository) : ViewModel() {
@@ -213,6 +258,12 @@ class EpisodeActionsViewModel(
     val progress: StateFlow<Map<Long, Float>> = downloads.progress
     fun playNext(item: EpisodeItem) = viewModelScope.launch { queue.playNext(item.id) }
     fun playLast(item: EpisodeItem) = viewModelScope.launch { queue.playLast(item.id) }
+    /** Out of the playlist, and back where it was when [undo] says so (maintainer 2026-11-04) — here, not
+     *  in the row, which is gone by then. */
+    fun removeFromQueue(item: EpisodeItem, undo: suspend () -> Boolean) = viewModelScope.launch {
+        val taken = queue.removeKeepingOrder(item.id)
+        if (undo()) queue.putBack(item.id, taken)
+    }
     fun download(item: EpisodeItem) = viewModelScope.launch { downloads.request(item.id) }
     fun removeDownload(item: EpisodeItem) = viewModelScope.launch { downloads.remove(item.id) }
     fun downloadNow(item: EpisodeItem) = viewModelScope.launch { downloads.startNow(item.id) }
@@ -290,8 +341,10 @@ class SettingsViewModel(
     val shows: StateFlow<List<space.sovereigncast.hopp.data.Show>> = state(podcasts.shows, emptyList())
     fun setShowSpeed(id: Long, speed: Float?) = viewModelScope.launch { podcasts.setSpeed(id, speed) }
     fun setShowSkip(id: Long, intro: Int? = null, outro: Int? = null) = viewModelScope.launch { podcasts.setSkip(id, introSeconds = intro, outroSeconds = outro) }
+    /** A show shared with mutual Nostr contacts, or left out (ADR 0024, 4a) — [ids] at once from "Shared shows". */
+    fun setSharedWithContacts(ids: Collection<Long>, shared: Boolean) = viewModelScope.launch { ids.forEach { podcasts.setContactsHidden(it, !shared) } }
     /** The connected wallet's name, for the settings overview; null = none. */
-    val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
+    val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.shown }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
 
@@ -341,7 +394,7 @@ class PrivacyViewModel(
     network: space.sovereigncast.hopp.platform.NetworkPrivacySource,
 ) : ViewModel() {
     val state: StateFlow<PrivacyState?> = state(
-        combine(settings.settings, wallet.wallet, network.observe()) { s, w, n -> PrivacyState(s, w?.relay?.substringAfter("://")?.substringBefore('/'), n) },
+        combine(settings.settings, wallet.wallet, network.observe()) { s, w, n -> PrivacyState(s, w?.takeIf { !it.browser }?.relay?.substringAfter("://")?.substringBefore('/')?.takeIf { it.isNotBlank() }, n) },
         null,
     )
 }
@@ -352,8 +405,15 @@ class ShowViewModel(
     private val podcasts: PodcastRepository,
     private val episodes: EpisodeRepository,
     private val directory: DirectoryRepository? = null,
+    contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
 ) : ViewModel() {
     val show: StateFlow<Show?> = state(podcasts.show(podcastId), null)
+    /** The listener shares with mutual Nostr contacts: the menu offers to leave this show out (ADR 0024, 4a). */
+    val sharingWithContacts: StateFlow<Boolean> = state(contacts?.state?.map { it.note?.sharing == true } ?: kotlinx.coroutines.flow.flowOf(false), false)
+    fun setSharedWithContacts(shared: Boolean) = viewModelScope.launch { podcasts.setContactsHidden(podcastId, !shared) }
+    /** The show's own tags, and every tag the listener has (maintainer 2026-11-03). */
+    fun setTags(tags: List<String>) = viewModelScope.launch { podcasts.setTags(podcastId, tags) }
+    val allTags: StateFlow<List<String>> = state(podcasts.shows.map { space.sovereigncast.hopp.data.Tags.all(it) }, emptyList())
     /** Unsubscribed — here or anywhere else while this page waited in a stack. */
     val gone: StateFlow<Boolean> = state(podcasts.show(podcastId).map { it == null }, false)
     private val limit = MutableStateFlow(PAGE)
@@ -468,6 +528,7 @@ class DiscoverViewModel(
     private val settings: SettingsRepository,
     private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
     private val people: space.sovereigncast.hopp.data.PeopleRepository,
+    private val contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
 ) : ViewModel() {
     private val _people = MutableStateFlow<List<space.sovereigncast.hopp.data.PersonMatch>>(emptyList())
     /** People in the subscribed shows whose name holds the term (0.3.1) — found here, on the device. */
@@ -503,6 +564,21 @@ class DiscoverViewModel(
     private val subscribedKeys = podcasts.shows
         .map { list -> list.flatMap { listOfNotNull(feedKey(it.feedUrl), it.podcastGuid?.lowercase()) }.toSet() }
         .distinctUntilChanged()
+
+    /** Discover shown — each time, not only when first built: the shared lists looked at again every two minutes,
+     *  everything read again when older than ten (device feedback 2026-11-02). */
+    fun lookAtContacts() { val c = contacts ?: return; viewModelScope.launch { c.refresh(maxAge = 600) } }
+
+    /** "With your Nostr contacts" (ADR 0024, 7): what they share, most of them first; shows the listener
+     *  has left out. Empty unless the listener looks at it — and so without a Nostr identity. */
+    val withContacts: StateFlow<List<space.sovereigncast.hopp.contacts.ContactPick>> = state(
+        if (contacts == null) kotlinx.coroutines.flow.flowOf(emptyList())
+        else combine(contacts.state, subscribedKeys) { s, subscribed ->
+            if (s.note?.seeing != true) emptyList()
+            else s.read?.listening().orEmpty().filter { p -> feedKey(p.show.url) !in subscribed && p.show.guid?.lowercase() !in subscribed }.take(20)
+        },
+        emptyList(),
+    )
 
     /** "Recommended by your shows" — fetched again whenever the subscriptions change,
      *  and without what is subscribed at once, before that answer is in. Loaded once

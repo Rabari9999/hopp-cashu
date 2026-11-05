@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -35,6 +36,13 @@ import kotlin.time.Duration.Companion.seconds
 
 /** The remote signer answered with an error, or something that is not an answer. */
 class Nip46Exception(message: String) : Exception(message)
+
+/** The signer did not answer in time: not listening on its relays, or the listener never saw the request. */
+class SignerNoAnswer : Exception("the signer did not answer")
+
+/** None of the signer's [relays] opened: the request never reached it — no "no" of the signer's
+ *  (maintainer 2026-11-05: "Your signer said no: no relay of the signer reachable"). */
+class SignerUnreachable(val relays: List<String>, why: String?) : Exception("no relay of the signer reachable" + (why?.let { ": $it" } ?: ""))
 
 private fun isHexKey(s: String) = s.length == 64 && s.all { it in "0123456789abcdef" }
 
@@ -118,12 +126,14 @@ class Nip46Client(
         return getPublicKey()
     }
 
-    /** The signer's own relays, if it wants others (NIP-46 "switching relays"). */
+    /** The signer's own relays first, if it wants others (NIP-46 "switching relays") — and the ones it was
+     *  just reached on after them: a signer naming only relays this device cannot reach (one on its own
+     *  phone, one gone) left every later request unheard (maintainer 2026-11-05: sync could not be set up). */
     suspend fun switchRelays() {
         val answer = runCatching { request("switch_relays", emptyList(), 20.seconds) }.getOrNull() ?: return
         val list = runCatching { json.parseToJsonElement(answer).jsonArray.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } }.getOrNull()
             ?.filter { it.startsWith("wss://") || it.startsWith("ws://") }.orEmpty()
-        if (list.isNotEmpty()) relays = list
+        if (list.isNotEmpty()) relays = (list + relays).map { it.trimEnd('/') }.distinct()
     }
 
     /** `sign_event`: the event the signer signed, as JSON. */
@@ -143,26 +153,50 @@ class Nip46Client(
         val id = secureRandomBytes(8).toHex()
         val content = buildJsonObject { put("id", id); put("method", method); putJsonArray("params") { params.forEach { add(JsonPrimitive(it)) } } }.toString()
         val event = Event.sign(clientKeys, KIND, Nip44.encrypt(content, conversationKey), listOf(listOf("p", remoteSignerPubkey)), now())
-        return withSession { session ->
-            coroutineScope {
-                val answer = async(start = CoroutineStart.UNDISPATCHED) {
-                    session.incoming.mapNotNull { text -> response(text, id) }.first { it.result != "auth_url" || it.error == null || run { onAuthUrl(it.error); false } }
+        // No answer in time is the signer's silence, not a cancellation: the caller can say so (2026-11-04:
+        // sync waited two minutes for Amber, then showed nothing at all).
+        val r = withTimeoutOrNull(wait) { answerOnAll(event, id) } ?: throw SignerNoAnswer()
+        r.error?.let { throw Nip46Exception(it) }
+        return r.result ?: throw Nip46Exception("an empty answer")
+    }
+
+    /**
+     * [event] sent on every relay of the signer at once, the answer to [id] from whichever has it
+     * first — as [awaitConnect] listens (maintainer 2026-11-04: Hopp asked on the first relay alone,
+     * and where the signer did not listen there, its prompt never came).
+     */
+    private suspend fun answerOnAll(event: Event, id: String): Response {
+        var last: Exception? = null
+        return channelFlow {
+            for (url in relays) launch {
+                try {
+                    val session = withTimeout(CONNECT_WAIT) { connector.connect(url) }
+                    try {
+                        val answer = async(start = CoroutineStart.UNDISPATCHED) {
+                            session.incoming.mapNotNull { text -> response(text, id) }
+                                .firstOrNull { it.result != "auth_url" || it.error == null || run { onAuthUrl(it.error); false } }
+                        }
+                        session.send(buildJsonArray {
+                            add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
+                            add(buildJsonObject {
+                                putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
+                                putJsonArray("#p") { add(JsonPrimitive(clientKeys.publicKeyHex)) }
+                                putJsonArray("authors") { add(JsonPrimitive(remoteSignerPubkey)) }
+                                put("since", now() - 10)
+                            })
+                        }.toString())
+                        session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
+                        answer.await()?.let { send(it) }
+                    } finally {
+                        withContext(NonCancellable) { runCatching { session.close() } }
+                    }
+                } catch (e: Exception) {
+                    // A relay that does not open or drops the line: the others still carry the request.
+                    if (e is CancellationException && e !is TimeoutCancellationException) throw e
+                    last = e
                 }
-                session.send(buildJsonArray {
-                    add(JsonPrimitive("REQ")); add(JsonPrimitive(SUB))
-                    add(buildJsonObject {
-                        putJsonArray("kinds") { add(JsonPrimitive(KIND)) }
-                        putJsonArray("#p") { add(JsonPrimitive(clientKeys.publicKeyHex)) }
-                        putJsonArray("authors") { add(JsonPrimitive(remoteSignerPubkey)) }
-                        put("since", now() - 10)
-                    })
-                }.toString())
-                session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
-                val r = withTimeout(wait) { answer.await() }
-                r.error?.let { throw Nip46Exception(it) }
-                r.result ?: throw Nip46Exception("an empty answer")
             }
-        }
+        }.firstOrNull() ?: throw SignerUnreachable(relays, last?.message)
     }
 
     private data class Response(val id: String, val result: String?, val error: String?)
@@ -177,16 +211,6 @@ class Nip46Client(
         val r = Response(o["id"]!!.jsonPrimitive.content, (o["result"] as? JsonPrimitive)?.contentOrNull, (o["error"] as? JsonPrimitive)?.contentOrNull)
         r.takeIf { it.id == id }
     }.getOrNull()
-
-    private suspend fun <T> withSession(block: suspend (RelaySession) -> T): T {
-        var last: Exception? = null
-        for (url in relays) {
-            // A relay that never answers is skipped, not waited on for good.
-            val session = try { withTimeout(CONNECT_WAIT) { connector.connect(url) } } catch (e: Exception) { last = e; continue }
-            try { return block(session) } finally { runCatching { session.close() } }
-        }
-        throw Nip46Exception("no relay of the signer reachable" + (last?.message?.let { ": $it" } ?: ""))
-    }
 
     companion object {
         const val KIND = 24133
@@ -275,8 +299,10 @@ class BunkerSigner(
     }
 
     override suspend fun sign(event: UnsignedEvent): Event = asking {
-        val signed = runCatching { json.decodeFromString(Event.serializer(), client.signEvent(event)) }
-            .getOrElse { if (it is Nip46Exception) throw it else throw Nip46Exception("the signer returned no event") }
+        // Only what came back is judged here: no answer, or no relay reached, stays what it is — not a
+        // "no" of the signer's (2026-11-05), and a cancellation stays one.
+        val answer = client.signEvent(event)
+        val signed = runCatching { json.decodeFromString(Event.serializer(), answer) }.getOrElse { throw Nip46Exception("the signer returned no event") }
         val expected = Event.computeId(pubkey, event.createdAt, event.kind, event.tags, event.content)
         if (signed.id != expected || signed.pubkey != pubkey || !signed.isValid()) throw Nip46Exception("the signer returned another event")
         signed

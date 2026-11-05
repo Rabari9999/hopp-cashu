@@ -1,0 +1,6 @@
+-- Version 23 → 24 (maintainer 2026-11-04): what the relays hold of an entry changed here since it
+-- went out — a change taken back to it is no change, and nothing goes out for it.
+ALTER TABLE sync_entry ADD COLUMN relay_json TEXT;
+ALTER TABLE sync_entry ADD COLUMN relay_updated_at INTEGER;
+ALTER TABLE sync_entry ADD COLUMN relay_deleted INTEGER;
+ALTER TABLE sync_entry ADD COLUMN relay_kept_from INTEGER;

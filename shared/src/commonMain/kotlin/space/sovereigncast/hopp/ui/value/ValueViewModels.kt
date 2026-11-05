@@ -52,6 +52,10 @@ class WalletViewModel(
     val checking: StateFlow<Boolean> = _checking.asStateFlow()
     private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
     val connect: StateFlow<ConnectState> = _connect.asStateFlow()
+    /** NWC can be connected here; in the browser only its own wallet (WebLN). */
+    val nwcHere: Boolean get() = wallet.nwcHere
+    /** The browser offers a wallet of its own (an extension with WebLN). */
+    val browserWallet: Boolean get() = wallet.browserWallet
 
     init { refreshBalance() }
 
@@ -72,6 +76,18 @@ class WalletViewModel(
         viewModelScope.launch {
             _connect.value = try {
                 wallet.connect(uri); refreshBalance(); ConnectState.Idle
+            } catch (e: Exception) {
+                ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
+            }
+        }
+    }
+
+    /** Takes the browser's wallet; the extension may ask the listener first. */
+    fun connectBrowser() {
+        _connect.value = ConnectState.Working
+        viewModelScope.launch {
+            _connect.value = try {
+                wallet.connectBrowser(); refreshBalance(); ConnectState.Idle
             } catch (e: Exception) {
                 ConnectState.Failed(e.message ?: e::class.simpleName ?: "error", (e as? space.sovereigncast.hopp.value.nwc.NwcException)?.code)
             }
@@ -222,14 +238,16 @@ class ValueBarViewModel(
         _plan.value = value.planDonation(address, amountSats * 1000)
     }
 
-    fun sendDonation(podcastId: Long, address: String, amountSats: Long, message: String, name: String) =
-        run(podcastId, amountSats, name) { value.donate(podcastId, address, amountSats * 1000, message) }
+    /** [podcastId] null: to Hopp itself, named [title] (maintainer 2026-11-02). */
+    fun sendDonation(podcastId: Long?, address: String, amountSats: Long, message: String, name: String, title: String? = null) =
+        run(podcastId, amountSats, name, title = title) { value.donate(podcastId, address, amountSats * 1000, message, title) }
 
     /** In the app's scope, not the screen's: a boost on its way is finished
      *  and reported even when the sheet or the player closes (BoostReports). */
     private fun run(
-        podcastId: Long, amountSats: Long, name: String,
+        podcastId: Long?, amountSats: Long, name: String,
         onNostr: (suspend (Long) -> Boolean)? = null,
+        title: String? = null,
         pay: suspend () -> List<space.sovereigncast.hopp.value.ShareResult>,
     ) {
         _boost.value = BoostState.Sending
@@ -250,7 +268,7 @@ class ValueBarViewModel(
                     _boost.value = BoostState.Done(results, BoostState.NostrPost.Posting)
                     _boost.value = BoostState.Done(results, if (onNostr(paidSats)) BoostState.NostrPost.Posted else BoostState.NostrPost.Failed)
                 } else _boost.value = BoostState.Done(results)
-                value.outcome(podcastId, amountSats, results)
+                value.outcome(podcastId, amountSats, results, title)
             } catch (e: Exception) {
                 val reason = e.message ?: "error"
                 _boost.value = BoostState.Failed(reason)

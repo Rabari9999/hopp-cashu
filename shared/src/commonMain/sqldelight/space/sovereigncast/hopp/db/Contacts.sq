@@ -1,0 +1,16 @@
+-- What the listener's Nostr contacts listen to, as last read (ADR 0024): kept between starts, so
+-- Discover and a show's page have it at once. One row; read anew at most every hour.
+CREATE TABLE contact_cache (
+    id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+    json TEXT NOT NULL,
+    read_at INTEGER NOT NULL
+);
+
+select:
+SELECT json FROM contact_cache WHERE id = 1;
+
+put:
+INSERT OR REPLACE INTO contact_cache (id, json, read_at) VALUES (1, ?, ?);
+
+clear:
+DELETE FROM contact_cache;

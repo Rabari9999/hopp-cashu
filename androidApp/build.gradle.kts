@@ -65,7 +65,7 @@ val revision: String? = git("log", "-1", "--format=%cd-%h", "--date=format-local
         }
         listOfNotNull(stamp, sha).joinToString("-")
     }
-val appVersion = "0.3.2"
+val appVersion = "0.4.0"
 // A beta's versionCode: minutes since 2026 at its commit, so every beta handed on updates the one
 // before (delta audit 2026-10-22). Its own app id, so it never meets the release's codes.
 val betaVersionCode: Int? = (git("log", "-1", "--format=%ct")?.toLongOrNull()
@@ -91,7 +91,7 @@ android {
         applicationId = "space.sovereigncast.hopp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 8
+        versionCode = 9
         versionName = appVersion
     }
     buildFeatures {

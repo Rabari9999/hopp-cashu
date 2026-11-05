@@ -2,6 +2,8 @@ package space.sovereigncast.hopp
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.addressOf
 import platform.CoreGraphics.CGRectMake
 import kotlinx.cinterop.cValue
 import platform.Foundation.NSOperatingSystemVersion
@@ -36,10 +38,17 @@ import platform.darwin.NSObject
  * any of these, so copying and sharing did nothing either).
  *
  * Not here, because iOS has no public way: VPN and network settings (the
- * privacy page shows no button for them on iOS) and a per-app language (iOS
- * sets it in Hopp's own page of the Settings app).
+ * privacy page shows no button for them on iOS). The per-app language is set
+ * in Hopp's own page of the Settings app: the language entry opens that page.
  */
 class IosPlatformActions : PlatformActions {
+    /** Hopp's own page of the Settings app, where iOS lists its languages (CFBundleLocalizations; maintainer 2026-11-03). */
+    override val canPickLanguage: Boolean get() = true
+    override fun openLanguageSettings() {
+        val url = NSURL.URLWithString(UIApplicationOpenSettingsURLString) ?: return
+        UIApplication.sharedApplication.openURL(url, emptyMap<Any?, Any?>(), null)
+    }
+
     /** The picker holds its delegate weakly: kept here while it is open. */
     private var pickerDelegate: NSObject? = null
 
@@ -62,6 +71,56 @@ class IosPlatformActions : PlatformActions {
         pickerDelegate = delegate
         picker.delegate = delegate
         top.presentViewController(picker, animated = true, completion = null)
+    }
+
+    /** The picker holds its delegate weakly: kept here while it is open. */
+    private var imageDelegate: NSObject? = null
+
+    /** The photo library (maintainer 2026-11-03): runs outside Hopp, no permission asked. */
+    override val canPickImage: Boolean get() = true
+
+    override fun pickProfileImage(onImage: (ByteArray) -> Unit) {
+        val top = topController() ?: return
+        val picker = platform.UIKit.UIImagePickerController()
+        picker.sourceType = platform.UIKit.UIImagePickerControllerSourceType.UIImagePickerControllerSourceTypePhotoLibrary
+        val delegate = object : NSObject(), platform.UIKit.UIImagePickerControllerDelegateProtocol, platform.UIKit.UINavigationControllerDelegateProtocol {
+            override fun imagePickerController(picker: platform.UIKit.UIImagePickerController, didFinishPickingMediaWithInfo: Map<Any?, *>) {
+                imageDelegate = null
+                picker.dismissViewControllerAnimated(true, null)
+                val image = didFinishPickingMediaWithInfo[platform.UIKit.UIImagePickerControllerOriginalImage] as? platform.UIKit.UIImage ?: return
+                squareJpeg(image, space.sovereigncast.hopp.ui.PROFILE_PICTURE_SIZE)?.let(onImage)
+            }
+            override fun imagePickerControllerDidCancel(picker: platform.UIKit.UIImagePickerController) {
+                imageDelegate = null
+                picker.dismissViewControllerAnimated(true, null)
+            }
+        }
+        imageDelegate = delegate
+        picker.delegate = delegate
+        top.presentViewController(picker, animated = true, completion = null)
+    }
+
+    /** Upright (UIImage draws by its orientation), the middle square, [size] px, on white, as a JPEG drawn
+     *  anew — none of the photo's metadata, no place it was taken, comes along. */
+    @OptIn(ExperimentalForeignApi::class)
+    private fun squareJpeg(image: platform.UIKit.UIImage, size: Int): ByteArray? {
+        val (w, h) = image.size.useContents { width to height }
+        if (w <= 0.0 || h <= 0.0) return null
+        val side = size.toDouble()
+        val scale = side / minOf(w, h)
+        val format = platform.UIKit.UIGraphicsImageRendererFormat.defaultFormat().apply { this.scale = 1.0; opaque = true }
+        val renderer = platform.UIKit.UIGraphicsImageRenderer(size = platform.CoreGraphics.CGSizeMake(side, side), format = format)
+        val drawn = renderer.imageWithActions { _ ->
+            platform.UIKit.UIColor.whiteColor.setFill()
+            platform.UIKit.UIRectFill(CGRectMake(0.0, 0.0, side, side))
+            image.drawInRect(CGRectMake((side - w * scale) / 2, (side - h * scale) / 2, w * scale, h * scale))
+        }
+        val data = platform.UIKit.UIImageJPEGRepresentation(drawn, 0.85) ?: return null
+        val length = data.length.toInt()
+        if (length == 0) return null
+        val bytes = ByteArray(length)
+        bytes.usePinned { pinned -> platform.posix.memcpy(pinned.addressOf(0), data.bytes, data.length) }
+        return bytes
     }
 
     /** As a file in the share sheet: "Save to Files", or straight to another podcast app. */

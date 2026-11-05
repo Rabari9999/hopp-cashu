@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.directory.DirectoryShow
@@ -64,6 +66,9 @@ fun ShowPreviewScreen(
     val vm: ShowPreviewViewModel = koinViewModel(key = "preview-$feedUrl") { parametersOf(feedUrl) }
     val state by vm.state.collectAsState()
     val subscribedId by vm.subscribedId.collectAsState()
+    // Subscribed already: the show's own page at once, not a preview whose episodes open nothing (maintainer
+    // 2026-11-05). A shared episode keeps the preview, which shows it on top.
+    LaunchedEffect(subscribedId) { subscribedId?.let { if (shared == null) onOpen(it) } }
     val working by vm.working.collectAsState()
     val error by vm.error.collectAsState()
     val layer by vm.layer.collectAsState()
@@ -98,10 +103,11 @@ fun ShowPreviewScreen(
                     SelectionContainer { Text(title ?: feedUrl, style = MaterialTheme.typography.headlineSmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                     (p?.author ?: known?.author)?.let { Text(it, color = colors.onSurfaceVariant, maxLines = 1) }
                     CategoryTags(p?.categories ?: known?.categories.orEmpty())
+                    space.sovereigncast.hopp.ui.components.ContactListeners(p?.podcastGuid ?: known?.podcastGuid, feedUrl)
                     if (loaded != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (layer != null) space.sovereigncast.hopp.ui.sovereigncast.ScBadge()
                         Text(
-                            listOfNotNull(stringResource(Res.string.show_episodes, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
+                            listOfNotNull(pluralStringResource(Res.plurals.show_episodes, count, count), "⚡ V4V".takeIf { p?.value != null }).joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                         )
                     }

@@ -86,6 +86,77 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(b), tablet.queueGuids())
     }
 
+    /**
+     * Maintainer 2026-11-03: two new episodes went to "Up next" on the phone overnight and never showed in the
+     * browser. A new episode now goes there wherever a refresh finds it, in step — and one taken out on the
+     * phone does not come back when the browser, not synced since, finds it next morning.
+     */
+    @Test
+    fun aNewEpisodeInUpNextFollowsAndOneTakenOutStaysOut() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+        val browser = SyncDevice(relay, scope, nsec)
+        browser.ms += 1_000
+        browser.sync.enable()
+        val (x, y) = guids(phone).take(2)
+        suspend fun SyncDevice.new(guid: String) = queue.addNew(listOf(episode(feed, guid).let { it.id to it.published_at }))
+        // A day after the newest came out: the test feed's episodes lie ahead of the devices' clocks.
+        val day = (phone.episode(feed, x).published_at!! + 86_400) * 1000
+        phone.ms = day; browser.ms = day + 1_000
+
+        phone.ms += 60_000
+        phone.new(x)
+        phone.sync.syncNow()
+        browser.ms += 120_000
+        browser.sync.syncNow()
+        assertEquals(listOf(x), browser.queueGuids(), "the phone's new episode in the browser too")
+
+        // Overnight on the phone: y comes, and is taken out again.
+        phone.ms += 600_000
+        phone.new(y)
+        phone.ms += 60_000
+        phone.queue.remove(phone.id(y))
+        phone.sync.syncNow()
+        // Next morning the browser finds y itself, before its round.
+        browser.ms += 3_600_000
+        browser.new(y)
+        browser.sync.syncNow()
+        assertEquals(listOf(x), browser.queueGuids(), "taken out on the phone, it stays out")
+        phone.ms += 3_700_000
+        phone.sync.syncNow()
+        assertEquals(listOf(x), phone.queueGuids())
+    }
+
+    /** What a finished download put in "Up next" before 0.4.0 was never synced: noted at the next start. */
+    @Test
+    fun whatADownloadPutInUpNextBeforeGoesOutAtTheNextStart() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (a, b) = guids(phone).take(2)
+        val day = (phone.episode(feed, a).published_at!! + 86_400) * 1000
+        phone.ms = day
+        phone.queue.playLast(phone.id(a))
+        phone.sync.enable()
+        val browser = SyncDevice(relay, scope, nsec)
+        browser.ms = day + 1_000
+        browser.sync.enable()
+        // As a download did it until now: in the queue here only.
+        phone.db.queueQueries.addLast(phone.id(b))
+        phone.ms += 60_000
+        phone.sync.syncNow()
+        browser.ms += 120_000
+        browser.sync.syncNow()
+        assertEquals(listOf(a), browser.queueGuids(), "the same start: still unknown")
+
+        val again = SyncDevice(relay, scope, nsec, db = phone.db, secrets = phone.secrets)
+        again.ms = phone.ms + 600_000
+        again.sync.syncNow()
+        browser.ms += 1_200_000
+        browser.sync.syncNow()
+        assertEquals(listOf(a, b), browser.queueGuids())
+    }
+
     @Test
     fun listeningHabitsFollowTheWalletAndBudgetStay() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)
@@ -225,7 +296,7 @@ class QueueAndSettingsSyncTest {
     fun downloadsRefreshAndReportsFollow() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)
         phone.settings.update {
-            it.copy(downloadsToQueue = false, refreshHours = 6, refreshWifiOnly = true,
+            it.copy(newToQueue = false, refreshHours = 6, refreshWifiOnly = true,
                 boostFeedback = Settings.FEEDBACK_ALWAYS, quickBoostFeedback = Settings.FEEDBACK_OFF, zapFeedback = Settings.FEEDBACK_ALWAYS)
         }
         phone.sync.enable()
@@ -234,7 +305,7 @@ class QueueAndSettingsSyncTest {
         tablet.ms += 1_000
         tablet.sync.enable()
         val t = tablet.settings.current()
-        assertEquals(false, t.downloadsToQueue)
+        assertEquals(false, t.newToQueue)
         assertEquals(6, t.refreshHours)
         assertEquals(true, t.refreshWifiOnly)
         assertEquals(Settings.FEEDBACK_ALWAYS, t.boostFeedback)

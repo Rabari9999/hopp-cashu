@@ -8,9 +8,12 @@ name: Sync back
 - tapOn: "Home"
 - tapOn: "Home"
 - tapOn: "Settings"
-- scrollUntilVisible:
-    element: "Nostr identity"
-- tapOn: "Nostr identity"
+# Opened for sure: on iOS a tap right after the scroll could go nowhere (device check 2026-11-04).
+- runFlow:
+    file: ../flows/common/open-setting.yaml
+    env:
+      ROW: "Nostr identity"
+      MARK: "A donation via Lightning"
 - scrollUntilVisible:
     element: "Sync now"
 - tapOn: "Sync now"

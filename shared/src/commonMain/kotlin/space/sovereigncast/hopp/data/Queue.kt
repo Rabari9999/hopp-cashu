@@ -13,8 +13,9 @@ import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncJournal
 
-/** "Up next" (ADR 0012): play next, play last, reorder; the player takes the
- *  first one when an episode ends. The episode playing is never in it. */
+/** "Up next" (ADR 0012), since 2026-11-03 the playlist after the episode playing (Dennis, maintainer):
+ *  play next, play last, reorder; the player takes the first one when an episode ends. The episode
+ *  playing is never in it — it is the playlist's "Now". */
 class QueueRepository(
     private val db: HoppDatabase,
     /** What the listener puts in, takes out and moves, noted for sync (ADR 0021, 5). An
@@ -33,6 +34,55 @@ class QueueRepository(
             journal.record(SyncDocs.QUEUE, SyncDocs.queueKey(show, r.guid), SyncDocs.queued(show, r.guid, sort ?: 0), deleted = sort == null)
         }
     }
+
+    /**
+     * New episodes a refresh found, to the end of "Up next", oldest first (maintainer 2026-11-03) — not one
+     * heard, and not one sync knows already: in "Up next" from another device, or taken out of it there.
+     * Noted for sync as of when the episode came out, so the other devices' later changes to it win
+     * (one taken out on the phone overnight does not come back when the browser refreshes next morning).
+     */
+    suspend fun addNew(episodes: List<Pair<Long, Long?>>) = withContext(ioDispatcher) {
+        val noted = mutableListOf<Long>()
+        for ((id, publishedAt) in episodes) {
+            val r = db.episodeQueries.syncKeysOf(id).awaitAsOneOrNull() ?: continue
+            if (r.played == 1L) continue
+            val key = SyncDocs.queueKey(SyncDocs.showKey(r.podcast_guid, r.feed_url), r.guid)
+            if (journal.current(SyncDocs.QUEUE, key) != null) continue
+            qq.addLast(id)
+            noted += id
+            if (journal.enabled) {
+                val sort = qq.selectKeys().awaitAsList().firstOrNull { it.episode_id == id }?.sort_key ?: continue
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                journal.record(SyncDocs.QUEUE, key, SyncDocs.queued(show, r.guid, sort), notify = false, atMs = (publishedAt ?: 0) * 1000)
+            }
+        }
+        if (noted.isNotEmpty()) journal.changed(SyncDocs.QUEUE)
+    }
+
+    /**
+     * What is in "Up next" here and sync knows nothing of — put there by a finished download before 0.4.0,
+     * which was never noted (maintainer 2026-11-03) — noted now, as of the episode's release, so a change
+     * made since on another device still wins. Once per start; nothing to do after the first.
+     */
+    suspend fun noteUnknownOnce() {
+        if (unknownNoted || !journal.enabled) return
+        unknownNoted = true
+        // A device new to sync brings its queue in by the snapshot, where the relays have none.
+        if (!journal.knows(SyncDocs.QUEUE)) return
+        withContext(ioDispatcher) {
+            var any = false
+            for (q in qq.selectKeys().awaitAsList()) {
+                val r = db.episodeQueries.syncKeysOf(q.episode_id).awaitAsOneOrNull() ?: continue
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                val key = SyncDocs.queueKey(show, r.guid)
+                if (journal.current(SyncDocs.QUEUE, key) != null) continue
+                journal.record(SyncDocs.QUEUE, key, SyncDocs.queued(show, r.guid, q.sort_key), notify = false, atMs = (r.published_at ?: 0) * 1000)
+                any = true
+            }
+            if (any) journal.changed(SyncDocs.QUEUE)
+        }
+    }
+    private var unknownNoted = false
 
     /** "Up next" from another device (sync): the episode at [sortKey], or out of it; not noted again. */
     suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(ioDispatcher) {
@@ -80,10 +130,81 @@ class QueueRepository(
 
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) { qq.remove(episodeId); note(listOf(episodeId)) }
 
-    /** The whole order at once, as the list looks after a drag. */
+    /** An entry taken out of the playlist: the order it was in and its place there — to [putBack] it. */
+    class Taken(val order: List<Long>, val place: Long?)
+
+    /** Out of the playlist, remembering where it was (maintainer 2026-11-04). */
+    suspend fun removeKeepingOrder(episodeId: Long): Taken = withContext(ioDispatcher) {
+        val taken = db.transactionWithResult {
+            val place = qq.selectKeys().awaitAsList().firstOrNull { it.episode_id == episodeId }?.sort_key
+            Taken(qq.selectAll().awaitAsList(), place).also { qq.remove(episodeId) }
+        }
+        note(listOf(episodeId))
+        taken
+    }
+
+    /**
+     * [episodeId] back where it was ("Undo"; maintainer 2026-11-04: it came back at the end) — on its own
+     * place while no other took it, so sync has nothing to send; else the order it was in again, what
+     * went since staying out and what came since after the rest.
+     */
+    suspend fun putBack(episodeId: Long, taken: Taken) = withContext(ioDispatcher) {
+        val changed = db.transactionWithResult {
+            val keys = qq.selectKeys().awaitAsList().associate { it.episode_id to it.sort_key }
+            when {
+                episodeId in keys -> emptyList()
+                taken.place != null && taken.place !in keys.values -> { qq.put(episodeId, taken.place); listOf(episodeId) }
+                else -> {
+                    val now = qq.selectAll().awaitAsList()
+                    (taken.order.filter { it == episodeId || it in now } + now.filter { it !in taken.order })
+                        .also { all -> all.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
+                }
+            }
+        }
+        note(changed)
+    }
+
+    /** Everything out of the playlist at once — the episodes keep their progress. */
+    suspend fun clear() = withContext(ioDispatcher) {
+        val all = qq.selectAll().awaitAsList()
+        db.transaction { all.forEach { qq.remove(it) } }
+        note(all)
+    }
+
+    /**
+     * Once, as "Continue listening" goes (Dennis, maintainer 2026-11-03): the episodes begun and not
+     * finished that were not in "Up next" yet — [inProgress], newest first — to the playlist's top in that
+     * order, so none is lost; not [except], the one the player has, which is the playlist's "Now".
+     */
+    suspend fun adoptInProgress(inProgress: List<EpisodeItem>, except: Long?) = withContext(ioDispatcher) {
+        val queued = qq.selectAll().awaitAsList().toSet()
+        val adopt = inProgress.filter { !it.played && it.positionMs > 0 && it.id != except && it.id !in queued }.distinctBy { it.id }.take(ADOPT_MAX)
+        if (adopt.isEmpty()) return@withContext
+        db.transaction {
+            var key = qq.minKey().awaitAsOne()
+            adopt.asReversed().forEach { key -= 1; qq.put(it.id, key) }
+        }
+        note(adopt.map { it.id })
+    }
+
+    /**
+     * The whole order at once, as the list looks after a drag. The places these episodes had are given
+     * out anew in the new order, and only an episode whose place changed is noted: one moved and moved
+     * back has its own place again, and sync has nothing to send (maintainer 2026-11-04). Places shared
+     * or missing: numbered 0, 1, 2 … as before.
+     */
     suspend fun reorder(episodeIds: List<Long>) = withContext(ioDispatcher) {
-        db.transaction { episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) } }
-        note(episodeIds)
+        val moved = db.transactionWithResult {
+            val keys = qq.selectKeys().awaitAsList().associate { it.episode_id to it.sort_key }
+            val places = episodeIds.mapNotNull { keys[it] }.sorted()
+            if (places.size == episodeIds.size && places.toSet().size == places.size) {
+                episodeIds.zip(places).filter { (id, place) -> keys[id] != place }.onEach { (id, place) -> qq.put(id, place) }.map { it.first }
+            } else {
+                episodeIds.forEachIndexed { i, id -> qq.put(id, i.toLong()) }
+                episodeIds
+            }
+        }
+        note(moved)
     }
 
     /** Takes the first one off the queue. */
@@ -97,5 +218,7 @@ class QueueRepository(
         /** The farthest place in "Up next" — far beyond any real queue, and never near a Long's end
          *  (delta audit 2026-10-22, MN-06: a place from sync at Long.MAX_VALUE wrapped to the front). */
         const val SORT_MAX = 1_000_000_000_000_000L
+        /** As many as "Continue listening" showed. */
+        const val ADOPT_MAX = 20
     }
 }

@@ -248,6 +248,42 @@ compose.resources {
     packageOfResClass = "space.sovereigncast.hopp.resources"
 }
 
+// "What's new" (maintainer 2026-11-03): the changelogs travel with the app as Kotlin strings —
+// read in Hopp, offline, exactly what this build holds; never fetched from GitLab.
+val generateChangelog = tasks.register("generateChangelog") {
+    val sources = mapOf("EN" to rootProject.file("CHANGELOG.md"), "DE" to rootProject.file("CHANGELOG.de.md"))
+    val out = layout.buildDirectory.dir("generated/changelog/kotlin")
+    inputs.files(sources.values)
+    outputs.dir(out)
+    doLast {
+        fun quoted(text: String) = buildString {
+            append('"')
+            text.forEach { c ->
+                when (c) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '$' -> append("\\$")
+                    '\n' -> append("\\n")
+                    '\r' -> Unit
+                    else -> append(c)
+                }
+            }
+            append('"')
+        }
+        val file = out.get().file("space/sovereigncast/hopp/data/ChangelogText.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(buildString {
+            appendLine("// Generated from CHANGELOG.md and CHANGELOG.de.md by :shared:generateChangelog — do not edit.")
+            appendLine("package space.sovereigncast.hopp.data")
+            appendLine()
+            appendLine("internal object ChangelogText {")
+            sources.forEach { (name, f) -> appendLine("    const val $name: String = ${quoted(f.readText())}") }
+            appendLine("}")
+        })
+    }
+}
+kotlin.sourceSets.named("commonMain") { kotlin.srcDir(generateChangelog) }
+
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }

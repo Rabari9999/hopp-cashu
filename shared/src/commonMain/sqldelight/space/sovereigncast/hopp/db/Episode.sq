@@ -121,6 +121,10 @@ UPDATE episode SET played = 1, played_at = ?, position_ms = 0, in_inbox = 0 WHER
 markUnplayed:
 UPDATE episode SET played = 0, played_at = NULL WHERE id = ?;
 
+-- Listened to on another device (sync): "Recently played" shows it here too — never moved back.
+noteListened:
+UPDATE episode SET last_played_at = MAX(COALESCE(last_played_at, 0), :at) WHERE id = :id;
+
 -- A whole show, or an episode and all older ones, heard (device feedback 2026-10-14).
 -- Without a date only the episode itself counts as "older": it cannot be placed.
 markShowPlayed:
@@ -251,8 +255,16 @@ SELECT podcast_id, published_at FROM episode WHERE published_at IS NOT NULL ORDE
 -- Sync over Nostr (ADR 0021, 5): an episode with its show's keys, and what this
 -- device has heard lately — in progress, heard in the last 90 days — and its favourites.
 syncKeysOf:
-SELECT e.guid, e.position_ms, e.played, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url
+SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url
 FROM episode e JOIN podcast p ON p.id = e.podcast_id WHERE e.id = ?;
+
+-- What "Recently played" holds, newest first, with what sync needs to say so.
+recentlyListenedForSync:
+SELECT e.guid, e.played_at, e.last_played_at, p.podcast_guid, p.feed_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.played = 1 AND e.played_at IS NOT NULL AND e.last_played_at IS NOT NULL
+ORDER BY e.played_at DESC
+LIMIT :limit;
 
 progressForSync:
 SELECT e.guid, e.position_ms, e.played, e.last_played_at, e.played_at, e.favorite_at, e.published_at, p.podcast_guid, p.feed_url,

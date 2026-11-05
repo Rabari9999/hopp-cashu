@@ -46,7 +46,7 @@ class MediaTreeTest {
     fun theTreeHasNewUpNextDownloadsAndTheLibrary() = runBlocking {
         val showId = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
         val folders = tree.children(MediaTree.ROOT)
-        assertEquals(listOf("New", "Up next", "Downloads", "Library"), folders.map { it.mediaMetadata.title.toString() })
+        assertEquals(listOf("New", "Playlist", "Downloads", "Library"), folders.map { it.mediaMetadata.title.toString() })
         assertTrue(folders.all { it.mediaMetadata.isBrowsable == true })
 
         val new = tree.children(MediaTree.NEW)

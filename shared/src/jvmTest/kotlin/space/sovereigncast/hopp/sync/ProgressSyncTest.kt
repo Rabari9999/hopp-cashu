@@ -297,6 +297,75 @@ class ProgressSyncTest {
         assertEquals(heard, heardOn(laptop))
     }
 
+    /**
+     * Maintainer 2026-11-02: what was listened to on the phone did not show under "Recently played" on
+     * the tablet — the entry said "heard", not that it was played. Listened to, it shows there too;
+     * only marked heard, it stays out, as on the phone.
+     */
+    @Test
+    fun listenedToShowsAsRecentlyPlayedOnTheOtherDevice() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val (a, b) = guids(phone).take(2)
+        phone.ms += 60_000
+        phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, a).id, true)
+        phone.episodes.setPlayed(phone.episode(feed, b).id, true)
+        phone.sync.syncNow()
+
+        tablet.ms += 300_000
+        tablet.sync.syncNow()
+        assertEquals(1L, tablet.episode(feed, a).played)
+        assertEquals(1L, tablet.episode(feed, b).played)
+        assertEquals(listOf(a), tablet.episodes.recentlyPlayed(5).first().map { it.guid })
+    }
+
+    /**
+     * Maintainer 2026-11-03: five episodes heard on the phone did not show under "Recently played" in the
+     * browser — their entries were from before `listened`. Started again, the phone says it for them.
+     */
+    @Test
+    fun listenedToBeforeTheFieldIsSaidAgainAtTheNextStart() = runBlocking<Unit> {
+        val (phone, tablet) = pair()
+        val a = guids(phone).first()
+        phone.ms += 60_000
+        phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, a).id, true)
+        // As Hopp before 0.4.0 wrote it: heard, without when it was played.
+        val show = SyncDocs.showKey(phone.row(feed).podcast_guid, feed)
+        val playedAt = phone.episode(feed, a).played_at!!
+        phone.journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, a), SyncDocs.progress(show, a, 0, true, playedAt))
+        phone.sync.syncNow()
+        tablet.ms += 300_000
+        tablet.sync.syncNow()
+        assertEquals(emptyList(), tablet.episodes.recentlyPlayed(5).first().map { it.guid }, "not said yet")
+
+        val again = SyncDevice(relay, scope, nsec, db = phone.db, secrets = phone.secrets)
+        again.ms = phone.ms + 600_000
+        again.sync.syncNow()
+        tablet.ms += 1_200_000
+        tablet.sync.syncNow()
+        assertEquals(listOf(a), tablet.episodes.recentlyPlayed(5).first().map { it.guid })
+        assertEquals(playedAt, tablet.episode(feed, a).played_at, "as of when it was heard")
+    }
+
+    /** The same for what was listened to before sync was turned on: it goes out with the first snapshot. */
+    @Test
+    fun listenedToBeforeSyncShowsAsRecentlyPlayedOnTheOtherDevice() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val a = guids(phone).first()
+        phone.episodes.savePosition(phone.episode(feed, a).id, 120_000, paused = true)
+        phone.ms += 60_000
+        phone.episodes.setPlayed(phone.episode(feed, a).id, true)
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms = phone.ms + 1_000
+        tablet.sync.enable()
+        assertEquals(listOf(a), tablet.episodes.recentlyPlayed(5).first().map { it.guid })
+    }
+
     @Test
     fun allHeardBeforeSyncGoesOutAsOneEntry() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)

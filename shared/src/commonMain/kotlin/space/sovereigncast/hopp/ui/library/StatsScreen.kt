@@ -133,20 +133,24 @@ fun StatsScreen(vm: StatsViewModel = koinViewModel()) {
                 StatsRange.Year -> stringResource(Res.string.stats_heard_year, year)
                 StatsRange.All -> stringResource(Res.string.stats_heard_all)
             }, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
-            Text(duration(s.heardMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(Res.string.stats_days, decimal(s.heardMs / 86_400_000.0)) + " · " +
-                org.jetbrains.compose.resources.pluralStringResource(Res.plurals.stats_episodes, s.episodes, s.episodes), color = colors.onSurfaceVariant)
+            Text(listenDuration(s.heardMs), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
+            // The days only once there is a tenth of one: "0.0 days of listening" said nothing (store screenshots 2026-11-04).
+            val days = s.heardMs / 86_400_000.0
+            Text(listOfNotNull(
+                if (days >= 0.1) stringResource(Res.string.stats_days, decimal(days)) else null,
+                org.jetbrains.compose.resources.pluralStringResource(Res.plurals.stats_episodes, s.episodes, s.episodes),
+            ).joinToString(" · "), color = colors.onSurfaceVariant)
             Bars(s)
             if (s.longestStreakDays > 1) Text(stringResource(Res.string.stats_streak, s.longestStreakDays), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             s.since?.let { Text(stringResource(Res.string.stats_since, formatDate(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
-            s.estimatedBeforeMs?.let { Text(stringResource(Res.string.stats_estimate, duration(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+            s.estimatedBeforeMs?.let { Text(stringResource(Res.string.stats_estimate, listenDuration(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
         }
 
         if (s.savedBySpeedMs + s.savedBySkipsMs >= 60_000) Card {
             Text(stringResource(Res.string.stats_saved), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(duration(s.savedBySpeedMs + s.savedBySkipsMs), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-            Line(stringResource(Res.string.stats_saved_speed), duration(s.savedBySpeedMs))
-            if (s.savedBySkipsMs > 0) Line(stringResource(Res.string.stats_saved_skips), duration(s.savedBySkipsMs))
+            Text(listenDuration(s.savedBySpeedMs + s.savedBySkipsMs), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Line(stringResource(Res.string.stats_saved_speed), listenDuration(s.savedBySpeedMs))
+            if (s.savedBySkipsMs > 0) Line(stringResource(Res.string.stats_saved_skips), listenDuration(s.savedBySkipsMs))
         }
 
         val heardShows = s.topShows.filter { it.heardMs > 0 }
@@ -157,7 +161,7 @@ fun StatsScreen(vm: StatsViewModel = koinViewModel()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(show.title, Modifier.weight(1f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(duration(show.heardMs))
+                        Text(listenDuration(show.heardMs))
                     }
                     Box(Modifier.fillMaxWidth(show.heardMs.toFloat() / most).height(6.dp).clip(RoundedCornerShape(3.dp))
                         .background(if (i == 0) Hopp.colors.value else Hopp.colors.value.copy(alpha = 0.35f)))
@@ -174,7 +178,7 @@ fun StatsScreen(vm: StatsViewModel = koinViewModel()) {
                         Text(e.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (e.showTitle.isNotEmpty()) Text(e.showTitle, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     }
-                    Text(duration(e.heardMs), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    Text(listenDuration(e.heardMs), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
             }
         }
@@ -192,7 +196,7 @@ fun StatsScreen(vm: StatsViewModel = koinViewModel()) {
 
         Text(stringResource(Res.string.stats_private), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
         val actions = LocalPlatformActions.current
-        val share = stringResource(Res.string.stats_share_text, duration(s.heardMs), formatSats(s.givenMsat / 1000))
+        val share = stringResource(Res.string.stats_share_text, listenDuration(s.heardMs), formatSats(s.givenMsat / 1000))
         val title = stringResource(Res.string.stats_title)
         Button(
             onClick = { actions.shareText(share, title) }, modifier = Modifier.fillMaxWidth(),
@@ -277,7 +281,8 @@ private fun Tile(n: Long, label: String) = Column(
 
 /** "45 min", "3.5 h", "212 h". */
 @Composable
-private fun duration(ms: Long): String {
+/** Listening time in minutes, then hours — the statistics and the playlist's length. */
+internal fun listenDuration(ms: Long): String {
     val minutes = ms / 60_000
     return when {
         minutes < 60 -> stringResource(Res.string.stats_minutes, minutes.toInt())
@@ -289,6 +294,6 @@ private fun duration(ms: Long): String {
 /** One decimal, in the language's way: "8,8" or "8.8". */
 private fun decimal(x: Double): String {
     val tenths = kotlin.math.round(x * 10).toLong()
-    val sep = if (androidx.compose.ui.text.intl.Locale.current.language == "de") "," else "."
+    val sep = space.sovereigncast.hopp.ui.components.Languages.of(space.sovereigncast.hopp.ui.components.Languages.current()).decimal
     return "${tenths / 10}$sep${tenths % 10}"
 }

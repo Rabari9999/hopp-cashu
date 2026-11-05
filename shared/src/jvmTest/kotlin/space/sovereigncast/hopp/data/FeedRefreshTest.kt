@@ -61,4 +61,21 @@ class FeedRefreshTest {
         assertFalse(feeds.refreshing.value)
         assertEquals(1, fetches.get())
     }
+
+    /** The feeds in, the refresh is done: what comes after them runs on without the spinner (maintainer 2026-11-04). */
+    @Test
+    fun whatComesAfterTheFeedsIsNotWaitedFor() = runBlocking<Unit> {
+        podcasts.subscribe("https://pod.test/feed.xml")
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        val afters = AtomicInteger()
+        val feeds = FeedRefresh(podcasts, settings, scope, { now }, whileOpen = false, after = { afters.incrementAndGet(); started.complete(Unit); gate.await() })
+        withTimeout(10_000) { feeds.now().join() }
+        assertFalse(feeds.refreshing.value)
+        withTimeout(10_000) { started.await() }
+        // A second refresh while the first one's "after" still runs: the feeds again, "after" not twice.
+        withTimeout(10_000) { feeds.now().join() }
+        assertEquals(1, afters.get())
+        gate.complete(Unit)
+    }
 }

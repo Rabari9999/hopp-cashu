@@ -1,0 +1,72 @@
+# An episode put into the playlist, swiped out of it and back where it was with "Undo" (review
+# 2026-11-04: an Undo tapped from a test after a swipe did not bring the entry back).
+appId: ${APP_ID}
+name: Playlist
+---
+- launchApp
+- waitForAnimationToEnd
+# The show through Discover's search: in the library the playlist names the show on its entries.
+- tapOn:
+    text: "Discover"
+    retryTapIfNoChange: true
+- runFlow:
+    when:
+      visible: "Cancel"
+    commands:
+      - tapOn: "Cancel"
+- tapOn: "Search or feed address"
+- inputText: "Nodesignal"
+- pressKey: Enter
+# Subscribed, the show opens as itself.
+- extendedWaitUntil:
+    visible: "Nodesignal - Deine Bitcoin-Frequenz"
+    timeout: 30000
+- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
+- extendedWaitUntil:
+    visible: "Top episodes"
+    timeout: 15000
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "Search episodes"
+    centerElement: true
+- tapOn: "Search episodes"
+- inputText: "E296"
+- pressKey: Enter
+# In the list's own column: on a tablet a swipe in the middle of the screen moves the episode's pane.
+- repeat:
+    while:
+      notVisible: "Nodesignal-Talk - E296.*"
+    times: 6
+    commands:
+      - swipe:
+          start: "25%, 80%"
+          end: "25%, 40%"
+- tapOn: "Nodesignal-Talk - E296.*"
+- extendedWaitUntil:
+    visible: "Show notes"
+    timeout: 15000
+- tapOn:
+    text: "More"
+    index: 0
+- tapOn: "Play next"
+- waitForAnimationToEnd
+- tapOn: "Library"
+- scrollUntilVisible:
+    element: "Nodesignal-Talk - E296.*"
+    centerElement: true
+- waitForAnimationToEnd
+- takeScreenshot: 08-playlist
+- swipe:
+    from: "Nodesignal-Talk - E296.*"
+    direction: LEFT
+- extendedWaitUntil:
+    visible: "Removed from the playlist"
+    timeout: 5000
+- assertNotVisible: "Nodesignal-Talk - E296.*"
+- takeScreenshot: 08-removed
+- tapOn: "Undo"
+- extendedWaitUntil:
+    visible: "Nodesignal-Talk - E296.*"
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 08-undone

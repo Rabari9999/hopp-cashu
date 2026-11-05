@@ -14,6 +14,12 @@ CREATE TABLE sync_entry (
     -- A removal: when it first went out, milliseconds — it is kept that long from then, not from
     -- when it was made (delta audit 2 2026-10-22, HN-05). Null for others, and before it went out.
     kept_from INTEGER,
+    -- While an entry is pending: the version the relays hold, when they hold one (version 24,
+    -- maintainer 2026-11-04) — changed back to it, the entry is that version again and nothing goes out.
+    relay_json TEXT,
+    relay_updated_at INTEGER,
+    relay_deleted INTEGER,
+    relay_kept_from INTEGER,
     PRIMARY KEY (doc, key)
 );
 
@@ -45,13 +51,23 @@ SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ?;
 entry:
 SELECT key, json, updated_at, deleted, kept_from FROM sync_entry WHERE doc = ? AND key = ?;
 
+-- The entry with whether it waits, and the relays' version while it does.
+entryState:
+SELECT json, updated_at, deleted, kept_from, pending, relay_json, relay_updated_at, relay_deleted, relay_kept_from FROM sync_entry WHERE doc = ? AND key = ?;
+
+setRelay:
+UPDATE sync_entry SET relay_json = ?, relay_updated_at = ?, relay_deleted = ?, relay_kept_from = ? WHERE doc = ? AND key = ?;
+
+-- A put clears the relays' version: what is put is either theirs or a new one noted with setRelay.
 putEntry:
 INSERT OR REPLACE INTO sync_entry (doc, key, json, updated_at, deleted, pending, kept_from) VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- The relays took this version of the entry; a newer one made meanwhile stays pending. A removal
 -- keeps the time it first went out.
 markSent:
-UPDATE sync_entry SET pending = 0, kept_from = coalesce(kept_from, ?) WHERE doc = ? AND key = ? AND updated_at = ?;
+UPDATE sync_entry SET pending = 0, kept_from = coalesce(kept_from, ?),
+    relay_json = NULL, relay_updated_at = NULL, relay_deleted = NULL, relay_kept_from = NULL
+WHERE doc = ? AND key = ? AND updated_at = ?;
 
 pendingKeys:
 SELECT key FROM sync_entry WHERE doc = ? AND pending = 1;

@@ -71,7 +71,7 @@ class DownloadsAndQueueTest {
     private val scheduler = DownloadScheduler { scheduled += it }
     private val clock = Clock { now }
     private val settings = SettingsRepository(db)
-    private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler) { settings.current().autoDownloads }
+    private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler, autoDownloads = { settings.current().autoDownloads })
     private val episodes = EpisodeRepository(db, http, clock)
     private val downloads = DownloadRepository(db, http, clock, files, scheduler, settings)
     private val queue = QueueRepository(db)
@@ -116,6 +116,12 @@ class DownloadsAndQueueTest {
     @Test
     fun thePaymentLogOfAnEarlyInstallIsReadRightAfterTheUpdate() = test {
         val driver = schemaDriver()
+        // Version 20 had no show left out of sharing with Nostr contacts yet (version 22).
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
+        driver.execute(null, "ALTER TABLE podcast DROP COLUMN tags", 0)
+        // Nor the relays' version of a waiting sync entry (version 24).
+        listOf("relay_json", "relay_updated_at", "relay_deleted", "relay_kept_from").forEach { driver.execute(null, "ALTER TABLE sync_entry DROP COLUMN $it", 0) }
+        driver.execute(null, "DROP TABLE contact_cache", 0)
         driver.execute(null, "DROP TABLE payment", 0)
         driver.execute(null, """CREATE TABLE payment (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, kind TEXT NOT NULL,
             podcast_id INTEGER, episode_id INTEGER, podcast_title TEXT, episode_title TEXT, amount_msat INTEGER NOT NULL, message TEXT,
@@ -190,6 +196,21 @@ class DownloadsAndQueueTest {
         assertEquals(listOf(e2, e3, e4), queue.items.first().map { it.id })
         podcasts.unsubscribe(id)
         assertNull(queue.peek())
+    }
+
+    /** "Undo" puts an entry back where it was (maintainer 2026-11-04: it came back at the end); what
+     *  came since stays after the rest, what went stays out. */
+    @Test
+    fun anEntryTakenOutComesBackWhereItWas() = test {
+        items = 4
+        val id = subscribe()
+        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e1); queue.playLast(e2); queue.playNext(e3)
+        assertEquals(listOf(e3, e1, e2), queue.items.first().map { it.id })
+        val before = queue.removeKeepingOrder(e1)
+        queue.playLast(e4); queue.remove(e2)
+        queue.putBack(e1, before)
+        assertEquals(listOf(e3, e1, e4), queue.items.first().map { it.id })
     }
 
     @Test
@@ -297,23 +318,47 @@ class DownloadsAndQueueTest {
         assertEquals(listOf(false), scheduled, "once")
     }
 
-    /** Device feedback 2026-10-19: as in AntennaPod, a download is ready in "Up next". */
+    /** Maintainer 2026-11-03: a new episode goes to "Up next" when a refresh finds it, oldest first — on every
+     *  device, the browser too — no longer when its download finishes, which only a phone saw. */
     @Test
-    fun aFinishedDownloadGoesToTheEndOfTheQueue() = test {
+    fun aNewEpisodeGoesToTheEndOfTheQueue() = test {
+        val withQueue = PodcastRepository(db, FeedFetcher(http), clock, files, scheduler, autoDownloads = { true },
+            onNewEpisodes = { if (settings.current().newToQueue) queue.addNew(it) })
+        val id = (withQueue.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        assertEquals(emptyList(), queue.items.first(), "subscribing fills nothing")
         items = 4
-        val id = subscribe()
-        val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
-        queue.playLast(e3)
-        listOf(e3, e1, e2, e4).forEach { downloads.request(it) }
-        episodes.setPlayed(e2, true)
-        downloads.playing = { e4 }
+        withQueue.refresh(id)
+        val (e1, e3, e4) = listOf(1, 3, 4).map { byTitle(id, "Ep $it").id }
+        assertEquals(listOf(e3, e4), queue.items.first().map { it.id }, "the new ones, oldest first")
+        // A finished download no longer puts one there.
+        queue.remove(e3); queue.remove(e4)
+        downloads.request(e1)
         assertTrue(downloads.runPending(includeAuto = true))
-        assertEquals(listOf(e3, e1), queue.items.first().map { it.id }, "keeps its place; not one heard, nor the one playing")
-        queue.remove(e3); queue.remove(e1)
-        settings.update { it.copy(downloadsToQueue = false) }
-        downloads.remove(e1); downloads.request(e1)
-        assertTrue(downloads.runPending(includeAuto = true))
+        assertEquals(emptyList(), queue.items.first(), "a download is no way into it")
+        settings.update { it.copy(newToQueue = false) }
+        items = 5
+        withQueue.refresh(id)
         assertEquals(emptyList(), queue.items.first(), "switched off")
+    }
+
+    /** Dennis, maintainer 2026-11-03: "Continue listening" goes into the playlist — what was begun and not in
+     *  "Up next" joins its top once, newest first, but the one the player has ("Now"); emptying keeps progress. */
+    @Test
+    fun whatWasBegunJoinsThePlaylistOnce() = test {
+        val id = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
+        items = 4
+        podcasts.refresh(id)
+        val (e1, e2, e3, e4) = listOf(1, 2, 3, 4).map { byTitle(id, "Ep $it").id }
+        queue.playLast(e4)
+        // Begun, newest last: e1, then e2, then e3 (the one the player has); e4 is queued already.
+        listOf(e1, e2, e3, e4).forEachIndexed { i, e -> episodes.applyProgress(e, 60_000, played = false, atSeconds = now + i) }
+        queue.adoptInProgress(episodes.inProgress.first(), except = e3)
+        assertEquals(listOf(e2, e1, e4), queue.items.first().map { it.id })
+        queue.adoptInProgress(episodes.inProgress.first(), except = e3)
+        assertEquals(listOf(e2, e1, e4), queue.items.first().map { it.id }, "nothing twice")
+        queue.clear()
+        assertEquals(emptyList(), queue.items.first())
+        assertEquals(60_000, byTitle(id, "Ep 1").positionMs, "progress kept")
     }
 
     /** Device feedback 2026-10-25: queued by its download, then marked heard and its download
@@ -323,7 +368,7 @@ class DownloadsAndQueueTest {
         items = 4
         val id = subscribe()
         val (e1, e2, e3, e4) = (1..4).map { byTitle(id, "Ep $it").id }
-        listOf(e1, e2, e3, e4).forEach { downloads.request(it) }
+        listOf(e1, e2, e3, e4).forEach { downloads.request(it); queue.playLast(it) }
         assertTrue(downloads.runPending(includeAuto = true))
         val order = queue.items.first().map { it.id }
         assertEquals(setOf(e1, e2, e3, e4), order.toSet())

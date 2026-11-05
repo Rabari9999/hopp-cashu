@@ -1,6 +1,6 @@
 <resources>
     <string name="auto_new">Neu</string>
-    <string name="auto_queue">Als Nächstes</string>
+    <string name="auto_queue">Playlist</string>
     <string name="auto_downloads">Downloads</string>
     <string name="auto_library">Bibliothek</string>
     <string name="downloads_channel">Downloads</string>

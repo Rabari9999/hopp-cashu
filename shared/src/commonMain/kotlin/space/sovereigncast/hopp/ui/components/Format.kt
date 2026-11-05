@@ -13,31 +13,36 @@ fun formatTime(ms: Long): String {
     else "$m:${s.toString().padStart(2, '0')}"
 }
 
-/** Epoch seconds → "07.10.2026", on the listener's clock (locale-aware formatting comes with ADR 0016). */
-fun formatDate(epochSeconds: Long?): String {
+/** Epoch seconds → "07.10.2026" ("07/10/2026" in Spanish), on the listener's clock — as [Languages] writes dates. */
+fun formatDate(epochSeconds: Long?, language: String = Languages.current()): String {
     if (epochSeconds == null) return ""
     val t = local(epochSeconds)
-    return "${two(t.day)}.${two(t.month.number)}.${t.year}"
+    return formatDate(kotlinx.datetime.LocalDate(t.year, t.month, t.day), language)
 }
 
 /** A day → "07.10.2026". */
-fun formatDate(date: kotlinx.datetime.LocalDate): String = "${two(date.day)}.${two(date.month.number)}.${date.year}"
+fun formatDate(date: kotlinx.datetime.LocalDate, language: String = Languages.current()): String {
+    val sep = Languages.of(language).dateSeparator
+    return "${two(date.day)}$sep${two(date.month.number)}$sep${date.year}"
+}
 
 /** This year on the listener's clock. */
 @OptIn(ExperimentalTime::class)
 fun currentYear(): Int = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
 
 /** Epoch seconds → "07.10.2026 · 14:05" — when a payment went out (device feedback 2026-10-09). */
-fun formatDateTime(epochSeconds: Long): String {
+fun formatDateTime(epochSeconds: Long, language: String = Languages.current()): String {
     val t = local(epochSeconds)
-    return "${formatDate(epochSeconds)} · ${two(t.hour)}:${two(t.minute)}"
+    return "${formatDate(epochSeconds, language)} · ${two(t.hour)}:${two(t.minute)}"
 }
 
 /** An API's ISO time → "09.10. 23:39" on the listener's clock; as it came if it does not parse. */
 @OptIn(ExperimentalTime::class)
-fun formatIsoShort(iso: String): String = runCatching {
+fun formatIsoShort(iso: String, language: String = Languages.current()): String = runCatching {
     val t = Instant.parse(iso).toLocalDateTime(TimeZone.currentSystemDefault())
-    "${two(t.day)}.${two(t.month.number)}. ${two(t.hour)}:${two(t.minute)}"
+    val sep = Languages.of(language).dateSeparator
+    // "09.10." with dots, "09/10" with slashes.
+    "${two(t.day)}$sep${two(t.month.number)}${if (sep == '.') "." else ""} ${two(t.hour)}:${two(t.minute)}"
 }.getOrDefault(iso)
 
 /** An API's ISO time as epoch seconds, or null. */
@@ -49,27 +54,27 @@ private fun local(epochSeconds: Long) = Instant.fromEpochSeconds(epochSeconds).t
 private fun two(n: Int) = n.toString().padStart(2, '0')
 
 /** Bytes → "340 MB" / "1.2 GB" (whole megabytes are enough for downloads). */
-fun formatBytes(bytes: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String {
+fun formatBytes(bytes: Long, language: String = Languages.current()): String {
     val mb = bytes / (1024.0 * 1024.0)
     if (mb < 1024) return "${mb.toLong()} MB"
     return "${formatTenths((mb / 1024 * 10).toLong(), language)} GB"
 }
 
-/** Tenths with the language's decimal mark: 11 → "1,1" in German, "1.1" otherwise; 10 → "1". */
-fun formatTenths(tenths: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String =
-    if (tenths % 10 == 0L) "${tenths / 10}" else "${tenths / 10}${if (language == "de") ',' else '.'}${tenths % 10}"
+/** Tenths with the language's decimal mark: 11 → "1,1" in German, "1.1" in English; 10 → "1". */
+fun formatTenths(tenths: Long, language: String = Languages.current()): String =
+    if (tenths % 10 == 0L) "${tenths / 10}" else "${tenths / 10}${Languages.of(language).decimal}${tenths % 10}"
 
-/** 2100 → "2.100" in German, "2,100" otherwise — sats are counted, not measured. */
-fun formatSats(sats: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String {
-    val sep = if (language == "de") '.' else ','
+/** 2100 → "2.100" in German, "2,100" in English — sats are counted, not measured. */
+fun formatSats(sats: Long, language: String = Languages.current()): String {
+    val sep = Languages.of(language).grouping
     val digits = sats.toString().removePrefix("-")
     val grouped = digits.reversed().chunked(3).joinToString(sep.toString()).reversed()
     return if (sats < 0) "-$grouped" else grouped
 }
 
 /** Millisats as sats with up to three decimals — routing fees are often below one sat. */
-fun formatMsat(msat: Long, language: String = androidx.compose.ui.text.intl.Locale.current.language): String {
+fun formatMsat(msat: Long, language: String = Languages.current()): String {
     val whole = formatSats(msat / 1000, language)
     val frac = (msat % 1000).toString().padStart(3, '0').trimEnd('0')
-    return if (frac.isEmpty()) whole else whole + (if (language == "de") "," else ".") + frac
+    return if (frac.isEmpty()) whole else whole + Languages.of(language).decimal + frac
 }

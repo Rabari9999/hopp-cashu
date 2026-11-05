@@ -38,6 +38,13 @@ every day in the first release.
   *(Amended 2026-10-19, maintainer: as in AntennaPod, a finished download goes
   to the end of the queue — not one already played or playing, and one already
   in it keeps its place; a setting under Downloads, on by default.)*
+  *(Amended 2026-11-03, maintainer: a new episode goes to the end of the queue
+  when a refresh finds it — on every device, the browser too, in step with
+  sync — no longer when its download finishes, which only a phone saw. Out in
+  the last seven days only; one sync already knows, in the queue or taken out
+  of it elsewhere, is left alone, and it is noted as of its release, so a later
+  change on another device wins. The same setting, under Downloads in the apps
+  and under refresh in the browser, which downloads nothing.)*
 - **Sleep timer:** minutes, end of episode, and **end of chapter**.
 - **Value for value in the player:** boost button with amount presets and a
   message, a view of the split (who gets how much), streaming indicator with
@@ -81,6 +88,26 @@ value and is easy to revisit.
 
 Video via `alternateEnclosure` and cross-device sync (phase 2), live items
 (phase 3), home-screen widgets (phase 3; the Android player widget came with 0.3.1).
+
+**Amendment 2026-11-03 (Dennis, maintainer): one playlist.** "Continue listening" and
+"Up next" are one list, the playlist: on top "Now" — the episode the player has, not part
+of the queue and not movable — then the queue in the listener's order. Home, the library,
+the playlist's own page (count, length, emptying it), now playing's sheet and Android
+Auto's folder show the same. "Continue listening" is gone as a section; a saved Home
+order puts the playlist where it was. On the update, what was begun and not in "Up next"
+joined the playlist's top once, newest first, at most 20 (`QueueRepository.adoptInProgress`,
+`Settings.playlistMerged`, per device; sync joins them). The rules stay: an interrupted
+episode goes back to the top, the next one plays at the end, a heard one leaves, a removed
+one keeps its progress ("Recently played").
+
+**Amendment 2026-11-04 (maintainer): what an entry offers.** An entry after "Now" could
+only be played and moved; to skip one, the listener had to open its own page. Swiped to the
+left it now leaves the playlist, and "Undo" puts it back where it was; a long press — a
+right-click with a mouse — opens a sheet: play next, play last, heard, the download, out of
+the playlist, the episode's page. In the browser a ⋮ opens it too, where a mouse does not
+swipe; a screen reader has "Remove" and "More" as actions of the row. "Now" has the same on
+a long press, with "Skip": it stays where it is, the next one plays. The same everywhere the
+playlist shows; the playlist page's ✕ is gone. Tests: `AndroidAppFlowTest`.
 
 ## Consequences
 

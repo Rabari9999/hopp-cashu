@@ -52,12 +52,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * 2026-10-20, M-04/M-08 — the relay holding the list was the one not
      * answering, and the new list went out without what it held).
      */
-    data class Latest(val event: Event?, val complete: Boolean)
+    data class Latest(val event: Event?, val complete: Boolean, val endedOn: Set<String> = emptySet())
 
     suspend fun latestChecked(kind: Int, author: String, relays: List<String>, settle: Duration? = null): Latest {
         // A relay that closed the request, or was cut off, did not answer to the end: not complete.
-        val got = gather(relays, settle) { url -> latestOn(kind, author, url) }
-        return Latest(got.results.flatMap { it.events }.maxByOrNull { it.created_at }, got.complete && got.results.all { it.ended })
+        val got = gather(relays, settle) { url -> latestOn(kind, author, url)?.let { url to it } }
+        val answers = got.results.map { it.second }
+        return Latest(answers.flatMap { it.events }.maxByOrNull { it.created_at }, got.complete && answers.all { it.ended },
+            got.results.filter { it.second.ended }.map { it.first }.toSet())
     }
 
     /**
@@ -77,11 +79,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * answering. For a decision that must not rest on "nothing found" when
      * the relay holding it was the one that failed (the sync key, ADR 0021 5).
      */
-    data class Checked(val events: List<Event>, val answered: Int, val asked: Int)
+    data class Checked(val events: List<Event>, val answered: Int, val asked: Int, val answeredBy: Set<String> = emptySet()) {
+        /** Whether a majority of [these] relays answered to the end — of none asked, true. */
+        fun majorityOf(these: List<String>): Boolean = these.distinct().let { it.isEmpty() || answeredBy.count { url -> url in it } * 2 > it.size }
+    }
 
     suspend fun queryChecked(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): Checked {
-        val got = gather(relays, settle) { url -> queryOn(filters, url, toTheEnd = true) }
-        return Checked(got.results.flatten().filter { it.isValid() }.distinctBy { it.id }, got.results.size, relays.distinct().size)
+        val got = gather(relays, settle) { url -> queryOn(filters, url, toTheEnd = true)?.let { url to it } }
+        return Checked(got.results.flatMap { it.second }.filter { it.isValid() }.distinctBy { it.id }, got.results.size, relays.distinct().size, got.results.map { it.first }.toSet())
     }
 
     /** What [gather] came to; [complete] when every relay answered — none unreachable, none cut off by the settle time. */

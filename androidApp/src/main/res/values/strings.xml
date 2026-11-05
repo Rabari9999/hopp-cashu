@@ -2,7 +2,7 @@
     <string name="app_name">Hopp</string>
     <!-- Android Auto's browse tree (ADR 0012) -->
     <string name="auto_new">New</string>
-    <string name="auto_queue">Up next</string>
+    <string name="auto_queue">Playlist</string>
     <string name="auto_downloads">Downloads</string>
     <string name="auto_library">Library</string>
     <!-- Download notification -->

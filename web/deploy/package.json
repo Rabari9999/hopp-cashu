@@ -1,0 +1,9 @@
+{
+  "name": "hopp-web-deploy",
+  "private": true,
+  "type": "module",
+  "description": "Signing and checking Hopp Web's builds (ADR 0022, 14) — sign.mjs, verify.mjs",
+  "dependencies": {
+    "nostr-tools": "2.23.3"
+  }
+}

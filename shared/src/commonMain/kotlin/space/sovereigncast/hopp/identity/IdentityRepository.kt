@@ -74,6 +74,16 @@ data class NostrIdentity(
 @Serializable
 data class RelayEntry(val url: String, val read: Boolean = true, val write: Boolean = true)
 
+/** What the relays hold as the listener's profile (kind 0), before a change to it. */
+sealed interface ProfileRead {
+    /** Its content, every field — the change keeps what it does not touch. */
+    data class Found(val content: kotlinx.serialization.json.JsonObject) : ProfileRead
+    /** None, and the relays said so: a new account. */
+    data object Empty : ProfileRead
+    /** Not known — no relay that would have it answered. Nothing is written then. */
+    data object Unknown : ProfileRead
+}
+
 /** A relay to add that is no `wss://` address. */
 class BadRelayAddress : Exception("not a wss:// relay address")
 
@@ -93,6 +103,8 @@ class IdentityRepository(
     val keysInApp: Boolean = true,
     /** What else goes after signing out — in the browser, all of Hopp's data there (ADR 0022, 2). */
     private val afterSignOut: suspend () -> Unit = {},
+    /** Hopp's relays for sync, besides the listener's ([SYNC_RELAYS]); tests of the listener's relays alone leave them out. */
+    private val hoppSyncRelays: List<String> = SYNC_RELAYS,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -139,7 +151,10 @@ class IdentityRepository(
 
     private fun bunkerClient(me: NostrIdentity, onAuthUrl: (String) -> Unit = {}): Nip46Client? {
         val keys = secrets.get(BUNKER_KEY)?.let { runCatching { KeyPair.fromHex(it) }.getOrNull() } ?: return null
-        return Nip46Client(keys, me.remoteSigner ?: return null, me.signerRelays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
+        // The relays a code connects on as well: a connection made before 0.4.0 kept only those the signer
+        // named, and where none of them opens here no request reached it (maintainer 2026-11-05).
+        val relays = (me.signerRelays + CONNECT_RELAYS).map { it.trimEnd('/') }.distinct()
+        return Nip46Client(keys, me.remoteSigner ?: return null, relays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
     }
 
     /**
@@ -226,6 +241,57 @@ class IdentityRepository(
         return now.copy(name = name ?: now.name, picture = picture ?: now.picture).also(::save)
     }
 
+    /** Where the listener's profile is looked for: Hopp's relays, the indexes and their own write relays. */
+    private fun profileRelays(me: NostrIdentity): List<String> {
+        val lookup = DEFAULT_RELAYS + INDEX_RELAYS
+        return lookup + me.relays.filter { it.write }.map { it.url }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
+    }
+
+    /**
+     * The profile as the relays hold it, so a change keeps all of it but name and picture
+     * (maintainer 2026-11-03). [ProfileRead.Empty] only when none was found and an index and
+     * one more relay said so to the end — a new account has none; anything less is
+     * [ProfileRead.Unknown], and nothing is written over what may be there (as M-04/M-08).
+     */
+    suspend fun readProfile(): ProfileRead {
+        val me = _identity.value ?: return ProfileRead.Unknown
+        val got = publisher.latestChecked(0, me.pubkey, profileRelays(me))
+        got.event?.let { e ->
+            return runCatching { ProfileRead.Found(json.parseToJsonElement(e.content).jsonObject) }.getOrElse { ProfileRead.Unknown }
+        }
+        val sure = got.complete || (got.endedOn.any { it in INDEX_RELAYS } && got.endedOn.size >= 2)
+        return if (sure) ProfileRead.Empty else ProfileRead.Unknown
+    }
+
+    /**
+     * Name and picture into the profile [base] as read ([readProfile]) — everything else in it
+     * kept — signed by whoever signs for the listener and sent where profiles are looked up.
+     * [picture] null takes the picture out. Returns the relays that took it.
+     */
+    suspend fun saveProfile(name: String, picture: String?, base: kotlinx.serialization.json.JsonObject): Set<String> {
+        val me = _identity.value ?: return emptySet()
+        val signer = signer() ?: return emptySet()
+        val content = kotlinx.serialization.json.JsonObject(base.toMutableMap().apply {
+            val n = name.trim()
+            if (n.isEmpty()) { remove("name"); remove("display_name") } else { put("name", JsonPrimitive(n)); put("display_name", JsonPrimitive(n)) }
+            if (picture == null) remove("picture") else put("picture", JsonPrimitive(picture))
+        })
+        val event = signer.sign(UnsignedEvent(0, content.toString(), emptyList(), clock.now()))
+        val to = (me.relays.filter { it.write }.map { it.url }.take(MAX_WRITE_RELAYS) + DEFAULT_RELAYS + INDEX_RELAYS).distinct()
+        val took = space.sovereigncast.hopp.nostr.withRelayPool { publisher.publish(event, to) }
+        if (took.isNotEmpty() && _identity.value?.pubkey == me.pubkey) {
+            _identity.value?.let { save(it.copy(name = name.trim().ifEmpty { null }, picture = picture?.takeIf { p -> p.startsWith("https://") })) }
+        }
+        return took
+    }
+
+    /** Where a picture goes: the listener's own Blossom servers (kind 10063), else Hopp's choice. */
+    suspend fun blossomServers(): List<String> {
+        val me = _identity.value ?: return listOf(space.sovereigncast.hopp.nostr.Blossom.DEFAULT_SERVER)
+        val list = publisher.latest(space.sovereigncast.hopp.nostr.Blossom.SERVER_LIST_KIND, me.pubkey, profileRelays(me))
+        return space.sovereigncast.hopp.nostr.Blossom.servers(list).ifEmpty { listOf(space.sovereigncast.hopp.nostr.Blossom.DEFAULT_SERVER) }
+    }
+
     /**
      * A new key with a profile: kind 0 with the name, kind 10002 with Hopp's
      * relays. Published best effort — the identity exists either way, and
@@ -247,7 +313,10 @@ class IdentityRepository(
         val me = _identity.value?.takeIf { it.holdsKey } ?: return emptySet()
         val signer = signer() ?: return emptySet()
         val now = clock.now()
-        val profile = signer.sign(UnsignedEvent(0, buildJsonObject { me.name?.let { put("name", it) } }.toString(), emptyList(), now))
+        val profile = signer.sign(UnsignedEvent(0, buildJsonObject {
+            me.name?.let { put("name", it); put("display_name", it) }
+            me.picture?.let { put("picture", it) }
+        }.toString(), emptyList(), now))
         // The listener's own list once there is one — published again, never overwritten with Hopp's.
         val list = me.relays.ifEmpty { DEFAULT_RELAYS.map { RelayEntry(it) } }
         val relays = signer.sign(UnsignedEvent(10002, "", tags(list), now))
@@ -273,6 +342,15 @@ class IdentityRepository(
 
     /** Where the listener's events go: their write relays. */
     suspend fun writeRelays(): List<String> = relays().filter { it.write }.map { it.url }.take(MAX_WRITE_RELAYS)
+
+    /**
+     * Where sync's documents and keyring live (ADR 0021, 5, amended 2026-11-02): the listener's
+     * write relays and Hopp's own for sync. The documents are signed by the sync key, not the
+     * listener's: a relay that takes only its owner's events (Haven), only authors with a NIP-05
+     * (nostr-rs-relay's restricted writes) or only a web of trust refuses every one of them —
+     * a listener with only such relays had no sync at all (device feedback 2026-11-01).
+     */
+    suspend fun syncRelays(): List<String> = (writeRelays() + hoppSyncRelays).distinct()
 
     /** Where the listener reads, as kept — for comments asked of them too; nothing until known. */
     fun readRelays(): List<String> = _identity.value?.relays.orEmpty().filter { it.read }.map { it.url }.take(MAX_THEIR_RELAYS)
@@ -385,7 +463,8 @@ class IdentityRepository(
         afterSignOut()
     }
 
-    private fun save(identity: NostrIdentity) {
+    /** Internal for tests: an identity as an older version kept it. */
+    internal fun save(identity: NostrIdentity) {
         secrets.put(INFO, json.encodeToString(NostrIdentity.serializer(), identity))
         _identity.value = identity
     }
@@ -397,9 +476,9 @@ class IdentityRepository(
         private const val BUNKER_KEY = "nostr_bunker_client_key"
 
         /** What Hopp asks a remote signer to allow for good: NIP-98 for votes and suggestions,
-         *  since stage 3 comments, likes, the mute list and reports. Never encryption — see
-         *  [ExternalSigner.PERMISSIONS]. */
-        val BUNKER_PERMS = ExternalSigner.SIGNED_KINDS.joinToString(",") { "sign_event:$it" }
+         *  since stage 3 comments, likes, the mute list and reports; since 2026-11-04 what makes the
+         *  first sync key. Never decryption — see [ExternalSigner.PERMISSIONS]. */
+        val BUNKER_PERMS = ExternalSigner.PERMISSIONS.joinToString(",") { p -> p.type + (p.kind?.let { ":$it" } ?: "") }
 
         /** Where Hopp waits for a signer that takes up a nostrconnect:// code — on all at once.
          *  Two that carry NIP-46 (2026-10-28: relay.nsec.app did not answer); each one more
@@ -408,6 +487,10 @@ class IdentityRepository(
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")
+
+        /** Hopp's relays for sync, besides the listener's: they take a new key's events, a round of them at
+         *  once (tested 2026-11-02). Not relay.damus.io, quick to block (maintainer, same day). */
+        val SYNC_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net", "wss://relay.nostr.net")
 
         /** Relays that collect profiles and relay lists (kinds 0, 3, 10002) to look people up. */
         val INDEX_RELAYS = listOf("wss://purplepag.es", "wss://user.kindpag.es")

@@ -32,18 +32,57 @@ import space.sovereigncast.hopp.resources.queue_empty_text
 import space.sovereigncast.hopp.ui.components.formatBytes
 import space.sovereigncast.hopp.resources.downloads_start_now
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import org.jetbrains.compose.resources.pluralStringResource
+import space.sovereigncast.hopp.resources.cancel
+import space.sovereigncast.hopp.resources.playlist_clear
+import space.sovereigncast.hopp.resources.playlist_clear_confirm
+import space.sovereigncast.hopp.resources.show_episodes
 
-/** "Up next" as its own page, reached from the Library. */
+/** The playlist as its own page (Dennis, maintainer 2026-11-03): how many and how long, "Now", what
+ *  comes next to drag and take out, and emptying it, asked first. */
 @Composable
 fun QueueScreen(vm: QueueViewModel = koinViewModel()) {
     val nav = LocalEpisodeNav.current
     val items by vm.items.collectAsState()
-    val list = items ?: return
-    if (list.isEmpty()) {
+    val now = playlistNow()
+    val list = items?.filter { it.id != now?.id } ?: return
+    if (list.isEmpty() && now == null) {
         EmptyState(stringResource(Res.string.queue_empty), stringResource(Res.string.queue_empty_text))
         return
     }
-    QueueList(list, onPlay = nav.open, onRemove = vm::remove, onReorder = vm::reorder)
+    var confirmClear by remember { mutableStateOf(false) }
+    if (confirmClear) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmClear = false },
+        text = { Text(stringResource(Res.string.playlist_clear_confirm, list.size)) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmClear = false; vm.clear() }) { Text(stringResource(Res.string.playlist_clear)) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmClear = false }) { Text(stringResource(Res.string.cancel)) } },
+    )
+    val count = list.size + (if (now != null) 1 else 0)
+    val left = playlistLeftMs(now, null, list)
+    QueueList(
+        list, onPlay = nav.open, onReorder = vm::reorder,
+        header = {
+            item(key = "summary") {
+                Text(
+                    listOfNotNull(pluralStringResource(Res.plurals.show_episodes, count, count), left?.let { listenDuration(it) }).joinToString(" · "),
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            now?.let { n -> item(key = "now") { PlaylistNowCard(n, nav.open, hasNext = list.isNotEmpty()) } }
+            if (now != null && list.isNotEmpty()) item(key = "after") { PlaylistAfterLabel() }
+        },
+        footer = {
+            if (list.isNotEmpty()) item(key = "clear") {
+                androidx.compose.material3.TextButton(onClick = { confirmClear = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+                    Text(stringResource(Res.string.playlist_clear), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+    )
 }
 
 /** Everything downloaded or on its way, with the space it takes. */

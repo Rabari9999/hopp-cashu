@@ -68,6 +68,8 @@ data class Settings(
     val libraryAsList: Boolean = false,
     /** The library's order: newest episode first (the default, device feedback 2026-10-19), A–Z, most unheard. */
     val librarySort: String = SORT_NEWEST,
+    /** The library's tag filter (maintainer 2026-11-03): "" all, [TAG_UNTAGGED] the shows without one, else a tag. */
+    val libraryTag: String = "",
     /** Light, dark or as the system (the browser) says (maintainer 2026-10-30) — this device's, not synced. */
     val theme: String = THEME_SYSTEM,
     /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
@@ -76,6 +78,14 @@ data class Settings(
     /** Home's sections in the listener's order (keys of HomeSections); empty = Hopp's own
      *  (device feedback 2026-10-13). */
     val homeOrder: List<String> = emptyList(),
+    /** Home's new order of 0.4.0 was looked at once: who had Hopp's old one keeps it (maintainer 2026-11-02). */
+    val homeOrder033: Boolean = false,
+    /** The "What's new" a line on Home last pointed to — [space.sovereigncast.hopp.data.Changelog.Release.seenKey];
+     *  this device's, as the version installed is (maintainer 2026-11-03). */
+    val whatsNewSeen: String = "",
+    /** The episodes begun that were only under "Continue listening" went into the playlist, once (Dennis,
+     *  maintainer 2026-11-03) — this device's: each brings in what it has, and sync joins them. */
+    val playlistMerged: Boolean = false,
     /** Home's sections the listener does not want at all. */
     val homeHidden: Set<String> = emptySet(),
     /** Single entries under Home's "Take part" the listener hid, oldest first ([space.sovereigncast.hopp.ui.library.TakePart],
@@ -94,9 +104,11 @@ data class Settings(
     /** A boost to an episode also as a public Nostr comment, as Fountain does — the
      *  boost dialog's switch starts there (ADR 0021, 6; device feedback 2026-10-16). */
     val nostrBoosts: Boolean = false,
-    /** A finished download goes to the end of "Up next", as in AntennaPod
-     *  (device feedback 2026-10-19). */
-    val downloadsToQueue: Boolean = true,
+    /** A new episode of a subscribed show goes to the end of "Up next" when a refresh finds it, on every
+     *  device and in step with sync (maintainer 2026-11-03: until then a finished download put it there,
+     *  on the phone only — the browser downloads nothing and never saw it). Its key is still
+     *  "downloads_to_queue": the same choice the listener made before. */
+    val newToQueue: Boolean = true,
     /** New episodes of shows that allow it download by themselves, on Wi-Fi only; off: only what the
      *  listener asks for (device feedback 2026-10-22: too much came that was never heard). */
     val autoDownloads: Boolean = true,
@@ -110,6 +122,10 @@ data class Settings(
      *  2026-10-26): who always shares the audio link need not switch to it each time. This device only. */
     val shareAs: String = "",
 ) {
+    /** The tour done. The first time — a new install — what this version brought is no news ([whatsNew], the key). */
+    fun doneTour(whatsNew: String?): Settings =
+        copy(onboardingDone = true, whatsNewSeen = if (!onboardingDone && whatsNew != null) whatsNew else whatsNewSeen)
+
     companion object {
         val skipBackChoices = listOf(5, 10, 15, 30)
         val skipForwardChoices = listOf(10, 15, 30, 45, 60)
@@ -130,6 +146,8 @@ data class Settings(
         val feedbackChoices = listOf(FEEDBACK_OFF, FEEDBACK_ERRORS, FEEDBACK_ALWAYS)
         const val LANGUAGE_ALL = "*"
         const val SORT_NEWEST = "newest"
+        /** The shows without a tag — not a tag of its own: a tag never starts with a space. */
+        const val TAG_UNTAGGED = " untagged"
         const val SORT_TITLE = "title"
         const val SORT_UNHEARD = "unheard"
         val sortChoices = listOf(SORT_NEWEST, SORT_TITLE, SORT_UNHEARD)
@@ -150,7 +168,7 @@ data class Settings(
          *  budgets, storage or anything else of this device. */
         val SYNCED = setOf(
             "skip_back", "skip_forward", "skip_silence", "volume_boost", "default_speed", "sender_name", "quick_boost_sats",
-            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden",
+            "home_order", "home_hidden", "home_collapsed", "library_sort", "library_as_list", "take_part_hidden", "library_tag",
             // Downloads, background refresh and what boosts and zaps report (maintainer 2026-10-23).
             "auto_downloads", "downloads_to_queue", "refresh_hours", "refresh_wifi_only",
             "boost_feedback", "quick_boost_feedback", "zap_feedback",
@@ -186,9 +204,13 @@ data class Settings(
                 onboardingDone = values["onboarding_done"]?.toBooleanStrictOrNull() ?: d.onboardingDone,
                 libraryAsList = values["library_as_list"]?.toBooleanStrictOrNull() ?: d.libraryAsList,
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
+                libraryTag = values["library_tag"] ?: d.libraryTag,
                 theme = values["theme"]?.takeIf { it in themeChoices } ?: d.theme,
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
+                homeOrder033 = values["home_order_033"]?.toBooleanStrictOrNull() ?: d.homeOrder033,
+                whatsNewSeen = values["whats_new_seen"] ?: d.whatsNewSeen,
+                playlistMerged = values["playlist_merged"]?.toBooleanStrictOrNull() ?: d.playlistMerged,
                 homeHidden = values["home_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHidden,
                 takePartHidden = values["take_part_hidden"]?.split('\n')?.filter { it.isNotBlank() }?.distinct()?.takeLast(TAKE_PART_HIDDEN_MAX) ?: d.takePartHidden,
                 scAnonymous = values["sc_anonymous"]?.toBooleanStrictOrNull() ?: d.scAnonymous,
@@ -197,7 +219,7 @@ data class Settings(
                 mutedLocally = values["muted_local"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.mutedLocally,
                 nostrBoosts = values["nostr_boosts"]?.toBooleanStrictOrNull() ?: d.nostrBoosts,
                 zapPrivacy = values["zap_privacy"]?.takeIf { it in zapPrivacyChoices } ?: d.zapPrivacy,
-                downloadsToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.downloadsToQueue,
+                newToQueue = values["downloads_to_queue"]?.toBooleanStrictOrNull() ?: d.newToQueue,
                 autoDownloads = values["auto_downloads"]?.toBooleanStrictOrNull() ?: d.autoDownloads,
                 hiddenComments = values["hidden_comments"]?.split('\n')?.filter { it.isNotBlank() }?.toSet() ?: d.hiddenComments,
                 nostrSync = values["nostr_sync"]?.toBooleanStrictOrNull() ?: d.nostrSync,
@@ -245,9 +267,13 @@ data class Settings(
         "onboarding_done" to onboardingDone.toString(),
         "library_as_list" to libraryAsList.toString(),
         "library_sort" to librarySort,
+        "library_tag" to libraryTag,
         "theme" to theme,
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
+        "home_order_033" to homeOrder033.toString(),
+        "whats_new_seen" to whatsNewSeen,
+        "playlist_merged" to playlistMerged.toString(),
         "home_hidden" to homeHidden.joinToString("\n"),
         "take_part_hidden" to takePartHidden.joinToString("\n"),
         "sc_anonymous" to scAnonymous.toString(),
@@ -256,7 +282,7 @@ data class Settings(
         "muted_local" to mutedLocally.joinToString("\n"),
         "hidden_comments" to hiddenComments.joinToString("\n"),
         "nostr_boosts" to nostrBoosts.toString(),
-        "downloads_to_queue" to downloadsToQueue.toString(),
+        "downloads_to_queue" to newToQueue.toString(),
         "auto_downloads" to autoDownloads.toString(),
         "zap_privacy" to zapPrivacy,
         "nostr_sync" to nostrSync.toString(),

@@ -34,6 +34,8 @@ import space.sovereigncast.hopp.net.FeedFetcher
 import space.sovereigncast.hopp.net.FetchResult
 import space.sovereigncast.hopp.platform.ioDispatcher
 import space.sovereigncast.hopp.sync.SyncDocs
+import space.sovereigncast.hopp.sync.SyncDocs.bool
+import space.sovereigncast.hopp.sync.SyncDocs.long
 import space.sovereigncast.hopp.sync.SyncJournal
 
 /** Seconds since the epoch, injectable for tests. */
@@ -55,6 +57,10 @@ data class Show(
     /** Seconds skipped at the start of each episode, and at its end; 0 for none. */
     val skipIntroSeconds: Int = 0,
     val skipOutroSeconds: Int = 0,
+    /** Left out of what is shared with mutual Nostr contacts (ADR 0024, 4a). */
+    val contactsHidden: Boolean = false,
+    /** The listener's own tags (maintainer 2026-11-03), A–Z. */
+    val tags: List<String> = emptyList(),
 )
 
 /** The most a show may skip at an episode's start or end: ten minutes. */
@@ -128,6 +134,8 @@ class PodcastRepository(
     private val journal: SyncJournal = SyncJournal.Off,
     /** Whether automatic downloads are on at all (Settings.autoDownloads); a show's own switch comes on top. */
     private val autoDownloads: suspend () -> Boolean = { true },
+    /** New episodes a refresh found — id and when each came out, oldest first ("Up next", Settings.newToQueue). */
+    private val onNewEpisodes: suspend (List<Pair<Long, Long?>>) -> Unit = {},
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
@@ -137,7 +145,8 @@ class PodcastRepository(
         if (!sync) return
         q.selectById(id).awaitAsOneOrNull()?.let { r ->
             journal.record(SyncDocs.SUBSCRIPTIONS, SyncDocs.showKey(r.podcast_guid, r.feed_url),
-                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt()))
+                SyncDocs.show(r.feed_url, r.title, r.image_url, r.playback_speed?.toFloat(), r.auto_download == 1L, r.skip_intro_seconds.toInt(), r.skip_outro_seconds.toInt(), r.contacts_hidden == 1L,
+                    Tags.parse(r.tags)))
         }
     }
 
@@ -152,7 +161,8 @@ class PodcastRepository(
 
     private fun space.sovereigncast.hopp.db.Podcast.toShow() = Show(
         id, feed_url, title, author, image_url, last_error, auto_download == 1L, playback_speed?.toFloat(), podcast_guid,
-        categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(),
+        categories.lines().filter(String::isNotBlank), skip_intro_seconds.toInt(), skip_outro_seconds.toInt(), contacts_hidden == 1L,
+        Tags.parse(tags),
     )
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(ioDispatcher) {
@@ -246,20 +256,26 @@ class PodcastRepository(
                 q.updateFromFeed(p.podcastGuid, p.title ?: row.title, p.author, p.imageUrl,
                     json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, p.categories.joinToString("\n"), id)
                 val known = eq.guidsOfPodcast(id).awaitAsList().toSet()
-                var added = 0
+                val added = mutableListOf<Episode>()
                 for (e in feed.episodes) {
                     if (e.guid in known) {
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
                             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
                     } else {
-                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added++
+                        insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added += e
                     }
                 }
                 added
             }
         }
-        if (added > 0 && fetch) downloads.schedule(manual = false)
-        return added
+        if (added.isNotEmpty() && fetch) downloads.schedule(manual = false)
+        // Out in the last days only: a feed that brings back its old episodes fills nobody's "Up next".
+        val fresh = added.filter { (it.publishedAt ?: now) >= now - NEW_TO_QUEUE_DAYS * 86_400 }.sortedBy { it.publishedAt ?: now }
+        if (fresh.isNotEmpty()) runCatching {
+            val ids = withContext(ioDispatcher) { fresh.mapNotNull { e -> eq.selectByGuid(id, e.guid).awaitAsOneOrNull()?.let { it.id to e.publishedAt } } }
+            onNewEpisodes(ids)
+        }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        return added.size
     }
 
     /** Every subscription — or of them only [only] — looked at again, [parallel] at a time. */
@@ -323,6 +339,32 @@ class PodcastRepository(
     // Noted after the change, outside its transaction (SyncJournal.record): the note reads the show as it is then.
     suspend fun setSpeed(id: Long, speed: Float?, sync: Boolean = true) = withContext(ioDispatcher) { q.setSpeed(speed?.toDouble(), id); noteShow(id, sync) }
     suspend fun setAutoDownload(id: Long, on: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setAutoDownload(if (on) 1 else 0, id); noteShow(id, sync) }
+    /** Show [id] left out of what is shared with mutual Nostr contacts, or shared again (ADR 0024, 4a). */
+    suspend fun setContactsHidden(id: Long, hidden: Boolean, sync: Boolean = true) = withContext(ioDispatcher) { q.setContactsHidden(if (hidden) 1 else 0, id); noteShow(id, sync) }
+
+    /** A show's own tags (maintainer 2026-11-03), on every device. */
+    suspend fun setTags(id: Long, tags: List<String>, sync: Boolean = true) = withContext(ioDispatcher) { q.setTags(Tags.join(Tags.clean(tags)), id); noteShow(id, sync) }
+
+    /** [tag] on the shows [on] and off all others — a tag's own page, its shows ticked. */
+    suspend fun setTagFor(tag: String, on: Set<Long>) = withContext(ioDispatcher) {
+        for (r in q.selectAll().awaitAsList()) {
+            val has = Tags.parse(r.tags)
+            val want = if (r.id in on) has + tag else has - tag
+            if (Tags.clean(want) != has) { q.setTags(Tags.join(Tags.clean(want)), r.id); noteShow(r.id, true) }
+        }
+    }
+
+    /** [old] renamed to [new] on every show — or gone where [new] is null. */
+    suspend fun renameTag(old: String, new: String?) = withContext(ioDispatcher) {
+        for (r in q.selectAll().awaitAsList()) {
+            val has = Tags.parse(r.tags)
+            if (has.none { it.equals(old, ignoreCase = true) }) continue
+            val want = has.filterNot { it.equals(old, ignoreCase = true) } + listOfNotNull(new)
+            q.setTags(Tags.join(Tags.clean(want)), r.id); noteShow(r.id, true)
+        }
+    }
+    /** What is shared with mutual Nostr contacts: every show not left out, newest first (ADR 0024, 4). */
+    suspend fun shared() = withContext(ioDispatcher) { q.selectShared().awaitAsList() }
     /** Seconds skipped at the start and the end of each episode of show [id]; 0 for none, null: as it is —
      *  read in the same transaction, so a change to one never puts back an old value of the other. */
     suspend fun setSkip(id: Long, introSeconds: Int? = null, outroSeconds: Int? = null, sync: Boolean = true) = withContext(ioDispatcher) {
@@ -345,6 +387,9 @@ class PodcastRepository(
     }
 }
 
+/** A new episode older than this many days does not go to "Up next" by itself. */
+private const val NEW_TO_QUEUE_DAYS = 7
+
 /** Fewer heard in a row than this: their single entries are no burden ([EpisodeRepository.deriveHeardUpTo]). */
 private const val MIN_RUN = 10
 
@@ -362,7 +407,7 @@ class EpisodeRepository(
         if (!journal.enabled) return
         val r = eq.syncKeysOf(id).awaitAsOneOrNull() ?: return
         val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
-        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now()), urgent = urgent)
+        journal.record(SyncDocs.PROGRESS, SyncDocs.progressKey(show, r.guid), SyncDocs.progress(show, r.guid, r.position_ms, r.played == 1L, clock.now(), r.last_played_at), urgent = urgent)
     }
 
     private suspend fun noteFavorite(id: Long) {
@@ -531,6 +576,31 @@ class EpisodeRepository(
      * were marked heard there). The mark starts where the run does, and joins one the show has only
      * where the two meet.
      */
+    /**
+     * "Recently played" said again where sync does not say yet that it was listened to (maintainer
+     * 2026-11-03): heard before 0.4.0, the entries had no `listened`, and the other devices kept the
+     * episode out of the section. Once per start; an entry that says it already is left alone, so
+     * after one round nothing goes out again. As of when it was heard, so the order stays.
+     */
+    suspend fun announceListenedOnce(limit: Long = 20) {
+        if (listenedAnnounced || !journal.enabled) return
+        listenedAnnounced = true
+        withContext(ioDispatcher) {
+            var any = false
+            for (r in eq.recentlyListenedForSync(limit).awaitAsList()) {
+                val show = SyncDocs.showKey(r.podcast_guid, r.feed_url)
+                val key = SyncDocs.progressKey(show, r.guid)
+                val now = journal.current(SyncDocs.PROGRESS, key)
+                if (now != null && !now.del && now.d.bool("played") == true && now.d.long("listened") != null) continue
+                journal.record(SyncDocs.PROGRESS, key, SyncDocs.progress(show, r.guid, 0, true, r.played_at ?: continue, r.last_played_at),
+                    urgent = false, notify = false)
+                any = true
+            }
+            if (any) journal.changed(SyncDocs.PROGRESS, urgent = false)
+        }
+    }
+    private var listenedAnnounced = false
+
     suspend fun deriveHeardUpToOnce() {
         if (heardUpToDerived) return
         heardUpToDerived = true
@@ -604,9 +674,14 @@ class EpisodeRepository(
     /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
      *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
      *  a finished download put it in, which only this device knows. */
-    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long) = withContext(ioDispatcher) {
+    suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null) = withContext(ioDispatcher) {
         db.transaction {
-            if (played) { eq.markPlayed(atSeconds, id); leaveQueue(listOf(id)) } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
+            if (played) {
+                eq.markPlayed(atSeconds, id)
+                // Listened to there, not only marked heard: "Recently played" here too (maintainer 2026-11-02).
+                listenedSeconds?.takeIf { it > 0 }?.let { eq.noteListened(it, id) }
+                leaveQueue(listOf(id))
+            } else { eq.markUnplayed(id); eq.savePosition(positionMs, atSeconds, id) }
         }
     }
 

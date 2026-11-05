@@ -1,0 +1,25 @@
+# The comments' show out again, where it is followed: through Discover's search, which opens a show
+# followed as itself (0.4.0) — in the library its new episode, downloaded meanwhile, bears its name
+# above the shows (2026-11-04). Run at the end of shots.yaml, and at its start after a run cut off.
+appId: ${APP_ID}
+---
+- runFlow: discover-start.yaml
+- tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
+- inputText: "Chad and Reeds"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Chad and Reeds Podcast"
+    timeout: 30000
+- tapOn: "Chad and Reeds Podcast"
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: ".*(Subscribed|Abonniert)"
+    commands:
+      - tapOn: ".*(Subscribed|Abonniert)"
+      - extendedWaitUntil:
+          visible: "(Unsubscribe|Abo beenden)"
+          timeout: 10000
+      - tapOn: "(Unsubscribe|Abo beenden)"
+# Discover left at its start again, the search empty.
+- runFlow: discover-start.yaml

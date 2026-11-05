@@ -2,7 +2,7 @@
 
 - **Implements:** [ADR 0022](../adr/0022-web-client.md), stages W1 (done as
   spike 6) and W2; release 0.3.2 (maintainer, 2026-10-28).
-- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; VoiceOver, the menu bug in Compose's web accessibility and WebKit in the browser checks are left.
+- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; WebKit in the browser checks since 2026-11-01; VoiceOver and the menu bug in Compose's web accessibility are left.
 - **Reference:** the spike, branch `spike/web-wasm` (local, based on
   147a7b7 before 0.3.0), report [docs/spikes/06-web.md](../spikes/06-web.md)
   once ported. Its steps are rebuilt on the current code, not rebased.
@@ -100,7 +100,13 @@ How to run and check it: [web/README.md](../../web/README.md).
       deleted at the next start.
 - [x] Link preview (Open Graph, English) and Hopp's icon in the tab, on the
       home screen and in a web manifest (2026-10-30).
-- [ ] WebKit in the browser checks (Playwright's WebKit build).
+- [x] WebKit in the browser checks (2026-11-01, branch `0.4.0`):
+      `node run.mjs --webkit`, each browser with a profile on disk (WebKit
+      gives a throwaway context no OPFS, and Hopp ran on a database in memory
+      there). All 27 checks pass, with sync 29, against
+      `https://play.sovereigncast.space/`. WebKit found nothing of Hopp's:
+      a screenshot's own `<style>` refused by the CSP, and loads failed by a
+      reload just before the new page, are left out of the checks.
 - [ ] **A menu leaves the screen reader stuck** (found 2026-10-29): two
       faults in Compose Multiplatform's web accessibility, 1.11.1 and still
       1.12.2 (`ComposeWebSemanticsListener`). It mirrors one semantics owner
@@ -126,3 +132,32 @@ How to run and check it: [web/README.md](../../web/README.md).
 Hosting on `play.sovereigncast.space` with own headers, imprint and privacy
 policy, the signed hash of the web build, comments and boosts (W3), Umbrel
 (W4), NWC in the web (W5).
+
+## Stage W3 (0.4.0)
+
+- [x] **WebLN** (2026-11-01, ADR 0022, 13): the browser's wallet as a second
+      kind of wallet behind `WalletClient` — boosts, streaming sats, zaps
+      and Sovereigncast's payments through an extension such as Alby; JVM
+      tests in `ValueServiceTest`, browser checks with a fake WebLN wallet.
+- [x] ~~Without WebLN: a boost as an invoice QR code~~ — dropped
+      2026-11-02 (maintainer, ADR 0022, 4): most recipients are reached by
+      keysend only. The wallet page names an extension, and the app.
+- [ ] With a real extension (Alby) on the maintainer's machine: a boost,
+      streaming sats, a zap. Streaming works (maintainer 2026-11-02, the
+      local build over the LAN); boost and zap with the next round.
+
+## The build's hash, its signature, the service worker (0.4.0)
+
+- [x] `release.json`, `sign.mjs`, `verify.mjs`, CI job `web-verify`
+      (2026-11-02, ADR 0022, 14).
+- [x] Service worker: a build kept whole, offered when it waits, taken on
+      "Reload"; Hopp offline; one with a wrong file never offered.
+- [x] The build's hash and its signature under Settings → About.
+- [x] Two clean builds of one tree: the same hash, all 39 files (2026-11-02,
+      on the build Mac; another machine not yet compared).
+- [x] First signed deploy (2026-11-02): v0.3.2-10-geccd525, build
+      96449f0f…, signature 5f20ba17… (Amber, through a bunker connection of
+      its own for sign.mjs); verify.mjs holds; run.mjs 37/37 live in
+      Chromium and WebKit; About says it matches.
+- [ ] The pipeline schedule for `web-verify` (HOPP_SCHEDULE=web-verify) —
+      put back by the maintainer 2026-11-02; the job is ready.

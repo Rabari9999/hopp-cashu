@@ -360,10 +360,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
                 SleepButton(sleep) { showSleep = true }
             }
-            // In a browser its volume too, as in the bar below a wide window (maintainer 2026-10-31).
-            if (model.engine.volume != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                VolumeControl(model, Modifier.weight(1f))
-            }
+            // No volume here: the browser's is in the bar along a wide window's foot alone (maintainer 2026-11-02).
 
             // Value bar (ADR 0019): boost and streaming — where Hopp pays at all.
             val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
@@ -512,13 +509,25 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             val queue: QueueViewModel = koinViewModel()
             val items by queue.items.collectAsState()
             Text(stringResource(Res.string.queue_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            val list = items.orEmpty()
-            if (list.isEmpty()) {
-                Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
-            } else {
-                Box(Modifier.heightIn(max = 480.dp)) {
-                    QueueList(list, onPlay = { model.play(it); showQueue = false }, onRemove = queue::remove, onReorder = queue::reorder)
+            // The playlist (Dennis, maintainer 2026-11-03): this episode as "Now", then what comes after it.
+            val now = space.sovereigncast.hopp.ui.library.playlistNow()
+            val list = items.orEmpty().filter { it.id != now?.id }
+            // "Removed · Undo" in the sheet itself: now playing's own would be under it.
+            val undo = remember { SnackbarHostState() }
+            Box(Modifier.heightIn(max = 520.dp)) {
+                androidx.compose.runtime.CompositionLocalProvider(space.sovereigncast.hopp.ui.library.LocalSnackbar provides undo) {
+                QueueList(
+                    list, onPlay = { model.play(it); showQueue = false }, onReorder = queue::reorder, onOpen = null,
+                    header = {
+                        now?.let { n -> item(key = "now") { space.sovereigncast.hopp.ui.library.PlaylistNowCard(n, onOpen = { showQueue = false }, hasNext = list.isNotEmpty()) } }
+                        if (list.isNotEmpty() && now != null) item(key = "after") { space.sovereigncast.hopp.ui.library.PlaylistAfterLabel() }
+                        if (list.isEmpty()) item(key = "empty") {
+                            Text(stringResource(Res.string.queue_empty_text), color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+                        }
+                    },
+                )
                 }
+                SnackbarHost(undo, Modifier.align(Alignment.BottomCenter))
             }
             Spacer(Modifier.height(24.dp))
         }

@@ -6,6 +6,47 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-05
+
+### 🆕 New Features
+- **Nostr:** If you turn it on, see what your Nostr contacts listen to, boost and comment on – in Discover and on a show's page.
+- **Nostr:** If you choose, share your subscriptions with mutual Nostr contacts, sealed so only they can read them; single shows can be left out.
+- **Playlist:** "Continue listening" and "Up next" are one playlist: what plays on top, then what comes next, reorderable – on Home, in the library and in the player.
+- **Playlist:** Swipe an episode away to take it out of the playlist, or press and hold it for more – skip, play next, mark as played, download.
+- **Library:** Give your shows tags of your own – as many as you like – and filter the library by them.
+- **Nostr:** Set your profile name and picture in Hopp; the picture goes up small and without its metadata.
+- **App:** Your profile picture at the top: the Nostr page, your listening statistics and signing out, one tap away.
+- **Sync:** How sync went shows at your profile picture; its menu opens the details or syncs at once.
+- **Settings:** "What's new" under About Hopp shows what each version brought – once after an update also as a line on Home.
+- **Settings:** Support Hopp with a donation via Lightning – from the connected wallet or any wallet app.
+- **App:** Hopp in Spanish, as a preview.
+- **Tour:** Choose the language right at the start.
+- **Library:** The playlist and your downloads in the library itself, in sections that fold.
+- **Playlist:** New episodes go to the end of the playlist as soon as Hopp finds them, on all your devices – no longer only once downloaded on the phone.
+- **Home:** Arrange Home's sections in place with the tune button or a long press on a title.
+- **Home:** On large screens in two columns: listening on the left, your shows on the right.
+- **Nostr:** One page lists all your shows and whether each is shared with your Nostr contacts.
+- **Sync:** Shows the sync key, to allow it on relays that take only keys they know.
+
+### 🐛 Fixes
+- **Sync:** With a signer connected by QR code, sync really asks it, and says when it does not answer; the first sync key needs no second confirmation.
+- **Sync:** A signer that names relays Hopp cannot reach still gets Hopp's requests on the relays it connected on; when none answers, Hopp says so instead of "your signer said no".
+- **Sync:** A relay that answered everything no longer shows a hint about a problem.
+- **Sovereigncast:** Without a connected wallet, pay by QR code or copied invoice; how long it is valid shows, and waiting can be cancelled.
+- **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
+- **App:** Refreshing ends as soon as the feeds are in, no longer half a minute later.
+- **Sync:** Episodes you listened to on one device show under "Recently played" on the others too.
+- **Sync:** A change you take back right away – a section hidden and shown again, an episode moved and moved back – no longer goes to the relays.
+- **Sync:** Runs less often and sends only what changed – easier on the battery while you listen.
+- **Discover:** A show you follow opens as itself from the search, no longer as a preview whose episodes would not open.
+- **Privacy:** The page also names Nostr contacts, donations, Hopp's sync relays, the image server and, in the browser, Hopp Web's server.
+- **Wallet:** The hint which wallets can send keysend names the right ones.
+- **App:** The side rail is wider and makes room for the camera on a phone on its side, so long labels fit with room to spare.
+- **Statistics:** The listening time in days shows from a tenth of a day, no longer as "0.0 days".
+- **App:** Counts read right: "1 episode", not "1 episodes".
+- **Tablets:** The player bar keeps clear of the taskbar and the gesture bar.
+- **Nostr:** A profile picture counts as uploaded only once its server confirms it holds exactly that picture.
+
 ## [0.3.2] - 2026-11-01
 
 ### 🆕 New Features

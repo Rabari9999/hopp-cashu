@@ -214,7 +214,7 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     IconButton(onClick = { sharing = ShareTarget.Episode(e, e.positionMs.takeIf { it > 0 && !e.played }) }) {
                         Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant)
                     }
-                    EpisodeMenu(e)
+                    EpisodeMenu(e, favorite = false)
                 }
                 // Opened from a shared link that names a time: start there, if wanted.
                 if (startSeconds != null) FilledTonalButton(

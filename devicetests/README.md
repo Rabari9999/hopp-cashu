@@ -45,6 +45,7 @@ CI runner is Linux in Docker, without an emulator.
 | `05-settings` | The settings pages reachable without a wallet or an identity. |
 | `06-per-show-share` | Playback → Per show: Nodesignal skips a 30 s intro; E298 then starts after it ("Intro skipped"). The player's share choice, looked at — nothing is sent. |
 | `07-preview-stats` | The Bitcoin Bibliothek opened as a feed, not subscribed: the Sovereigncast badge and its open suggestions, live from its instance. Then the listening stats of what the flows played. |
+| `08-playlist` | E296 put next in the playlist from its menu, swiped out of it, and back with "Undo". |
 
 They build on each other in that order (`flows/config.yaml`); `03` starts
 clean through `common/fresh.yaml`. Nothing is published by them: they make no
@@ -58,9 +59,9 @@ subscribed, E297 streamed for a while, E298 begun after its skipped intro:
 
 | Flow | Device | What it does |
 | --- | --- | --- |
-| `1-source` | phone | Default speed 1.3×, skip back 5 s and forward 45 s; E296 a favourite and in "Up next"; a Nostr key made for the test ("Hopp device check"), sync on until "Synced just now"; the key's backup (NIP-49, a password per run) left on screen. |
+| `1-source` | phone | Default speed 1.3×, skip back 5 s and forward 45 s; E296 a favourite and in the playlist; a Nostr key made for the test ("Hopp device check"), sync on until "Synced just now"; the key's backup (NIP-49, a password per run) left on screen. |
 | — | script | Reads the backup from the phone's view hierarchy (`maestro hierarchy`), keeps it beside the run (`sync/test-key.txt`), installs Hopp anew on the iPhone. |
-| `2-restore` | iPhone | The welcome page's "I already use Hopp", the key and password, the offer ("Shows: 1 · in progress: 2"), the restore, which lands on Home with "Your library is back"; then checks the show, "Up next", the favourite, the listening stats, E297's place, the three habits (in the settings and on the player's skip buttons) and the show's skipped intro. Changes skip back to 15 s and takes the favourite back, syncs. |
+| `2-restore` | iPhone | The welcome page's "I already use Hopp", the key and password, the offer ("Shows: 1 · in progress: 2"), the restore, which lands on Home with "Your library is back"; then checks the show, the playlist, the favourite, the listening stats, E297's place, the three habits (in the settings and on the player's skip buttons) and the show's skipped intro. Changes skip back to 15 s and takes the favourite back, syncs. |
 | `3-back` | phone | Syncs and finds both changes. |
 
 This is the one part of the device check that publishes: the throwaway key's

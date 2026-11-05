@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.ui.library
 
 import space.sovereigncast.hopp.resources.show_playback
+import space.sovereigncast.hopp.resources.show_share_contacts
 import space.sovereigncast.hopp.resources.mark_played
 import space.sovereigncast.hopp.resources.show_all_played_confirm
 import space.sovereigncast.hopp.resources.show_all_played
@@ -64,9 +65,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.tags_menu
+import space.sovereigncast.hopp.resources.month_year
 import space.sovereigncast.hopp.resources.show_copy_feed
 import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.cancel
@@ -144,6 +148,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
     var confirm by remember { mutableStateOf(false) }
     var confirmAllPlayed by remember { mutableStateOf(false) }
     var playback by remember { mutableStateOf(false) }
+    var tagging by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
     var donating by remember { mutableStateOf<String?>(null) }
     val hasWallet = koinViewModel<ValueBarViewModel>().connected.collectAsState().value != null
@@ -216,7 +221,7 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                             CategoryTags(show?.categories.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 if (layer != null) ScBadge()
-                                episodes?.let { Text(stringResource(Res.string.show_episodes, count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                                episodes?.let { Text(pluralStringResource(Res.plurals.show_episodes, count.toInt(), count.toInt()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
                             }
                         }
                     }
@@ -227,9 +232,14 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { sharing = true }) { Icon(Icons.Rounded.Share, stringResource(Res.string.share_title), tint = colors.onSurfaceVariant) }
                         val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
-                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onUnsubscribe = { confirm = true }, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
-                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true }) }
+                        val sharing by vm.sharingWithContacts.collectAsState()
+                        show?.let { s -> ShowMenu(s.autoDownload, onAutoDownload = vm::setAutoDownload, onCopyFeed = { actions.copyText(s.feedUrl, s.title) },
+                            onAllPlayed = { confirmAllPlayed = true }, onPlayback = { playback = true },
+                            sharedWithContacts = (!s.contactsHidden).takeIf { sharing }, onSharedWithContacts = vm::setSharedWithContacts, onTags = { tagging = true }) }
+                        val allTags by vm.allTags.collectAsState()
+                        show?.takeIf { tagging }?.let { s -> TagsSheet(s, allTags, onTags = vm::setTags) { tagging = false } }
                     }
+                    show?.let { s -> space.sovereigncast.hopp.ui.components.ContactListeners(s.podcastGuid, s.feedUrl, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) }
                     show?.lastError?.let {
                         Text(stringResource(Res.string.show_feed_error, it), color = colors.error, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -399,7 +409,12 @@ fun ShowScreen(podcastId: Long, onGone: () -> Unit, onOpenWallet: () -> Unit = {
 
 /** The show's settings, out of the way: auto-download, its playback, unsubscribe. */
 @Composable
-private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onUnsubscribe: () -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit) {
+private fun ShowMenu(
+    autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, onCopyFeed: () -> Unit, onAllPlayed: () -> Unit, onPlayback: () -> Unit,
+    /** Whether the show goes to mutual Nostr contacts; null while the listener shares nothing (ADR 0024, 4a). */
+    sharedWithContacts: Boolean? = null, onSharedWithContacts: (Boolean) -> Unit = {},
+    onTags: () -> Unit = {},
+) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -411,10 +426,17 @@ private fun ShowMenu(autoDownload: Boolean, onAutoDownload: (Boolean) -> Unit, o
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },
             )
+            sharedWithContacts?.let { shared ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.show_share_contacts)) },
+                    trailingIcon = { Switch(checked = shared, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
+                    onClick = { onSharedWithContacts(!shared) },
+                )
+            }
+            DropdownMenuItem(text = { Text(stringResource(Res.string.tags_menu)) }, onClick = { open = false; onTags() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_playback)) }, onClick = { open = false; onPlayback() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_copy_feed)) }, onClick = { open = false; onCopyFeed() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.show_all_played)) }, onClick = { open = false; onAllPlayed() })
-            DropdownMenuItem(text = { Text(stringResource(Res.string.show_unsubscribe)) }, onClick = { open = false; onUnsubscribe() })
         }
     }
 }
@@ -457,8 +479,10 @@ private fun LazyListScope.leaderboard(b: Leaderboard) {
     }
     item(key = "top-h") {
         val months = stringArrayResource(Res.array.months)
+        // "October 2026", "octubre de 2026": the language's own way (preparing Spanish, maintainer 2026-11-02).
+        val monthYear = stringResource(Res.string.month_year)
         // The instance's word for it: a month that is not "yyyy-mm" shows as sent (code review 2026-10-17, M25).
-        val name = b.month.split("-").let { p -> p.getOrNull(1)?.toIntOrNull()?.let { m -> months.getOrNull(m - 1)?.let { "$it ${p[0]}" } } }
+        val name = b.month.split("-").let { p -> p.getOrNull(1)?.toIntOrNull()?.let { m -> months.getOrNull(m - 1)?.let { monthYear.replace("%1\$s", it).replace("%2\$s", p[0]) } } }
         BoardTitle(stringResource(Res.string.sc_top_month, name ?: b.month), first = b.recentBoosts.isEmpty())
     }
     if (b.topBoosts.isEmpty()) item(key = "top-none") {

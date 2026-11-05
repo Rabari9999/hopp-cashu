@@ -20,32 +20,34 @@ build, English and German.
 2. `setup.yaml` — Nodesignal and the shows its podroll recommends, and
    Nodesignal's own playback (1.3×, intro 30 s) (English UI):
    `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta devicetests/store/setup.yaml`
-   Then `listen.yaml` plays an episode of three shows in turn, for the
-   stats and "Continue listening" — Nodesignal's E298 last, the player's
+   Then `listen.yaml` plays an episode of three shows in turn — each show opened through
+   Discover's search and the episode through the show's own (since 0.4.0 the library's playlist and
+   downloads name the shows above them), for the
+   stats and the playlist — Nodesignal's E298 last, the player's
    picture; each left playing a few minutes, then paused with
    `adb shell input keyevent KEYCODE_MEDIA_PAUSE`:
    ```bash
-   maestro … -e SHOW="Sound Money Bitcoin Podcast" -e EPISODE="#[0-9]+ .*" -e QUERY="" devicetests/store/listen.yaml       # 5 min
-   maestro … -e SHOW="Münzweg - der Bitcoin-Podcast" -e EPISODE="Münzweg #[0-9]+.*" -e QUERY="" devicetests/store/listen.yaml  # 6 min
+   maestro … -e SHOW="Sound Money Bitcoin Podcast" -e EPISODE="#350 .*" -e QUERY="#350" devicetests/store/listen.yaml       # 5 min
+   maestro … -e SHOW="Münzweg - der Bitcoin-Podcast" -e EPISODE="Münzweg #[0-9]+.*" -e QUERY="Münzweg #" devicetests/store/listen.yaml  # 6 min
    maestro … -e SHOW="Nodesignal - Deine Bitcoin-Frequenz" -e EPISODE="Nodesignal-Talk - E298.*" -e QUERY="E298" devicetests/store/listen.yaml  # 10 min
    ```
-3. Phone only: connect a wallet by hand (Settings → Wallet), one with little
-   in it. The flow opens the boost dialog but never sends it; afterwards
-   clear the app (`adb shell pm clear space.sovereigncast.hopp.beta`).
-4. `shots.yaml` once per language — `adb shell cmd locale set-app-locales
+3. `shots.yaml` once per language and device — `adb shell cmd locale set-app-locales
    space.sovereigncast.hopp.beta --locales de-DE` (or `en-US`) switches the
    app, give it a few seconds to restart:
-   `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta -e WALLET=yes -e MESSAGE="Great episode, thank you!" --test-output-dir build/store-shots/raw-phone-en devicetests/store/shots.yaml`
-   (`WALLET=no` on the tablet; German message "Super Folge, danke!").
-5. Look at every picture — Discover and the comments are live data — then
+   `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta -e WALLET=no -e MESSAGE="Great episode, thank you!" --test-output-dir build/store-shots/raw-phone-en devicetests/store/shots.yaml`
+   (German message "Super Folge, danke!"). Since 0.4.0 no boost picture
+   (maintainer 2026-11-05): `WALLET=yes` takes one, with a wallet connected
+   by hand first — one with little in it; the dialog is never sent.
+   An emulator in a morning time zone greets "Good morning"
+   (`adb shell cmd alarm set-timezone Asia/Tokyo` late in the evening); its
+   clock stays right, as the Podcast Index checks it.
+4. Look at every picture — Discover and the comments are live data — then
    scale and copy them: phone to 2020 px high, tablet to 1920 px wide, JPEG
-   at 80 (`sips -Z … -s format jpeg -s formatOptions 80`). The phone gets
-   player, boost, home, comments, stats, show, community, person, per show,
-   widget, discover, library, privacy; the tablet player, comments, home,
-   stats, library (the other pages leave half a tablet empty).
-6. Phone only, by hand: the widget. Long-press the home screen → Widgets →
-   Hopp, add it, start the episode from it once, and take the home screen
-   (`adb exec-out screencap -p`).
+   at 80 (`sips -Z … -s format jpeg -s formatOptions 80`). Six of them, the
+   same on both and in the same order (maintainer 2026-11-05): 1-home,
+   2-player, 3-comments (from 9-comments), 4-library, 5-discover,
+   6-privacy — the stores show the phone's first, then the tablet's;
+   `zapstore.yaml` lists them in that order.
 
 The comments come from a V4V show with Fountain listeners (Chad and Reeds
 Podcast), subscribed for the picture and unsubscribed again; a bot that

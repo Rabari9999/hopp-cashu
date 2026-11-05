@@ -33,6 +33,7 @@ internal class SyncDevice(
     relay: space.sovereigncast.hopp.nostr.RelayConnector, scope: CoroutineScope, nsec: String, var offline: Boolean = false,
     val db: HoppDatabase = testDatabase(),
     val secrets: MemorySecretStore = MemorySecretStore(),
+    publishDelay: kotlin.time.Duration = 1.hours,
 ) {
     var ms = 1_790_000_000_000L
     /** The episode playing here, as the player would say. */
@@ -50,11 +51,11 @@ internal class SyncDevice(
     val store = SyncStore(db) { ms }
     val journal = SyncJournal(store)
     val settings = SettingsRepository(db, journal)
-    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal) { settings.current().autoDownloads }
+    val podcasts = PodcastRepository(db, FeedFetcher(http), { ms / 1000 }, journal = journal, autoDownloads = { settings.current().autoDownloads })
     val episodes = EpisodeRepository(db, http, { ms / 1000 }, journal)
     val queue = QueueRepository(db, journal)
     val listening = space.sovereigncast.hopp.data.ListeningRepository(db, secrets, { ms / 1000 }, journal) { kotlinx.datetime.TimeZone.UTC }
-    val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
+    val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, hoppSyncRelays = emptyList()).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
     val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {
@@ -67,7 +68,7 @@ internal class SyncDevice(
             QueueDocument(db, queue),
             StatsDocument(db, listening) { ms },
         )
-    }, { ms }, publishDelay = 1.hours)
+    }, { ms }, publishDelay = publishDelay)
 
     suspend fun urls() = db.podcastQueries.selectAll().awaitAsList().map { it.feed_url }.toSet()
     suspend fun row(url: String) = db.podcastQueries.selectByFeedUrl(url).awaitAsOne()

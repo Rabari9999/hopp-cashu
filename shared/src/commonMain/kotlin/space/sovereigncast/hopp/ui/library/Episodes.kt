@@ -50,7 +50,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import sh.calvin.reorderable.ReorderableColumn
+import androidx.compose.foundation.layout.Column
 import sh.calvin.reorderable.ReorderableItem
+import androidx.compose.runtime.key
+import space.sovereigncast.hopp.resources.queue_more
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import space.sovereigncast.hopp.data.DownloadState
 import space.sovereigncast.hopp.data.EpisodeItem
@@ -75,6 +79,7 @@ import space.sovereigncast.hopp.resources.queue_remove
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatBytes
+import androidx.compose.foundation.layout.padding
 
 /** Episode id → download progress 0..1, provided once by the app frame. */
 val LocalDownloadProgress = compositionLocalOf<Map<Long, Float>> { emptyMap() }
@@ -97,7 +102,7 @@ fun downloadLabel(item: EpisodeItem): String? = when (item.downloadState) {
  * downloading it now, streaming it, or waiting for Wi-Fi. Feeds that state a
  * few bytes — placeholders — show nothing.
  */
-fun episodeSize(item: EpisodeItem, language: String = androidx.compose.ui.text.intl.Locale.current.language): String? {
+fun episodeSize(item: EpisodeItem, language: String = space.sovereigncast.hopp.ui.components.Languages.current()): String? {
     val bytes = item.enclosureLength?.takeIf { item.downloadState == DownloadState.NONE && it in PLAUSIBLE_SIZE } ?: return null
     return if (bytes < 1024L * 1024) "< 1 MB" else formatBytes(bytes, language)
 }
@@ -147,9 +152,10 @@ fun PlayButton(item: EpisodeItem) {
  *  used to look it up each, which costs on every row scrolled into view. */
 val LocalEpisodeActions = staticCompositionLocalOf<EpisodeActionsViewModel?> { null }
 
-/** The ⋮ of every episode row (ADR 0012): up next, download, played. */
+/** The ⋮ of every episode row (ADR 0012): up next, download, played — and the favourite, where no heart
+ *  beside it says so already ([favorite] false: the episode's page, maintainer 2026-11-03). */
 @Composable
-fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
+fun EpisodeMenu(item: EpisodeItem, favorite: Boolean = true, vm: EpisodeActionsViewModel = LocalEpisodeActions.current ?: koinViewModel()) {
     var open by remember { mutableStateOf(false) }
     var confirmOlder by remember { mutableStateOf(false) }
     Box {
@@ -186,7 +192,7 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
             )
             // This one and every older one (device feedback 2026-10-14, as in Castamatic).
             DropdownMenuItem(text = { Text(stringResource(Res.string.mark_played_older)) }, onClick = { pick { confirmOlder = true } })
-            DropdownMenuItem(
+            if (favorite) DropdownMenuItem(
                 text = { Text(stringResource(if (item.favorite) Res.string.favorite_remove else Res.string.favorite_add)) },
                 onClick = { pick { vm.setFavorite(item, !item.favorite) } },
             )
@@ -201,28 +207,87 @@ fun EpisodeMenu(item: EpisodeItem, vm: EpisodeActionsViewModel = LocalEpisodeAct
 }
 
 /**
- * Up next, reorderable by dragging the handle (ADR 0012). The order is
- * kept locally while dragging and written once the drag ends.
+ * The first [limit] of "Up next" where other things are on the page too — Home and the library
+ * (Dennis, maintainer 2026-11-02: two taps to the list he cares most about were too many):
+ * reorderable right there by the handle, the rest of the queue keeping its place behind them.
+ * Not a lazy list of its own, so it sits in Home's list and in the library's grid alike.
  */
 @Composable
-fun QueueList(items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit) {
+fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit) {
+    var shown by remember { mutableStateOf(items.take(limit)) }
+    LaunchedEffect(items, limit) { shown = items.take(limit) }
+    val haptics = LocalHapticFeedback.current
+    val dragLabel = stringResource(Res.string.queue_drag)
+    // One column: in a lazy list's item, siblings would lie on top of each other.
+    Column {
+    ReorderableColumn(
+        shown,
+        onSettle = { from, to ->
+            shown = shown.toMutableList().apply { add(to, removeAt(from)) }
+            onReorder(shown.map { it.id } + items.drop(limit).map { it.id })
+        },
+        onMove = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+    ) { _, item, dragging ->
+        key(item.id) {
+            ReorderableItem {
+                // On the page's own ground; lifted only while dragged.
+                Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
+                    // Opaque over what a swipe shows beneath it.
+                    PlaylistEntry(
+                        item, onClick = onOpen, onOpen = onOpen,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+                        before = { PlayButton(item) },
+                    ) {
+                        IconButton(onClick = {}, modifier = Modifier.draggableHandle().semantics { contentDescription = dragLabel }) {
+                            Icon(HoppIcons.DragHandle, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (items.size > limit) Text(
+        stringResource(Res.string.queue_more, items.size - limit), Modifier.padding(start = 16.dp, top = 2.dp, bottom = 6.dp),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    }
+}
+
+/**
+ * The playlist after "Now" (ADR 0012), reorderable by dragging the handle. The order is
+ * kept locally while dragging and written once the drag ends. An entry leaves it by a swipe
+ * or from its actions ([PlaylistEntry]). [header] and [footer]: items of their own around
+ * it — "Now" and the like — which stay where they are. [onOpen]: the episode's page, where
+ * a tap does something else ([onPlay]).
+ */
+@Composable
+fun QueueList(
+    items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
+    onOpen: ((EpisodeItem) -> Unit)? = onPlay,
+    header: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {}, footer: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {},
+) {
     var order by remember { mutableStateOf(items) }
     LaunchedEffect(items) { order = items }
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
+    // By key: the header's items come before the episodes.
     val reorderable = rememberReorderableLazyListState(listState) { from, to ->
-        order = order.toMutableList().apply { add(to.index, removeAt(from.index)) }
+        val f = order.indexOfFirst { it.id == from.key }
+        val t = order.indexOfFirst { it.id == to.key }
+        if (f < 0 || t < 0) return@rememberReorderableLazyListState
+        order = order.toMutableList().apply { add(t, removeAt(f)) }
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val dragLabel = stringResource(Res.string.queue_drag)
     LazyColumn(state = listState) {
+        header()
         items(order, key = { it.id }) { item ->
             ReorderableItem(reorderable, key = item.id) { dragging ->
                 Surface(tonalElevation = if (dragging) 4.dp else 0.dp) {
-                    EpisodeRow(item, showPodcast = true, onClick = { onPlay(item) }) {
-                        IconButton(onClick = { onRemove(item) }) {
-                            Icon(Icons.Rounded.Close, stringResource(Res.string.queue_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    PlaylistEntry(
+                        item, onClick = onPlay, onOpen = onOpen,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface,
+                    ) {
                         IconButton(
                             onClick = {},
                             modifier = Modifier.draggableHandle(onDragStopped = { onReorder(order.map { it.id }) })
@@ -232,5 +297,6 @@ fun QueueList(items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onRemove:
                 }
             }
         }
+        footer()
     }
 }

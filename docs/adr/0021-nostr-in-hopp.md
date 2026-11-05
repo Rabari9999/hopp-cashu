@@ -175,8 +175,8 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **Merge per entry** with a timestamp inside the payload, newest wins — not
   per document, so two devices do not overwrite each other.
 - **Progress:** only episodes in progress or played in the last 90 days;
-  published at most every five minutes and when playback pauses or Hopp goes
-  to the background. A document over 64 KB is split.
+  published at most every fifteen minutes (five until 2026-11-05) and when
+  playback pauses or Hopp goes to the background. A document over 64 KB is split.
 - **Never synced:** the NWC connection, keys, the wallet's budget and history.
 - **External signers:** a sync needs encrypt and sign each time. With Amber,
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
@@ -190,6 +190,25 @@ Hopp shows what Fountain's listeners say about the same episode.
   no standing relay connection. A new device, or Hopp installed again,
   offers right after sign-in to restore from the documents it finds.
   Plan: `docs/tasks/nostr-sync.md`.
+- *Amended 2026-11-02 (maintainer) — Hopp's relays for sync:* the documents
+  are signed by the sync key, not the listener's. Relays that take only
+  their owner's events (Haven), only authors with a NIP-05 (nostr-rs-relay's
+  restricted writes) or only a web of trust refuse every one of them; a
+  tester whose two write relays were such had no sync on any device
+  (2026-11-01: "blocked: NIP-05 verification needed", "auth-required").
+  Sync's documents and keyring now go to the listener's write relays **and**
+  Hopp's three for sync — `nos.lol`, `relay.primal.net`, `relay.nostr.net`
+  (`IdentityRepository.SYNC_RELAYS`): each took a round of eight documents
+  from a key it never saw (tested the same day); `relay.damus.io` not, quick
+  to block (maintainer), nor relays with a web of trust or a fee, which
+  refuse a new key. Every device reads and writes the same list, and the
+  majority rules stay, over all of them. "Not there" — a keyring to make
+  anew, a document absent — counts only when most of the listener's own
+  relays said so too: what was written before lies on those alone, and
+  Hopp's relays answering without it say nothing. Relays see what ADR 0015
+  says, now Hopp's three among them: the sync key, and when something
+  changes. A switch for "my relays only" would have to be the same on every
+  device (in the keyring): left for when a listener asks.
 
 ### 6. Boosts and the npub
 
@@ -375,8 +394,8 @@ switches.
    where the relays have nothing. From another device: applied without being
    noted again; an entry whose show or episode is not here yet, or whose
    episode is playing, waits for the next round. Rounds on start, back in the
-   foreground (at most every five minutes), on pull-to-refresh, ten seconds
-   after a change — a position while playing at most every five minutes,
+   foreground (at most every fifteen minutes since 2026-11-05), on pull-to-refresh, ten seconds
+   after a change — a position while playing at most every fifteen minutes,
    a pause sooner — and what is left on leaving. In the background the signer
    app is never opened; sync waits and the page says so. Signers are asked
    at login for kind 30078 and NIP-44 encryption besides the rest. After a
@@ -709,6 +728,88 @@ switches.
      yet" instead of "feed out of reach", and a feed refresh runs a sync
      round after it when something waits — sync goes before the feeds.
      Test: `ProgressSyncTest`.
+
+**Amendment 2026-11-03 (maintainer): the profile set in Hopp.** Name and
+picture can be changed from the Nostr page, the profile menu, or a card
+shown while the profile is empty — the same window in the apps and the
+browser, for every way in (a key in Hopp, a signer app, a bunker, an
+extension). The profile (kind 0) is read first and every field but
+`name`, `display_name` and `picture` kept; when no relay that would hold it
+answered, nothing is written over it (`ProfileRead.Unknown`, as M-04/M-08),
+while "none" from an index and one more relay is a new account
+(`ProfileRead.Empty`). A picked photo is made upright, square and 512 px on
+the device and drawn anew as a JPEG — no metadata, no place it was taken —
+then uploaded to a Blossom server (BUD-01/02, a kind-24242 event for that
+file's SHA-256, five minutes): the listener's own (kind 10063, BUD-03),
+else `blossom.band` (nostr.build). A pasted https address works instead. A
+new key in the apps can take a picture at the start. Kinds 0 and 24242
+are not asked of a signer for good: it asks each time. ADR 0015 gains the
+image server as a party. Tests: `ProfileEditTest`, `NostrIdentityTest`.
+
+**Amendment 2026-11-04 (maintainer): a signer that never asked.** A listener
+signed in by QR code with Amber; sync said "your signer has to allow it once",
+and nothing came in Amber. Three causes, all Hopp's: a round in the background
+asks no bunker (M-08) but said the same; a request went to the signer's first
+relay alone, and where Amber did not listen there Hopp waited two minutes and
+gave up without a word (a cancellation, not an outcome); and the next round in
+the background wrote "has to allow it" over what the signer had answered.
+Since then a NIP-46 request goes on every relay of the signer at once, as the
+connect already did; silence is `SignerNoAnswer` and said as such, a refusal
+with the signer's reason; a round in the background keeps what the signer
+answered the listener's own round; a round stops at the first document the
+signer stands in the way of; relays that do not answer whether there is a
+keyring are a relay problem, not a signer one; and the line has a button,
+"Allow now", that starts the round which asks. Sync being why most sign in,
+the sign-in now also asks for good what makes the first sync key —
+`nip44_encrypt` and `sign_event` of kind 30078 — so the first device turns sync
+on without a second prompt. `nip44_decrypt` stays asked each time (amendment
+of 2026-10-21): each further device asks once to open the keyring. Tests:
+`BunkerTest`, `SyncKeysTest`, `IdentityTest`, `AndroidExternalSignerTest`.
+
+**Amendment 2026-11-04 (maintainer): a change taken back is no change.** A
+section hidden and shown again, an episode moved in the playlist and moved
+back, one taken out and put back with "Undo": each was a change noted for
+sync, and ten seconds later a round read every document from every relay and
+sent what was noted. Since then the store keeps, for an entry waiting to go
+out, the version the relays hold (`sync_entry.relay_*`, schema version 24); a
+change back to it makes the entry that version again — with its own time, so
+a real change made meanwhile on another device still wins — and nothing waits.
+A round after a change runs only while something waits; the other devices'
+changes come with the rounds at the start and at a refresh. Reordering the
+playlist hands the places its episodes had out anew in the new order and notes
+only those whose place changed; "Undo" puts an episode back on its own place.
+Tests: `TakenBackTest`.
+
+**Amendment 2026-11-05 (maintainer): fewer rounds, smaller ones.** Heavy
+listening on a Pixel 9 felt like sync in the background cost battery: a
+position while playing started a round every five minutes, coming back to the
+app one after five minutes, and every round connected to every sync relay and
+read every document. Since then a round after a change here — ten seconds
+after it, while playing, on leaving the app — reads, merges and sends only
+the documents that changed (and the keyring, as every round); after a problem
+it is a full round again, which is what clears it. Full rounds stay on start,
+back in the foreground at most every fifteen minutes, on pull-to-refresh and
+from the sync page; a refresh within two minutes of a full round that got
+through starts none of its own. A position while playing goes out at most
+every fifteen minutes; a pause, the end of an episode and leaving the app
+still send it ten seconds later. Subscriptions still wait for the settings to
+have been read once, whichever round it is. Three hours of listening went
+from about 36 rounds over five documents each to about a dozen over one or
+two. Reading only what is newer (`since`) is left for a later audit: the
+repair of documents a relay lost and the reach shown per relay rely on full
+reads. Tests: `TakenBackTest.aRoundAfterAChangeTakesOnlyThatDocument`.
+
+**Amendment 2026-11-05 (maintainer): a signer's relays, and the ones it was
+reached on.** A listener connected by QR code could never set sync up: "your
+signer said no: no relay of the signer reachable". The signer had answered
+`switch_relays` with relays this device could not open, and Hopp had kept only
+those. Since then the relays a signer names come first and the ones it was
+reached on stay after them; a connection kept from before gets the code's
+relays (`CONNECT_RELAYS`) added when it is used. Every request goes to all of
+them at once, as before. No relay opening is `SignerUnreachable`, said with the
+relays' names, not as the signer's refusal; and a signer that does not answer
+a signing request is no longer reported as having refused it. Tests:
+`BunkerTest.theRelaysASignerWasReachedOnStayAfterItNamesItsOwn`.
 
 ## Consequences
 

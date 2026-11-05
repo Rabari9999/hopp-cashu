@@ -15,6 +15,8 @@ import space.sovereigncast.hopp.data.SettingsRepository
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.data.PodcastRepository
 import space.sovereigncast.hopp.db.HoppDatabase
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
+import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.directory.AppleClient
 import space.sovereigncast.hopp.directory.DirectoryRepository
 import space.sovereigncast.hopp.directory.FyydClient
@@ -71,9 +73,13 @@ interface Platform {
     suspend fun signedOut() = Unit
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
     val keysInApp: Boolean get() = true
-    /** Whether a wallet may be connected and Hopp pay from it — not in the browser until its
-     *  wallet has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
+    /** Whether a wallet may be connected over NWC and its connection kept — not in the browser until
+     *  it has the protection of ADR 0022, 4 (stage W5; maintainer 2026-10-30). */
     val wallet: Boolean get() = true
+    /** The build of Hopp Web running — its version and hash (ADR 0022, 14); null in the apps. */
+    suspend fun webBuild(): space.sovereigncast.hopp.web.WebBuild? = null
+    /** The browser's own wallet (WebLN, ADR 0022, 4, stage W3); null in the apps. */
+    val browserWallet: space.sovereigncast.hopp.value.BrowserWallet? get() = null
     /** Whether the system looks for new episodes in the background (Android's WorkManager); where not,
      *  Hopp does while it is open ([space.sovereigncast.hopp.data.FeedRefresh.whileOpen]). */
     val backgroundRefresh: Boolean get() = true
@@ -98,10 +104,36 @@ fun sharedModule(platform: Platform) = module {
         }
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
+    single { space.sovereigncast.hopp.web.BuildCheck(get(), space.sovereigncast.hopp.identity.IdentityRepository.DEFAULT_RELAYS, build = { platform.webBuild() }) }
     single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp, platform::signedOut) }
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    // What the listener's Nostr contacts listen to (ADR 0024).
+    single { space.sovereigncast.hopp.contacts.ContactKeys(get(), get(), get()) { get<Clock>().now() } }
+    single { space.sovereigncast.hopp.contacts.ContactGraph(get(), get()) { get<Clock>().now() } }
+    single {
+        val podcasts = get<PodcastRepository>()
+        val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {
+            podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at, it.image_url) }
+        }) { get<Clock>().now() }
+        val db = get<HoppDatabase>()
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        val cache = object : space.sovereigncast.hopp.contacts.ContactsRepository.ContactsCache {
+            override suspend fun load() = db.contactsQueries.select().awaitAsOneOrNull()
+                ?.let { runCatching { json.decodeFromString(space.sovereigncast.hopp.contacts.ContactsRead.serializer(), it) }.getOrNull() }
+            override suspend fun save(read: space.sovereigncast.hopp.contacts.ContactsRead?) {
+                if (read == null) db.contactsQueries.clear() else db.contactsQueries.put(json.encodeToString(space.sovereigncast.hopp.contacts.ContactsRead.serializer(), read), read.at)
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val directory = get<space.sovereigncast.hopp.directory.DirectoryRepository>()
+        val lookup: suspend (String) -> space.sovereigncast.hopp.contacts.SharedShow? = { guid ->
+            directory.showForGuid(guid)?.let { space.sovereigncast.hopp.contacts.SharedShow(it.podcastGuid ?: guid, it.feedUrl, it.title, 0, it.imageUrl) }
+        }
+        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache, lookup)
+            .also { it.start(scope, podcasts.shows); scope.launch { it.loadKept() } }
+    }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncJournal(get()) }
     single {
@@ -126,25 +158,35 @@ fun sharedModule(platform: Platform) = module {
     single { SettingsRepository(get(), get()) }
     single { QueueRepository(get(), get()) }
     single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads) }
-    single { PodcastRepository(get(), get(), get(), get(), get(), get()) { platform.downloads && get<SettingsRepository>().current().autoDownloads } }
+    single {
+        PodcastRepository(get(), get(), get(), get(), get(), get(),
+            autoDownloads = { platform.downloads && get<SettingsRepository>().current().autoDownloads },
+            onNewEpisodes = { new -> if (get<SettingsRepository>().current().newToQueue) get<QueueRepository>().addNew(new) },
+        )
+    }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single {
         val koin = getKoin()
         space.sovereigncast.hopp.data.FeedRefresh(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<Clock>()::now,
             whileOpen = !platform.backgroundRefresh,
-            before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
-            after = {
-                koin.get<SovereigncastRepository>().refresh()
-                // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01).
+            before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncUnlessFresh() },
+            after = { summary ->
+                kotlinx.coroutines.coroutineScope {
+                    launch { runCatching { koin.get<SovereigncastRepository>().refresh() } }
+                    // What the listener's Nostr contacts listen to, at most hourly (ADR 0024).
+                    launch { runCatching { koin.get<space.sovereigncast.hopp.contacts.ContactsRepository>().refresh() } }
+                }
+                // Sync ran before the feeds: what waited for an episode they just brought, now (maintainer 2026-11-01) —
+                // only when they brought one; an entry that waits for good is no reason for a round each time (2026-11-04).
                 val sync = koin.get<space.sovereigncast.hopp.sync.SyncManager>()
-                if (sync.status.value.pending > 0) sync.syncNow()
+                if (summary.newEpisodes > 0 && sync.status.value.pending > 0) sync.syncNow()
             })
     }
     single { space.sovereigncast.hopp.data.PeopleRepository(get()) }
     single { platform.playbackEngine() }
     single { platform.secretStore() }
     single { platform.networkPrivacy() }
-    single { WalletRepository(get(), get(), get(), enabled = platform.wallet) }
+    single { WalletRepository(get(), get(), get(), enabled = platform.wallet, browser = platform.browserWallet) }
     single { LnAddressClient(get()) }
     single { PaymentMetadataSource(get(), get()) }
     single { ValueService(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
@@ -162,20 +204,20 @@ fun sharedModule(platform: Platform) = module {
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }
     single {
-        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), if (platform.wallet) get<ValueService>() else null, listening = get())
+        PlayerController(get(), get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), if (platform.wallet || platform.browserWallet != null) get<ValueService>() else null, listening = get())
             .also { player -> get<DownloadRepository>().playing = { player.current.value?.item?.id } }
     }
     viewModel { InboxViewModel(get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.StatsViewModel(get()) }
-    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { params -> ShowViewModel(params.get(), get(), get(), get()) }
+    viewModel { params -> ShowViewModel(params.get(), get(), get(), get(), get()) }
     viewModel { params -> CommunityViewModel(params.get(), get(), get(), get(), get()) }
     single { PodcastIndexClient(get(), get()) }
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get(), get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
     viewModel { QueueViewModel(get()) }
@@ -187,7 +229,8 @@ fun sharedModule(platform: Platform) = module {
     viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { space.sovereigncast.hopp.ui.library.PrivacyViewModel(get(), get(), get()) }
     viewModel { WalletViewModel(get(), get(), get()) }
-    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get(), get()) }
+    single { space.sovereigncast.hopp.nostr.Blossom(get()) }
+    viewModel { space.sovereigncast.hopp.ui.identity.NostrIdentityViewModel(get(), get(), get(), get(), get()) }
     viewModel { HistoryViewModel(get()) }
     single { space.sovereigncast.hopp.value.BoostReports(get(), platform.boostNotifier(), CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     viewModel { ValueBarViewModel(get(), get(), get(), get(), get(), get(), get()) }

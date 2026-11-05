@@ -68,8 +68,10 @@ branch `main`. The MR template asks for what we need to review it.
 - **Tests.** A fix comes with a test that fails without it; a feature with
   tests for its rules. Bugs seen on a device are reproduced in
   `androidApp/src/test` (Robolectric) where they can be — see `CLAUDE.md`.
-- **Both languages.** Every new string goes into
-  `composeResources/values/strings.xml` *and* `values-de/strings.xml`.
+- **Every language.** Every new string goes into
+  `composeResources/values/strings.xml` and each complete language's folder
+  (`values-de`, `values-es`); `StringResourcesTest` checks names and
+  placeholders. Adding a language: [docs/translations.md](docs/translations.md).
 - **Database.** A change to a `CREATE TABLE` in a `.sq` file needs the
   matching `migrations/<n>.sqm`; installed apps run it on update.
 - **Privacy ([ADR 0015](docs/adr/0015-privacy.md)).** Hopp contacts a service

@@ -18,8 +18,8 @@ description: |
 
   **Listening**
 
-  - ✅ Home with what is new and what you are listening to, library as cards or a list
-  - ✅ Up next, downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals
+  - ✅ Home with what is new and your playlist, library as cards or a list, sorted with tags of your own
+  - ✅ A playlist – what plays on top, what comes next below, reorderable – downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals
   - ✅ Speed, intro and outro skipping for each show; quiet shows made louder
   - ✅ Chapters with pictures, transcripts that read along, people, show notes, clips
   - ✅ Tap a person to see every episode with them
@@ -36,9 +36,10 @@ description: |
 
   **Nostr**
 
+  - ✅ Optional and off until you turn it on: see what your Nostr contacts listen to, boost and comment on; share your subscriptions with mutual contacts, sealed so only they can read them
   - ✅ Comments on every episode, Fountain's included: write, like and zap – publicly, privately or anonymously
-  - ✅ Identity made in Hopp, imported or kept in Amber; your own relays
-  - ✅ Sync between your devices: subscriptions, progress, favourites, up next, settings, statistics – encrypted, no Hopp server
+  - ✅ Identity made in Hopp, imported or kept in Amber or another signer; profile name and picture set in Hopp; your own relays
+  - ✅ Sync between your devices: subscriptions, progress, favourites, playlist, settings, statistics – encrypted, no Hopp server
   - ✅ Restore your library on a new device
 
   **Discover**
@@ -54,7 +55,7 @@ description: |
 
   - ✅ A privacy page: who sees what when you listen, and what you can do about it
   - ✅ Notifications for boosts and zaps, set for each on its own
-  - ✅ Phones and tablets, upright and sideways, light and dark, English and German
+  - ✅ Phones and tablets, upright and sideways, light and dark, English and German, Spanish as a preview
 
   Hopp is open source (MIT).
 tags:
@@ -73,21 +74,17 @@ icon: https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en
 # Real screenshots from the app, English UI (devicetests/store makes them);
 # the same files as F-Droid's, phone first, then the tablet.
 images:
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1-player.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-boost.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-home.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-comments.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/5-stats.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/6-show.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/7-community.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/8-person.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/9-per-show.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/10-widget.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/11-discover.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/12-library.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/13-privacy.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/1-player.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/2-comments.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/4-stats.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1-home.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-comments.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-library.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/5-discover.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/6-privacy.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/1-home.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/2-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/3-comments.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/4-library.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/5-discover.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/6-privacy.jpg
 
 release_notes: ./CHANGELOG.md

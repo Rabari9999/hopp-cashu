@@ -20,6 +20,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
@@ -59,6 +62,8 @@ import space.sovereigncast.hopp.sync.RelayRound
 import space.sovereigncast.hopp.sync.SyncDocs
 import space.sovereigncast.hopp.sync.SyncManager
 import space.sovereigncast.hopp.sync.SyncKeyringNotKnown
+import space.sovereigncast.hopp.nostr.Nip46Exception
+import space.sovereigncast.hopp.nostr.SignerNoAnswer
 import space.sovereigncast.hopp.sync.SyncNotPublished
 import space.sovereigncast.hopp.sync.SyncNotReached
 import space.sovereigncast.hopp.sync.SyncOutcome
@@ -67,28 +72,91 @@ import space.sovereigncast.hopp.sync.SyncTooLarge
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /**
- * Sync at a glance on Home (maintainer 2026-10-22: only the Nostr page said whether progress
- * went across): a spinner while a round runs, a tick when the last one went through, a mark
- * when it did not — at the end of the greeting's line, one tap from [SyncSheet].
+ * Sync at a glance (maintainer 2026-10-22: only the Nostr page said whether progress went across). Since
+ * 2026-11-03 at the profile picture rather than in Home's greeting (maintainer): a dot at its foot —
+ * a tick that stays when the last round went through, a grey ring while something waits, "!" when it did
+ * not — and an arc round the picture while a round runs. The tick only as before (ND-04, [look]).
  */
 @Composable
-internal fun SyncMark(status: SyncStatus, onOpen: () -> Unit) {
-    val label = stringResource(Res.string.home_sync_label)
-    Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClickLabel = label, onClick = onOpen), contentAlignment = Alignment.Center) {
-        when (look(status)) {
-            Look.Running -> CircularProgressIndicator(Modifier.size(13.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Look.Problem -> Icon(Icons.Rounded.Warning, label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-            Look.Waiting -> Icon(Icons.Rounded.Refresh, label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Look.Done -> Icon(Icons.Rounded.CheckCircle, label, Modifier.size(16.dp), tint = Hopp.colors.ok)
+internal fun SyncBadge(status: SyncStatus, size: androidx.compose.ui.unit.Dp, picture: @Composable () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Box(Modifier.size(size + 8.dp), contentAlignment = Alignment.Center) {
+        picture()
+        val look = look(status)
+        if (look == Look.Running) CircularProgressIndicator(Modifier.size(size + 7.dp), strokeWidth = 2.dp, color = colors.onSurface)
+        else {
+            val dot = 14.dp
+            Box(
+                Modifier.align(Alignment.BottomEnd).size(dot).clip(CircleShape).background(colors.surface).padding(2.dp).clip(CircleShape)
+                    .background(when (look) { Look.Done -> Hopp.colors.ok; Look.Problem -> colors.error; else -> colors.surface })
+                    .then(if (look == Look.Waiting) Modifier.border(1.5.dp, colors.onSurfaceVariant, CircleShape) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                when (look) {
+                    Look.Done -> Icon(Icons.Rounded.Check, null, Modifier.size(8.dp), tint = colors.surface)
+                    Look.Problem -> Text("!", color = colors.onError, fontWeight = FontWeight.Black, fontSize = 8.sp, lineHeight = 8.sp)
+                    else -> Unit
+                }
+            }
         }
     }
 }
 
-private enum class Look { Running, Problem, Waiting, Done }
+/** The state in a word, for a screen reader at the profile picture. */
+@Composable
+internal fun syncStateLabel(status: SyncStatus): String = stringResource(when (look(status)) {
+    Look.Running -> Res.string.sync_running
+    Look.Problem -> Res.string.home_sync_not_done
+    Look.Waiting -> Res.string.home_sync_pending
+    Look.Done -> Res.string.home_sync_done
+})
+
+/**
+ * The profile menu's sync row (maintainer 2026-11-03): how it went in a line — a tap opens [SyncSheet],
+ * ↻ starts a round at once. With sync off ([status] null) it asks to turn it on, on the Nostr page.
+ */
+@Composable
+internal fun SyncMenuRow(status: SyncStatus?, nowMs: Long, onOpen: () -> Unit, onSyncNow: () -> Unit, onTurnOn: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier.padding(horizontal = 8.dp, vertical = 4.dp).widthIn(min = 240.dp).testTag("sync-row").clip(shape).background(colors.surfaceVariant)
+            .clickable(onClick = if (status == null) onTurnOn else onOpen).padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (status == null) {
+            Text(stringResource(Res.string.sync_menu_off), Modifier.weight(1f).padding(vertical = 6.dp), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+            return@Row
+        }
+        val look = look(status)
+        when (look) {
+            Look.Running -> CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.onSurfaceVariant)
+            Look.Problem -> Icon(Icons.Rounded.Warning, null, Modifier.size(18.dp), tint = colors.error)
+            Look.Waiting -> Icon(Icons.Rounded.Refresh, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
+            Look.Done -> Icon(Icons.Rounded.CheckCircle, null, Modifier.size(18.dp), tint = Hopp.colors.ok)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(syncStateLabel(status), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            val problem = status.problem
+            val sub = when (look) {
+                Look.Problem -> problem?.let { problemLine(it) }
+                Look.Waiting -> status.toSend.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.home_sync_changes, it, it) }
+                Look.Done -> status.lastSyncedMs?.let { stringResource(Res.string.home_sync_when, ago((nowMs - it) / 1000)) }
+                Look.Running -> null
+            }
+            sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2) }
+        }
+        androidx.compose.material3.IconButton(onClick = onSyncNow, enabled = !status.running) {
+            Icon(Icons.Rounded.Refresh, stringResource(Res.string.sync_now), Modifier.size(20.dp))
+        }
+    }
+}
+
+internal enum class Look { Running, Problem, Waiting, Done }
 
 /** The tick only when the last round went through and nothing made here waits to go out — a change made
  *  since, or no round yet since the start, is "waiting" (delta audit 3 2026-10-22, ND-04). */
-private fun look(status: SyncStatus): Look = when {
+internal fun look(status: SyncStatus): Look = when {
     status.running -> Look.Running
     status.problem != null -> Look.Problem
     status.toSend > 0 || status.lastSyncedMs == null -> Look.Waiting
@@ -166,12 +234,17 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
             val inside = PaddingValues(horizontal = 12.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onSyncNow, enabled = !status.running, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
-                    FittingLine(stringResource(if (problem != null) Res.string.home_sync_retry else Res.string.sync_now), label, min = 11.sp)
+                    FittingLine(stringResource(when {
+                        problem?.isTheSigner() == true -> Res.string.sync_allow_now
+                        problem != null -> Res.string.home_sync_retry
+                        else -> Res.string.sync_now
+                    }), label, min = 11.sp)
                 }
                 OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
                     FittingLine(stringResource(Res.string.settings), label, min = 11.sp)
                 }
             }
+            if (problem?.isTheSigner() == true && !status.running) Text(stringResource(Res.string.sync_allow_hint), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             if (failing && status.toSend > 0) Text(stringResource(Res.string.sync_nothing_lost), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             // A document the relays hold only in part (maintainer 2026-10-30: "Incomplete" for good): when Hopp
             // writes it anew by itself, and the way to have it done now, from what this device has.
@@ -256,7 +329,8 @@ private fun RelayDetail(r: RelayRound, history: List<Boolean>, onBack: () -> Uni
         StateDot(r.worst)
         Text(answerLine(r.worst), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = tint(r.worst))
     }
-    Text(stringResource(hint(r.worst)), style = MaterialTheme.typography.bodyMedium)
+    // Only where there is something to do: under "OK" a hint read as a problem (maintainer 2026-11-05).
+    hint(r.worst)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
     // Per document: read and send, "–" where nothing was asked.
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainer).border(1.dp, colors.surfaceVariant, RoundedCornerShape(16.dp))) {
         val areas = (r.reads.keys + r.sends.keys).sortedBy { AREAS.indexOf(it).let { i -> if (i < 0) AREAS.size else i } }
@@ -335,7 +409,7 @@ private fun why(r: Refusal) = when (r) {
     Refusal.Other -> Res.string.sync_why_other
 }
 
-private fun hint(a: RelayAnswer) = when (a) {
+private fun hint(a: RelayAnswer): org.jetbrains.compose.resources.StringResource? = when (a) {
     is RelayAnswer.Refused -> when (Refusal.of(a.reason)) {
         Refusal.RateLimited -> Res.string.sync_hint_rate
         Refusal.Blocked, Refusal.AuthRequired, Refusal.Restricted, Refusal.Pow -> Res.string.sync_hint_refused
@@ -343,7 +417,7 @@ private fun hint(a: RelayAnswer) = when (a) {
     }
     RelayAnswer.Silent, is RelayAnswer.Unreachable -> Res.string.sync_hint_down
     RelayAnswer.Partial -> Res.string.sync_hint_partial
-    is RelayAnswer.Ok -> Res.string.sync_hint_error
+    is RelayAnswer.Ok -> null
 }
 
 private val AREAS = listOf(SyncDocs.KEYRING, SyncDocs.SETTINGS, SyncDocs.SUBSCRIPTIONS, SyncDocs.PROGRESS, SyncDocs.QUEUE, SyncDocs.STATS)
@@ -361,7 +435,7 @@ private fun areaName(area: String): String = when (area) {
 
 private fun host(url: String) = url.removePrefix("wss://").removePrefix("ws://").trimEnd('/')
 
-private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${ms / 1000},${(ms % 1000) / 100} s"
+private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${space.sovereigncast.hopp.ui.components.formatTenths(ms / 100)} s"
 
 /** The round in plain text, to pass on when asking for help: technical, not translated. */
 private fun report(status: SyncStatus, nowMs: Long): String = buildString {
@@ -413,7 +487,7 @@ private fun got(applied: Map<String, Int>): String {
 
 /** Why the last round did not go through, in a few words. */
 @Composable
-private fun problemLine(problem: SyncOutcome): String = when (problem) {
+internal fun problemLine(problem: SyncOutcome): String = when (problem) {
     SyncOutcome.WaitsForSigner -> stringResource(Res.string.home_sync_short_signer)
     SyncOutcome.NeedsUpdate -> stringResource(Res.string.home_sync_short_newer)
     is SyncOutcome.Incomplete -> stringResource(Res.string.home_sync_short_part)
@@ -422,6 +496,9 @@ private fun problemLine(problem: SyncOutcome): String = when (problem) {
         is SyncKeyringNotKnown -> reach(e.answered, e.asked)
         is SyncNotPublished -> if (e.asked > 0) stringResource(Res.string.home_sync_short_taken, e.took, e.asked) else stringResource(Res.string.home_sync_short_failed)
         is SyncTooLarge -> stringResource(Res.string.home_sync_short_large)
+        is SignerNoAnswer -> stringResource(Res.string.home_sync_short_silent)
+        is space.sovereigncast.hopp.nostr.SignerUnreachable -> stringResource(Res.string.home_sync_short_unreachable)
+        is Nip46Exception -> stringResource(Res.string.home_sync_short_refused)
         else -> stringResource(Res.string.home_sync_short_failed)
     }
     else -> stringResource(Res.string.home_sync_short_failed)

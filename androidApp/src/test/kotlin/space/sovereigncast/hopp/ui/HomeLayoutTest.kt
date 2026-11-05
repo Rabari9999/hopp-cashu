@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -51,7 +52,16 @@ class HomeLayoutTest {
         tap("Home"); waitFor("Your shows"); waitFor("New")
     }
 
-    /** Hopp's own order: the shows before what is new (device feedback 2026-10-13). */
+    /** Since 0.4.0 Hopp's own order puts listening first (Dennis, maintainer 2026-11-02): what is new before the shows. */
+    @Test
+    fun aNewInstallListensFirst() {
+        runBlocking { settings.update { it.copy(homeOrder033 = true) } }
+        home()
+        val s = screen()
+        check(s.indexOf("New") < s.indexOf("Your shows")) { "not in Hopp's new order: $s" }
+    }
+
+    /** Who had Hopp's order before 0.4.0 keeps it: the shows before what is new (device feedback 2026-10-13). */
     @Test
     fun theShowsComeBeforeWhatIsNew() {
         home()
@@ -68,6 +78,22 @@ class HomeLayoutTest {
         check(s.indexOf("New") < s.indexOf("Your shows")) { "not in the listener's order: $s" }
     }
 
+    /** The library's tag filter stays in the library (maintainer 2026-11-04): Home has all the shows. */
+    @Test
+    fun theLibrarysTagLeavesHomeAlone() {
+        home()
+        runBlocking {
+            val podcasts = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>()
+            podcasts.setTags(podcasts.shows.first().single().id, listOf("Tech"))
+            settings.update { s ->
+                s.copy(homeHidden = HomeSections.default.toSet() - HomeSections.YOUR_SHOWS, libraryTag = space.sovereigncast.hopp.data.Settings.TAG_UNTAGGED)
+            }
+        }
+        rule.waitUntil(10_000) { !has("New") }
+        waitFor("Your shows")
+        check(has("Test Show")) { "the library's filter took the show off Home: ${screen()}" }
+    }
+
     /** From Home to its settings, a section switched off, and back: it is gone. */
     @Test
     fun aSectionSwitchedOffLeavesHome() {
@@ -75,7 +101,8 @@ class HomeLayoutTest {
         rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).performClick(); waitFor("Your shows")
         rule.onNode(isToggleable() and hasContentDescription("Your shows")).performClick()
         rule.waitUntil(10_000) { runBlocking { HomeSections.YOUR_SHOWS in settings.settings.first().homeHidden } }
-        rule.onNode(hasContentDescription("Back")).performClick()
+        // Arranged in place since 0.4.0: "Done" goes back to Home.
+        rule.onNode(hasText("Done") and hasClickAction()).performClick()
         waitFor("New")
         check(!has("Your shows")) { "the hidden section is still on Home: ${screen()}" }
         check(has("Ep 2")) { "New went too" }
@@ -87,7 +114,7 @@ class HomeLayoutTest {
         home()
         rule.onNode(hasContentDescription("Customize Home") and hasClickAction()).assertIsDisplayed().performClick()
         rule.waitUntil(10_000) { rule.onAllNodes(isToggleable() and hasContentDescription("Your shows")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(hasContentDescription("Back")).performClick()
+        rule.onNode(hasText("Done") and hasClickAction()).performClick()
         waitFor("New")
         check(!has("Customize Home")) { "the button below is still there" }
     }
@@ -112,23 +139,42 @@ class HomeLayoutTest {
         rule.waitUntil(10_000) { screen().any { "Nakamoto" in it } }
     }
 
-    /** Maintainer 2026-10-22: with sync on, Home's line says how it went, and a tap tells a little more. */
+    /** Maintainer 2026-10-22: sync says how it went, a tap tells a little more — since 2026-11-03 at the profile
+     *  picture: off, its menu asks to turn it on; on, a mark at the picture and a row that opens the sync sheet. */
     @Test
     fun homeShowsHowSyncWent() {
         home()
-        check(!has("In sync") && rule.onAllNodes(hasContentDescription("Sync")).fetchSemanticsNodes().isEmpty()) { "sync is off" }
-        runBlocking {
-            val koin = org.koin.mp.KoinPlatform.getKoin()
-            koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
-            koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
-        }
-        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Sync") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(hasContentDescription("Sync") and hasClickAction()).performClick()
+        check(rule.onAllNodes(hasTestTag("profile-button")).fetchSemanticsNodes().isEmpty()) { "no account, no picture" }
+        runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto") }
+        openProfileMenu()
+        waitFor("Sync is off · turn it on ›")
+        rule.onNode(hasTestTag("sync-row")).performClick()
+        waitFor("Sync across devices")
+        rule.onNode(hasContentDescription("Back")).performClick()
+        runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait() }
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("In sync", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        shoot("picture")
+        openProfileMenu()
+        shoot("menu")
+        rule.onNode(hasTestTag("sync-row")).performClick()
         waitFor("In sync")
         // Each relay listed, one short line each (maintainer 2026-10-29).
         check(has("nos.lol") && has("Still to send") && has("nothing")) { screen().toString() }
         tap("Settings")
         waitFor("Sync across devices")
+    }
+
+    private fun openProfileMenu() {
+        val pic = hasTestTag("profile-button") and hasClickAction()
+        rule.waitUntil(10_000) { rule.onAllNodes(pic).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(pic).performClick()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasTestTag("sync-row")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** The profile menu's sync row, to the sync sheet. */
+    private fun openSyncSheet() {
+        openProfileMenu()
+        rule.onNode(hasTestTag("sync-row")).performClick()
     }
 
     /**
@@ -150,9 +196,7 @@ class HomeLayoutTest {
             koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
             koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
         }
-        val mark = hasContentDescription("Sync")
-        rule.waitUntil(10_000) { rule.onAllNodes(mark and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNode(mark and hasClickAction()).performClick()
+        openSyncSheet()
         waitFor(done)
         rule.waitForIdle()
         // The relays are listed one by one after a round, not as a row of the table.
@@ -227,7 +271,7 @@ class HomeLayoutTest {
         OkRelays.refusing = limited to "rate-limited: slow down"
         OkRelays.unreachable = gone.takeIf { unreachable != null }
         try {
-            // Home's greeting, where the sync mark is, comes with a show.
+            // Home comes with a show; sync's state is at the profile picture on its bar.
             runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.PodcastRepository>().subscribe("https://pod.test/feed.xml") }
             rule.setContent { App() }
             runBlocking {
@@ -235,9 +279,7 @@ class HomeLayoutTest {
                 koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
                 koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
             }
-            val mark = hasContentDescription("Sync")
-            rule.waitUntil(10_000) { rule.onAllNodes(mark and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
-            rule.onNode(mark and hasClickAction()).performClick()
+            openSyncSheet()
             runCatching { waitFor(refused) }.onFailure { error("no refusal on the sheet: ${screen()}") }
             unreachable?.let { check(has(it)) { "no line for the relay out of reach: ${screen()}" } }
             done?.let { check(has(it)) { "not a round that went through: ${screen()}" } }

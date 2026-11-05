@@ -110,7 +110,7 @@ class SyncKeys(
         val held = held(me.pubkey)
         val now = nowMs()
         if (held != null && held.trusted && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
-        val urls = identity.writeRelays()
+        val urls = identity.syncRelays()
         val found = publisher.queryChecked(listOf(filter(me.pubkey)), urls)
         val newest = found.events.filter { it.pubkey == me.pubkey && it.kind == Nip78.KIND && it.dTag() == DTAG }
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
@@ -138,10 +138,13 @@ class SyncKeys(
             }
             // None found, but this device has the key: a relay that lost it is no reason to change it — it gets it again.
             held != null -> { confirm(me.pubkey, held, held.event?.let(::parse), urls); held.key }
-            !create -> return null
             // Made only when a majority of the write relays answered to the end without one (H-01, MN-08): a
             // keyring is out only once a majority took it, so a majority that answers would have shown it.
-            found.asked == 0 || found.answered * 2 <= found.asked -> throw SyncKeyringNotKnown(found.answered, found.asked)
+            // A majority of the listener's own relays too: a keyring made before Hopp's relays held sync is on
+            // theirs alone, and Hopp's answering without it says nothing (2026-11-02). Asked before [create]:
+            // relays that did not answer are no signer to wait for (2026-11-04).
+            found.asked == 0 || found.answered * 2 <= found.asked || !found.majorityOf(identity.writeRelays()) -> throw SyncKeyringNotKnown(found.answered, found.asked)
+            !create -> return null
             else -> make(me.pubkey, interactive, urls)
         }
         checkedAtMs = now
@@ -162,7 +165,7 @@ class SyncKeys(
     suspend fun renew(): Unit = lock.withLock {
         val me = identity.identity.value ?: throw SignerUnavailable("no identity")
         val held = held(me.pubkey) ?: throw SyncKeyringNotKnown()
-        val urls = identity.writeRelays()
+        val urls = identity.syncRelays()
         // Later than the keyring it replaces, or relays could keep the old one (NIP-01: same second, lower id).
         val current = publisher.query(listOf(filter(me.pubkey)), urls).filter { it.pubkey == me.pubkey && it.kind == Nip78.KIND && it.dTag() == DTAG }
             .maxOfOrNull { it.created_at }.let { maxOf(it ?: 0, held.at) }
@@ -213,7 +216,7 @@ class SyncKeys(
      * nothing (delta audit 2 2026-10-22, MN-10).
      */
     suspend fun retire(old: KeyPair, urls: List<String>? = null): Boolean {
-        val to = urls ?: identity.writeRelays()
+        val to = urls ?: identity.syncRelays()
         val majority = { took: Set<String> -> took.size * 2 > to.distinct().size }
         val signer = LocalSigner(old)
         val filter = buildJsonObject {
@@ -235,6 +238,12 @@ class SyncKeys(
         val addresses = latest.keys.map { listOf("a", "${Nip78.KIND}:${old.publicKeyHex}:$it") }
         return majority(publisher.publish(signer.sign(UnsignedEvent(DELETION, "sync key renewed", addresses + listOf(listOf("k", "${Nip78.KIND}")), last)), to)) && all
     }
+
+    /**
+     * The sync key's public half as this device holds it, hex — null before it has one. Shown on the Nostr page,
+     * so a relay that takes only keys it knows can be told this one (Dennis, maintainer 2026-11-03). Never asks.
+     */
+    fun publicKey(): String? = identity.identity.value?.pubkey?.let { held(it) }?.key?.let { KeyPair.fromHex(it).publicKeyHex }
 
     /** This device forgets the key — sync turned off, or signed out. The keyring stays on the relays. */
     fun forget() {

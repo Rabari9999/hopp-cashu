@@ -8,13 +8,25 @@ interface PlatformActions {
     fun pickOpml(onText: (String) -> Unit)
     /** Saves or shares an exported OPML file. */
     fun exportOpml(text: String)
+    /** Whether a picture can be picked here for the Nostr profile (maintainer 2026-11-03). */
+    val canPickImage: Boolean get() = false
+    /** Lets the listener pick a picture; calls back with it made square, [PROFILE_PICTURE_SIZE] px, as a JPEG
+     *  without the original's metadata (no place it was taken) — nothing when closed or unreadable. */
+    fun pickProfileImage(onImage: (ByteArray) -> Unit) = Unit
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
     /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
     val canDownload: Boolean get() = true
-    /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments: not in
-     *  the browser for now ([space.sovereigncast.hopp.di.Platform.wallet]). */
+    /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments. */
     val canPay: Boolean get() = true
+    /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
+    val paysWithBrowser: Boolean get() = false
+    /** A new build of Hopp Web waiting to take over (its version) — the service worker's (ADR 0022, 14); null in the apps. */
+    val updateReady: kotlinx.coroutines.flow.StateFlow<String?>? get() = null
+    /** Lets the build waiting take over: the page reloads into it. */
+    fun applyUpdate() = Unit
+    /** Whether the system shows Hopp's notifications — a payment's outcome among them; not the browser's tab. */
+    val canNotify: Boolean get() = true
     /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */
     val canSaveAudio: Boolean get() = false
     /** Saves the audio file at [url] as [name], as the platform can (maintainer 2026-10-28). */
@@ -25,6 +37,8 @@ interface PlatformActions {
     fun shareFile(path: String, name: String) = Unit
     /** Puts text on the clipboard (device feedback 2026-10-12: nothing could be copied). */
     fun copyText(text: String, label: String) = Unit
+    /** A browser on a phone or tablet, where no extension can be installed — its sign-in offers none (maintainer 2026-11-03). */
+    val mobileBrowser: Boolean get() = false
     /** Opens [entity] (`npub1…`, NIP-19) as a NIP-21 `nostr:` link in the listener's Nostr app;
      *  without one, on njump.me in the browser. */
     fun openNostr(entity: String) = Unit
@@ -74,5 +88,8 @@ object NoPlatformActions : PlatformActions {
     override fun pickOpml(onText: (String) -> Unit) = Unit
     override fun exportOpml(text: String) = Unit
 }
+
+/** A profile picture's side, in pixels: sharp in any client's circle, small to upload. */
+const val PROFILE_PICTURE_SIZE = 512
 
 val LocalPlatformActions = staticCompositionLocalOf<PlatformActions> { NoPlatformActions }

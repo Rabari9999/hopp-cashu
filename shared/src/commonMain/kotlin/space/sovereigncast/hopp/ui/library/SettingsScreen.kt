@@ -4,6 +4,14 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.RadioButton
 import space.sovereigncast.hopp.player.PlayerController
+import space.sovereigncast.hopp.resources.about_build
+import space.sovereigncast.hopp.resources.about_build_checking
+import space.sovereigncast.hopp.resources.about_build_signed
+import space.sovereigncast.hopp.resources.about_build_differs
+import space.sovereigncast.hopp.resources.about_build_unsigned
+import space.sovereigncast.hopp.resources.about_build_unknown
+import space.sovereigncast.hopp.resources.about_build_event
+import space.sovereigncast.hopp.resources.about_build_note
 import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
@@ -12,10 +20,10 @@ import space.sovereigncast.hopp.resources.settings_updates
 import space.sovereigncast.hopp.resources.settings_updates_note
 import space.sovereigncast.hopp.resources.settings_default_speed
 import space.sovereigncast.hopp.resources.settings_default_speed_note
-import space.sovereigncast.hopp.resources.settings_downloads_queue
+import space.sovereigncast.hopp.resources.settings_new_to_queue
 import space.sovereigncast.hopp.resources.settings_auto_downloads
 import space.sovereigncast.hopp.resources.settings_auto_downloads_note
-import space.sovereigncast.hopp.resources.settings_downloads_queue_note
+import space.sovereigncast.hopp.resources.settings_new_to_queue_note
 import space.sovereigncast.hopp.resources.nostr_title
 import space.sovereigncast.hopp.resources.nostr_entry_none
 import space.sovereigncast.hopp.resources.settings_downloads_delete_confirm
@@ -27,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +70,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.font.FontWeight
@@ -106,7 +116,9 @@ enum class SettingsPage(val title: StringResource) {
     Directories(Res.string.settings_directories),
     Subscriptions(Res.string.settings_subscriptions),
     Nostr(Res.string.nostr_title),
+    SharedShows(Res.string.contacts_shared_title),
     About(Res.string.settings_about_title),
+    WhatsNew(Res.string.whats_new_title),
 }
 
 /**
@@ -120,6 +132,7 @@ fun SettingsScreen(
     onWallet: () -> Unit = {},
     onHistory: () -> Unit = {},
     onStats: () -> Unit = {},
+    onSupport: () -> Unit = {},
     onPage: (SettingsPage) -> Unit = {},
     onPrivacy: () -> Unit = {},
     onCrashReport: (() -> Unit)? = null,
@@ -145,7 +158,7 @@ fun SettingsScreen(
         Entry(HoppIcons.Contrast, stringResource(Res.string.settings_appearance), stringResource(Res.string.settings_appearance_note)) { onPage(SettingsPage.Appearance) }
         if (actions.canDownload) Entry(HoppIcons.Download, stringResource(Res.string.settings_downloads_refresh), stringResource(Res.string.settings_downloads_note)) { onPage(SettingsPage.Downloads) }
         else Entry(Icons.Rounded.Refresh, stringResource(Res.string.settings_updates), stringResource(Res.string.settings_updates_note)) { onPage(SettingsPage.Downloads) }
-        if (actions.canPay) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
+        if (actions.canPay && actions.canNotify) Entry(Icons.Rounded.Notifications, stringResource(Res.string.settings_notifications), stringResource(Res.string.settings_notifications_note)) { onPage(SettingsPage.Notifications) }
         if (!actions.canPay) stats()
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
@@ -177,6 +190,8 @@ fun SettingsScreen(
         Entry(Icons.AutoMirrored.Rounded.List, stringResource(Res.string.settings_subscriptions), stringResource(Res.string.settings_subscriptions_note)) { onPage(SettingsPage.Subscriptions) }
 
         Group(stringResource(Res.string.settings_group_hopp))
+        // A donation to Hopp, from the wallet connected here (maintainer 2026-11-02) — where Hopp pays at all.
+        if (actions.canPay) Entry(Icons.Rounded.Favorite, stringResource(Res.string.wallet_support), stringResource(Res.string.settings_support_note), accent = true, onClick = onSupport)
         // The optional identity (ADR 0021): its name once there is one.
         val identity by koinInject<space.sovereigncast.hopp.identity.IdentityRepository>().identity.collectAsState()
         Entry(Icons.Rounded.Person, stringResource(Res.string.nostr_title),
@@ -227,11 +242,13 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
         HomeSectionsEditor(s, titles) { change -> vm.update(change) }
         return
     }
-    if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(); return }
+    if (page == SettingsPage.Nostr) { space.sovereigncast.hopp.ui.identity.NostrIdentityPage(onSharedShows = { onPage(SettingsPage.SharedShows) }); return }
     if (page == SettingsPage.PerShow) { PerShowPage(vm); return }
+    if (page == SettingsPage.SharedShows) { SharedShowsPage(vm); return }
+    if (page == SettingsPage.WhatsNew) { WhatsNewPage(app); return }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (page) {
-            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow -> Unit
+            SettingsPage.Home, SettingsPage.Nostr, SettingsPage.PerShow, SettingsPage.SharedShows, SettingsPage.WhatsNew -> Unit
             SettingsPage.Playback -> {
                 // Every show plays at this speed until the listener gives it one of its own
                 // in the player (device feedback 2026-10-19).
@@ -275,15 +292,16 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
                     vm.setAutoDownloads(on)
                 }
-                Toggle(stringResource(Res.string.settings_downloads_queue), stringResource(Res.string.settings_downloads_queue_note), s.downloadsToQueue) { on ->
-                    vm.update { it.copy(downloadsToQueue = on) }
+                // Up top with the downloads, where it was before (maintainer 2026-11-03: under refresh it was easily missed).
+                Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
+                    vm.update { it.copy(newToQueue = on) }
                 }
                 // What the episodes take, and all of them gone at once (device
                 // feedback 2026-10-14; where they are said more than it helped).
                 val bytes by vm.downloadBytes.collectAsState()
                 val count by vm.downloadCount.collectAsState()
                 var confirmDelete by remember { mutableStateOf(false) }
-                Label(stringResource(Res.string.settings_downloads_used, formatBytes(bytes), count.toInt()))
+                Label(pluralStringResource(Res.plurals.settings_downloads_used, count.toInt(), formatBytes(bytes), count.toInt()))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (actions.canBrowseDownloads) OutlinedButton(onClick = { actions.browseDownloads() }) { Text(stringResource(Res.string.settings_downloads_browse)) }
                     OutlinedButton(onClick = { confirmDelete = true }, enabled = count > 0) { Text(stringResource(Res.string.settings_downloads_delete)) }
@@ -312,6 +330,10 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     vm.update { it.copy(refreshWifiOnly = on) }
                 }
                 Note(stringResource(if (whileOpen) Res.string.settings_refresh_text_open else Res.string.settings_refresh_text))
+                // What a refresh finds goes to "Up next" — in the browser too, which has no downloads block (maintainer 2026-11-03).
+                if (!actions.canDownload) Toggle(stringResource(Res.string.settings_new_to_queue), stringResource(Res.string.settings_new_to_queue_note), s.newToQueue) { on ->
+                    vm.update { it.copy(newToQueue = on) }
+                }
             }
             SettingsPage.Notifications -> {
                 // Hopp has no push yet (ADR 0007): the messages are what a payment came to —
@@ -369,7 +391,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                         Text(when {
                             file.shows == 0 -> stringResource(Res.string.opml_incoming_none)
                             file.already > 0 -> stringResource(Res.string.opml_incoming_some_here, file.shows, file.already)
-                            else -> stringResource(Res.string.opml_incoming_count, file.shows)
+                            else -> pluralStringResource(Res.plurals.opml_incoming_count, file.shows, file.shows)
                         })
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (file.shows > file.already) Button(onClick = { vm.importOpml(file.text); incoming = null }) { Text(stringResource(Res.string.opml_incoming_import)) }
@@ -402,7 +424,23 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(Res.string.settings_about), style = MaterialTheme.typography.bodyLarge)
                     Text(stringResource(Res.string.settings_version, app.version), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    WebBuildInfo()
                 } }
+                // What this version brought, read in Hopp (maintainer 2026-11-03).
+                yourRelease(app)?.let { r ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(12.dp))
+                            .clickable { onPage(SettingsPage.WhatsNew) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("✦", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold)
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(Res.string.whats_new_title), fontWeight = FontWeight.Bold)
+                            Text(whatsNewSummary(r), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("›", color = colors.onSurfaceVariant, style = MaterialTheme.typography.titleLarge)
+                    }
+                }
                 OutlinedButton(onClick = onTour) {
                     Icon(Icons.Rounded.Star, null, Modifier.size(18.dp))
                     androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
@@ -444,4 +482,39 @@ private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boo
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+/**
+ * Hopp Web's build (ADR 0022, 14): its hash, and whether it is the one Nodesignal signed — checked
+ * by the page itself, so said as what it is; the hash is there to compare with the signature by
+ * hand. Nothing where no web build runs.
+ */
+@Composable
+private fun WebBuildInfo(check: space.sovereigncast.hopp.web.BuildCheck = org.koin.compose.koinInject()) {
+    val colors = MaterialTheme.colorScheme
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val state by androidx.compose.runtime.produceState<Pair<space.sovereigncast.hopp.web.WebBuild, space.sovereigncast.hopp.web.BuildStatus?>?>(null) {
+        val build = check.current() ?: return@produceState
+        value = build to null
+        value = build to check.status(build)
+    }
+    val (build, status) = state ?: return
+    Text(stringResource(Res.string.about_build, build.hash), color = colors.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+    Text(
+        stringResource(when (status) {
+            null -> Res.string.about_build_checking
+            is space.sovereigncast.hopp.web.BuildStatus.Signed -> Res.string.about_build_signed
+            is space.sovereigncast.hopp.web.BuildStatus.Differs -> Res.string.about_build_differs
+            space.sovereigncast.hopp.web.BuildStatus.Unsigned -> Res.string.about_build_unsigned
+            space.sovereigncast.hopp.web.BuildStatus.Unknown -> Res.string.about_build_unknown
+        }),
+        color = if (status is space.sovereigncast.hopp.web.BuildStatus.Differs) colors.error else colors.onSurfaceVariant,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    if (status is space.sovereigncast.hopp.web.BuildStatus.Signed) TextButton(onClick = {
+        val ref = space.sovereigncast.hopp.nostr.NoteRef(status.eventId, author = space.sovereigncast.hopp.web.BuildCheck.SIGNER)
+        runCatching { uri.openUri("https://njump.me/" + space.sovereigncast.hopp.nostr.nevent(ref, space.sovereigncast.hopp.web.BuildCheck.KIND)) }
+    }) { Text(stringResource(Res.string.about_build_event)) }
+    Text(stringResource(Res.string.about_build_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 }

@@ -175,8 +175,11 @@ class IdentityTest {
         val app = FakeSignerApp()
         val repo = IdentityRepository(secrets, RelayPublisher(relay), { now }, app)
         repo.signInWithSigner()
-        // Encryption is never allowed for good: it would open everything sent to the listener (ADR 0021, 5).
-        assertTrue(app.asked.single().none { it.type.startsWith("nip44") || it.kind == space.sovereigncast.hopp.nostr.Nip78.KIND })
+        // Decryption is never allowed for good: it would open everything sent to the listener (ADR 0021, 5);
+        // what makes the first sync key is, since 2026-11-04.
+        assertTrue(app.asked.single().none { it.type == "nip44_decrypt" })
+        assertTrue(app.asked.single().containsAll(listOf(space.sovereigncast.hopp.nostr.SignerPermission("nip44_encrypt"),
+            space.sovereigncast.hopp.nostr.SignerPermission("sign_event", space.sovereigncast.hopp.nostr.Nip78.KIND))))
         val sealed = repo.signer()!!.encryptToSelf("progress")
         // The same key held on another device opens it.
         assertEquals("progress", space.sovereigncast.hopp.nostr.LocalSigner(app.keys).decryptFromSelf(sealed))

@@ -29,13 +29,26 @@ data class ConnectedWallet(
     val lud16: String? = null,
     /** The node's key from get_info — shared by every sub-wallet on that node. */
     val pubkey: String? = null,
+    /** The browser's own wallet (WebLN, [BrowserWallet]), not a connection over NWC. */
+    val browser: Boolean = false,
 ) {
     val info: WalletInfo get() = WalletInfo(methods, encryptions, alias, pubkey, lud16)
     val canKeysend: Boolean get() = info.canKeysend
     val canPayInvoice: Boolean get() = info.canPayInvoice
-    /** A name to show: the wallet's alias, else the relay's host. */
-    val label: String get() = alias?.takeIf { it.isNotBlank() } ?: relay.substringAfter("://").substringBefore('/')
+    /** A name to show: the wallet's alias, else the relay's host — or WebLN for the browser's. An
+     *  extension's account over NWC calls itself "NWC", which read as Hopp's own connection in the
+     *  browser (maintainer 2026-11-05): a mere way of connecting is no name there. */
+    val label: String get() = alias?.trim()?.takeIf { it.isNotBlank() && !(browser && it.lowercase() in PROTOCOLS) }
+        ?: if (browser) "WebLN" else relay.substringAfter("://").substringBefore('/')
+    /** The name with the way Hopp reaches it, for "via …": "Alby Hub (NWC)", "Alby (WebLN)". */
+    val via: String get() = if (label == "WebLN") label else "$label (${if (browser) "WebLN" else "NWC"})"
+    /** What the wallet page and the settings call it: the browser's with its way in, so it never
+     *  passes for a connection over NWC. */
+    val shown: String get() = if (browser) via else label
 }
+
+/** Ways of connecting a wallet, which an extension may give as its account's name. */
+private val PROTOCOLS = setOf("nwc", "nostr wallet connect", "webln", "lnd", "lnc", "cln", "lightning")
 
 /** The wallet's answer to "what do you hold?". */
 sealed interface BalanceAnswer {
@@ -51,6 +64,9 @@ sealed interface BalanceAnswer {
  * string can spend: it lives in the [SecretStore] only. What the wallet can do
  * (`get_info`) is kept next to it, so a boost does not wait for a round trip
  * before it starts.
+ *
+ * In the browser the wallet is the browser's own instead ([browser], WebLN —
+ * ADR 0022, 4): only that the listener chose it and what it can are kept.
  */
 class WalletRepository(
     private val secrets: SecretStore,
@@ -63,6 +79,8 @@ class WalletRepository(
     /** False where no wallet may be kept (the browser until ADR 0022, 4's stage W5): nothing is
      *  stored or loaded, and a connection kept before is deleted (maintainer 2026-10-30). */
     private val enabled: Boolean = true,
+    /** The browser's wallet, where there is one to choose (WebLN; null in the apps). */
+    private val browser: BrowserWallet? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -74,7 +92,8 @@ class WalletRepository(
 
     private fun load(): ConnectedWallet? = if (!enabled) {
         runCatching { secrets.put(URI, null); secrets.put(INFO, null) }
-        null
+        browser?.let { runCatching { secrets.get(BROWSER) }.getOrNull() }
+            ?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() }?.copy(browser = true)
     } else try {
         if (secrets.get(URI) == null) null
         else secrets.get(INFO)?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() } ?: ConnectedWallet()
@@ -84,6 +103,7 @@ class WalletRepository(
     }
 
     fun client(wait: Duration = timeout): WalletClient? {
+        if (_wallet.value?.browser == true) return browser?.takeIf { it.available() }?.let { ProvenWallet(it.client()) }
         if (!enabled) return null
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
         return ProvenWallet(NwcClient(connection, connector, { clock.now() }, wait))
@@ -111,7 +131,25 @@ class WalletRepository(
         return wallet
     }
 
+    /** Whether a wallet can be connected over NWC here — not in the browser (ADR 0022, 4). */
+    val nwcHere: Boolean get() = enabled
+
+    /** Whether the browser offers a wallet of its own to choose ([connectBrowser]). */
+    val browserWallet: Boolean get() = browser?.available() == true
+
+    /** Takes the browser's wallet (WebLN): the extension may ask the listener first.
+     *  Throws with its reason when it refuses or offers no way to pay — nothing is kept then. */
+    suspend fun connectBrowser(): ConnectedWallet {
+        val b = checkNotNull(browser?.takeIf { it.available() }) { "no wallet in this browser" }
+        val wallet = b.enable().copy(browser = true)
+        if (!wallet.canPayInvoice && !wallet.canKeysend) throw NwcException(CANNOT_PAY, "the browser's wallet offers neither invoices nor keysend")
+        secrets.put(BROWSER, json.encodeToString(ConnectedWallet.serializer(), wallet))
+        _wallet.value = wallet
+        return wallet
+    }
+
     fun disconnect() {
+        if (browser != null) secrets.put(BROWSER, null)
         secrets.put(URI, null)
         secrets.put(INFO, null)
         _wallet.value = null
@@ -145,8 +183,12 @@ class WalletRepository(
     companion object {
         private const val URI = "nwc_uri"
         private const val INFO = "nwc_info"
+        /** That the browser's wallet was chosen, and what it can — no secret, kept with them all the same. */
+        private const val BROWSER = "webln_info"
         private const val NIP44 = "nip44_v2"
         /** [NwcException.code] of a wallet refused at connect for speaking NIP-04 only. */
         const val UNSUPPORTED_ENCRYPTION = "UNSUPPORTED_ENCRYPTION"
+        /** [NwcException.code] of a browser wallet refused for offering no way to pay. */
+        const val CANNOT_PAY = "CANNOT_PAY"
     }
 }

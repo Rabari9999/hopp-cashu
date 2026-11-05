@@ -104,26 +104,30 @@ import space.sovereigncast.hopp.resources.library_continue
 import space.sovereigncast.hopp.resources.nav_new
 import space.sovereigncast.hopp.ui.components.formatSats
 import space.sovereigncast.hopp.ui.theme.Hopp
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 
 /**
  * Home (device feedback 2026-10-08, replaces the New tab of ADR 0012): the
  * newest of "New" with a way to all of it, continue listening, recently
  * played, recently boosted. Nostr comments join with the identity of phase 2.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(
     onInbox: () -> Unit, onDiscover: () -> Unit, onShow: (Long) -> Unit = {}, onFavorites: () -> Unit = {},
-    onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow, onCustomize: () -> Unit = {},
+    onLibrary: () -> Unit = {}, onCommunity: (Long) -> Unit = onShow,
     onAction: (ShowAction) -> Unit = { onShow(it.podcastId) },
     snackbar: SnackbarHostState? = null,
-    onSyncSettings: () -> Unit = {},
+    onQueue: () -> Unit = {},
+    /** "What's new", from the line shown once after an update. */
+    onWhatsNew: () -> Unit = {},
     vm: HomeViewModel = koinViewModel(),
 ) {
     val nav = LocalEpisodeNav.current
     val inbox by vm.inbox.collectAsState()
     val hasShows by vm.hasShows.collectAsState()
-    val inProgress by vm.inProgress.collectAsState()
     val played by vm.recentlyPlayed.collectAsState()
     val boosted by vm.recentlyBoosted.collectAsState()
     val actions by vm.actions.collectAsState()
@@ -147,7 +151,6 @@ fun HomeScreen(
     val lastChecked by vm.lastChecked.collectAsState()
     // Greeting, "updated … ago" and countdowns move with the clock.
     val now by produceState(nowSeconds()) { while (true) { delay(30_000); value = nowSeconds() } }
-    val continueTitle = stringResource(Res.string.library_continue)
     val recentTitle = stringResource(Res.string.home_recent)
 
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
@@ -162,24 +165,42 @@ fun HomeScreen(
         val savedOrder by vm.savedOrder.collectAsState()
         val hidden by vm.hidden.collectAsState()
         val greetName by vm.greetName.collectAsState()
-        val syncStatus by vm.syncStatus.collectAsState()
-        var syncOpen by remember { mutableStateOf(false) }
-        syncStatus?.takeIf { syncOpen }?.let { st ->
-            SyncSheet(st, now * 1000, onSyncNow = vm::syncNow, onSettings = { syncOpen = false; onSyncSettings() }, onRewrite = vm::rewrite) { syncOpen = false }
-        }
         var allActions by remember { mutableStateOf(false) }
-        LazyColumn {
-            // A greeting, and what the last refresh brought (device feedback 2026-10-12):
-            // never an empty page while there are shows.
-            item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, onCustomize, syncStatus) { syncOpen = true } }
-            // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
-            HomeSections.order(savedOrder).filter { it !in hidden }.forEach { key ->
+        val queue by vm.queue.collectAsState()
+        val playing = playlistNow()
+        // Home arranged in place (Dennis, maintainer 2026-11-02): the tune button or a long press on a title.
+        var editing by rememberSaveable { mutableStateOf(false) }
+        val current by vm.current.collectAsState()
+        if (editing) current?.let { s ->
+            androidx.compose.ui.backhandler.BackHandler { editing = false }
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(Res.string.home_customize), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { editing = false }) { Text(stringResource(Res.string.home_edit_done)) }
+                }
+                Box(Modifier.weight(1f)) {
+                    HomeSectionsEditor(s, shows.mapNotNull { sh -> sh.podcastGuid?.takeIf { it.isNotEmpty() }?.let { it to sh.title } }.toMap(),
+                        note = stringResource(Res.string.home_edit_note)) { change -> vm.update(change) }
+                }
+            }
+            return@PullToRefreshBox
+        }
+        val edit = { editing = true }
+        // Once after an update (maintainer 2026-11-03): not on a new install, whose tour marked it seen.
+        val news = yourRelease()?.takeIf { r -> current?.let { it.onboardingDone && it.whatsNewSeen != r.seenKey } == true }
+        val seen = { key: String -> vm.update { it.copy(whatsNewSeen = key) }; Unit }
+        val newsLine: @Composable () -> Unit = {
+            news?.let { r -> WhatsNewLine(r, onOpen = { seen(r.seenKey); onWhatsNew() }, onDismiss = { seen(r.seenKey) }) }
+        }
+        // The sections in the listener's order, into a list — one, or each of two columns. [wide]: "Your shows" as a grid.
+        val sections: LazyListScope.(List<String>, Boolean) -> Unit = { keys, wide ->
+            keys.forEach { key ->
                 when (key) {
                     HomeSections.NEW -> {
                     if (newest.isNotEmpty()) {
                         val open = "new" !in collapsed
                         item(key = "h-new") {
-                            SectionHeader(stringResource(Res.string.nav_new), open, newest.size, { vm.toggle("new") }, stringResource(Res.string.home_all, newest.size), onInbox)
+                            SectionHeader(stringResource(Res.string.nav_new), open, newest.size, { vm.toggle("new") }, stringResource(Res.string.home_all, newest.size), onInbox, edit)
                         }
                         if (open) items(newest.take(HomeViewModel.HOME_ROWS), key = { "n${it.id}" }) { item ->
                             EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
@@ -189,15 +210,26 @@ fun HomeScreen(
                         }
                     }
                     }
-                    HomeSections.CONTINUE -> section("continue", continueTitle, inProgress, collapsed, vm::toggle, nav)
+                    HomeSections.QUEUE -> {
+                    // The playlist (Dennis, maintainer 2026-11-02 and -03): "Now" on top, what comes next in its
+                    // order below, arranged right here — "Continue listening" and "Up next" in one.
+                    val open = "queue" !in collapsed
+                    val after = queue.filter { it.id != playing?.id }
+                    val count = after.size + (if (playing != null) 1 else 0)
+                    item(key = "h-queue") {
+                        SectionHeader(stringResource(Res.string.queue_title), open, count, { vm.toggle("queue") },
+                            stringResource(Res.string.home_all, count).takeIf { count > 0 }, onQueue, edit)
+                    }
+                    if (open) item(key = "queue") { PlaylistBody(playing, after, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
+                    }
                     HomeSections.YOUR_SHOWS -> {
                     // The shows themselves, when each comes out next — Release Boosting's countdown first.
                     if (shows.isNotEmpty()) {
                         val open = "yourshows" !in collapsed
                         item(key = "h-yourshows") {
-                            SectionHeader(stringResource(Res.string.home_your_shows), open, shows.size, { vm.toggle("yourshows") }, stringResource(Res.string.home_all, shows.size), onLibrary)
+                            SectionHeader(stringResource(Res.string.home_your_shows), open, shows.size, { vm.toggle("yourshows") }, stringResource(Res.string.home_all, shows.size), onLibrary, edit)
                         }
-                        if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow) }
+                        if (open) item(key = "yourshows") { ShowsStrip(shows, rhythms, actions, now, onShow, grid = wide) }
                     }
                     }
                     HomeSections.TAKE_PART -> {
@@ -205,7 +237,7 @@ fun HomeScreen(
                     // suggestions — only when there is something to do, two lines unless asked.
                     if (takePart.isNotEmpty()) {
                         val open = "shows" !in collapsed
-                        item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, takePart.size, { vm.toggle("shows") }) }
+                        item(key = "h-shows") { SectionHeader(stringResource(Res.string.home_take_part), open, takePart.size, { vm.toggle("shows") }, onLongPress = edit) }
                         if (open) {
                             val shown = if (allActions) takePart else takePart.take(HomeViewModel.TAKE_PART_ROWS)
                             // By index: two episodes of a show can share a title, and a repeated key crashes (code review 2026-10-17, H7).
@@ -229,7 +261,7 @@ fun HomeScreen(
                         val open = "favorites" !in collapsed
                         item(key = "h-favorites") {
                             SectionHeader(stringResource(Res.string.favorites_title), open, favorites.size, { vm.toggle("favorites") },
-                                stringResource(Res.string.home_all, favorites.size), onFavorites)
+                                stringResource(Res.string.home_all, favorites.size), onFavorites, edit)
                         }
                         if (open) items(favorites.take(HomeViewModel.HOME_ROWS), key = { "f${it.id}" }) { item ->
                             EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
@@ -239,7 +271,7 @@ fun HomeScreen(
                     HomeSections.BOOSTED -> {
                     if (boosted.isNotEmpty()) {
                         val open = "boosted" !in collapsed
-                        item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }) }
+                        item(key = "h-boosted") { SectionHeader(stringResource(Res.string.home_boosted), open, boosted.size, { vm.toggle("boosted") }, onLongPress = edit) }
                         if (open) items(boosted, key = { "b${it.first.id}" }) { (item, sats) ->
                             EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) {
                                 Text("${formatSats(sats)} sats", color = Hopp.colors.valueText, fontWeight = FontWeight.Bold,
@@ -249,29 +281,50 @@ fun HomeScreen(
                     }
                     }
                     // Last by default: what was heard is the least likely next step (device feedback 2026-10-10).
-                    HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav)
+                    HomeSections.RECENT -> section("recent", recentTitle, played, collapsed, vm::toggle, nav, edit)
+                }
+            }
+        }
+        // The listener's order, or Hopp's, without what they hid (device feedback 2026-10-13).
+        val order = HomeSections.order(savedOrder).filter { it !in hidden }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            // A greeting, and what the last refresh brought (device feedback 2026-10-12): never an empty page while there are shows.
+            if (maxWidth < HomeSections.TWO_COLUMNS) LazyColumn {
+                item(key = "h-hello") { Greeting(newest.size, lastChecked, now, greetName, edit) }
+                if (news != null) item(key = "h-news") { newsLine() }
+                sections(order, false)
+            } else Column(Modifier.fillMaxSize()) {
+                // A large window (maintainer 2026-11-03): listening on the left, the shows on the right, the greeting over both.
+                Greeting(newest.size, lastChecked, now, greetName, edit)
+                newsLine()
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    LazyColumn(Modifier.weight(1.35f).fillMaxHeight()) { sections(order.filter { it in HomeSections.listening }, true) }
+                    LazyColumn(Modifier.weight(1f).fillMaxHeight()) { sections(order.filter { it !in HomeSections.listening }, true) }
                 }
             }
         }
     }
 }
 
-private fun LazyListScope.section(key: String, title: String, list: List<EpisodeItem>, collapsed: Set<String>, toggle: (String) -> Unit, nav: EpisodeNav) {
+private fun LazyListScope.section(key: String, title: String, list: List<EpisodeItem>, collapsed: Set<String>, toggle: (String) -> Unit, nav: EpisodeNav, edit: () -> Unit) {
     if (list.isEmpty()) return
     val open = key !in collapsed
-    item(key = "h-$key") { SectionHeader(title, open, list.size, { toggle(key) }) }
+    item(key = "h-$key") { SectionHeader(title, open, list.size, { toggle(key) }, onLongPress = edit) }
     if (open) items(list, key = { key + it.id }) { item ->
         EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }, modifier = Modifier.animateItem()) { PlayButton(item); EpisodeMenu(item) }
     }
 }
 
 /** A section's title folds it away and back (device feedback 2026-10-09);
- *  folded, it says how many it holds. */
+ *  folded, it says how many it holds. A long press arranges the page ([onLongPress]). */
 @Composable
-private fun SectionHeader(title: String, open: Boolean, count: Int, onToggle: () -> Unit, action: String? = null, onAction: () -> Unit = {}) {
+internal fun SectionHeader(
+    title: String, open: Boolean, count: Int, onToggle: () -> Unit, action: String? = null, onAction: () -> Unit = {},
+    onLongPress: (() -> Unit)? = null, modifier: Modifier = Modifier,
+) {
     val turn by animateFloatAsState(if (open) 0f else -90f)
     Row(
-        Modifier.fillMaxWidth().clickable(onClickLabel = title, onClick = onToggle)
+        modifier.fillMaxWidth().combinedClickable(onClickLabel = title, onClick = onToggle, onLongClick = onLongPress)
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp).semantics { stateDescription = if (open) "open" else "closed" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -358,8 +411,7 @@ private fun nowSeconds(): Long = kotlin.time.Clock.System.now().epochSeconds
  *  alone it was out of sight below six sections). */
 @OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
-private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null,
-                     sync: space.sovereigncast.hopp.sync.SyncStatus? = null, onSync: () -> Unit = {}) {
+private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String? = null, onCustomize: (() -> Unit)? = null) {
     val colors = MaterialTheme.colorScheme
     val hour = kotlin.time.Instant.fromEpochSeconds(now).toLocalDateTime(TimeZone.currentSystemDefault()).hour
     // By name when the listener gave one for their boosts (device feedback 2026-10-13).
@@ -384,12 +436,9 @@ private fun Greeting(newCount: Int, lastChecked: Long?, now: Long, name: String?
         HoppSymbol(Modifier.size(48.dp))
         Column(Modifier.weight(1f)) {
             FittingLine(hello, MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-            // One line, the sync mark at its end, always seen (maintainer 2026-10-22: a wrap looked poor).
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(listOfNotNull(news, updated).joinToString(" · "), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (sync != null && (sync.running || sync.lastSyncedMs != null || sync.problem != null)) SyncMark(sync, onSync)
-            }
+            // One line (maintainer 2026-10-22: a wrap looked poor). Sync's state is at the profile picture since 2026-11-03.
+            Text(listOfNotNull(news, updated).joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (onCustomize != null) IconButton(onClick = onCustomize, modifier = Modifier.offset(x = 8.dp)) {
             Icon(HoppIcons.Tune, stringResource(Res.string.home_customize), Modifier.size(22.dp), tint = colors.onSurfaceVariant)
@@ -461,6 +510,8 @@ private val WEEKDAYS = listOf(Res.string.wd_1, Res.string.wd_2, Res.string.wd_3,
 private fun ShowsStrip(
     shows: List<space.sovereigncast.hopp.data.Show>, rhythms: Map<Long, space.sovereigncast.hopp.data.Rhythm>,
     actions: List<ShowAction>, now: Long, onShow: (Long) -> Unit,
+    /** A grid of the first [GRID_SHOWS] instead of a strip — in a column of a large window (maintainer 2026-11-03). */
+    grid: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val releases = actions.filter { it.kind == ShowAction.Kind.ReleaseBoosting }
@@ -470,6 +521,21 @@ private fun ShowsStrip(
     // the strip is shown. A lazy row keeps its first item in view, so the new
     // first one sat off the left edge (device feedback 2026-10-16): back to the
     // start, unless the listener has scrolled on.
+    if (grid) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            val columns = (maxWidth / 112.dp).toInt().coerceIn(3, 6)
+            val tile = (maxWidth - 12.dp * (columns - 1)) / columns
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = columns) {
+                ordered.take(columns * 2).forEach { show ->
+                    Column(Modifier.width(tile).clip(STRIP_TILE_SHAPE).clickable(onClickLabel = show.title) { onShow(show.id) }.padding(bottom = 4.dp)) {
+                        Cover(show.imageUrl, tile, corner = 14.dp)
+                        Text(show.title, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        return
+    }
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     val first = ordered.firstOrNull()?.id
     androidx.compose.runtime.LaunchedEffect(first) { if (state.firstVisibleItemIndex <= 1) state.scrollToItem(0) }

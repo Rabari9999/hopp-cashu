@@ -53,6 +53,7 @@ cd web/e2e && npm ci
 node run.mjs           # against scripts/web-dev.sh: tour, search, subscribe, play, save, language, QR code,
                        # sign in, reload, tabs, sign out, "This is not my device"
 node run.mjs --sync    # also two browsers syncing over public relays, with a throwaway key
+node run.mjs --webkit  # the same in Playwright's WebKit, Safari's engine (combines with --sync, --url)
 ```
 
 With `scripts/web-dev.sh --strict` the page has the server's headers, CSP
@@ -62,6 +63,12 @@ A throwaway NIP-07 extension stands in for a real one (`fakeExtension.mjs`).
 Compose draws to a canvas and mirrors its buttons into the DOM for screen
 readers; the checks press those, as a screen reader does. `CHROME_BIN` picks a
 Chrome when Playwright's own is not installed. Screenshots land in `web/e2e/out`.
+
+In WebKit each browser gets a profile on disk: a throwaway context has no OPFS
+there, and Hopp would keep its database in memory. Two things WebKit reports
+that are not Hopp's are left out: a screenshot puts a `<style>` of
+Playwright's into the page, which the CSP refuses, and a reload fails the old
+page's loads still under way, just before the new page comes.
 
 ## On an iPhone
 

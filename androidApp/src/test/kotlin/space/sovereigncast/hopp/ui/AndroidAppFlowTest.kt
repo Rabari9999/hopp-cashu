@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeRight
@@ -211,7 +212,8 @@ class TestApp : Application() {
         stopKoin()
         val app = this
         val platform = object : Platform {
-            override val app = AppInfo("0.0.1", "Android", "Phone")
+            // A build between releases, as a beta: "What's new" shows what is in the works.
+            override val app = AppInfo("0.3.2-dev.test", "Android", "Phone")
             // A file, like on the device.
             override fun sqlDriver(): SqlDriver = AndroidSqliteDriver(HoppDatabase.Schema.synchronous(), app, "hopp.db")
             override fun playbackEngine(): PlaybackEngine = FakeEngine()
@@ -268,7 +270,11 @@ class TestApp : Application() {
         }
         // The first-start tour has its own test; every other one starts past it.
         kotlinx.coroutines.runBlocking {
-            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(onboardingDone = true) }
+            // … and past the line on Home that says what an update brought: it has its own test too.
+            val version = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.platform.AppInfo>().version
+            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>().update {
+                it.copy(onboardingDone = true, whatsNewSeen = space.sovereigncast.hopp.data.Changelog.seenKey(version).orEmpty())
+            }
         }
     }
 }
@@ -333,6 +339,23 @@ class AndroidAppFlowTest {
         waitFor("No subscriptions yet.")
     }
 
+    /** After an update, once (maintainer 2026-11-03): a line under the greeting leads to what the version brought. */
+    @Test
+    fun whatsNewIsSaidOnceAfterAnUpdate() {
+        kotlinx.coroutines.runBlocking { koin.get<space.sovereigncast.hopp.data.SettingsRepository>().update { it.copy(whatsNewSeen = "") } }
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        tap("Home"); waitFor("What’s new ›", substring = true)
+        rule.onNode(hasText("What’s new ›", substring = true) and hasClickAction()).performClick()
+        waitFor("Your version")
+        back()
+        rule.waitUntil(10_000) { !has("What’s new ›", substring = true) }
+        // And it stays in About.
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        rule.onNode(hasText("About Hopp") and hasClickAction()).performScrollTo().performClick()
+        waitFor("What’s new")
+    }
+
     /** Home's own button, the result opened, back — then Home is Home again,
      *  not the show page with every episode it ever had. */
     @Test
@@ -389,16 +412,21 @@ class AndroidAppFlowTest {
     /** The ⋮ of the n-th episode row on screen, top to bottom. */
     private fun menuOf(row: Int) = rule.onAllNodes(hasContentDescription("More") and hasClickAction())[row].performClick()
 
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
     @Test
     fun playNextFillsUpNext() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         waitFor("Ep 1")
         menuOf(1); waitFor("Play next"); tap("Play next")
-        tap("Library"); waitFor("Up next")
-        tap("Up next"); waitFor("Ep 1")
-        rule.onNode(hasContentDescription("Remove from up next")).performClick()
-        waitFor("Nothing up next")
+        // On Home too, right there (Dennis, maintainer 2026-11-02).
+        tap("Home"); waitFor("Playlist")
+        // In the library itself since 0.4.0 (Dennis, maintainer 2026-11-02); "All" opens the whole list.
+        tap("Library"); waitFor("Playlist"); waitFor("Ep 1")
+        tap("All 1 ›"); waitFor("Ep 1")
+        // As a screen reader takes it out (maintainer 2026-11-04: the ✕ gave way to a swipe and a sheet).
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performCustomAccessibilityActionWithLabel("Remove from the playlist")
+        waitFor("The playlist is empty")
     }
 
     @Test
@@ -412,7 +440,9 @@ class AndroidAppFlowTest {
         // The cover's badge says so too; the episode not downloaded has none.
         check(rule.onAllNodes(hasContentDescription("Downloaded"), useUnmergedTree = true).fetchSemanticsNodes().size == 1) { "one badge expected: ${screen()}" }
         tap("Library"); waitFor("Downloads")
-        tap("Downloads"); waitFor("Ep 1")
+        // The downloads' "All", below up next's (a finished download joins up next).
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
+        waitFor("Ep 1")
         check(has("used", substring = true)) { "no space shown: ${screen()}" }
     }
 
@@ -1032,6 +1062,82 @@ class AndroidAppFlowTest {
         check(has("01.06.2026 · 45 MB")) { screen().toString() }
     }
 
+    /** The playlist (Dennis, maintainer 2026-11-03): what plays is its "Now", on top, and what comes next below;
+     *  "Continue listening" is gone from Home. */
+    @Test
+    fun thePlaylistStartsWithWhatPlays() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        rule.onAllNodes(hasContentDescription("Play") and hasClickAction())[0].performClick()
+        until { engine().state.value.isPlaying }
+        tap("Home")
+        waitFor("NOW · PLAYING")
+        check(has("NEXT") && has("Ep 1") && !has("Continue listening")) { screen().toString() }
+    }
+
+    /** Maintainer 2026-11-04: an entry of the playlist leaves it by a swipe and comes back with "Undo";
+     *  a long press has the rest. */
+    @Test
+    fun aPlaylistEntryIsSwipedAwayAndBack() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        val queue = koin.get<space.sovereigncast.hopp.data.QueueRepository>()
+        fun queued() = kotlinx.coroutines.runBlocking { queue.items.first().map { it.title } }
+        // Ep 2 after it (maintainer 2026-11-04: what came back went to the end, not where it was).
+        menuOf(0); waitFor("Play last"); tap("Play last")
+        until { queued() == listOf("Ep 1", "Ep 2") }
+        tap("Home"); waitFor("Ep 1")
+        val entry = hasText("Ep 1") and hasClickAction()
+        rule.onNode(entry).performTouchInput { swipeLeft() }
+        until { "Ep 1" !in queued() }
+        waitFor("Removed from the playlist")
+        tap("Undo")
+        until { queued() == listOf("Ep 1", "Ep 2") }
+        waitFor("Ep 1")
+        rule.onNode(entry).performTouchInput { longClick() }
+        waitFor("Go to the episode")
+        check(has("Play next") && has("Mark as played")) { screen().toString() }
+        tap("Remove from the playlist")
+        until { "Ep 1" !in queued() }
+    }
+
+    /** "Now" skipped from its long press: the next of the playlist plays (maintainer 2026-11-04). */
+    @Test
+    fun nowIsSkippedToTheNext() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        rule.onAllNodes(hasContentDescription("Play") and hasClickAction())[0].performClick()
+        until { engine().state.value.isPlaying }
+        tap("Home"); waitFor("NOW · PLAYING")
+        val playing = engine().state.value.itemId
+        rule.onNode(hasText("NOW · PLAYING") and hasClickAction()).performTouchInput { longClick() }
+        waitFor("Skip"); tap("Skip")
+        until { engine().state.value.itemId != playing && engine().state.value.isPlaying }
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        check(player.current.value?.item?.title == "Ep 1") { "plays ${player.current.value?.item?.title}" }
+    }
+
+    /** A show subscribed already opens as itself from Discover, not as a preview whose episodes open
+     *  nothing (maintainer 2026-11-05). */
+    @Test
+    fun aSubscribedShowOpensAsItselfFromDiscover() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        rule.onNode(hasContentDescription("Back") and hasClickAction()).performClick()
+        waitFor("Open as feed"); tap("Open as feed")
+        // Its page: the episodes with their menus, which the preview has not.
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("More") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        check(!has("Subscribe")) { screen().toString() }
+        tap("Ep 2"); waitFor("Show notes")
+    }
+
     /** The round button in the row plays without opening the player. */
     @Test
     fun theRowsPlayButtonPlaysInPlace() {
@@ -1097,7 +1203,7 @@ class AndroidAppFlowTest {
         snapshot("preview-sc")
     }
 
-    /** Without a wallet the invoice goes to a wallet app; Hopp waits for the instance. */
+    /** Without a wallet the invoice is paid elsewhere — scanned, copied or in a wallet app; Hopp waits for the instance. */
     @Test
     fun releaseBoostingIsPaidAndConfirmed() {
         rule.setContent { App() }
@@ -1106,9 +1212,29 @@ class AndroidAppFlowTest {
         tap("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
         tap("21 · 1 min")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         waitFor("Open wallet app")
+        check(rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Lightning invoice as a QR code")).fetchSemanticsNodes().isNotEmpty()) { screen().toString() }
+        waitFor("Copy invoice")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
+    }
+
+    /** Maintainer 2026-11-05: the sheet waited ten minutes for a payment that could not be made; now it
+     *  can be stopped, and says what that means. */
+    @Test
+    fun waitingForAPaymentElsewhereCanBeStopped() {
+        statusCalls = -1_000
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("RELEASE BOOSTING")
+        tap("Boost")
+        waitFor("Bring E297 - BTC++ Berlin out sooner")
+        tap("21 · 1 min")
+        tap("Pay 21 sats with another wallet")
+        waitFor("Copy invoice")
+        tap("Cancel")
+        waitFor("Hopp no longer waits. Paid already? It still counts for the show — it just is not confirmed here.")
+        statusCalls = 0
     }
 
     // ── phase 2: the full Sovereigncast layer ──────────────────────────────
@@ -1125,9 +1251,9 @@ class AndroidAppFlowTest {
         tap("+ Suggest a topic")
         waitFor("The payment keeps spam out; once it is paid, your suggestion is public right away. From 21 sats.")
         // Without a topic there is nothing to pay.
-        check(rule.onAllNodes(hasText("Pay 21 sats with a wallet app") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isEmpty()) { screen().toString() }
+        check(rule.onAllNodes(hasText("Pay 21 sats with another wallet") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isEmpty()) { screen().toString() }
         rule.onNode(hasSetTextAction() and hasText("Topic")).performTextInput("Lightning im Einzelhandel")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         rule.waitUntil(15_000) { has("Suggested — thank you! It is on the list now.") }
         val sent = lastScPost.orEmpty()
         check("\"title\":\"Lightning im Einzelhandel\"" in sent && "\"amount_sats\":21" in sent) { sent }
@@ -1149,7 +1275,7 @@ class AndroidAppFlowTest {
         waitFor("Boost “BIP110”")
         tap("…")
         rule.onNode(hasSetTextAction() and hasText("Amount in sats")).performTextReplacement("21")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
         check(lastScPost.orEmpty().contains("\"amount_sats\":21")) { lastScPost.toString() }
     }
@@ -1448,15 +1574,14 @@ class AndroidAppFlowTest {
         rule.onNode(androidx.compose.ui.test.isToggleable() and androidx.compose.ui.test.isOn()).assertExists()
     }
 
-    /** Auto-download and unsubscribe live in the show's menu now. */
+    /** Auto-download lives in the show's menu; unsubscribing only on "✓ Subscribed", not twice (maintainer 2026-11-03). */
     @Test
     fun theShowMenuHoldsItsSettings() {
         rule.setContent { App() }
         tap("Discover"); subscribe()
         rule.onNode(hasContentDescription("Show options")).performClick()
         waitFor("Download new episodes on Wi-Fi")
-        tap("Unsubscribe")
-        waitFor("Unsubscribe from Test Show? Positions of this show are removed.")
+        check(!has("Unsubscribe")) { "unsubscribe twice: ${screen()}" }
     }
 
     /** The round's card opens what the community page shows; the sheet boosts too. */
@@ -1618,7 +1743,7 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("Privacy") and hasClickAction()).performScrollTo().performClick()
         rule.waitUntil(10_000) { has("Hopp collects nothing.", substring = true) }
         check(has("Podcast Index")) { screen().toString() }
-        check(has("Hopp/0.0.1 (Android; Phone)", substring = true)) { screen().toString() }
+        check(has("Hopp/0.3.2-dev.test (Android; Phone)", substring = true)) { screen().toString() }
         // One line a party; the details on a tap (device feedback 2026-10-16: too much text).
         check(!has("Tip")) { "details on the page itself" }
         tap("Podcast Index")
@@ -1942,7 +2067,7 @@ class AndroidAppFlowTest {
         repeat(4) { tap("Next") }
         waitFor("Nostr, if you like")
         tap("Set up")
-        waitFor("Join the conversation on Nostr")
+        waitFor("Sign in with Nostr")
         until { settings().onboardingDone }
     }
 
@@ -1974,7 +2099,7 @@ class AndroidAppFlowTest {
         // Back — on a device the sign-in sheet takes the first one — leads to the tour, not Home.
         repeat(2) { if (!has("Welcome to Hopp")) { systemBack(); rule.waitForIdle() } }
         waitFor("Welcome to Hopp")
-        check(!has("Join the conversation on Nostr")) { "the Nostr page stayed on top of the tour" }
+        check(!has("Sign in with Nostr")) { "the Nostr page stayed on top of the tour" }
         // From the second page, by the arrow: back on the second page.
         tap("Next")
         tap("I’m coming from another podcast app")
@@ -2040,9 +2165,15 @@ class AndroidAppFlowTest {
         check(scWebsiteOpened("Entdecken", "Was Sovereigncast mitbringt", "Mehr über Sovereigncast") == "https://sovereigncast.space/de/")
     }
 
-    /** … and in English where Hopp has no translation — Spanish here, which
-     *  the website has, but Hopp would show English around the link. */
+    /** … in Spanish too, since Hopp speaks it (draft, maintainer 2026-11-02) … */
     @Test @Config(qualifiers = "es-w411dp-h891dp")
+    fun scWebsiteFollowsHoppsSpanish() {
+        check(scWebsiteOpened("Explorar", "Lo que aporta Sovereigncast", "Más sobre Sovereigncast") == "https://sovereigncast.space/es/")
+    }
+
+    /** … and in English where Hopp has no translation — French here: Hopp
+     *  would show English around the link. */
+    @Test @Config(qualifiers = "fr-w411dp-h891dp")
     fun scWebsiteFallsBackToEnglish() {
         check(scWebsiteOpened("Discover", "What Sovereigncast brings", "More about Sovereigncast") == "https://sovereigncast.space/")
     }

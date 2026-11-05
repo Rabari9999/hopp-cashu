@@ -105,8 +105,13 @@ listener also ends the old session in their signer, which the page says.
   asking; Hopp's daily budget (ADR 0005) applies on top, per browser, and
   is never synced. Not every wallet behind WebLN does keysend: a keysend
   recipient is then paid as on a wallet without keysend (ADR 0005).
-- **Without WebLN:** a boost becomes an invoice shown as a QR code and a
-  `lightning:` link for any wallet; no streaming sats.
+- ~~**Without WebLN:** a boost becomes an invoice shown as a QR code and a
+  `lightning:` link for any wallet; no streaming sats.~~ *Dropped 2026-11-02
+  (maintainer):* an invoice reaches only recipients with a Lightning
+  address — most value blocks name nodes, paid by keysend — a boost to three
+  would take three scans, and Hopp could confirm a payment only where the
+  address's server offers LUD-21. Without WebLN the wallet page names an
+  extension such as Alby, and the app.
 - **NWC in the web**, a later stage (W5), only:
   - as a connection of its own ("Hopp Web"), never the app's, never synced;
   - made through the wallet's own flow (`nostr+walletauth`, Alby Hub's app
@@ -173,9 +178,17 @@ database or admin.
   bundle itself has to be trustworthy.
 - **Reproducible web build** in CI; its hashes published as an event signed
   by Nodesignal's npub, as for Zapstore. Anyone can rebuild and compare.
-- **A service worker pins the version:** a new one is loaded only after the
+  *Amended 2026-11-02 (§14): built on the Mac, not in CI.*
+- ~~**A service worker pins the version:** a new one is loaded only after the
   listener confirms it ("Hopp 0.4.1 is ready — what changed"), so a
-  tampered server is not taken in silently on the next load.
+  tampered server is not taken in silently on the next load.~~ *Corrected
+  2026-11-02 (maintainer, §14):* it cannot. The browser fetches the service
+  worker itself from the server to look for updates, and a new one can take
+  over at once (`skipWaiting`) — whoever controls the server controls the
+  next one too. A page cannot vouch for itself. The service worker keeps
+  its other uses (a fast start, offline, an update only when the listener
+  takes it, never half a build); the check against the server is made from
+  outside (§14).
 - **Hosting:** HSTS with preload, a CAA record, two-factor login on the
   domain, DNS and hosting accounts.
 - **XSS surface:** Compose renders to a canvas, so show notes, comments and
@@ -220,7 +233,8 @@ database or admin.
   library and player; the proxy; hosting (A); "End all other sessions" (§3)
   before the release.
 - **W3 — comments and boosts:** comments, likes, mutes, reports; the wallet
-  interface, WebLN boosts and streaming sats; QR boosts without WebLN.
+  interface, WebLN boosts and streaming sats. (QR boosts without WebLN:
+  dropped 2026-11-02, §4.)
 - **W4 — Umbrel:** the web client and the proxy as one Umbrel app.
 - **W5 — NWC in the web**, if listeners ask for it: own connection, passkey.
 
@@ -329,6 +343,76 @@ The preparation in `shared` and stage W2 were built on branch `0.3.2`
   additions the local checks found: Compose's one `<style>` by its hash,
   `worker-src blob:` for Coil's image decoder, `img-src https:` for the
   Media Session's cover.
+
+### 13. Built: stage W3, WebLN (2026-11-01, branch `0.4.0`)
+
+The order of 0.4.0 (maintainer, 2026-11-01): WebKit in the browser checks,
+then W3, then the service worker and the signed build (§7), then testing.
+
+- **The browser's wallet is a second kind of wallet**, not a second payment
+  path: `BrowserWallet` (`value/`), implemented by `WeblnWallet` on the web,
+  is chosen on the wallet page ("Use the browser's wallet") and kept as
+  `webln_info` — only that it was chosen and what it can (`getInfo`'s
+  methods, else the functions the extension has); nothing that can spend.
+  `WalletRepository.client()` hands it out wrapped in `ProvenWallet` like
+  NWC: a payment counts only with its preimage. Boosts, streaming sats,
+  zaps and Sovereigncast's payments therefore go through it unchanged, and
+  Hopp's daily budget applies per browser. NWC stays refused (§4, W5).
+- **Whole sats:** WebLN pays in sats; every share Hopp sends already is one.
+  Keysend records travel as text (`customRecords`), which the boostagram and
+  the recipients' custom values are; a record that is not text is not sent.
+- **Outcome:** an extension's refusal (the listener's "no", no route) is a
+  failure before payment; only an answer that speaks of a timeout is the
+  outcome unknown (H-04). After a reload the extension is asked to enable
+  again at the first payment.
+- **The rest of the UI:** payments are offered in the browser again
+  (`PlatformActions.canPay`); the wallet page and the tour's last page speak
+  of an extension with WebLN, not NWC; "via Alby (WebLN)" in the boost sheet;
+  no notification settings (`canNotify`: the browser's tab shows none).
+- **Checks:** `run.mjs` gives its fake extension a WebLN wallet that records
+  what it is asked and pays nothing: the wallet taken, a boost sent as
+  keysend with its boostagram; a browser without one is told what to
+  install. Writes to the Listener API are blocked (Chromium) or caught
+  (WebKit, where Playwright's interception breaks `blob:` loads).
+- **No QR boost** (maintainer 2026-11-02, §4): W3 is done with WebLN.
+
+### 14. Built: the build's hash, its signature, the service worker (2026-11-02, branch `0.4.0`)
+
+Asked by the maintainer the same day, after §7 was found not to hold: the
+hash also shown in Hopp, compared with the signature there.
+
+- **The build list:** `web/deploy/release.mjs` writes `release.json` — every
+  file the browser loads with its SHA-256, sorted (the precompressed copies,
+  `version.txt` and the list itself left out). Its own SHA-256 is **the
+  build's hash**. It also puts the version into `sw.js`: the browser sees an
+  update only when that file changes. `build.sh` and `scripts/web-dev.sh`
+  run it.
+- **The signature:** `web/deploy/sign.mjs` (with `SIGN_WITH='bunker://…'`,
+  Amber, as for Zapstore) publishes NIP-94 file metadata, kind 1063, for
+  `release.json`: `x` the build's hash, `version`, `t` `hopp-web` — signed
+  with Nodesignal's key, to Hopp's relays and Nodesignal's write relays.
+- **The check from outside:** `web/deploy/verify.mjs [url]` fetches the
+  list, finds Nodesignal's signature for its hash, compares every file and
+  that the address serves `index.html`. The CI job `web-verify` runs it on a
+  pipeline schedule on the own runner; a failed run mails the schedule's
+  owner. This is the check that counts.
+- **The service worker** (`sw.js`): installs a build only when every file
+  matches the list — one that does not is never offered — keeps it in Cache
+  Storage with the server's headers (the CSP among them), and serves the
+  page from it. The first build takes the page at once; a later one waits
+  and Hopp says "Hopp 0.4.0 is ready — Reload"; it takes over only then.
+  A tab open for long asks for one every hour. Hopp starts without a
+  network. Only the tab that holds Hopp registers it.
+- **In Hopp:** Settings → About shows the build's hash and whether it is the
+  one Nodesignal signed (`BuildCheck`, by the relays: signed, another build
+  signed as this version, not signed, no relay answered), with a link to
+  the signature — and says that the page checks itself there: to be sure,
+  compare the hash with the signature by hand. Caught this way: a build not
+  signed, a deploy half done, the wrong build on the server.
+- **Checks:** `BuildCheckTest`; `run.mjs` — the service worker serves the
+  page, Hopp starts offline, About names the hash. By hand on 2026-11-02: a
+  new build offered only after it waited, taken on "Reload"; one with a file
+  not on its list never offered.
 
 ## Consequences
 

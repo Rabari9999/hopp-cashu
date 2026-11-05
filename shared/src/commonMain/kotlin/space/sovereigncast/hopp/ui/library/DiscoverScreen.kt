@@ -45,6 +45,11 @@ import androidx.compose.ui.semantics.stateDescription
 import space.sovereigncast.hopp.directory.Category
 import space.sovereigncast.hopp.ui.theme.Hopp
 import space.sovereigncast.hopp.resources.discover_for_you
+import space.sovereigncast.hopp.resources.discover_contacts
+import space.sovereigncast.hopp.resources.discover_contacts_note
+import space.sovereigncast.hopp.resources.contacts_names_two
+import space.sovereigncast.hopp.resources.contacts_names_more
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.resources.discover_for_you_note
 import space.sovereigncast.hopp.resources.discover_recommended_by
 import space.sovereigncast.hopp.resources.discover_because
@@ -154,6 +159,9 @@ fun DiscoverScreen(
     val search by vm.search.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
     val forYou by vm.forYou.collectAsState()
+    val withContacts by vm.withContacts.collectAsState()
+    // Each time Discover comes to the screen: the tab keeps its page, so its view model is built only once.
+    LaunchedEffect(Unit) { vm.lookAtContacts() }
     val myCategories by vm.myCategories.collectAsState()
     val category by vm.category.collectAsState()
     val trending by vm.trending.collectAsState()
@@ -287,6 +295,15 @@ fun DiscoverScreen(
                             }
                         }
                     }
+                    // What the listener's Nostr contacts share (ADR 0024, 7) — only while they look at it.
+                    if (category == null && withContacts.isNotEmpty()) {
+                        item { Header(stringResource(Res.string.discover_contacts), stringResource(Res.string.discover_contacts_note)) }
+                        item {
+                            Carousel(withContacts.map { it.show.asDirectoryShow() }, key = "c") { i, show ->
+                                Card(show, contactNames(withContacts[i].by)) { onPreview(show.feedUrl, show) }
+                            }
+                        }
+                    }
                     // New value shows before the popular ones (device feedback 2026-10-19).
                     newValue?.takeIf { it.isNotEmpty() }?.let { list ->
                         item { Header(stringResource(Res.string.discover_new_value), stringResource(Res.string.discover_new_value_note)) }
@@ -354,14 +371,28 @@ private fun PersonLine(name: String, img: String?, note: String, search: Boolean
 }
 
 @Composable
-private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) = Row(
-    Modifier.fillMaxWidth().padding(start = 16.dp, end = if (action != null) 4.dp else 16.dp, top = 16.dp, bottom = 4.dp),
-    verticalAlignment = if (action != null) Alignment.CenterVertically else Alignment.Bottom,
-) {
-    Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-    if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (action != null) TextButton(onClick = onAction) { Text(action) }
+private fun Header(text: String, note: String? = null, action: String? = null, onAction: () -> Unit = {}) {
+    // A longer note goes under the title: beside it, it left the title one letter's width on a phone
+    // (device feedback 2026-11-02, "With your Nostr contacts").
+    if (note != null && action == null && note.length > SHORT_NOTE) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+            Text(text, style = MaterialTheme.typography.titleMedium)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = if (action != null) 4.dp else 16.dp, top = 16.dp, bottom = 4.dp),
+        verticalAlignment = if (action != null) Alignment.CenterVertically else Alignment.Bottom,
+    ) {
+        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (action != null) TextButton(onClick = onAction) { Text(action) }
+    }
 }
+
+/** A header's note that still fits beside its title on a phone. */
+private const val SHORT_NOTE = 24
 
 /** Languages the Podcast Index knows many shows in, by their own names. */
 private val LANGUAGES = listOf("de", "en", "es", "fr", "it", "nl", "pt", "pl", "sv", "da", "no", "fi", "cs", "tr", "ja")
@@ -550,5 +581,20 @@ private fun DirectoryRow(
             }
             else -> IconButton(onClick = onSubscribe) { Icon(Icons.Rounded.Add, stringResource(Res.string.discover_add_button)) }
         }
+    }
+}
+
+/** A shared show as Discover's rows take it. */
+private fun space.sovereigncast.hopp.contacts.SharedShow.asDirectoryShow() =
+    DirectoryShow(title = title, feedUrl = url, imageUrl = image, podcastGuid = guid)
+
+/** "Anna", "Anna and Ben", "Anna, Ben and 3 more" — who of the listener's contacts (ADR 0024, 7). */
+@Composable
+internal fun contactNames(by: List<space.sovereigncast.hopp.contacts.Contact>): String {
+    val names = by.map { it.name ?: space.sovereigncast.hopp.nostr.npub(it.pubkey).let { n -> n.take(10) + "…" } }
+    return when {
+        names.size <= 1 -> names.firstOrNull().orEmpty()
+        names.size == 2 -> stringResource(Res.string.contacts_names_two, names[0], names[1])
+        else -> pluralStringResource(Res.plurals.contacts_names_more, names.size - 2, names[0], names[1], names.size - 2)
     }
 }

@@ -23,14 +23,33 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
      * replaces when that is later — a device whose clock runs behind still
      * wins with a change made after seeing the other's.
      */
-    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false): SyncEntry {
+    suspend fun record(doc: String, key: String, data: JsonObject, deleted: Boolean = false, atMs: Long? = null): SyncEntry {
         return db.transactionWithResult {
-            val before = entry(doc, key)
-            val entry = SyncEntry(maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
+            val state = q.entryState(doc, key).awaitAsOneOrNull()
+            val before = state?.let { SyncEntry(it.updated_at, it.deleted != 0L, parse(it.json), it.kept_from) }
+            // What the relays hold: the entry itself while nothing waits, else what was noted as it began to wait.
+            val relays = when {
+                state == null -> null
+                state.pending == 0L -> before
+                else -> state.relay_updated_at?.let { t -> SyncEntry(t, state.relay_deleted == 1L, parse(state.relay_json ?: "{}"), state.relay_kept_from) }
+            }
+            // Changed back to what the relays hold — a section hidden and shown again, an episode moved and moved
+            // back: no change, their version again with its own time, and nothing to send (maintainer 2026-11-04).
+            // Its time matters: a new one would win over a real change made meanwhile on another device.
+            if (relays != null && relays.del == deleted && relays.d == data) {
+                put(doc, key, relays, pending = false)
+                return@transactionWithResult relays
+            }
+            // [atMs] never ahead of now: an episode dated in the future would look like a clock gone wrong elsewhere.
+            val entry = SyncEntry(atMs?.takeIf { before == null && it > 0 }?.coerceAtMost(nowMs()) ?: maxOf(nowMs(), (before?.t ?: 0) + 1), deleted, data)
             put(doc, key, entry, pending = true)
+            relays?.let { setRelay(doc, key, it) }
             entry
         }
     }
+
+    private suspend fun setRelay(doc: String, key: String, e: SyncEntry) =
+        q.setRelay(e.d.toString(), e.t, if (e.del) 1L else 0L, e.out, doc, key)
 
     /**
      * Entries from the relays (or this device's own, [pending]), each only where
@@ -41,8 +60,20 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
     suspend fun putIfNewer(doc: String, entries: Map<String, SyncEntry>, pending: Boolean = false): Set<String> = db.transactionWithResult {
         entries.filter { (key, e) ->
             val now = entry(doc, key)
-            (now == null || e.winsOver(now)).also { if (it) put(doc, key, e, pending) }
+            (now == null || e.winsOver(now)).also { taken ->
+                if (taken) put(doc, key, e, pending)
+                // The relays' newer version under a change waiting here: what a change taken back is measured by.
+                else if (!pending) relayNewer(doc, key, e)
+            }
         }.keys
+    }
+
+    /** [e] as the relays' version of a waiting entry, where it is newer than the one noted. */
+    private suspend fun relayNewer(doc: String, key: String, e: SyncEntry) {
+        val state = q.entryState(doc, key).awaitAsOneOrNull() ?: return
+        if (state.pending == 0L) return
+        val noted = state.relay_updated_at?.let { t -> SyncEntry(t, state.relay_deleted == 1L, parse(state.relay_json ?: "{}"), state.relay_kept_from) }
+        if (noted == null || e.winsOver(noted)) setRelay(doc, key, e)
     }
 
     /** Of [entries], those still newer than what is here — checked again right before they are applied. */
@@ -52,7 +83,11 @@ class SyncStore(private val db: HoppDatabase, private val nowMs: () -> Long) {
     /** The relays hold these versions: entries changed here since stay pending. A removal keeps
      *  when it first went out ([SyncEntry.out]). */
     suspend fun markSent(doc: String, entries: Map<String, SyncEntry>) = db.transaction {
-        entries.forEach { (key, e) -> q.markSent(e.out?.takeIf { e.del }, doc, key, e.t) }
+        entries.forEach { (key, e) ->
+            q.markSent(e.out?.takeIf { e.del }, doc, key, e.t)
+            // Changed here while it went out: the relays hold what went (2026-11-04).
+            relayNewer(doc, key, e.copy(out = e.out?.takeIf { e.del }))
+        }
     }
 
     private suspend fun put(doc: String, key: String, e: SyncEntry, pending: Boolean) =

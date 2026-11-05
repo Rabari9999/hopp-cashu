@@ -100,6 +100,16 @@ import space.sovereigncast.hopp.resources.sc_failed_mismatch
 import space.sovereigncast.hopp.resources.sc_failed_no_round
 import space.sovereigncast.hopp.resources.sc_minutes
 import space.sovereigncast.hopp.resources.sc_open_wallet_app
+import space.sovereigncast.hopp.resources.sc_failed_stopped
+import space.sovereigncast.hopp.resources.sc_connect_browser_wallet
+import space.sovereigncast.hopp.resources.sc_invoice_qr
+import space.sovereigncast.hopp.resources.sc_invoice_copy
+import space.sovereigncast.hopp.resources.sc_invoice_copied
+import space.sovereigncast.hopp.resources.sc_no_wallet_app
+import space.sovereigncast.hopp.resources.sc_waiting_left
+import space.sovereigncast.hopp.resources.sc_waiting
+import space.sovereigncast.hopp.resources.cancel
+import androidx.compose.foundation.layout.widthIn
 import space.sovereigncast.hopp.resources.sc_paying
 import space.sovereigncast.hopp.resources.sc_pay_title_b2u
 import space.sovereigncast.hopp.resources.sc_pay_title_rb
@@ -657,9 +667,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                     return@Column
                 }
                 is ScPay.External -> {
-                    Text(stringResource(Res.string.sc_external), color = colors.onSurfaceVariant)
-                    if (paysHere()) TextButton(onClick = { runCatching { uri.openUri("lightning:" + p.invoice.bolt11) } }) { Text(stringResource(Res.string.sc_open_wallet_app)) }
-                    CircularProgressIndicator(Modifier.padding(bottom = 24.dp))
+                    PayElsewhere(p.invoice, onStop = vm::stopWaiting)
                     return@Column
                 }
                 ScPay.Requesting, ScPay.Paying, ScPay.Confirming -> {
@@ -680,6 +688,7 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                         "unknown" -> stringResource(Res.string.sc_failed_unknown)
                         "budget" -> stringResource(Res.string.sc_failed_budget)
                         "no_active_round" -> stringResource(Res.string.sc_failed_no_round)
+                        "stopped" -> stringResource(Res.string.sc_failed_stopped)
                         else -> stringResource(Res.string.sc_failed, p.detail ?: p.code)
                     },
                     color = colors.error,
@@ -755,7 +764,57 @@ fun ScPaySheet(vm: CommunityViewModel, target: ScTarget, title: String, satsPerM
                     fontWeight = FontWeight.Bold, color = if (ready) Hopp.colors.onValue else colors.onSurfaceVariant,
                 )
             }
+            // In the browser, its own wallet is the other way: one tap away (maintainer 2026-11-05).
+            if (paysHere() && !hasWallet && space.sovereigncast.hopp.ui.LocalPlatformActions.current.paysWithBrowser) {
+                val openWallet = space.sovereigncast.hopp.ui.comments.LocalOpenWallet.current
+                TextButton(onClick = { vm.resetPay(); onDismiss(); openWallet() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(stringResource(Res.string.sc_connect_browser_wallet))
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+/**
+ * An invoice paid elsewhere (maintainer 2026-11-05: in the browser "Open wallet app" did nothing, the
+ * invoice was nowhere to be seen, and the sheet waited ten minutes): as a QR code for a wallet on
+ * another device, to copy, and — second — handed to a wallet app here; how long it is valid, and a
+ * way to stop waiting.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.PayElsewhere(invoice: space.sovereigncast.hopp.sovereigncast.Invoice, onStop: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val actions = space.sovereigncast.hopp.ui.LocalPlatformActions.current
+    val uri = LocalUriHandler.current
+    var copied by remember { mutableStateOf(false) }
+    var noApp by remember { mutableStateOf(false) }
+    val expires = remember(invoice.expiresAt) { runCatching { kotlin.time.Instant.parse(invoice.expiresAt).epochSeconds }.getOrNull() }
+    var now by remember { mutableLongStateOf(kotlin.time.Clock.System.now().epochSeconds) }
+    LaunchedEffect(invoice) { while (true) { delay(1_000); now = kotlin.time.Clock.System.now().epochSeconds } }
+    Text(stringResource(Res.string.sc_external), color = colors.onSurfaceVariant)
+    // Upper case: a wallet's scanner reads it as well, and the code comes out smaller.
+    space.sovereigncast.hopp.ui.components.QrImage(
+        "LIGHTNING:" + invoice.bolt11.uppercase(), stringResource(Res.string.sc_invoice_qr),
+        Modifier.widthIn(max = 280.dp).fillMaxWidth().align(Alignment.CenterHorizontally).clip(RoundedCornerShape(12.dp)),
+    )
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+        OutlinedButton(onClick = { actions.copyText(invoice.bolt11, "Lightning invoice"); copied = true }) {
+            Text(stringResource(if (copied) Res.string.sc_invoice_copied else Res.string.sc_invoice_copy))
+        }
+        TextButton(onClick = { noApp = runCatching { uri.openUri("lightning:" + invoice.bolt11) }.isFailure }) {
+            Text(stringResource(Res.string.sc_open_wallet_app))
+        }
+    }
+    if (noApp) Text(stringResource(Res.string.sc_no_wallet_app), color = colors.error, style = MaterialTheme.typography.bodySmall)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        val left = expires?.let { (it - now).coerceAtLeast(0) }
+        Text(
+            if (left != null) stringResource(Res.string.sc_waiting_left, "${left / 60}:${(left % 60).toString().padStart(2, '0')}")
+            else stringResource(Res.string.sc_waiting),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    TextButton(onClick = onStop, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(Res.string.cancel)) }
 }

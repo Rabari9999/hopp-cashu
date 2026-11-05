@@ -4,6 +4,8 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -75,6 +77,25 @@ class NostrIdentityTest {
         rule.waitUntil(10_000) { runBlocking { koin.get<SettingsRepository>().settings.first().senderName } == "Thorsten" }
         tap("Home")
         waitFor("Thorsten", substring = true)
+    }
+
+    /** Name and picture from Hopp (maintainer 2026-11-03): read from the relays first, then saved into the profile. */
+    @Test
+    fun theProfileIsChangedInHopp() {
+        runBlocking { koin.get<IdentityRepository>().create("X") }
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        tap("Nostr identity")
+        waitFor("Back up your key")
+        rule.onNode(hasContentDescription("Profile picture")).performClick()
+        waitFor("Your Nostr profile")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasText("Save") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(hasSetTextAction() and hasText("X")).performTextReplacement("Yvonne")
+        tap("Save")
+        rule.waitUntil(10_000) { koin.get<IdentityRepository>().identity.value?.name == "Yvonne" }
+        // No boost name before: the profile's name is it now.
+        rule.waitUntil(10_000) { runBlocking { koin.get<SettingsRepository>().settings.first().senderName } == "Yvonne" }
+        rule.waitUntil(10_000) { !has("Your Nostr profile") }
     }
 
     @Test

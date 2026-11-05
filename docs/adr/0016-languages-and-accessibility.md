@@ -1,7 +1,8 @@
 # ADR 0016 — Languages and accessibility
 
-- **Status:** accepted
-- **Date:** 2026-10-07
+- **Status:** accepted; amended 2026-11-02 (maintainer): Spanish as a draft in
+  0.4.0, and the preparation for many languages
+- **Date:** 2026-10-07, amended 2026-11-02
 
 ## Decision
 
@@ -19,6 +20,27 @@
 - **Further languages through hosted Weblate** (free for libre projects): the
   community translates in the browser, changes arrive as commits. Spanish — the
   third language of sovereigncast.space — is the obvious first candidate.
+
+### Amendment 2026-11-02: Spanish, and room for many languages
+
+- **Spanish ships in 0.4.0 as a draft** (maintainer): translated in full from
+  English with the German as reference, to be read by a native speaker before
+  it is announced. Its open points are listed in `docs/translations.md`.
+- **One list of languages:** `Languages.kt` names each language with its own
+  name and how it writes numbers and dates (decimal mark, grouping, date
+  separator). Formatting reads it — no more `== "de"` — as do the browser's
+  language choice and the "open in another tab" page. Android's
+  `locales_config.xml` and iOS's `CFBundleLocalizations` are kept in step by
+  `LanguagesTest`; the folders of strings by `StringResourcesTest`.
+- **Every language checked against English:** the same names, plurals and
+  arrays, the same placeholders. A language marked complete must have every
+  string; one that is not may ship, its missing strings shown in English.
+- English keeps its dates with dots for now ("07.10.2026"); a change there is
+  a decision of its own.
+- Strings that count something are plurals (`show_episodes` and six more,
+  which said "1 episodes").
+- Weblate and store listings in Spanish follow once a reviewer is found;
+  `docs/translations.md` says how a language is added.
 
 ### Accessibility: best effort
 

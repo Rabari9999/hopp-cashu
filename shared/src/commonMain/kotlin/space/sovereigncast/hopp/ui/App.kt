@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -41,6 +42,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -71,6 +76,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import space.sovereigncast.hopp.player.PlayerController
 import space.sovereigncast.hopp.resources.stats_title
+import space.sovereigncast.hopp.resources.wallet_support
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.sync_restored
 import space.sovereigncast.hopp.resources.back
@@ -85,11 +91,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.getPluralString
 import space.sovereigncast.hopp.resources.sync_restored_shows
 import space.sovereigncast.hopp.data.DownloadRepository
 import space.sovereigncast.hopp.resources.stream_notice
+import space.sovereigncast.hopp.resources.update_ready
+import space.sovereigncast.hopp.resources.update_reload
 import space.sovereigncast.hopp.resources.wallet_history
 import space.sovereigncast.hopp.resources.privacy_title
 import space.sovereigncast.hopp.resources.favorites_title
@@ -154,7 +164,7 @@ import space.sovereigncast.hopp.ui.theme.HoppTheme
 @Serializable object DiscoverRoute
 /** The settings and what hangs off them — closed when the listener leaves for a tab. */
 private val SETTINGS_ROUTES = listOf(
-    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class,
+    SettingsRoute::class, SettingsPageRoute::class, WalletRoute::class, HistoryRoute::class, PrivacyRoute::class, CrashRoute::class, StatsRoute::class, SupportRoute::class,
 )
 
 @Serializable object SettingsRoute
@@ -177,6 +187,10 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object WalletRoute
 @Serializable object HistoryRoute
 @Serializable object StatsRoute
+/** "Support Hopp": a donation to Hopp's Lightning address (maintainer 2026-11-02). */
+@Serializable object SupportRoute
+/** One tag's own page (maintainer 2026-11-03). */
+@Serializable data class TagRoute(val tag: String)
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -246,6 +260,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
         destination?.hasRoute(HistoryRoute::class) == true -> stringResource(Res.string.wallet_history)
         destination?.hasRoute(PersonRoute::class) == true || destination?.hasRoute(ShowRoute::class) == true -> pageTitle.text.orEmpty()
         destination?.hasRoute(StatsRoute::class) == true -> stringResource(Res.string.stats_title)
+        destination?.hasRoute(SupportRoute::class) == true -> stringResource(Res.string.wallet_support)
+        destination?.hasRoute(TagRoute::class) == true -> entry?.toRoute<TagRoute>()?.tag.orEmpty()
         destination?.hasRoute(PrivacyRoute::class) == true -> stringResource(Res.string.privacy_title)
         destination?.hasRoute(CrashRoute::class) == true -> stringResource(Res.string.crash_title)
         destination?.hasRoute(DownloadsRoute::class) == true -> stringResource(Res.string.downloads_title)
@@ -267,6 +283,18 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     LaunchedEffect(Unit) {
         value.notices.collect { n -> snackbar.showSnackbar(getString(Res.string.stream_notice, formatSats(n.paidSats), n.episodes)) }
     }
+    // A new build of Hopp Web waits (ADR 0022, 14): it takes over when the listener says so, never by itself.
+    platformActions.updateReady?.let { ready ->
+        LaunchedEffect(ready) {
+            ready.filterNotNull().distinctUntilChanged().collect { version ->
+                val answer = snackbar.showSnackbar(
+                    getString(Res.string.update_ready, version), actionLabel = getString(Res.string.update_reload),
+                    withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Indefinite,
+                )
+                if (answer == androidx.compose.material3.SnackbarResult.ActionPerformed) platformActions.applyUpdate()
+            }
+        }
+    }
     // The Sovereigncast list fetched ahead, so Discover marks and filters at
     // once instead of a moment after opening (device feedback 2026-10-11).
     val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory = koinInject()
@@ -287,6 +315,11 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     /** Where the tour was left for one of its pages, to come back to. */
     var tourPage by rememberSaveable { mutableStateOf(0) }
     val connectedWallet by koinInject<space.sovereigncast.hopp.value.WalletRepository>().wallet.collectAsState()
+    // What this version brought, for a new install's tour to mark as seen.
+    val appInfo = koinInject<space.sovereigncast.hopp.platform.AppInfo>()
+    val whatsNewKey = remember(appInfo) {
+        space.sovereigncast.hopp.data.Changelog.seenKey(appInfo.version, appInfo.isWeb || space.sovereigncast.hopp.data.Changelog.between(appInfo.version))
+    }
     val tourScope = rememberCoroutineScope()
     // A crash last time: offer the report, once per start (ADR 0015).
     val crashes: CrashReports = koinInject()
@@ -318,7 +351,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                 IncomingLinks.handOverOpml(text)
                 if (tour || appSettings?.onboardingDone == false) {
                     tour = false
-                    settingsRepo.update { it.copy(onboardingDone = true) }
+                    settingsRepo.update { it.doneTour(whatsNewKey) }
                 }
                 withContext(Dispatchers.Main) {
                     player.minimize()
@@ -370,6 +403,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     HoppTheme(darkTheme = chosenDark ?: systemDark) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
+            space.sovereigncast.hopp.ui.library.LocalSnackbar provides snackbar,
             space.sovereigncast.hopp.ui.components.LocalPageBack provides pageBack,
             space.sovereigncast.hopp.ui.components.LocalPageTitle provides pageTitle,
             // From the comments, in the player or on an episode page (ADR 0021, stage 3).
@@ -406,11 +440,17 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                   Row(Modifier.fillMaxSize()) {
                     // The tabs at the top, where the eye starts, and the settings at the foot of the rail —
                     // not alone in the window's far corner (UX review 2026-10-30).
-                    if (rail) NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+                    // Its own width beside what the window keeps at its start — a phone's camera cutout on its side
+                    // (device check 2026-11-04: the rail moved its items over by it, "Discover" broke, the pill was cut).
+                    val railStart = androidx.compose.foundation.layout.WindowInsets.safeDrawing
+                        .only(androidx.compose.foundation.layout.WindowInsetsSides.Start).asPaddingValues()
+                        .calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
+                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH + railStart), containerColor = MaterialTheme.colorScheme.surface) {
                         androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                         val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
                             NavigationRailItem(
+                                modifier = Modifier.fillMaxWidth(),
                                 selected = currentTab == tab && !inSettings,
                                 onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, null) },
@@ -418,7 +458,12 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             )
                         }
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        // At the rail's foot, above the cogwheel: the same picture and menu as in the top bar.
+                        space.sovereigncast.hopp.ui.identity.ProfileButton(
+                            onNostr = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) }, onStats = { nav.navigate(StatsRoute) },
+                        )
                         NavigationRailItem(
+                            modifier = Modifier.fillMaxWidth(),
                             selected = inSettings,
                             // From one of its pages: back to Settings itself, not a second one on top (review 2026-10-31).
                             onClick = {
@@ -449,6 +494,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
                                         RefreshButton(feeds)
                                     }
+                                    // The listener's picture, a menu with signing out (maintainer 2026-11-03).
+                                    if (onTab != null && !rail) space.sovereigncast.hopp.ui.identity.ProfileButton(
+                                        onNostr = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) }, onStats = { nav.navigate(StatsRoute) },
+                                    )
                                     if (onTab != null && !rail) IconButton(onClick = { nav.navigate(SettingsRoute) }) {
                                         // A cogwheel: Hopp has no account (device feedback 2026-10-10).
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
@@ -459,7 +508,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         },
                         bottomBar = {
                             Column {
-                                if (!paneOpen) MiniPlayer(player)
+                                if (!paneOpen) MiniPlayer(player, last = rail)
                                 if (!rail) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                                     tabs.forEach { tab ->
                                         NavigationBarItem(
@@ -482,20 +531,21 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             popEnterTransition = { sharedAxisIn(forward = false) },
                             popExitTransition = { sharedAxisOut(forward = false) },
                         ) {
-                            composable<HomeRoute> { Readable(LIST_WIDTH) {
+                            composable<HomeRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 HomeScreen(onInbox = { nav.navigate(InboxRoute) }, onDiscover = { selectTab(tabs[2]) }, onShow = showRoute, onFavorites = { nav.navigate(FavoritesRoute) },
                                     onCommunity = { nav.navigate(ShowRoute(it, community = true)) }, snackbar = snackbar,
                                     onAction = { a -> nav.navigate(ShowRoute(a.podcastId, round = a.kind == ShowAction.Kind.ReleaseBoosting,
                                         unlock = a.episodeGuid.takeIf { a.kind == ShowAction.Kind.Boost2Unlock })) },
                                     onLibrary = { selectTab(tabs[1]) },
-                                    onCustomize = { nav.navigate(SettingsPageRoute(SettingsPage.Home.name)) },
-                                    onSyncSettings = { nav.navigate(SettingsPageRoute(SettingsPage.Nostr.name)) })
+                                    onQueue = { nav.navigate(QueueRoute) },
+                                    onWhatsNew = { nav.navigate(SettingsPageRoute(SettingsPage.WhatsNew.name)) })
                             } }
                             composable<InboxRoute> { Readable(LIST_WIDTH) { InboxScreen(onDiscover = { selectTab(tabs[2]) }) } }
                             composable<LibraryRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 LibraryScreen(
                                     onShow = showRoute,
                                     onQueue = { nav.navigate(QueueRoute) }, onDownloads = { nav.navigate(DownloadsRoute) },
+                                    onTag = { nav.navigate(TagRoute(it)) },
                                 )
                             } }
                             composable<QueueRoute> { Readable(LIST_WIDTH) { QueueScreen() } }
@@ -510,7 +560,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                     onOpenWallet = { nav.navigate(WalletRoute) },
                                 ) }
                             }
-                            composable<DiscoverRoute> { Readable(LIST_WIDTH) {
+                            composable<DiscoverRoute> { Readable(space.sovereigncast.hopp.ui.components.GRID_WIDTH) {
                                 DiscoverScreen(
                                     onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) },
                                     onPerson = { p -> nav.navigate(PersonRoute(p.name, p.img, p.href, p.role, p.show)) },
@@ -543,6 +593,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                             composable<SettingsRoute> { Readable {
                                 SettingsScreen(
                                     onWallet = { nav.navigate(WalletRoute) }, onHistory = { nav.navigate(HistoryRoute) }, onStats = { nav.navigate(StatsRoute) },
+                                    onSupport = { nav.navigate(SupportRoute) },
                                     onPage = { nav.navigate(SettingsPageRoute(it.name)) }, onPrivacy = { nav.navigate(PrivacyRoute) },
                                     onCrashReport = if (crashReport != null) ({ nav.navigate(CrashRoute) }) else null,
                                 )
@@ -581,6 +632,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 ) }
                             }
                             composable<StatsRoute> { Readable { space.sovereigncast.hopp.ui.library.StatsScreen() } }
+                            composable<TagRoute> { e -> Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.TagScreen(e.toRoute<TagRoute>().tag, onGone = { nav.popBackStack() }) } }
+                            composable<SupportRoute> { Readable { space.sovereigncast.hopp.ui.value.SupportScreen(onOpenWallet = { nav.navigate(WalletRoute) }) } }
                             composable<ShowRoute> { e ->
                                 val route = e.toRoute<ShowRoute>()
                                 // Only this page leaves, and only once — the show can vanish while
@@ -627,7 +680,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     // Leaves the tour for a page; back on that page comes back to the tour at [at].
                     fun leaveTour(page: SettingsPage, at: Int) {
                         tour = false
-                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        tourScope.launch { settingsRepo.update { it.doneTour(whatsNewKey) } }
                         nav.navigate(SettingsPageRoute(page.name, fromTour = at))
                     }
                     if (tour || appSettings?.onboardingDone == false) OnboardingScreen(
@@ -645,7 +698,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     ) { connectWallet ->
                         tourPage = 0
                         tour = false
-                        tourScope.launch { settingsRepo.update { it.copy(onboardingDone = true) } }
+                        tourScope.launch { settingsRepo.update { it.doneTour(whatsNewKey) } }
                         if (connectWallet) nav.navigate(WalletRoute)
                     }
                 }

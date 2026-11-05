@@ -97,8 +97,8 @@ device therefore fills the library.
 ### 4. Progress and favourites
 
 - Episodes in progress or played in the last 90 days, and favourites.
-- Published at most every five minutes, on pause and when Hopp goes to the
-  background.
+- Published at most every fifteen minutes while playing (ADR 0021,
+  amendment 2026-11-05), on pause and when Hopp goes to the background.
 - An entry for an episode the feed has not brought yet waits in
   `sync_entry` and is applied when the feed is in.
 - An episode playing here is not moved under the listener's ears: a newer

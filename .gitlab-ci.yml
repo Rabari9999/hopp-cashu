@@ -13,6 +13,8 @@ workflow:
       when: never
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "web"
+    # The watch on Hopp Web's server (web-verify) — nothing else runs then.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
     # A branch with an open MR gets the MR pipeline only — the push ran the
     # same two jobs on the same commit a second time (!6, 2026-10-21).
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS
@@ -46,6 +48,10 @@ stages: [test, build, release]
 shared-tests:
   stage: test
   resource_group: gradle-cache
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: on_success
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     - ./gradlew --console=plain :shared:jvmTest
@@ -60,6 +66,10 @@ shared-tests:
 android-debug:
   stage: build
   resource_group: gradle-cache
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: on_success
   script:
     - echo "sdk.dir=$ANDROID_HOME" > local.properties
     # Robolectric fetches its Android jars into ~/.m2 — keep them across jobs.
@@ -109,3 +119,16 @@ release-unsigned:
     paths:
       - androidApp/build/outputs/apk/foss/release/*.apk
       - androidApp/build/outputs/bundle/playRelease/*.aab
+
+# A watch on Hopp Web's server (ADR 0022, 14): what play.sovereigncast.space gives out, file by
+# file, against the build Nodesignal signed. Run by a pipeline schedule with HOPP_SCHEDULE set to
+# web-verify; a failed run is the alarm — GitLab mails the schedule's owner. On the own runner,
+# like everything here: no compute minutes.
+web-verify:
+  stage: test
+  image: node:22-alpine
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $HOPP_SCHEDULE == "web-verify"
+  script:
+    - cd web/deploy && npm ci --no-audit --no-fund
+    - node verify.mjs https://play.sovereigncast.space/

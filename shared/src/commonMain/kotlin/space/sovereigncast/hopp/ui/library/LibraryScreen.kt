@@ -95,24 +95,54 @@ import space.sovereigncast.hopp.resources.library_continue
 import space.sovereigncast.hopp.resources.library_empty
 import space.sovereigncast.hopp.resources.library_shows
 import space.sovereigncast.hopp.resources.inbox_no_shows
+import space.sovereigncast.hopp.resources.home_all
+import space.sovereigncast.hopp.resources.queue_empty
+import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.heading
+import space.sovereigncast.hopp.resources.tags_all
+import space.sovereigncast.hopp.resources.tags_untagged
+import androidx.compose.ui.draw.drawBehind
+import space.sovereigncast.hopp.resources.tags_hint
+import space.sovereigncast.hopp.resources.tags_add_chip
+import space.sovereigncast.hopp.resources.tag_edit
 
-/** "Library" (ADR 0012): up next, downloads, the subscribed shows.
- *  "Continue listening" moved to Home. */
+/** "Library" (ADR 0012): up next, downloads, the subscribed shows — since 0.4.0 up next and the
+ *  downloads each a section that folds, as on Home, right there (Dennis, maintainer 2026-11-02:
+ *  two taps to the list he cares most about). The shows are what the library is for and never
+ *  fold (maintainer 2026-11-03). "Continue listening" moved to Home. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     onShow: (Long) -> Unit,
     onQueue: () -> Unit,
     onDownloads: () -> Unit,
+    /** A tag's own page: its shows, renamed, deleted (a long press on its chip). */
+    onTag: (String) -> Unit = {},
     vm: LibraryViewModel = koinViewModel(),
 ) {
     val shows by vm.shows.collectAsState()
-    val queueCount by vm.queueCount.collectAsState()
     val downloadCount by vm.downloadCount.collectAsState()
     val refreshing by vm.refreshing.collectAsState()
     val counts by vm.counts.collectAsState()
     val asList by vm.asList.collectAsState()
     val sort by vm.sort.collectAsState()
+    val queue by vm.queueItems.collectAsState()
+    val downloaded by vm.downloaded.collectAsState()
+    val collapsed by vm.collapsed.collectAsState()
+    val playing = playlistNow()
+    val nav = LocalEpisodeNav.current
+    val tags by vm.tags.collectAsState()
+    val tag by vm.tag.collectAsState()
+    val showCount by vm.showCount.collectAsState()
+    var tagging by remember { mutableStateOf<Long?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    val allShows by vm.allShows.collectAsState()
+    allShows.firstOrNull { it.id == tagging }?.let { s -> TagsSheet(s, tags, onTags = { vm.setTags(s.id, it) }) { tagging = null } }
+    if (creating) NewTagSheet(allShows, onCreate = { name, ids -> vm.createTag(name, ids); creating = false }) { creating = false }
     var confirmAllPlayed by remember { mutableStateOf(false) }
     if (confirmAllPlayed) {
         val unheard = counts.values.sumOf { it.unheard }
@@ -125,7 +155,8 @@ fun LibraryScreen(
     }
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh) {
         val list = shows ?: return@PullToRefreshBox
-        if (list.isEmpty()) {
+        // Empty only without any show — a tag that picks none still shows its row, to pick another.
+        if (list.isEmpty() && showCount == 0) {
             EmptyState(stringResource(Res.string.library_empty), stringResource(Res.string.inbox_no_shows))
             return@PullToRefreshBox
         }
@@ -142,15 +173,39 @@ fun LibraryScreen(
             }
             val canDownload = LocalPlatformActions.current.canDownload
             LazyVerticalGrid(cells, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp)) {
-                item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Queue, stringResource(Res.string.queue_title), queueCount, onQueue) }
-                if (canDownload) item(span = { GridItemSpan(maxLineSpan) }) { EntryRow(HoppIcons.Download, stringResource(Res.string.downloads_title), downloadCount, onDownloads) }
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }) { confirmAllPlayed = true }
+                val full: (androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope) -> GridItemSpan = { GridItemSpan(it.maxLineSpan) }
+                // The playlist, as on Home (Dennis, maintainer 2026-11-03): "Now", then what comes next.
+                val queueOpen = LIB_QUEUE !in collapsed
+                val after = queue.filter { it.id != playing?.id }
+                val inPlaylist = after.size + (if (playing != null) 1 else 0)
+                item(key = "h-queue", span = full) {
+                    SectionHeader(stringResource(Res.string.queue_title), queueOpen, inPlaylist, { vm.toggle(LIB_QUEUE) },
+                        stringResource(Res.string.home_all, inPlaylist).takeIf { inPlaylist > 0 }, onQueue, modifier = Modifier.bleed(8.dp))
+                }
+                if (queueOpen) item(key = "queue", span = full) {
+                    Box(Modifier.bleed(8.dp)) { PlaylistBody(playing, after, HomeViewModel.QUEUE_ROWS, onOpen = { nav.open(it) }, onReorder = vm::reorderQueue) }
+                }
+                if (canDownload && downloadCount > 0) {
+                    val open = LIB_DOWNLOADS !in collapsed
+                    item(key = "h-downloads", span = full) {
+                        SectionHeader(stringResource(Res.string.downloads_title), open, downloadCount, { vm.toggle(LIB_DOWNLOADS) },
+                            stringResource(Res.string.home_all, downloadCount), onDownloads, modifier = Modifier.bleed(8.dp))
+                    }
+                    if (open) items(downloaded.take(HomeViewModel.HOME_ROWS), key = { "d${it.id}" }, span = { GridItemSpan(maxLineSpan) }) { item ->
+                        Box(Modifier.bleed(8.dp)) { EpisodeRow(item, showPodcast = true, onClick = { nav.open(item) }) { PlayButton(item); EpisodeMenu(item) } }
+                    }
+                }
+                item(key = "h-shows", span = full) {
+                    ShowsHeader(asList, vm::showAsList, sort, vm::sortBy, counts.values.sumOf { it.unheard }, { confirmAllPlayed = true }) {
+                        // The listener's tags, always (maintainer 2026-11-03): a tap filters, "+ Tag" makes one, a long press edits.
+                        TagRow(tags, tag.takeIf { t -> t == Settings.TAG_UNTAGGED || tags.any { it.equals(t, ignoreCase = true) } } ?: "", vm::filterTag, onTag) { creating = true }
+                    }
                 }
                 items(list, key = { it.id }) { show ->
                     val c = counts[show.id]
-                    if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp) { onShow(show.id) }
-                    else ShowCard(show, c, large) { onShow(show.id) }
+                    // A long press: its tags, right here (maintainer 2026-11-03).
+                    if (asList) ShowListRow(show, c, cover = if (large) 88.dp else 64.dp, onLongClick = { tagging = show.id }) { onShow(show.id) }
+                    else ShowCard(show, c, large, onLongClick = { tagging = show.id }) { onShow(show.id) }
                 }
             }
         }
@@ -163,14 +218,18 @@ fun LibraryScreen(
  * setup with hundreds unheard (maintainer 2026-11-01: a row of its own was too dominant).
  */
 @Composable
-private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int, onAllPlayed: () -> Unit) {
+private fun ShowsHeader(
+    asList: Boolean, onAsList: (Boolean) -> Unit, sort: String, onSort: (String) -> Unit, unheard: Int, onAllPlayed: () -> Unit,
+    below: @Composable () -> Unit = {},
+) {
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 16.dp, bottom = 4.dp)) {
+    val title = stringResource(Res.string.library_shows)
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 12.dp, bottom = 4.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(Res.string.library_shows), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Text(title, Modifier.weight(1f).padding(vertical = 8.dp).semantics { heading() }, style = MaterialTheme.typography.titleMedium)
             var open by remember { mutableStateOf(false) }
             Box {
                 TextButton(onClick = { open = true }) { Text(sortLabel(sort) + " ▾") }
@@ -198,6 +257,7 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: Stri
                     }
             }
         }
+        below()
         if (unheard > 0) Row(verticalAlignment = Alignment.CenterVertically) {
             val style = MaterialTheme.typography.bodySmall
             Text(stringResource(Res.string.library_unheard, unheard) + " · ", style = style, color = colors.onSurfaceVariant)
@@ -219,7 +279,8 @@ private fun ShowsHeader(asList: Boolean, onAsList: (Boolean) -> Unit, sort: Stri
  * little presence in the dark theme, where that ring is black too. Now a brighter
  * red, a white ring in both themes and a small shadow lift it off any cover — dark,
  * light or red — and the figure is a size larger. Since 2026-11-01 the logo's orange, the
- * figure black on it (ADR 0019): red always looked like an error (maintainer).
+ * figure black on it (ADR 0019): red always looked like an error (maintainer). Since 2026-11-03 without
+ * the white ring (maintainer): the orange and the small shadow carry it.
  */
 @Composable
 private fun UnheardCount(n: Int) {
@@ -227,7 +288,7 @@ private fun UnheardCount(n: Int) {
     val label = stringResource(Res.string.library_unheard, n)
     val shape = RoundedCornerShape(50)
     Box(
-        Modifier.shadow(3.dp, shape).clip(shape).background(Color.White).padding(2.dp).clip(shape).background(Hopp.colors.value)
+        Modifier.shadow(3.dp, shape).clip(shape).background(Hopp.colors.value)
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp).padding(horizontal = 6.dp)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
@@ -238,13 +299,13 @@ private fun UnheardCount(n: Int) {
 
 /** A show as a card: the cover fills the cell, its unheard episodes on it, title and author below. */
 @Composable
-private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: () -> Unit) {
+private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val corner = if (large) 18.dp else 16.dp
     // Round at the top like the cover, barely at the bottom: rounded there too, the
     // card's corner cut into the author's line (as it once did on Home's strip).
     Column(
         Modifier.padding(8.dp).clip(RoundedCornerShape(topStart = corner, topEnd = corner, bottomStart = 4.dp, bottomEnd = 4.dp))
-            .clickable(onClick = onClick).padding(bottom = 4.dp),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(bottom = 4.dp),
     ) {
         Box {
             CoverFill(show.imageUrl, corner = corner)
@@ -263,12 +324,12 @@ private fun ShowCard(show: Show, counts: ShowCounts?, large: Boolean, onClick: (
 
 /** A show as a row of the list: cover, title, author, its episodes and whether it is a Sovereigncast show. */
 @Composable
-private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () -> Unit) {
+private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val sc: SovereigncastRepository = koinInject()
     val isSc by remember(show.id) { sc.layer(show.id).map { it != null } }.collectAsState(false)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Cover(show.imageUrl, cover, corner = 14.dp)
@@ -279,7 +340,7 @@ private fun ShowListRow(show: Show, counts: ShowCounts?, cover: Dp, onClick: () 
             val line = listOfNotNull(
                 counts?.latestAt?.let { latestLabel(it) },
                 Category.of(show.categories).firstOrNull()?.let { categoryLabel(it) },
-            ).joinToString(" · ").ifEmpty { counts?.let { stringResource(Res.string.show_episodes, it.episodes) }.orEmpty() }
+            ).joinToString(" · ").ifEmpty { counts?.let { pluralStringResource(Res.plurals.show_episodes, it.episodes, it.episodes) }.orEmpty() }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (line.isNotEmpty()) Text(line, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (isSc) ScBadge()
@@ -296,17 +357,16 @@ private fun Header(text: String) = Text(
     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
 )
 
-@Composable
-private fun EntryRow(icon: ImageVector, label: String, count: Int, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.width(16.dp))
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        if (count > 0) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+/** Folded sections of the library, kept with Home's. */
+private const val LIB_QUEUE = "lib-queue"
+private const val LIB_DOWNLOADS = "lib-downloads"
+
+/** As wide as the grid with its side padding: a row in line with the page, as on Home. */
+private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { measurable, constraints ->
+    val px = by.roundToPx()
+    val wide = constraints.copy(minWidth = constraints.minWidth + 2 * px, maxWidth = constraints.maxWidth + 2 * px)
+    val placeable = measurable.measure(wide)
+    layout(constraints.maxWidth, placeable.height) { placeable.place(-px, 0) }
 }
 
 @Composable
@@ -328,4 +388,54 @@ private fun latestLabel(epochSeconds: Long): String {
         in 2..13 -> stringResource(Res.string.home_days_ago, days)
         else -> formatDate(epochSeconds)
     }
+}
+
+/**
+ * The listener's tags as a row (maintainer 2026-11-03, as in AntennaPod): all, each tag, the shows without one.
+ * A tap picks one — again, all; a long press on a tag opens its page.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun TagRow(tags: List<String>, chosen: String, onPick: (String) -> Unit, onEdit: (String) -> Unit, onNew: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 6.dp, end = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (tags.isEmpty()) Text(stringResource(Res.string.tags_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else {
+            TagChip(stringResource(Res.string.tags_all), chosen.isEmpty(), onClick = { if (chosen.isNotEmpty()) onPick(chosen) })
+            tags.forEach { t -> TagChip(t, chosen.equals(t, ignoreCase = true), onClick = { onPick(t) }, onLongClick = { onEdit(t) }) }
+            TagChip(stringResource(Res.string.tags_untagged), chosen == Settings.TAG_UNTAGGED, onClick = { onPick(Settings.TAG_UNTAGGED) })
+        }
+        TagChip(stringResource(Res.string.tags_add_chip), false, dashed = true, onClick = onNew)
+    }
+    // The chosen tag's own page, without a long press (maintainer 2026-11-03).
+    if (chosen.isNotEmpty() && chosen != Settings.TAG_UNTAGGED) Text(
+        stringResource(Res.string.tag_edit, chosen) + " ›",
+        Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) { onEdit(chosen) }.padding(vertical = 6.dp),
+        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
+    )
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+internal fun TagChip(label: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null, dashed: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(50)
+    val outline = if (selected) colors.onSurface else colors.outlineVariant
+    Text(
+        label,
+        Modifier.clip(shape)
+            .then(if (dashed) Modifier.drawBehind {
+                drawRoundRect(outline, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
+            } else Modifier.border(1.dp, outline, shape))
+            .background(if (selected) colors.onSurface else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Tab)
+            .semantics { this.selected = selected }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        color = if (selected) colors.surface else colors.onSurface,
+        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1,
+    )
 }

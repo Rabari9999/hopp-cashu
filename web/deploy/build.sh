@@ -4,6 +4,9 @@
 # precompressed file server; and the feed proxy as a static Linux binary.
 #
 #   web/deploy/build.sh [amd64|arm64]     → build/web-release/<version>/{site,proxy}
+#
+# Then: SIGN_WITH='bunker://…' node web/deploy/sign.mjs build/web-release/<version>/site,
+# web/deploy/deploy.sh, node web/deploy/verify.mjs.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 ARCH=${1:-amd64}
@@ -19,11 +22,16 @@ mkdir -p "$OUT/site"
 rsync -a --exclude '*.map' "$DIST/" "$OUT/site/"
 sed -i.bak "s|\(name=\"hopp-feed-proxy\" content=\"\)[^\"]*\"|\1$FEEDS\"|" "$OUT/site/index.html" && rm "$OUT/site/index.html.bak"
 grep -q "content=\"$FEEDS\"" "$OUT/site/index.html" || { echo "index.html: no hopp-feed-proxy to set" >&2; exit 1; }
+# No folder of this machine in what is published (shared/webpack.config.d/no-build-paths.js).
+if grep -rlE "file:///(Users|home)/|$PWD" "$OUT/site"; then echo "the files above name a folder of this machine" >&2; exit 1; fi
+echo "$VERSION" > "$OUT/site/version.txt"
+# The build's file list and its hash (ADR 0022, 14): signed with web/deploy/sign.mjs, shown in
+# Hopp, checked by web/deploy/verify.mjs. Before compressing, so the copies are not in it.
+node web/deploy/release.mjs "$OUT/site" "$VERSION"
 node web/deploy/pack.mjs "$OUT/site"
 
 docker run --rm -v "$PWD/web/proxy":/src -v "$PWD/$OUT":/out -w /src golang:1.25-alpine \
     sh -c "go test -count=1 ./... && CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -trimpath -ldflags='-s -w' -o /out/proxy ."
 chmod 755 "$OUT/proxy"
-echo "$VERSION" > "$OUT/site/version.txt"
 du -sh "$OUT/site" "$OUT/proxy"
 echo "$OUT"

@@ -1,0 +1,42 @@
+<resources>
+    <!-- A draft, to be read by a native speaker (maintainer 2026-11-02). -->
+    <!-- Android Auto's browse tree (ADR 0012) -->
+    <string name="auto_new">Nuevos</string>
+    <string name="auto_queue">Lista de reproducción</string>
+    <string name="auto_downloads">Descargas</string>
+    <string name="auto_library">Biblioteca</string>
+    <!-- Download notification -->
+    <string name="downloads_channel">Descargas</string>
+    <string name="downloads_running">Descargando episodios</string>
+    <string name="quick_boost">Boost</string>
+    <string name="boosts_channel">Boosts</string>
+    <string name="quick_boost_sent">%1$s sats enviados como boost a %2$s</string>
+    <string name="quick_boost_partial">%1$s de %2$s sats enviados como boost a %3$s — detalles en el historial de pagos</string>
+    <string name="quick_boost_budget">Boost no enviado: el presupuesto de hoy está agotado</string>
+    <string name="quick_boost_low_balance">Boost no enviado: la billetera solo tiene %1$s sats</string>
+    <string name="quick_boost_no_value">Boost no enviado: este podcast no puede recibir boosts</string>
+    <string name="quick_boost_no_wallet">Boost no enviado: no hay billetera conectada</string>
+    <string name="quick_boost_failed">El boost falló: %1$s</string>
+    <string name="zap">Zap</string>
+    <string name="zaps_channel">Zaps</string>
+    <string name="zap_someone">alguien</string>
+    <string name="zap_sent">%1$s sats enviados como zap a %2$s</string>
+    <string name="zap_budget">Zap no enviado: el presupuesto de hoy está agotado</string>
+    <string name="zap_failed">El zap a %1$s falló: %2$s</string>
+    <string name="copied">Copiado</string>
+    <string name="scan_hint">Apunta la cámara al código QR de la conexión de la billetera</string>
+    <string name="scan_close">Cerrar</string>
+    <string name="scan_no_camera">Hopp necesita la cámara solo para leer el código QR.</string>
+    <string name="files_summary">Episodios descargados</string>
+    <!-- Lock screen and notification -->
+    <string name="skip_back">Atrás %1$d segundos</string>
+    <string name="skip_forward">Adelante %1$d segundos</string>
+    <string name="next_chapter">Capítulo siguiente</string>
+    <!-- The home-screen widget (0.3.1) -->
+    <string name="widget_name">Reproductor Hopp</string>
+    <string name="widget_description">Lo que suena, con reproducir, saltar, capítulo siguiente y tu boost rápido</string>
+    <string name="widget_nothing">No suena nada – toca para abrir Hopp</string>
+    <string name="widget_left">quedan %1$d min</string>
+    <string name="widget_play">Reproducir</string>
+    <string name="widget_pause">Pausa</string>
+</resources>

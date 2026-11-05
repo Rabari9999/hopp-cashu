@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import space.sovereigncast.hopp.comments.Comment
 import space.sovereigncast.hopp.comments.CommentZapper
 import space.sovereigncast.hopp.comments.ZapTarget
@@ -471,7 +472,7 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(Res.string.comments_from_relays, s.thread.relays.size), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text(pluralStringResource(Res.plurals.comments_from_relays, s.thread.relays.size, s.thread.relays.size), Modifier.weight(1f), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                     if (s.refreshing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     else TextButton(onClick = vm::load) { Text(stringResource(Res.string.comments_reload)) }
                 }

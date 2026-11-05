@@ -585,6 +585,15 @@ class PlayerController(
         }
     }
 
+    /** "Skip" on the playlist's "Now" (maintainer 2026-11-04): left where it is, its place kept — the next in
+     *  the playlist plays. */
+    fun skipEpisode() {
+        scope.launch {
+            engine.state.value.itemId?.toLongOrNull()?.let { episodes.savePosition(it, engine.state.value.positionMs) }
+            advance()
+        }
+    }
+
     /** "Previous": the previous chapter, else the start of the episode. */
     fun previous() {
         _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }

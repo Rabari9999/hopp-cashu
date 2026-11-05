@@ -13,6 +13,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import space.sovereigncast.hopp.value.nwc.NwcException
+import space.sovereigncast.hopp.value.nwc.PaymentResult
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -152,6 +154,76 @@ class ValueServiceTest {
         assertNull(secrets.get("nwc_info"))
         assertFailsWith<IllegalStateException> { web.connect(uri()) }
         assertNull(secrets.get("nwc_uri"))
+    }
+
+    /** A browser's wallet (WebLN, ADR 0022, 4, stage W3), as a test sees it: what it can, what it was asked. */
+    private class Browser(var available: Boolean = true, val methods: Set<String> = setOf("pay_invoice", "pay_keysend", "get_balance")) : BrowserWallet, WalletClient {
+        val keysends = mutableListOf<Pair<String, Long>>()
+        var enabled = 0
+        var preimage: String? = "11".repeat(32)
+        override fun available() = available
+        override suspend fun enable(): ConnectedWallet { enabled++; return ConnectedWallet(alias = "Alby", methods = methods, browser = true) }
+        override fun client(): WalletClient = this
+        override suspend fun info() = enable().info
+        override suspend fun payInvoice(invoice: String, amountMsat: Long?) = PaymentResult(preimage, 0)
+        override suspend fun payKeysend(amountMsat: Long, pubkey: String, tlvRecords: List<TlvRecord>): PaymentResult {
+            keysends += pubkey to amountMsat / 1000
+            return PaymentResult(preimage, 0)
+        }
+        override suspend fun balanceMsat() = 5_000_000L
+    }
+
+    /** ADR 0022, 4, stage W3: in the browser the wallet is the extension's. Chosen once, it is
+     *  there again after a reload; nothing that can spend is kept; NWC stays refused there. */
+    @Test
+    fun theBrowsersWalletIsChosenKeptAndLeft() = test {
+        val browser = Browser()
+        val web = WalletRepository(secrets, http, { now }, relay, enabled = false, browser = browser)
+        assertNull(web.wallet.value)
+        assertTrue(web.browserWallet && !web.nwcHere)
+        val w = web.connectBrowser()
+        assertTrue(w.browser && w.canKeysend && w.canPayInvoice)
+        assertEquals("Alby (WebLN)", w.via)
+        assertNull(secrets.get("nwc_uri"))
+        val reloaded = WalletRepository(secrets, http, { now }, relay, enabled = false, browser = browser)
+        assertEquals("Alby", reloaded.wallet.value?.label)
+        assertEquals(5_000_000L, reloaded.balanceMsat())
+        // Proven as every wallet's payments are (M-02): no preimage, no payment.
+        browser.preimage = null
+        val e = assertFailsWith<NwcException> { reloaded.client()!!.payKeysend(1000, host, emptyList()) }
+        assertTrue(e.outcomeUnknown)
+        assertFailsWith<IllegalStateException> { reloaded.connect(uri()) }
+        reloaded.disconnect()
+        assertNull(reloaded.wallet.value)
+        assertNull(secrets.get("webln_info"))
+        assertNull(WalletRepository(secrets, http, { now }, relay, enabled = false, browser = browser).wallet.value)
+    }
+
+    /** An extension that offers no way to pay is not taken; one gone leaves nothing to pay with. */
+    @Test
+    fun aBrowsersWalletThatCannotPayOrIsGoneIsNotUsed() = test {
+        val mute = WalletRepository(secrets, http, { now }, relay, enabled = false, browser = Browser(methods = emptySet()))
+        assertEquals(WalletRepository.CANNOT_PAY, assertFailsWith<NwcException> { mute.connectBrowser() }.code)
+        assertNull(mute.wallet.value)
+        assertNull(secrets.get("webln_info"))
+        val browser = Browser()
+        val web = WalletRepository(secrets, http, { now }, relay, enabled = false, browser = browser)
+        web.connectBrowser()
+        browser.available = false
+        assertNull(web.client(), "the extension is gone: nothing to pay with")
+        assertFailsWith<IllegalStateException> { web.connectBrowser() }
+    }
+
+    @Test
+    fun aBoostGoesThroughTheBrowsersWallet() = test {
+        val browser = Browser()
+        val web = WalletRepository(secrets, http, { now }, relay, enabled = false, browser = browser)
+        val webValue = ValueService(db, web, episodes, podcasts, settings, LnAddressClient(http), FeedFetcher(http), null, { now }, AppInfo("0.0.1", "Web", "Browser"))
+        web.connectBrowser()
+        val results = webValue.boost(episode(), 30, 100_000, "Danke!")
+        assertTrue(results.all { it is ShareResult.Paid }, results.describe())
+        assertEquals(listOf(host to 90L, cohost to 10L), browser.keysends)
+        assertEquals(listOf("paid", "paid"), webValue.payments.first().single().lines.map { it.status })
     }
 
     /** Security review 2026-10-20, L-4: a wallet without NIP-44 could never read a request —
@@ -757,6 +829,17 @@ class ValueServiceTest {
         val logged = value.payments.first().single()
         assertEquals(5_000L, logged.amountMsat)
         assertEquals("Danke!", logged.message)
+    }
+
+    /** Maintainer 2026-11-02: "Support Hopp" — a donation with no show, logged under Hopp's name. */
+    @Test
+    fun hoppIsSupportedWithoutAShow() = test {
+        wallet.connect(uri())
+        value.donate(null, "donate@alby.test", 5_000, "Weiter so", title = "Hopp")
+        assertEquals(listOf(donee to 5L), keysends())
+        val logged = value.payments.first().single()
+        assertEquals("Hopp", logged.podcastTitle)
+        assertEquals("Weiter so", logged.message)
     }
 
     /** Device feedback 2026-10-19: a comment zapped from the wallet, as other Nostr apps do. */

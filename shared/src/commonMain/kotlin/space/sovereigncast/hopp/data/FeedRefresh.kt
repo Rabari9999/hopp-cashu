@@ -25,25 +25,30 @@ class FeedRefresh(
     val whileOpen: Boolean,
     /** Before the feeds: the other devices' changes (ADR 0021, 5). */
     private val before: suspend () -> Unit = {},
-    /** After the feeds: what runs at the Sovereigncast shows. */
-    private val after: suspend () -> Unit = {},
+    /** After the feeds, no longer shown as refreshing: what runs at the Sovereigncast shows, the Nostr contacts, sync. */
+    private val after: suspend (RefreshSummary) -> Unit = {},
     /** Waits that many milliseconds; a test's clock moves on instead. */
     private val sleep: suspend (Long) -> Unit = { delay(it) },
 ) {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private var running: Job? = null
+    private var afterwards: Job? = null
 
-    /** A refresh now — or the one already under way. */
+    /**
+     * A refresh now — or the one already under way. It is done, and shown as done, once the feeds
+     * are in; [after] goes on quietly (maintainer 2026-11-04: the spinner stood half a minute after
+     * the feeds, waiting for relays and the Sovereigncast instances), once at a time.
+     */
     fun now(): Job {
         running?.takeIf { it.isActive }?.let { return it }
         _refreshing.value = true
         return scope.launch {
-            try {
+            val summary = try {
                 runCatching { before() }
                 podcasts.refreshAll()
-                runCatching { after() }
             } finally { _refreshing.value = false }
+            if (afterwards?.isActive != true) afterwards = scope.launch { runCatching { after(summary) } }
         }.also { running = it }
     }
 

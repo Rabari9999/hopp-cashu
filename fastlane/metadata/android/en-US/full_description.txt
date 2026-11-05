@@ -4,8 +4,8 @@
 
 <p><b>Listening</b></p>
 <ul>
-<li>✅ Home with what is new and what you are listening to, library as cards or a list</li>
-<li>✅ Up next, downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals</li>
+<li>✅ Home with what is new and your playlist, library as cards or a list, sorted with tags of your own</li>
+<li>✅ A playlist – what plays on top, what comes next below, reorderable – downloads on Wi-Fi, sleep timer, skip silence, your own skip intervals</li>
 <li>✅ Speed, intro and outro skipping for each show; quiet shows made louder</li>
 <li>✅ Chapters with pictures, transcripts that read along, people, show notes, clips</li>
 <li>✅ Tap a person to see every episode with them</li>
@@ -24,9 +24,10 @@
 
 <p><b>Nostr</b></p>
 <ul>
+<li>✅ Optional and off until you turn it on: see what your Nostr contacts listen to, boost and comment on; share your subscriptions with mutual contacts, sealed so only they can read them</li>
 <li>✅ Comments on every episode, Fountain's included: write, like and zap – publicly, privately or anonymously</li>
-<li>✅ Identity made in Hopp, imported or kept in Amber; your own relays</li>
-<li>✅ Sync between your devices: subscriptions, progress, favourites, up next, settings, statistics – encrypted, no Hopp server</li>
+<li>✅ Identity made in Hopp, imported or kept in Amber or another signer; profile name and picture set in Hopp; your own relays</li>
+<li>✅ Sync between your devices: subscriptions, progress, favourites, playlist, settings, statistics – encrypted, no Hopp server</li>
 <li>✅ Restore your library on a new device</li>
 </ul>
 
@@ -45,7 +46,7 @@
 <ul>
 <li>✅ A privacy page: who sees what when you listen, and what you can do about it</li>
 <li>✅ Notifications for boosts and zaps, set for each on its own</li>
-<li>✅ Phones and tablets, upright and sideways, light and dark, English and German</li>
+<li>✅ Phones and tablets, upright and sideways, light and dark, English and German, Spanish as a preview</li>
 </ul>
 
 <p>Hopp is open source (MIT).</p>
