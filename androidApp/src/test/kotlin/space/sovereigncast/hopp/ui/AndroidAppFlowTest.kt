@@ -1203,7 +1203,7 @@ class AndroidAppFlowTest {
         snapshot("preview-sc")
     }
 
-    /** Without a wallet the invoice goes to a wallet app; Hopp waits for the instance. */
+    /** Without a wallet the invoice is paid elsewhere — scanned, copied or in a wallet app; Hopp waits for the instance. */
     @Test
     fun releaseBoostingIsPaidAndConfirmed() {
         rule.setContent { App() }
@@ -1212,9 +1212,29 @@ class AndroidAppFlowTest {
         tap("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
         tap("21 · 1 min")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         waitFor("Open wallet app")
+        check(rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Lightning invoice as a QR code")).fetchSemanticsNodes().isNotEmpty()) { screen().toString() }
+        waitFor("Copy invoice")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
+    }
+
+    /** Maintainer 2026-11-05: the sheet waited ten minutes for a payment that could not be made; now it
+     *  can be stopped, and says what that means. */
+    @Test
+    fun waitingForAPaymentElsewhereCanBeStopped() {
+        statusCalls = -1_000
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/sc.xml")
+        waitFor("RELEASE BOOSTING")
+        tap("Boost")
+        waitFor("Bring E297 - BTC++ Berlin out sooner")
+        tap("21 · 1 min")
+        tap("Pay 21 sats with another wallet")
+        waitFor("Copy invoice")
+        tap("Cancel")
+        waitFor("Hopp no longer waits. Paid already? It still counts for the show — it just is not confirmed here.")
+        statusCalls = 0
     }
 
     // ── phase 2: the full Sovereigncast layer ──────────────────────────────
@@ -1231,9 +1251,9 @@ class AndroidAppFlowTest {
         tap("+ Suggest a topic")
         waitFor("The payment keeps spam out; once it is paid, your suggestion is public right away. From 21 sats.")
         // Without a topic there is nothing to pay.
-        check(rule.onAllNodes(hasText("Pay 21 sats with a wallet app") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isEmpty()) { screen().toString() }
+        check(rule.onAllNodes(hasText("Pay 21 sats with another wallet") and hasClickAction() and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isEmpty()) { screen().toString() }
         rule.onNode(hasSetTextAction() and hasText("Topic")).performTextInput("Lightning im Einzelhandel")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         rule.waitUntil(15_000) { has("Suggested — thank you! It is on the list now.") }
         val sent = lastScPost.orEmpty()
         check("\"title\":\"Lightning im Einzelhandel\"" in sent && "\"amount_sats\":21" in sent) { sent }
@@ -1255,7 +1275,7 @@ class AndroidAppFlowTest {
         waitFor("Boost “BIP110”")
         tap("…")
         rule.onNode(hasSetTextAction() and hasText("Amount in sats")).performTextReplacement("21")
-        tap("Pay 21 sats with a wallet app")
+        tap("Pay 21 sats with another wallet")
         rule.waitUntil(15_000) { has("21 sats sent — thank you!") }
         check(lastScPost.orEmpty().contains("\"amount_sats\":21")) { lastScPost.toString() }
     }

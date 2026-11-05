@@ -30,6 +30,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sync:** Mit einem per QR-Code verbundenen Signer fragt der Abgleich ihn wirklich und sagt, wenn keine Antwort kommt; der erste Sync-Schlüssel braucht keine zweite Bestätigung.
 - **Sync:** Nennt ein Signer Relays, die Hopp nicht erreicht, kommen Hopps Anfragen weiter über die Relays an, über die er sich verbunden hat; erreicht Hopp keines, sagt es das statt „Dein Signer hat abgelehnt“.
 - **Sync:** Bei einem Relay ohne Fehler steht kein Hinweis auf ein Problem mehr.
+- **Sovereigncast:** Ohne verbundene Wallet zahlst du per QR-Code oder kopierter Rechnung; du siehst, wie lange sie gilt, und kannst das Warten abbrechen.
 - **Sync:** Klappt auch mit Schreib-Relays, die nur Events ihres Besitzers oder bestätigter Autoren annehmen: Der Sync nutzt zusätzlich drei Relays von Hopp.
 - **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
 - **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.

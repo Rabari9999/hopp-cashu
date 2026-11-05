@@ -40,11 +40,12 @@ sealed interface ScPay {
     data object Idle : ScPay
     data object Requesting : ScPay
     data object Paying : ScPay
-    /** No wallet connected: the invoice goes to a wallet app; Hopp waits for the instance. */
+    /** No wallet connected: the invoice is paid elsewhere — scanned, copied or in a wallet app; Hopp waits for the instance. */
     data class External(val invoice: Invoice) : ScPay
     data object Confirming : ScPay
     data class Done(val sats: Long) : ScPay
-    /** [code]: an API error code, "mismatch", "expired", "unknown" (the wallet may have paid) or "wallet". */
+    /** [code]: an API error code, "mismatch", "expired", "unknown" (the wallet may have paid), "stopped" (the
+     *  listener stopped waiting for an invoice paid elsewhere) or "wallet". */
     data class Failed(val code: String, val detail: String? = null) : ScPay
 }
 
@@ -168,11 +169,13 @@ class CommunityViewModel(
         viewModelScope.launch { runCatching { sc.vote(l, s.id) } }
     }
 
+    private var paying: kotlinx.coroutines.Job? = null
+
     fun pay(target: ScTarget, amountSats: Long, message: String, name: String, episodeTitle: String?) {
         if (!paysForContent) return
         val l = layer.value ?: return
         _pay.value = ScPay.Requesting
-        viewModelScope.launch {
+        paying = viewModelScope.launch {
             _pay.value = try {
                 settings.update { it.copy(senderName = name.trim()) }
                 // Over the budget, the instance is not even asked — it would keep
@@ -194,6 +197,8 @@ class CommunityViewModel(
                         sc.log(podcastId, l, target, episodeTitle, amountSats, message, null); load(); ScPay.Done(amountSats)
                     } else ScPay.Failed("expired")
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: InvoiceMismatch) {
                 ScPay.Failed("mismatch", e.message)
             } catch (e: ListenerApiException) {
@@ -242,6 +247,15 @@ class CommunityViewModel(
     }
 
     fun resetPay() { _pay.value = ScPay.Idle }
+
+    /** No more waiting for an invoice paid elsewhere (maintainer 2026-11-05: in the browser without a
+     *  wallet the sheet waited ten minutes for a payment there was no way to make). Paid meanwhile, it
+     *  still counts at the instance; Hopp only no longer confirms it. */
+    fun stopWaiting() {
+        if (_pay.value !is ScPay.External) return
+        paying?.cancel()
+        _pay.value = ScPay.Failed("stopped")
+    }
 
     companion object {
         /** The reason in the history: the wallet paid, the instance had not said so yet. */
