@@ -87,6 +87,11 @@ data class ContactsRead(
     fun signalShows(): List<String> = contacts.values.flatMap { c -> c.signals.map { it.show }.distinct() }
         .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
 
+    /** With the names and pictures [before] knew where this read found none: a look-up that came back without one is no profile gone. */
+    fun keepingNames(before: ContactsRead?): ContactsRead = if (before == null) this else copy(contacts = contacts.mapValues { (who, c) ->
+        before.contacts[who]?.let { was -> c.copy(name = c.name ?: was.name, picture = c.picture ?: was.picture) } ?: c
+    })
+
     /** Who of the contacts shares, boosted or commented on the show with [guid] or at [feedUrl]. */
     fun listeners(guid: String?, feedUrl: String): List<Contact> {
         val key = showKey(guid, feedUrl)
@@ -135,7 +140,7 @@ class ContactGraph(
         // Where each contact writes: their relay list, from the indexes; Hopp's relays where they have none.
         val outbox = mutableMapOf<String, List<String>>()
         following.chunked(BATCH).forEach { batch ->
-            publisher.query(listOf(filter(RELAY_LIST, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, SETTLE)
+            publisher.query(listOf(filter(RELAY_LIST, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, LOOK_UP_SETTLE)
                 .filter { it.kind == RELAY_LIST && it.pubkey in batch }
                 .groupBy { it.pubkey }.mapValues { (_, lists) -> lists.maxBy { it.created_at } }
                 .forEach { (who, list) -> outbox[who] = writeRelays(list) }
@@ -249,7 +254,7 @@ class ContactGraph(
         if (people.isEmpty()) return emptyMap()
         val out = mutableMapOf<String, Pair<String?, String?>>()
         people.toList().chunked(BATCH).forEach { batch ->
-            publisher.query(listOf(filter(0, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, SETTLE)
+            publisher.query(listOf(filter(0, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, LOOK_UP_SETTLE)
                 .filter { it.kind == 0 && it.pubkey in batch }.groupBy { it.pubkey }.mapValues { (_, e) -> e.maxBy { it.created_at } }
                 .forEach { (who, e) ->
                     val o = runCatching { json.parseToJsonElement(e.content) as? JsonObject }.getOrNull() ?: return@forEach
@@ -287,6 +292,8 @@ class ContactGraph(
         const val MAX_SIGNALS = 50
         const val SHOW_PREFIX = "podcast:guid:"
         val SETTLE = 3.seconds
+        /** The indexes hold most of it and answer last: Hopp's relays, quick with little, must not cut them off. */
+        val LOOK_UP_SETTLE = 6.seconds
         val HEX64 = Regex("^[0-9a-f]{64}$")
     }
 }

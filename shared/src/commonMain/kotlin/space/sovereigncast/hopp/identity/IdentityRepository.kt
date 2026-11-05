@@ -492,8 +492,13 @@ class IdentityRepository(
          *  once (tested 2026-11-02). Not relay.damus.io, quick to block (maintainer, same day). */
         val SYNC_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net", "wss://relay.nostr.net")
 
-        /** Relays that collect profiles and relay lists (kinds 0, 3, 10002) to look people up. */
-        val INDEX_RELAYS = listOf("wss://purplepag.es", "wss://user.kindpag.es")
+        /**
+         * Relays that collect profiles and relay lists (kinds 0, 3, 10002) to look people up. The last two
+         * since a listener with 300 Nostr contacts got a name for only 133 of them, all 300 with these
+         * (device feedback 2026-11-05): purplepag.es answers many people at once with one event per person
+         * asked, a second version of one taking the place of another.
+         */
+        val INDEX_RELAYS = listOf("wss://purplepag.es", "wss://user.kindpag.es", "wss://profiles.nostr1.com", "wss://directory.yabu.me")
 
         /** A person's own relays asked at most, for one profile. */
         private const val MAX_THEIR_RELAYS = 4

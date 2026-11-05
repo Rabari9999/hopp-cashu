@@ -370,6 +370,46 @@ class ContactsTest {
         assertEquals("Testjupp", read.contacts.getValue(tester.publicKeyHex).name)
     }
 
+    /** Device feedback 2026-11-05: a contact whose profile was not found stayed an npub until the next full read. */
+    @Test
+    fun aContactWithoutANameIsAskedForAgainSoon(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val testers = Device(tester)
+        testers.keys.set(share = true, see = false)
+        ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now }.publish(setOf(me.keys.inboxKey()!!.publicKeyHex))
+        me.contacts.refresh(force = true)
+        assertNull(me.contacts.state.value.read!!.contacts.getValue(tester.publicKeyHex).name)
+        relay.publish(Event.sign(tester, 0, """{"name":"Testjupp","picture":"https://t.test/j.png"}""", emptyList(), now))
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        val found = me.contacts.state.value.read!!.contacts.getValue(tester.publicKeyHex)
+        assertEquals("Testjupp", found.name)
+        assertEquals("https://t.test/j.png", found.picture)
+        assertEquals(shows.toSet(), found.shows.toSet(), "what they share stays")
+    }
+
+    /** A look-up that finds no profile is no profile gone: the name stays through the next read. */
+    @Test
+    fun aNameOnceFoundStays(): Unit = runBlocking {
+        val before = ContactsRead(setOf("a", "b"), mapOf(
+            "a" to Contact("a", mutual = true, name = "Anna", picture = "https://a.test/a.png"),
+            "b" to Contact("b", mutual = true, name = "Ben"),
+        ), now)
+        val read = ContactsRead(setOf("a", "b", "c"), mapOf(
+            "a" to Contact("a", mutual = true),
+            "b" to Contact("b", mutual = true, name = "Benjamin"),
+            "c" to Contact("c", mutual = false),
+        ), now + 3600).keepingNames(before)
+        assertEquals("Anna", read.contacts.getValue("a").name)
+        assertEquals("https://a.test/a.png", read.contacts.getValue("a").picture)
+        assertEquals("Benjamin", read.contacts.getValue("b").name, "a name found now goes first")
+        assertNull(read.contacts.getValue("c").name)
+    }
+
     /** Device feedback 2026-11-02: a show subscribed by the sharer appeared only after a full read. The shared
      *  lists are looked at again every two minutes between full reads; one that does not come keeps what was there. */
     @Test

@@ -297,6 +297,9 @@ switches.
    hold. Profiles are looked up as clients do (device feedback 2026-10-16:
    the maintainer's was only on an index): Hopp's relays and two indexes
    (purplepag.es, user.kindpag.es), then the person's NIP-65 write relays.
+   *Amended 2026-11-05:* two more indexes, profiles.nostr1.com and
+   directory.yabu.me — the first two knew names for only 133 of a tester's
+   300 Nostr contacts, all four for all 300.
    *1c built 2026-10-16:* a remote signer (NIP-46) on both platforms —
    a pasted or scanned `bunker://` address, or a `nostrconnect://` code
    Hopp shows (copy, share, open in the signer; no QR drawn yet). Hopp keeps

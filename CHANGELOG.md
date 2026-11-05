@@ -6,6 +6,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features

@@ -94,18 +94,21 @@ class ContactsRepository(
      * one that did not open before (its key came since) show without waiting for the next full read
      * (device feedback 2026-11-02). A list that does not come now keeps what was there: a relay that did
      * not answer is no list emptied — one turned off shows in the contact's note, at the next full read.
+     * A contact shown without a name is asked for again too: only their npub is no way to show them
+     * (device feedback 2026-11-05).
      */
     private suspend fun lookAgain() {
         val read = _state.value.read ?: return
         val inbox = keys.inboxKey()?.takeIf { _state.value.note?.seeing == true } ?: return
         val sharing = read.mutual.filter { it.share != null }
-        if (sharing.isEmpty() || nowSeconds() - lookedAgainAt < LOOK_AGAIN_EVERY) return
+        val unnamed = read.contacts.values.filter { it.name == null && (it.shows.isNotEmpty() || it.signals.isNotEmpty()) }.map { it.pubkey }
+        if ((sharing.isEmpty() && unnamed.isEmpty()) || nowSeconds() - lookedAgainAt < LOOK_AGAIN_EVERY) return
         lookedAgainAt = nowSeconds()
         val opened = graph.shelvesAgain(sharing, inbox).filterValues { it.isNotEmpty() }.filter { (who, shows) -> read.contacts[who]?.shows != shows }
-        if (opened.isEmpty()) return
-        val named = runCatching { graph.profiles(opened.keys.filter { read.contacts[it]?.name == null }.toSet()) }.getOrDefault(emptyMap())
+        val named = runCatching { graph.profiles((unnamed + opened.keys.filter { read.contacts[it]?.name == null }).toSet()) }.getOrDefault(emptyMap())
+        if (opened.isEmpty() && named.isEmpty()) return
         val updated = read.copy(contacts = read.contacts.mapValues { (who, c) ->
-            opened[who]?.let { shows -> c.copy(shows = shows, name = c.name ?: named[who]?.first, picture = c.picture ?: named[who]?.second) } ?: c
+            c.copy(shows = opened[who] ?: c.shows, name = c.name ?: named[who]?.first, picture = c.picture ?: named[who]?.second)
         })
         _state.update { it.copy(read = updated) }
         runCatching { cache?.save(updated) }
@@ -114,7 +117,8 @@ class ContactsRepository(
     /** The contacts read now — with the inbox key while the listener looks — and kept. */
     private suspend fun readNow() {
         val note = _state.value.note
-        val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, _state.value.read) }
+        val before = _state.value.read
+        val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, before) }?.keepingNames(before)
         _state.update { it.copy(read = read) }
         runCatching { cache?.save(read) }
     }

@@ -64,6 +64,11 @@ and on the relays: `contacts`, not `friends`.
 - **For public signals** (6): everyone the listener follows — one way, as
   Zapstore does: what is public is public.
 
+Nostr contacts are named from the indexes of ADR 0021 (four since
+2026-11-05, device feedback). A name found once stays when a later look-up
+finds none, and a contact shown without one is asked for again at the next
+look at the shared lists.
+
 Nothing in Hopp makes or breaks a contact: following someone in any Nostr
 client does. A key made in Hopp starts without contacts; the feature is for
 listeners who already have a Nostr identity, and the page says so.

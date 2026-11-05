@@ -6,6 +6,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features
