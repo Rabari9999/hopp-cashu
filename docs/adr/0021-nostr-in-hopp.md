@@ -799,6 +799,18 @@ two. Reading only what is newer (`since`) is left for a later audit: the
 repair of documents a relay lost and the reach shown per relay rely on full
 reads. Tests: `TakenBackTest.aRoundAfterAChangeTakesOnlyThatDocument`.
 
+**Amendment 2026-11-05 (maintainer): a signer's relays, and the ones it was
+reached on.** A listener connected by QR code could never set sync up: "your
+signer said no: no relay of the signer reachable". The signer had answered
+`switch_relays` with relays this device could not open, and Hopp had kept only
+those. Since then the relays a signer names come first and the ones it was
+reached on stay after them; a connection kept from before gets the code's
+relays (`CONNECT_RELAYS`) added when it is used. Every request goes to all of
+them at once, as before. No relay opening is `SignerUnreachable`, said with the
+relays' names, not as the signer's refusal; and a signer that does not answer
+a signing request is no longer reported as having refused it. Tests:
+`BunkerTest.theRelaysASignerWasReachedOnStayAfterItNamesItsOwn`.
+
 ## Consequences
 
 - **Server (podcasting_tools):** done 2026-10-15 — NIP-73 tags on episode

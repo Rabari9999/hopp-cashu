@@ -35,11 +35,20 @@ data class ConnectedWallet(
     val info: WalletInfo get() = WalletInfo(methods, encryptions, alias, pubkey, lud16)
     val canKeysend: Boolean get() = info.canKeysend
     val canPayInvoice: Boolean get() = info.canPayInvoice
-    /** A name to show: the wallet's alias, else the relay's host — or WebLN for the browser's. */
-    val label: String get() = alias?.takeIf { it.isNotBlank() } ?: if (browser) "WebLN" else relay.substringAfter("://").substringBefore('/')
+    /** A name to show: the wallet's alias, else the relay's host — or WebLN for the browser's. An
+     *  extension's account over NWC calls itself "NWC", which read as Hopp's own connection in the
+     *  browser (maintainer 2026-11-05): a mere way of connecting is no name there. */
+    val label: String get() = alias?.trim()?.takeIf { it.isNotBlank() && !(browser && it.lowercase() in PROTOCOLS) }
+        ?: if (browser) "WebLN" else relay.substringAfter("://").substringBefore('/')
     /** The name with the way Hopp reaches it, for "via …": "Alby Hub (NWC)", "Alby (WebLN)". */
     val via: String get() = if (label == "WebLN") label else "$label (${if (browser) "WebLN" else "NWC"})"
+    /** What the wallet page and the settings call it: the browser's with its way in, so it never
+     *  passes for a connection over NWC. */
+    val shown: String get() = if (browser) via else label
 }
+
+/** Ways of connecting a wallet, which an extension may give as its account's name. */
+private val PROTOCOLS = setOf("nwc", "nostr wallet connect", "webln", "lnd", "lnc", "cln", "lightning")
 
 /** The wallet's answer to "what do you hold?". */
 sealed interface BalanceAnswer {

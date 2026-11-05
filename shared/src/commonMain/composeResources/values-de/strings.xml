@@ -353,6 +353,8 @@
     <string name="pv_sc_sees">deine IP-Adresse, welche Show du ansiehst; Name und Nachricht, wenn du sie einer Zahlung mitgibst; deine Nostr-Identität bei Stimmen und Vorschlägen, wenn du eine hast</string>
     <string name="pv_sc_when">Community-Funktionen: Release Boosting, Boost2Unlock, Vorschläge, Stimmen, Boosts – und die Vorschau einer Show, die du noch nicht abonniert hast</string>
     <string name="pv_wallet_who">Deine Wallet und ihr NWC-Relay</string>
+    <string name="pv_wallet_who_web">Die Wallet in deinem Browser (WebLN)</string>
+    <string name="pv_wallet_tip_web">Die Erweiterung und die Wallet oder der Knoten dahinter sehen deine Zahlungen – mit eigenem Knoten bleiben sie bei dir.</string>
     <string name="pv_wallet_sees">jede Zahlung, die du machst</string>
     <string name="pv_wallet_when">Boosts und Streaming</string>
     <string name="pv_recipients_who">Empfänger eines Boosts</string>
@@ -934,6 +936,7 @@
     <string name="sync_waits">Deine Signer-App muss es einmal erlauben: Tippe auf „Jetzt erlauben“ und bestätige dort.</string>
     <string name="sync_signer_silent">Dein Signer hat nicht geantwortet. Ist die Signer-App offen und online?</string>
     <string name="sync_signer_refused">Dein Signer hat abgelehnt: %1$s</string>
+    <string name="sync_signer_unreachable">Hopp erreicht keines der Relays deines Signers (%1$s) – die Anfrage kam bei ihm nie an. Sperrt das Netz sie, oder nutzt dein Signer andere Relays?</string>
     <string name="sync_allow_now">Jetzt erlauben</string>
     <string name="sync_allow_hint">Bestätige danach in deiner Signer-App.</string>
     <string name="sync_newer">Ein anderes Gerät hat ein neueres Hopp. Aktualisiere Hopp, um weiter abzugleichen.</string>
@@ -994,6 +997,7 @@
     <string name="home_sync_short_signer">Dein Signer muss bestätigen</string>
     <string name="home_sync_short_silent">Dein Signer hat nicht geantwortet</string>
     <string name="home_sync_short_refused">Dein Signer hat abgelehnt</string>
+    <string name="home_sync_short_unreachable">Die Relays deines Signers sind nicht erreichbar</string>
     <string name="home_sync_short_newer">Braucht ein neueres Hopp</string>
     <string name="home_sync_short_part">Nur ein Teil kam an</string>
     <string name="home_sync_short_taken">Nur %1$d von %2$d Relays haben angenommen</string>

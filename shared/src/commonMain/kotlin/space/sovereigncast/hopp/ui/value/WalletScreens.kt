@@ -208,7 +208,7 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
             }
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
-            Text(stringResource(Res.string.wallet_connected, w.label), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.wallet_connected, w.shown), style = MaterialTheme.typography.titleMedium)
             val silent by vm.silent.collectAsState()
             if (silent) {
                 // No answer at all (device feedback 2026-10-26: coinos with its app closed).
@@ -237,12 +237,15 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
                 vm.update { it.copy(streamRateSats = v) }
             }
 
-            Text(stringResource(Res.string.wallet_quick_boost), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            val quickLabel: @Composable (Int) -> String = { q -> if (q == 0) stringResource(Res.string.wallet_quick_boost_off) else formatSats(q.toLong()) }
-            ChoicesOrOwn(Settings.quickBoostChoicesSats, s.quickBoostSats, 1..1_000_000, stringResource(Res.string.wallet_quick_boost), "sats", quickLabel) { v ->
-                vm.update { it.copy(quickBoostSats = v) }
+            // A browser has no lock screen and no notification to boost from.
+            if (!actions.paysWithBrowser) {
+                Text(stringResource(Res.string.wallet_quick_boost), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                val quickLabel: @Composable (Int) -> String = { q -> if (q == 0) stringResource(Res.string.wallet_quick_boost_off) else formatSats(q.toLong()) }
+                ChoicesOrOwn(Settings.quickBoostChoicesSats, s.quickBoostSats, 1..1_000_000, stringResource(Res.string.wallet_quick_boost), "sats", quickLabel) { v ->
+                    vm.update { it.copy(quickBoostSats = v) }
+                }
+                Text(stringResource(Res.string.wallet_quick_boost_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
-            Text(stringResource(Res.string.wallet_quick_boost_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
             if (space.sovereigncast.hopp.storePaysForContent()) {
                 Text(stringResource(Res.string.wallet_support), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))

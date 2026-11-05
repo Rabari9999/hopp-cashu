@@ -353,6 +353,8 @@
     <string name="pv_sc_sees">your IP address, which show you view; your name and message if you add them to a payment; your Nostr identity on votes and suggestions if you have one</string>
     <string name="pv_sc_when">community features: Release Boosting, Boost2Unlock, suggestions, votes, boosts — and the preview of a show not subscribed yet</string>
     <string name="pv_wallet_who">Your wallet and its NWC relay</string>
+    <string name="pv_wallet_who_web">Your browser’s wallet (WebLN)</string>
+    <string name="pv_wallet_tip_web">The extension and the wallet or node behind it see your payments — with your own node they stay with you.</string>
     <string name="pv_wallet_sees">every payment you make</string>
     <string name="pv_wallet_when">boosts and streaming</string>
     <string name="pv_recipients_who">Boost recipients</string>
@@ -934,6 +936,7 @@
     <string name="sync_waits">Your signer app has to allow it once: tap “Allow now”, then confirm there.</string>
     <string name="sync_signer_silent">Your signer did not answer. Is the signer app open and online?</string>
     <string name="sync_signer_refused">Your signer said no: %1$s</string>
+    <string name="sync_signer_unreachable">Hopp reaches none of your signer’s relays (%1$s), so your signer never saw the request. Is the network blocking them, or does your signer use other relays?</string>
     <string name="sync_allow_now">Allow now</string>
     <string name="sync_allow_hint">Then confirm in your signer app.</string>
     <string name="sync_newer">Another device has a newer Hopp. Update Hopp to keep syncing.</string>
@@ -994,6 +997,7 @@
     <string name="home_sync_short_signer">Your signer has to confirm</string>
     <string name="home_sync_short_silent">Your signer did not answer</string>
     <string name="home_sync_short_refused">Your signer said no</string>
+    <string name="home_sync_short_unreachable">Your signer’s relays are out of reach</string>
     <string name="home_sync_short_newer">Needs a newer Hopp</string>
     <string name="home_sync_short_part">Only part of it arrived</string>
     <string name="home_sync_short_taken">Only %1$d of %2$d relays took it</string>

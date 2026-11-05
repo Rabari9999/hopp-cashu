@@ -329,7 +329,8 @@ private fun RelayDetail(r: RelayRound, history: List<Boolean>, onBack: () -> Uni
         StateDot(r.worst)
         Text(answerLine(r.worst), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = tint(r.worst))
     }
-    Text(stringResource(hint(r.worst)), style = MaterialTheme.typography.bodyMedium)
+    // Only where there is something to do: under "OK" a hint read as a problem (maintainer 2026-11-05).
+    hint(r.worst)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
     // Per document: read and send, "–" where nothing was asked.
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainer).border(1.dp, colors.surfaceVariant, RoundedCornerShape(16.dp))) {
         val areas = (r.reads.keys + r.sends.keys).sortedBy { AREAS.indexOf(it).let { i -> if (i < 0) AREAS.size else i } }
@@ -408,7 +409,7 @@ private fun why(r: Refusal) = when (r) {
     Refusal.Other -> Res.string.sync_why_other
 }
 
-private fun hint(a: RelayAnswer) = when (a) {
+private fun hint(a: RelayAnswer): org.jetbrains.compose.resources.StringResource? = when (a) {
     is RelayAnswer.Refused -> when (Refusal.of(a.reason)) {
         Refusal.RateLimited -> Res.string.sync_hint_rate
         Refusal.Blocked, Refusal.AuthRequired, Refusal.Restricted, Refusal.Pow -> Res.string.sync_hint_refused
@@ -416,7 +417,7 @@ private fun hint(a: RelayAnswer) = when (a) {
     }
     RelayAnswer.Silent, is RelayAnswer.Unreachable -> Res.string.sync_hint_down
     RelayAnswer.Partial -> Res.string.sync_hint_partial
-    is RelayAnswer.Ok -> Res.string.sync_hint_error
+    is RelayAnswer.Ok -> null
 }
 
 private val AREAS = listOf(SyncDocs.KEYRING, SyncDocs.SETTINGS, SyncDocs.SUBSCRIPTIONS, SyncDocs.PROGRESS, SyncDocs.QUEUE, SyncDocs.STATS)
@@ -496,6 +497,7 @@ internal fun problemLine(problem: SyncOutcome): String = when (problem) {
         is SyncNotPublished -> if (e.asked > 0) stringResource(Res.string.home_sync_short_taken, e.took, e.asked) else stringResource(Res.string.home_sync_short_failed)
         is SyncTooLarge -> stringResource(Res.string.home_sync_short_large)
         is SignerNoAnswer -> stringResource(Res.string.home_sync_short_silent)
+        is space.sovereigncast.hopp.nostr.SignerUnreachable -> stringResource(Res.string.home_sync_short_unreachable)
         is Nip46Exception -> stringResource(Res.string.home_sync_short_refused)
         else -> stringResource(Res.string.home_sync_short_failed)
     }

@@ -353,6 +353,8 @@
     <string name="pv_sc_sees">tu dirección IP y qué podcast ves; tu nombre y mensaje si los añades a un pago; tu identidad de Nostr en votos y sugerencias, si tienes una</string>
     <string name="pv_sc_when">funciones de comunidad: Release Boosting, Boost2Unlock, sugerencias, votos, boosts — y la vista previa de un podcast al que aún no estás suscrito</string>
     <string name="pv_wallet_who">Tu billetera y su relay NWC</string>
+    <string name="pv_wallet_who_web">La wallet de tu navegador (WebLN)</string>
+    <string name="pv_wallet_tip_web">La extensión y la wallet o el nodo que hay detrás ven tus pagos; con tu propio nodo se quedan contigo.</string>
     <string name="pv_wallet_sees">cada pago que haces</string>
     <string name="pv_wallet_when">boosts y streaming</string>
     <string name="pv_recipients_who">Destinatarios de los boosts</string>
@@ -934,6 +936,7 @@
     <string name="sync_waits">Tu app firmante tiene que permitirlo una vez: toca «Permitir ahora» y confirma allí.</string>
     <string name="sync_signer_silent">Tu firmante no respondió. ¿Está la app firmante abierta y conectada?</string>
     <string name="sync_signer_refused">Tu firmante lo rechazó: %1$s</string>
+    <string name="sync_signer_unreachable">Hopp no llega a ninguno de los relays de tu firmante (%1$s), así que nunca vio la solicitud. ¿Los bloquea la red o tu firmante usa otros relays?</string>
     <string name="sync_allow_now">Permitir ahora</string>
     <string name="sync_allow_hint">Luego confirma en tu app firmante.</string>
     <string name="sync_newer">Otro dispositivo tiene un Hopp más reciente. Actualiza Hopp para seguir sincronizando.</string>
@@ -994,6 +997,7 @@
     <string name="home_sync_short_signer">Tu firmante tiene que confirmar</string>
     <string name="home_sync_short_silent">Tu firmante no respondió</string>
     <string name="home_sync_short_refused">Tu firmante lo rechazó</string>
+    <string name="home_sync_short_unreachable">Los relays de tu firmante no responden</string>
     <string name="home_sync_short_newer">Requiere un Hopp más reciente</string>
     <string name="home_sync_short_part">Solo llegó una parte</string>
     <string name="home_sync_short_taken">Solo %1$d de %2$d relays lo aceptaron</string>

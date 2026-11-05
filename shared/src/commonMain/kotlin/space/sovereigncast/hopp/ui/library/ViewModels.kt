@@ -344,7 +344,7 @@ class SettingsViewModel(
     /** A show shared with mutual Nostr contacts, or left out (ADR 0024, 4a) — [ids] at once from "Shared shows". */
     fun setSharedWithContacts(ids: Collection<Long>, shared: Boolean) = viewModelScope.launch { ids.forEach { podcasts.setContactsHidden(it, !shared) } }
     /** The connected wallet's name, for the settings overview; null = none. */
-    val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.label }, null)
+    val walletLabel: StateFlow<String?> = state(wallet.wallet.map { it?.shown }, null)
     fun update(change: (Settings) -> Settings) = viewModelScope.launch { settings.update(change) }
     suspend fun exportOpml(): String = podcasts.exportOpml()
 
@@ -394,7 +394,7 @@ class PrivacyViewModel(
     network: space.sovereigncast.hopp.platform.NetworkPrivacySource,
 ) : ViewModel() {
     val state: StateFlow<PrivacyState?> = state(
-        combine(settings.settings, wallet.wallet, network.observe()) { s, w, n -> PrivacyState(s, w?.relay?.substringAfter("://")?.substringBefore('/'), n) },
+        combine(settings.settings, wallet.wallet, network.observe()) { s, w, n -> PrivacyState(s, w?.takeIf { !it.browser }?.relay?.substringAfter("://")?.substringBefore('/')?.takeIf { it.isNotBlank() }, n) },
         null,
     )
 }

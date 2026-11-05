@@ -28,6 +28,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ### 🐛 Fixes
 - **Sync:** With a signer connected by QR code, sync really asks it, and says when it does not answer; the first sync key needs no second confirmation.
+- **Sync:** A signer that names relays Hopp cannot reach still gets Hopp's requests on the relays it connected on; when none answers, Hopp says so instead of "your signer said no".
+- **Sync:** A relay that answered everything no longer shows a hint about a problem.
 - **Sync:** Works with write relays that take only their owner's events or verified authors: sync also uses three relays of Hopp's.
 - **App:** Refreshing ends as soon as the feeds are in, no longer half a minute later.
 - **Sync:** Episodes you listened to on one device show under "Recently played" on the others too.

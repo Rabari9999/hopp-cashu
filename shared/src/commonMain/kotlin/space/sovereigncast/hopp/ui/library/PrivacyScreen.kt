@@ -84,6 +84,8 @@ import space.sovereigncast.hopp.resources.pv_sc_who
 import space.sovereigncast.hopp.resources.pv_wallet_sees
 import space.sovereigncast.hopp.resources.pv_wallet_when
 import space.sovereigncast.hopp.resources.pv_wallet_who
+import space.sovereigncast.hopp.resources.pv_wallet_who_web
+import space.sovereigncast.hopp.resources.pv_wallet_tip_web
 
 internal enum class Check { Done, Open, Info }
 
@@ -122,6 +124,8 @@ private val BACKUP_IOS = Party(Res.string.pv_backup_who_ios, Res.string.pv_backu
 /** In the browser (ADR 0022, 6): the feed proxy fetches the feeds, so hosts see the listener only when
  *  they play; the proxy is a party of its own; and what stays is this browser's, in no system backup. */
 private val HOSTS_WEB = Party(Res.string.pv_hosts_who, Res.string.pv_hosts_sees_web, Res.string.pv_hosts_when_web, Res.string.pv_hosts_tip, Res.string.pv_hosts_title, Res.string.pv_hosts_line_web)
+/** The browser pays through an extension's wallet (WebLN), not a connection over NWC (maintainer 2026-11-05). */
+private val WALLET_WEB = Party(Res.string.pv_wallet_who_web, Res.string.pv_wallet_sees, Res.string.pv_wallet_when, Res.string.pv_wallet_tip_web, Res.string.pv_wallet_title, Res.string.pv_wallet_line)
 private val SERVER_WEB = Party(Res.string.pv_web_who, Res.string.pv_web_sees, Res.string.pv_web_when, Res.string.pv_web_tip, Res.string.pv_web_title, Res.string.pv_web_line)
 private val BROWSER = Party(Res.string.pv_browser_who, Res.string.pv_browser_sees, Res.string.pv_browser_when, Res.string.pv_browser_tip, Res.string.pv_browser_who, Res.string.pv_browser_line)
 
@@ -130,6 +134,7 @@ private fun parties(app: AppInfo): List<Party> = when {
         when (it.who) {
             Res.string.pv_hosts_who -> listOf(HOSTS_WEB, SERVER_WEB)
             Res.string.pv_backup_who -> listOf(BROWSER)
+            Res.string.pv_wallet_who -> listOf(WALLET_WEB)
             else -> listOf(it)
         }
     }

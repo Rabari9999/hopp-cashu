@@ -76,7 +76,7 @@ sealed interface SyncOutcome {
     data class Failed(val error: Throwable) : SyncOutcome
 
     /** It is the signer that sync waits for or that failed — every document would meet it the same. */
-    fun isTheSigner(): Boolean = this is WaitsForSigner || (this is Failed && (error is SignerNoAnswer || error is Nip46Exception || error is SignerUnavailable))
+    fun isTheSigner(): Boolean = this is WaitsForSigner || (this is Failed && (error is SignerNoAnswer || error is Nip46Exception || error is SignerUnavailable || error is space.sovereigncast.hopp.nostr.SignerUnreachable))
 }
 
 /**

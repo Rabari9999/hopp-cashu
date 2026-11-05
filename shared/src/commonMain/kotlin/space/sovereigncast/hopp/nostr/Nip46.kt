@@ -40,6 +40,10 @@ class Nip46Exception(message: String) : Exception(message)
 /** The signer did not answer in time: not listening on its relays, or the listener never saw the request. */
 class SignerNoAnswer : Exception("the signer did not answer")
 
+/** None of the signer's [relays] opened: the request never reached it — no "no" of the signer's
+ *  (maintainer 2026-11-05: "Your signer said no: no relay of the signer reachable"). */
+class SignerUnreachable(val relays: List<String>, why: String?) : Exception("no relay of the signer reachable" + (why?.let { ": $it" } ?: ""))
+
 private fun isHexKey(s: String) = s.length == 64 && s.all { it in "0123456789abcdef" }
 
 /** `bunker://<remote-signer-pubkey>?relay=…&secret=…` — what a remote signer hands out (NIP-46). */
@@ -122,12 +126,14 @@ class Nip46Client(
         return getPublicKey()
     }
 
-    /** The signer's own relays, if it wants others (NIP-46 "switching relays"). */
+    /** The signer's own relays first, if it wants others (NIP-46 "switching relays") — and the ones it was
+     *  just reached on after them: a signer naming only relays this device cannot reach (one on its own
+     *  phone, one gone) left every later request unheard (maintainer 2026-11-05: sync could not be set up). */
     suspend fun switchRelays() {
         val answer = runCatching { request("switch_relays", emptyList(), 20.seconds) }.getOrNull() ?: return
         val list = runCatching { json.parseToJsonElement(answer).jsonArray.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } }.getOrNull()
             ?.filter { it.startsWith("wss://") || it.startsWith("ws://") }.orEmpty()
-        if (list.isNotEmpty()) relays = list
+        if (list.isNotEmpty()) relays = (list + relays).map { it.trimEnd('/') }.distinct()
     }
 
     /** `sign_event`: the event the signer signed, as JSON. */
@@ -190,7 +196,7 @@ class Nip46Client(
                     last = e
                 }
             }
-        }.firstOrNull() ?: throw Nip46Exception("no relay of the signer reachable" + (last?.message?.let { ": $it" } ?: ""))
+        }.firstOrNull() ?: throw SignerUnreachable(relays, last?.message)
     }
 
     private data class Response(val id: String, val result: String?, val error: String?)
@@ -293,8 +299,10 @@ class BunkerSigner(
     }
 
     override suspend fun sign(event: UnsignedEvent): Event = asking {
-        val signed = runCatching { json.decodeFromString(Event.serializer(), client.signEvent(event)) }
-            .getOrElse { if (it is Nip46Exception) throw it else throw Nip46Exception("the signer returned no event") }
+        // Only what came back is judged here: no answer, or no relay reached, stays what it is — not a
+        // "no" of the signer's (2026-11-05), and a cancellation stays one.
+        val answer = client.signEvent(event)
+        val signed = runCatching { json.decodeFromString(Event.serializer(), answer) }.getOrElse { throw Nip46Exception("the signer returned no event") }
         val expected = Event.computeId(pubkey, event.createdAt, event.kind, event.tags, event.content)
         if (signed.id != expected || signed.pubkey != pubkey || !signed.isValid()) throw Nip46Exception("the signer returned another event")
         signed

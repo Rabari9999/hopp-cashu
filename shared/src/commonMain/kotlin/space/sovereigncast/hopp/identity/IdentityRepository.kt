@@ -151,7 +151,10 @@ class IdentityRepository(
 
     private fun bunkerClient(me: NostrIdentity, onAuthUrl: (String) -> Unit = {}): Nip46Client? {
         val keys = secrets.get(BUNKER_KEY)?.let { runCatching { KeyPair.fromHex(it) }.getOrNull() } ?: return null
-        return Nip46Client(keys, me.remoteSigner ?: return null, me.signerRelays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
+        // The relays a code connects on as well: a connection made before 0.4.0 kept only those the signer
+        // named, and where none of them opens here no request reached it (maintainer 2026-11-05).
+        val relays = (me.signerRelays + CONNECT_RELAYS).map { it.trimEnd('/') }.distinct()
+        return Nip46Client(keys, me.remoteSigner ?: return null, relays, publisher.connector, { clock.now() }, onAuthUrl = onAuthUrl)
     }
 
     /**
@@ -460,7 +463,8 @@ class IdentityRepository(
         afterSignOut()
     }
 
-    private fun save(identity: NostrIdentity) {
+    /** Internal for tests: an identity as an older version kept it. */
+    internal fun save(identity: NostrIdentity) {
         secrets.put(INFO, json.encodeToString(NostrIdentity.serializer(), identity))
         _identity.value = identity
     }

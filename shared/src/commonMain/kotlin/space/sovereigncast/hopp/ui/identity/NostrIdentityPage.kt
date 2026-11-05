@@ -1052,6 +1052,9 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.sync.SyncTooLarge -> stringResource(Res.string.sync_too_large)
         // The signer's silence and its no, said as such (maintainer 2026-11-04) — not "has to allow it".
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.nostr.SignerNoAnswer -> stringResource(Res.string.sync_signer_silent)
+        // Not a "no": the request never reached it — and where it was sent, to see what to change.
+        problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.nostr.SignerUnreachable ->
+            stringResource(Res.string.sync_signer_unreachable, (problem.error as space.sovereigncast.hopp.nostr.SignerUnreachable).relays.joinToString(", ") { it.substringAfter("://") })
         problem is space.sovereigncast.hopp.sync.SyncOutcome.Failed && problem.error is space.sovereigncast.hopp.nostr.Nip46Exception ->
             stringResource(Res.string.sync_signer_refused, problem.error.message.orEmpty())
         // What the relays did, said as it was (delta audit 2026-10-22, LN-01): not "no relay" when two of three answered.

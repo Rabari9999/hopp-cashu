@@ -49,6 +49,8 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
     var amberLike = false
     /** As many requests after connect answered "no permission" — the connection not saved yet. */
     var notYetSaved = 0
+    /** What it answers switch_relays with: its own relays; null keeps the ones in use. */
+    var ownRelays: List<String>? = null
     private var connected = false
     private var rewriting = false
     val methods = mutableListOf<String>()
@@ -87,7 +89,7 @@ private class FakeBunker(val relay: FakeRelay, val now: () -> Long) {
                 else -> { connected = true; reply("ack") }
             }
             "get_public_key" -> reply(userKeys.publicKeyHex)
-            "switch_relays" -> { reply("null"); if (amberLike) rewriting = true }
+            "switch_relays" -> { reply(ownRelays?.joinToString(",", "[", "]") { "\"$it\"" } ?: "null"); if (amberLike) rewriting = true }
             "sign_event" -> {
                 val ev = Json.parseToJsonElement(p[0]).jsonObject
                 val tags = ev["tags"]!!.jsonArray.map { t -> t.jsonArray.map { it.jsonPrimitive.content } }
@@ -296,5 +298,33 @@ class BunkerTest {
         assertEquals("logout", bunker.methods.last())
         assertNull(identities.signer())
         assertNull(IdentityRepository(secrets, RelayPublisher(relay), { now }).identity.value)
+    }
+
+    /** Maintainer 2026-11-05: the signer named only relays this device could not reach, Hopp kept only
+     *  those, and setting up sync said "your signer said no" every time. The relays it was reached on
+     *  stay, and none reachable is said as such. */
+    @Test
+    fun theRelaysASignerWasReachedOnStayAfterItNamesItsOwn() = runBlocking<Unit> {
+        val down = mutableSetOf("wss://only.on.the.signers.phone")
+        var allDown = false
+        val connector = RelayConnector { url -> if (allDown || url in down) throw java.io.IOException("unreachable") else relay.connect(url) }
+        val identities = IdentityRepository(secrets, RelayPublisher(connector, timeout = 1.seconds), { now })
+        bunker.ownRelays = down.toList()
+        val offer = identities.nostrConnectOffer()
+        val waiting = async { withTimeout(5_000) { identities.signInWithNostrConnect(offer) } }
+        delay(100)
+        bunker.takeUp(offer.uri)
+        val me = waiting.await()
+        assertEquals("wss://only.on.the.signers.phone", identities.identity.value!!.signerRelays.first())
+        assertTrue(IdentityRepository.CONNECT_RELAYS.all { it in identities.identity.value!!.signerRelays })
+        val signed = withTimeout(5_000) { identities.signer()!!.sign(UnsignedEvent(Nip98.KIND, "", emptyList(), now)) }
+        assertEquals(me.pubkey, signed.pubkey)
+        // A connection kept from before, with only the signer's own relays: the code's relays are asked too.
+        identities.save(identities.identity.value!!.copy(signerRelays = down.toList()))
+        assertEquals(me.pubkey, withTimeout(5_000) { identities.signer()!!.sign(UnsignedEvent(Nip98.KIND, "", emptyList(), now)) }.pubkey)
+        // None opens: not the signer's no.
+        allDown = true
+        val e = assertFailsWith<space.sovereigncast.hopp.nostr.SignerUnreachable> { identities.signer()!!.sign(UnsignedEvent(Nip98.KIND, "", emptyList(), now)) }
+        assertTrue("wss://only.on.the.signers.phone" in e.relays)
     }
 }
