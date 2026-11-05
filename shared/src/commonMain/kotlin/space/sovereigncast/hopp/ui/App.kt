@@ -508,7 +508,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                         },
                         bottomBar = {
                             Column {
-                                if (!paneOpen) MiniPlayer(player)
+                                if (!paneOpen) MiniPlayer(player, last = rail)
                                 if (!rail) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                                     tabs.forEach { tab ->
                                         NavigationBarItem(

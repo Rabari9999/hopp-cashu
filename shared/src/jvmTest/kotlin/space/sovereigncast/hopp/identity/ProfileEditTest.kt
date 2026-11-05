@@ -118,8 +118,10 @@ class ProfileEditTest {
         assertTrue(listOf("x", hash) in event.tags)
         assertTrue(listOf("t", "upload") in event.tags)
         assertTrue(listOf("expiration", (now + 300).toString()) in event.tags)
-        // Another file than this one, or an address that is no https: refused.
+        // Another file than this one, no word on which file, or an address that is no https: refused.
         answer = """{"url":"https://blossom.example/x.jpg","sha256":"${"0".repeat(64)}"}"""
+        assertFailsWith<BlossomFailed> { blossom.upload("https://blossom.example", bytes, "image/jpeg", signer, now) }
+        answer = """{"url":"https://blossom.example/x.jpg"}"""
         assertFailsWith<BlossomFailed> { blossom.upload("https://blossom.example", bytes, "image/jpeg", signer, now) }
         answer = """{"url":"http://blossom.example/$hash.jpg","sha256":"$hash"}"""
         assertFailsWith<BlossomFailed> { blossom.upload("https://blossom.example", bytes, "image/jpeg", signer, now) }

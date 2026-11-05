@@ -10,6 +10,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -72,11 +77,14 @@ import androidx.compose.ui.unit.Dp
 import space.sovereigncast.hopp.platform.PlaybackState
 import space.sovereigncast.hopp.resources.np_buffering
 
-/** The mini player above the tab bar (ADR 0019): tap or swipe up to expand. */
+/** The mini player above the tab bar (ADR 0019): tap or swipe up to expand. [last]: nothing below it
+ *  (a rail beside instead of a tab bar), so it keeps clear of the system's navigation itself — a
+ *  tablet's taskbar or gesture bar covered the player bar (review 2026-11-04). */
 @Composable
-fun MiniPlayer(model: PlayerController) {
+fun MiniPlayer(model: PlayerController, last: Boolean = false) {
+    val foot = if (last) Modifier.windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)) else Modifier
     val clip by model.remoteClip.collectAsState()
-    clip?.let { ClipMiniPlayer(model, it); return }
+    clip?.let { ClipMiniPlayer(model, it, foot); return }
     val now by model.current.collectAsState()
     val playing = now ?: return
     val episode = playing.item
@@ -87,9 +95,9 @@ fun MiniPlayer(model: PlayerController) {
     val fill = colors.onSurface
     // A large window: a player bar instead — seek, speed and, in a browser, volume at hand (UX review 2026-10-30).
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH) { PlayerBar(model, playing, state, duration); return@BoxWithConstraints }
+        if (maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH) { PlayerBar(model, playing, state, duration, foot); return@BoxWithConstraints }
     Column(
-        Modifier.fillMaxWidth().background(colors.surface)
+        Modifier.fillMaxWidth().background(colors.surface).then(foot)
             .clickable { model.expand() }
             .pointerInput(Unit) { detectVerticalDragGestures { change, dy -> if (dy < -10) { change.consume(); model.expand() } } },
     ) {
@@ -161,13 +169,13 @@ fun MiniPlayer(model: PlayerController) {
  * now playing. A tap on the cover or the title opens it too.
  */
 @Composable
-private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp.player.NowPlaying, state: PlaybackState, duration: Long) {
+private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp.player.NowPlaying, state: PlaybackState, duration: Long, foot: Modifier) {
     val colors = MaterialTheme.colorScheme
     val episode = playing.item
     val settings by model.settings.collectAsState()
     val chapters = playing.chapters
     val position = state.positionMs
-    Column(Modifier.fillMaxWidth().background(colors.surface)) {
+    Column(Modifier.fillMaxWidth().background(colors.surface).then(foot)) {
         HorizontalDivider(color = colors.outlineVariant)
         Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
@@ -255,10 +263,10 @@ internal fun VolumeControl(model: PlayerController, sliderModifier: Modifier) {
 /** A Sovereigncast clip playing (phase 2): what it is, play/pause, and closing
  *  it — then the episode from before is back. It has no now-playing screen. */
 @Composable
-private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip) {
+private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip, foot: Modifier) {
     val state by model.state.collectAsState()
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().background(colors.surface)) {
+    Column(Modifier.fillMaxWidth().background(colors.surface).then(foot)) {
         HorizontalDivider(color = colors.outlineVariant)
         val track = Hopp.colors.progressTrack
         val fill = Hopp.colors.value

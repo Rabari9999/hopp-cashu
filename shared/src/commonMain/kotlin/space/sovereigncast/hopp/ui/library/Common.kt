@@ -203,10 +203,13 @@ fun OnNearEnd(state: androidx.compose.foundation.lazy.LazyListState, onNearEnd: 
 @Composable
 fun EpisodeSearchField(query: String, onChange: (String) -> Unit, found: Int?) {
     val colors = MaterialTheme.colorScheme
+    val name = stringResource(Res.string.episode_search)
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         androidx.compose.material3.OutlinedTextField(
-            query, onChange, Modifier.fillMaxWidth(), singleLine = true,
-            placeholder = { Text(stringResource(Res.string.episode_search)) },
+            // Its name while empty, as the placeholder says it: in the browser a screen reader met a field
+            // without one (web checks 2026-11-05). Once typed in, what is in it is read.
+            query, onChange, Modifier.fillMaxWidth().semantics { if (query.isEmpty()) contentDescription = name }, singleLine = true,
+            placeholder = { Text(name) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = {
                 if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { onChange("") }) {

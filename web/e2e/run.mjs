@@ -68,12 +68,24 @@ async function device(name, ext = {}) {
     .flatMap(n => n.shadowRoot ? [...n.shadowRoot.querySelectorAll(sel)] : []).map(b => b.textContent.trim()).filter(Boolean), selector);
   const buttons = () => mirrored('[role=button]');
   const has = async (text) => (await buttons()).some(b => b.includes(text));
-  // The button of that name, else the first whose name holds it: "Home" is the tab, not "Customize Home".
+  // The button of that name, else a field of it, else the first button whose name holds it: "Home" is
+  // the tab, not "Customize Home".
+  // One not there is a failure of its own, where it happened — not a later check's that only follows
+  // from it (review 2026-11-04).
   const press = async (name, wait = 3000) => {
     pressed = name;
     const exact = page.getByRole('button', { name, exact: true });
-    const button = (await exact.count()) > 0 ? exact : page.getByRole('button', { name, exact: false });
-    await button.first().dispatchEvent('click', {}, { timeout: 10_000 }).catch(() => {});
+    const field = page.getByRole('textbox', { name, exact: false });
+    const button = (await exact.count()) > 0 ? exact : (await field.count()) > 0 ? field : page.getByRole('button', { name, exact: false });
+    const done = await button.first().dispatchEvent('click', {}, { timeout: 10_000 }).then(() => true, () => false);
+    if (!done) check(false, `"${name}" pressed ${where()}`);
+    await page.waitForTimeout(wait);
+  };
+  // A text of a menu or a list, not a button in the mirror: the same.
+  const pick = async (text, wait = 3000) => {
+    pressed = text;
+    const done = await page.getByText(text).first().dispatchEvent('click', {}, { timeout: 10_000 }).then(() => true, () => false);
+    if (!done) check(false, `"${text}" picked ${where()}`);
     await page.waitForTimeout(wait);
   };
   const shot = async (n) => {
@@ -85,12 +97,15 @@ async function device(name, ext = {}) {
   // A menu or dialog closed leaves Compose's mirror for screen readers frozen on it until the page
   // is reloaded (Compose Multiplatform 1.11/1.12, fixed in 1.13 — docs/tasks/web-client.md): the
   // checks reload after each one, as a screen reader's user would have to.
-  const reload = async () => { await page.reload(); await page.waitForTimeout(8000); };
-  await page.goto(url);
   // Until the first screen is mirrored (a cold WebKit takes longer than a warm Chromium), then a moment more.
-  for (let i = 0; i < 40 && (await buttons()).length === 0; i++) await page.waitForTimeout(500);
-  await page.waitForTimeout(3000);
-  return { ctx, page, extension, writes, errors, refused, mirrored, buttons, has, press, shot, reload };
+  const ready = async (more = 3000) => {
+    for (let i = 0; i < 40 && (await buttons()).length === 0; i++) await page.waitForTimeout(500);
+    await page.waitForTimeout(more);
+  };
+  const reload = async () => { await page.reload(); await ready(1500); };
+  await page.goto(url);
+  await ready();
+  return { ctx, page, extension, writes, errors, refused, mirrored, buttons, has, press, pick, shot, reload };
 }
 
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
@@ -163,7 +178,7 @@ await a.reload();
 // network, and About names the build's hash — unsigned here, a local build.
 check(await a.page.evaluate(() => !!navigator.serviceWorker?.controller), 'the service worker serves the page');
 await a.ctx.setOffline(true);
-await a.page.reload(); await a.page.waitForTimeout(8000);
+await a.reload();
 check(await a.has('Library'), 'Hopp starts without a network');
 await a.ctx.setOffline(false);
 await a.press('Home', 2000); await a.press('Settings', 2000); await a.press('About Hopp', 4000);
@@ -178,13 +193,11 @@ await a.reload();
 // 1e. Hopp's own language, apart from the browser's.
 await a.press('Home', 2000); await a.press('Settings', 2000);
 await a.press('Language', 1500);
-await a.page.getByText('Deutsch').first().dispatchEvent('click').catch(() => {});
-await a.page.waitForTimeout(10_000);
+await a.pick('Deutsch', 10_000);
 check(await a.has('Bibliothek'), 'Deutsch chosen in Hopp, the browser English');
 await a.press('Einstellungen', 2000);
 await a.press('Sprache', 1500);
-await a.page.getByText('Sprache des Browsers').first().dispatchEvent('click').catch(() => {});
-await a.page.waitForTimeout(10_000);
+await a.pick('Sprache des Browsers', 10_000);
 check(await a.has('Library'), "back to the browser's language");
 
 // 2. Signing in: the connect code as a QR code; the extension; the identity survives a reload.
@@ -200,7 +213,7 @@ await a.press('Settings', 2000);
 await a.press('Nostr identity', 3000);
 await a.press('Browser extension', 6000);
 check(await a.has('Sign out of Hopp'), 'signed in with the extension');
-await a.page.reload(); await a.page.waitForTimeout(8000);
+await a.reload();
 await a.press('Settings', 2000); await a.press('Nostr identity', 3000);
 check(await a.has('Sign out of Hopp'), 'still signed in after a reload');
 check(a.extension.calls.filter(c => c === 'pk').length === 1, 'the extension was asked once');
@@ -230,7 +243,10 @@ const stored = () => c.page.evaluate(async () => {
   return names.concat((await indexedDB.databases()).map(d => d.name));
 });
 const text = async (t) => (await c.mirrored('*')).some(s => s.includes(t));
-await c.press('Skip', 4000);
+// Playwright's WebKit starts this one on Home, the tour taken already (its profiles are not quite
+// apart): the tour only where it comes.
+for (let i = 0; i < 10 && !(await c.has('Skip')); i++) await c.page.waitForTimeout(500);
+if (await c.has('Skip')) await c.press('Skip', 4000);
 await c.press('Settings', 2000); await c.press('Wallet & payments', 3000);
 check(await text('No wallet found in this browser'), 'without an extension the wallet page says what to install');
 await c.press('Home', 2000);
@@ -247,7 +263,7 @@ check(await c.has('Sign out of Hopp'), 'signed in, keeping nothing');
 check((await stored()).length === 0, 'nothing stored in the browser: no database file, no secrets');
 await c.press('Library', 3000); await c.press('Library', 3000);
 check(await text('Nodesignal'), 'the library carried over into memory');
-await c.page.reload(); await c.page.waitForTimeout(8000);
+await c.reload();
 check(await c.has('Skip'), 'a reload starts afresh');
 check(c.errors.length === 0, `no uncaught errors there${c.errors.length ? ': ' + c.errors[0].text.slice(0, 200) : ''}`);
 await c.ctx.close();

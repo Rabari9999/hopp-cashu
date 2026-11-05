@@ -45,6 +45,7 @@ CI runner is Linux in Docker, without an emulator.
 | `05-settings` | The settings pages reachable without a wallet or an identity. |
 | `06-per-show-share` | Playback → Per show: Nodesignal skips a 30 s intro; E298 then starts after it ("Intro skipped"). The player's share choice, looked at — nothing is sent. |
 | `07-preview-stats` | The Bitcoin Bibliothek opened as a feed, not subscribed: the Sovereigncast badge and its open suggestions, live from its instance. Then the listening stats of what the flows played. |
+| `08-playlist` | E296 put next in the playlist from its menu, swiped out of it, and back with "Undo". |
 
 They build on each other in that order (`flows/config.yaml`); `03` starts
 clean through `common/fresh.yaml`. Nothing is published by them: they make no

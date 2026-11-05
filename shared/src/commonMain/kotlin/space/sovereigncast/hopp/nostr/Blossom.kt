@@ -45,8 +45,9 @@ class Blossom(private val http: HttpClient) {
         val blob = runCatching { Json.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull() ?: throw BlossomFailed(null)
         fun text(key: String) = (blob[key] as? JsonPrimitive)?.contentOrNull
         val url = text("url")?.takeIf { it.startsWith("https://") } ?: throw BlossomFailed(null)
-        // The server's own word on what it stored: this file, or nothing.
-        if (text("sha256")?.lowercase()?.let { it != hash } == true) throw BlossomFailed("hash")
+        // The server's own word on what it stored: this file, or nothing — and no word is no upload
+        // (review 2026-11-04: a server leaving it out could hand back any address for the profile).
+        if (text("sha256")?.lowercase() != hash) throw BlossomFailed("hash")
         return url
     }
 

@@ -38,6 +38,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** The side rail is wider and makes room for the camera on a phone on its side, so long labels fit with room to spare.
 - **Statistics:** The listening time in days shows from a tenth of a day, no longer as "0.0 days".
 - **App:** Counts read right: "1 episode", not "1 episodes".
+- **Tablets:** The player bar keeps clear of the taskbar and the gesture bar.
+- **Nostr:** A profile picture counts as uploaded only once its server confirms it holds exactly that picture.
 
 ## [0.3.2] - 2026-11-01
 

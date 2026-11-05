@@ -38,6 +38,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Die Seitenleiste ist breiter und macht auf dem Handy quer Platz für die Kamera – lange Namen passen mit Luft hinein.
 - **Statistik:** Die Hörzeit in Tagen heißt richtig „Tage gehört“ statt „Tage am Stück“ und erscheint erst ab einem Zehntel Tag.
 - **App:** Anzahlen stimmen: „1 Folge“ statt „1 Folgen“.
+- **Tablets:** Die Playerleiste hält Abstand zur Taskleiste und zur Gestenleiste.
+- **Nostr:** Ein Profilbild gilt erst als hochgeladen, wenn sein Server bestätigt, genau dieses Bild zu haben.
 
 ## [0.3.2] - 2026-11-01
 

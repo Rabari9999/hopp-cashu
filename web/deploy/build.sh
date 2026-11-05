@@ -22,6 +22,8 @@ mkdir -p "$OUT/site"
 rsync -a --exclude '*.map' "$DIST/" "$OUT/site/"
 sed -i.bak "s|\(name=\"hopp-feed-proxy\" content=\"\)[^\"]*\"|\1$FEEDS\"|" "$OUT/site/index.html" && rm "$OUT/site/index.html.bak"
 grep -q "content=\"$FEEDS\"" "$OUT/site/index.html" || { echo "index.html: no hopp-feed-proxy to set" >&2; exit 1; }
+# No folder of this machine in what is published (shared/webpack.config.d/no-build-paths.js).
+if grep -rlE "file:///(Users|home)/|$PWD" "$OUT/site"; then echo "the files above name a folder of this machine" >&2; exit 1; fi
 echo "$VERSION" > "$OUT/site/version.txt"
 # The build's file list and its hash (ADR 0022, 14): signed with web/deploy/sign.mjs, shown in
 # Hopp, checked by web/deploy/verify.mjs. Before compressing, so the copies are not in it.

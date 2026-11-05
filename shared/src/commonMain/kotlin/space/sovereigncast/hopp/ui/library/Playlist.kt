@@ -205,7 +205,7 @@ internal fun PlaylistEntry(
         vm.removeFromQueue(item) {
             val host = snackbar ?: return@removeFromQueue false
             host.currentSnackbarData?.dismiss()
-            host.showSnackbar(removed, undo, duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed
+            host.showSnackbar(removed, undo, duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed
         }
         Unit
     }
