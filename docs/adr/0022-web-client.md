@@ -428,7 +428,10 @@ under the same headers.
   as good, so a signed dev build on `play.` would pass it. A signature means
   released; `sign.mjs` refuses the rest, and dev versions end in `-dev` so
   that one built from a tag is never taken for the signed one.
-- **Told apart by name:** Hopp Dev in the tab and on the home screen.
+- **Told apart at a glance:** Hopp Dev and an orange icon in the tab and on the
+  home screen, a line and "DEV · <version>" over the app. All of it is added
+  around the app at build time (`web/deploy/dev/`), so its code stays what a
+  release runs.
 - **Shared proxy and `Caddyfile`:** a dev deploy changes neither, so it cannot
   reach `play.`. They change with a release's deploy, checked locally before.
 - **From the build Mac, not CI:** the user `deploy` can also write `play.`, a

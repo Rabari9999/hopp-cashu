@@ -8,7 +8,7 @@ fault in the proxy reaches nothing of it.
 | File | What |
 |---|---|
 | `build.sh [amd64\|arm64]` | a clean web build without source maps, the proxy's address set, Brotli and gzip beside each file; the proxy as a static Linux binary (its tests first) → `build/web-release/<version>/` |
-| `build.sh --dev` | the same client, named Hopp Dev, version ending in `-dev`, no proxy → `build/web-dev/<version>-dev/` |
+| `build.sh --dev` | the same client, named Hopp Dev with the icons and the mark over the app from `dev/`, version ending in `-dev`, no proxy → `build/web-dev/<version>-dev/` |
 | `deploy.sh <server> [--setup]` | an exact tag's build only: the site into `releases/<version>`, `current` switched at once, the last five kept; the proxy and the server files replaced when they changed |
 | `deploy.sh <server> --dev` | a `--dev` build into `/srv/hopp-web-dev` the same way; proxy and server files untouched |
 | `setup.sh` | a fresh Debian 13 once (and again at any time): updates, security updates by themselves, nftables (22, 80, 443), SSH by key only, Caddy, the proxy's socket and service, the user `deploy` |

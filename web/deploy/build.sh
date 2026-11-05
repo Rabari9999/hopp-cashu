@@ -26,11 +26,15 @@ mkdir -p "$OUT/site"
 rsync -a --exclude '*.map' "$DIST/" "$OUT/site/"
 sed -i.bak "s|\(name=\"hopp-feed-proxy\" content=\"\)[^\"]*\"|\1$FEEDS\"|" "$OUT/site/index.html" && rm "$OUT/site/index.html.bak"
 grep -q "content=\"$FEEDS\"" "$OUT/site/index.html" || { echo "index.html: no hopp-feed-proxy to set" >&2; exit 1; }
-# Which of the two it is, in the tab and on the home screen.
+# Which of the two it is: the name and icons in the tab and on the home screen, a mark over the
+# app (web/deploy/dev/). All of it around the app: its code is what a release's build holds.
 if [[ -n $DEV ]]; then
     sed -i.bak 's|<title>[^<]*</title>|<title>Hopp Dev</title>|' "$OUT/site/index.html" && rm "$OUT/site/index.html.bak"
     sed -i.bak -E 's|("(short_)?name": )"Hopp"|\1"Hopp Dev"|' "$OUT/site/manifest.webmanifest" && rm "$OUT/site/manifest.webmanifest.bak"
-    grep -q '<title>Hopp Dev</title>' "$OUT/site/index.html" && grep -q '"short_name": "Hopp Dev"' "$OUT/site/manifest.webmanifest" || { echo "not named Hopp Dev" >&2; exit 1; }
+    cp web/deploy/dev/* "$OUT/site/"
+    sed -i.bak "s|__VERSION__|${VERSION%-dev}|" "$OUT/site/dev.css" && rm "$OUT/site/dev.css.bak"
+    sed -i.bak 's|<link rel="stylesheet" href="splash.css">|&<link rel="stylesheet" href="dev.css">|' "$OUT/site/index.html" && rm "$OUT/site/index.html.bak"
+    grep -q '<title>Hopp Dev</title>' "$OUT/site/index.html" && grep -q 'href="dev.css"' "$OUT/site/index.html" && grep -q '"short_name": "Hopp Dev"' "$OUT/site/manifest.webmanifest" || { echo "not marked as Hopp Dev" >&2; exit 1; }
 fi
 # No folder of this machine in what is published (shared/webpack.config.d/no-build-paths.js).
 if grep -rlE "file:///(Users|home)/|$PWD" "$OUT/site"; then echo "the files above name a folder of this machine" >&2; exit 1; fi
