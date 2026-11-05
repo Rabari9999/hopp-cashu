@@ -28,7 +28,8 @@ data class RestoreOffer(val shows: Int?, val inProgress: Int?)
 /** What the Nostr page shows about sync. */
 data class SyncStatus(
     val running: Boolean = false,
-    /** When every document was last in step, milliseconds; null: not yet. */
+    /** When a round last got through, milliseconds — one over every document, or one that sent what
+     *  changed here ([SyncManager]); null: not yet. */
     val lastSyncedMs: Long? = null,
     /** Why the last round did not get through — null when it did. */
     val problem: SyncOutcome? = null,
@@ -67,7 +68,10 @@ data class Restored(val shows: Int, val entries: Int)
 /**
  * Runs sync (ADR 0021, 5; docs/tasks/nostr-sync.md): on start, on coming to
  * the foreground at most every [FOREGROUND_EVERY], on pull-to-refresh, and a
- * little after the listener changed something. The documents in order —
+ * little after the listener changed something. Only a round of the first kind reads every
+ * document; one after a change here takes only the documents that changed — read, merged and
+ * sent (maintainer 2026-11-05: rounds every few minutes while playing, each to every relay for
+ * every document, cost battery). The documents in order —
  * settings first, so shows that follow download only if the listener has that
  * on (device feedback 2026-10-24); then subscriptions, so the episodes whose
  * progress follows are there.
@@ -89,6 +93,10 @@ class SyncManager(
     private val round = Mutex()
     private var pending: Job? = null
     private val history = mutableMapOf<String, List<Boolean>>()
+    /** When a round over every document last got through; null: not since the start. */
+    private var lastFullMs: Long? = null
+    /** Per document, the entries from elsewhere that wait here, as its last round left them. */
+    private val pendingByDoc = mutableMapOf<String, Int>()
 
     init {
         journal.onChange = { _, urgent ->
@@ -158,7 +166,7 @@ class SyncManager(
         pending?.cancel()
         journal.enabled = false
         settings.update { it.copy(nostrSync = false) }
-        round.withLock { store.clear(); engine.forgetKey() }
+        round.withLock { store.clear(); engine.forgetKey(); lastFullMs = null; pendingByDoc.clear() }
         _status.value = SyncStatus()
     }
 
@@ -200,6 +208,21 @@ class SyncManager(
     /** A round, every relay on one connection ([withRelayPool]): many short ones were turned away (device check 2026-10-23). */
     suspend fun syncNow(interactive: Boolean = false): SyncStatus = withRelayPool { syncNowInPool(interactive) }
 
+    /** A round over every document, unless one got through less than [FRESH_FOR] ago — a refresh of the
+     *  feeds right after the round of opening the app is no second one (maintainer 2026-11-05). */
+    suspend fun syncUnlessFresh(): SyncStatus = withRelayPool { syncNowInPool(unlessFresh = true) }
+
+    /** What changed here, out: a round of only the documents that changed, none when nothing did. After a
+     *  problem a round over every document, which is what clears it. */
+    private suspend fun sendChanged(): SyncStatus = withRelayPool {
+        val changed = documents().filter { engine.unpublished(it) }.map { it.name }.toSet()
+        when {
+            changed.isEmpty() -> _status.value
+            _status.value.problem != null -> syncNowInPool()
+            else -> syncNowInPool(only = changed)
+        }
+    }
+
     /** A round the listener asked for — from the profile menu or the sync window — in sync's own scope, so
      *  that it goes on when the menu or the page it came from closes; [rewrite] as in [rewrite]. */
     fun requestRound(rewrite: String? = null) {
@@ -210,23 +233,29 @@ class SyncManager(
      *  on the sync page (maintainer 2026-10-30: "Incomplete" for good, nothing to be done). */
     suspend fun rewrite(doc: String): SyncStatus = withRelayPool { syncNowInPool(interactive = true, rewrite = doc) }
 
-    private suspend fun syncNowInPool(interactive: Boolean = false, rewrite: String? = null): SyncStatus = round.withLock {
+    /** [only]: these documents, not all — a round that sends what changed here. [unlessFresh]: none if a
+     *  full round got through a moment ago, and no problem since. */
+    private suspend fun syncNowInPool(
+        interactive: Boolean = false, rewrite: String? = null, only: Set<String>? = null, unlessFresh: Boolean = false,
+    ): SyncStatus = round.withLock {
         if (!settings.current().nostrSync) return _status.value
+        if (unlessFresh && _status.value.problem == null && lastFullMs?.let { nowMs() - it < FRESH_FOR.inWholeMilliseconds } == true) return _status.value
         _status.value = _status.value.copy(running = true)
         try {
             var problem: SyncOutcome? = null
             val applied = mutableMapOf<String, Int>()
-            var pending = 0
             var sent = 0
             val generation = engine.keyGeneration()
-            val docs = documents()
+            val all = documents()
+            val docs = all.filter { only == null || it.name in only }
+            val full = only == null
             // What each relay answers, per document, for the sync page.
             val log = RelayLog()
             withContext(log) { for (doc in docs) {
                 // Shows wait until this device has read the listener's settings to the end once: restored
                 // under the fresh default, a show would download although downloads are off elsewhere
                 // (delta audit 6 2026-10-24 — settings first is not enough when their read fails).
-                if (doc.name == SyncDocs.SUBSCRIPTIONS && docs.any { it.name == SyncDocs.SETTINGS } && store.fetchedAt(SyncDocs.SETTINGS) == null) {
+                if (doc.name == SyncDocs.SUBSCRIPTIONS && all.any { it.name == SyncDocs.SETTINGS } && store.fetchedAt(SyncDocs.SETTINGS) == null) {
                     if (problem == null) problem = SyncOutcome.Incomplete(0, doc.name)
                     continue
                 }
@@ -234,7 +263,7 @@ class SyncManager(
                 if (doc.name == SyncDocs.SETTINGS) store.entries(doc.name).let { known -> store.seed(doc.name, doc.snapshot().filterKeys { it !in known }) }
                 log.area = doc.name
                 when (val outcome = engine.sync(doc, interactive, rewrite = doc.name == rewrite)) {
-                    is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pending += outcome.pending; if (outcome.published) sent++ }
+                    is SyncOutcome.Done -> { applied[doc.name] = outcome.applied; pendingByDoc[doc.name] = outcome.pending; if (outcome.published) sent++ }
                     is SyncOutcome.Incomplete -> { applied[doc.name] = outcome.applied; problem = outcome }
                     // Each document would ask the signer again, and wait for it again (2026-11-04).
                     else -> { problem = outcome; if (outcome is SyncOutcome.NoIdentity || outcome.isTheSigner()) break }
@@ -250,7 +279,8 @@ class SyncManager(
             // A key moved off goes only after a round under the new one, all of it, read every document back
             // complete and had nothing to send — the relays hold under the new key all this device has, what
             // waits for its time included (delta audit 2026-10-22 and 2, HN-06/MN-02).
-            val readBack = problem == null && pending == 0 && sent == 0 && engine.keyGeneration() == generation && engine.toSend() == 0
+            val pending = pendingByDoc.values.sum()
+            val readBack = full && problem == null && pending == 0 && sent == 0 && engine.keyGeneration() == generation && engine.toSend() == 0
             if (readBack && engine.movedPending()) runCatching { engine.retireMoved() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
             // How large each document is here, and what it holds — what a relay's limit would meet.
             val sizes = docs.associate { d ->
@@ -258,8 +288,13 @@ class SyncManager(
                 val bytes = entries.entries.sumOf { (k, e) -> k.length + 40 + e.d.toString().length }
                 d.name to ("${entries.size} entries, ~${(bytes + 1023) / 1024} KB" + (runCatching { d.describe(entries) }.getOrNull()?.let { "; $it" } ?: ""))
             }
-            _status.value = SyncStatus(false, if (problem == null) nowMs() else _status.value.lastSyncedMs, problem, applied, pending, sent,
-                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0), rounds, history.toMap(), sizes)
+            if (full && problem == null) lastFullMs = nowMs()
+            // A round of some documents: what the others showed after theirs stays.
+            val before = _status.value
+            _status.value = SyncStatus(false, if (problem == null) nowMs() else before.lastSyncedMs, problem,
+                if (full) applied else before.applied + applied, pending, sent,
+                engine.reach(), runCatching { engine.toSend() }.getOrDefault(0), rounds, history.toMap(),
+                if (full) sizes else before.documents + sizes)
             _status.value
         } finally {
             // Cut off (the app closed, sync turned off): not "running" for ever (MN-07).
@@ -271,7 +306,7 @@ class SyncManager(
     /** The app came to the foreground (or started): a round, unless one ran a moment ago. */
     fun onForeground() {
         // Not by the journal's flag: at start it may not have read the setting yet; a round with sync off ends at once.
-        val last = _status.value.lastSyncedMs
+        val last = lastFullMs
         if (last != null && nowMs() - last < FOREGROUND_EVERY.inWholeMilliseconds) return
         scope.launch { syncNow() }
     }
@@ -289,8 +324,7 @@ class SyncManager(
             delay(if (urgent) publishDelay else PROGRESS_EVERY)
             // Taken back meanwhile — a section hidden and shown again: nothing to send, so no round and
             // no relay asked (maintainer 2026-11-04). The other devices' changes come with the next one.
-            if (documents().none { engine.unpublished(it) }) return@launch
-            syncNow()
+            sendChanged()
         }
     }
 
@@ -302,15 +336,20 @@ class SyncManager(
             // written here, and an app ended from the background lost the last half minute.
             runCatching { prepare() }.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
             if (!journal.enabled) return@launch
-            if (documents().any { engine.unpublished(it) }) { pending?.cancel(); syncNow() }
+            if (documents().any { engine.unpublished(it) }) { pending?.cancel(); sendChanged() }
         }
     }
 
     companion object {
-        val FOREGROUND_EVERY = 5.minutes
+        /** Rounds over every document on coming to the foreground, at most this often (5 minutes until
+         *  2026-11-05, maintainer: battery). */
+        val FOREGROUND_EVERY = 15.minutes
+        /** A full round this recent makes a refresh's own round unnecessary. */
+        val FRESH_FOR = 2.minutes
         /** How many rounds per relay the sync page shows. */
         const val HISTORY = 10
-        /** Positions while playing go out at most this often. */
-        val PROGRESS_EVERY = 5.minutes
+        /** Positions while playing go out at most this often (5 minutes until 2026-11-05, maintainer:
+         *  battery); a pause, the end of an episode and leaving the app send theirs at once. */
+        val PROGRESS_EVERY = 15.minutes
     }
 }

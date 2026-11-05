@@ -169,7 +169,7 @@ fun sharedModule(platform: Platform) = module {
         val koin = getKoin()
         space.sovereigncast.hopp.data.FeedRefresh(get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Main), get<Clock>()::now,
             whileOpen = !platform.backgroundRefresh,
-            before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncNow() },
+            before = { koin.get<space.sovereigncast.hopp.sync.SyncManager>().syncUnlessFresh() },
             after = { summary ->
                 kotlinx.coroutines.coroutineScope {
                     launch { runCatching { koin.get<SovereigncastRepository>().refresh() } }

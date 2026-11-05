@@ -86,4 +86,30 @@ class TakenBackTest {
         while (asked == 0 && System.currentTimeMillis() < deadline) delay(50)
         assertTrue(asked > 0, "the change did not go out")
     }
+
+    /** A round after a change here reads and sends only what changed (maintainer 2026-11-05: battery) —
+     *  the other documents wait for the next full round. */
+    @Test
+    fun aRoundAfterAChangeTakesOnlyThatDocument() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec, publishDelay = 300.milliseconds)
+        phone.podcasts.subscribe(feed)
+        val (a, b) = phone.ids().take(2)
+        phone.sync.enable()
+        val fullAt = phone.sync.status.value.lastSyncedMs
+        relay.reads.clear()
+        var asked = 0
+        relay.listeners += { asked++ }
+        phone.ms += 60_000
+        listOf(a, b).forEach { phone.queue.playLast(it) }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (asked == 0 && System.currentTimeMillis() < deadline) delay(50)
+        assertTrue(asked > 0, "the change did not go out")
+        delay(300)
+        val read = relay.reads.toList().mapNotNull { f -> (f["#d"] as? kotlinx.serialization.json.JsonArray)?.map { it.toString().trim('"') } }.flatten().toSet()
+        // The playlist, and the keyring every round looks at for the key.
+        assertTrue(read.isNotEmpty() && read.all { it in SyncCodec.dTags(SyncDocs.QUEUE) || it in SyncCodec.dTags(SyncDocs.KEYRING) }, "read more than the playlist: $read")
+        assertFalse(phone.store.unpublished(SyncDocs.QUEUE))
+        // It got through: that shows, and a full round is still due on coming back to the app.
+        assertTrue(phone.sync.status.value.lastSyncedMs!! > fullAt!!)
+    }
 }

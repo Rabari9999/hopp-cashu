@@ -32,6 +32,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Das Aktualisieren endet, sobald die Feeds da sind – nicht mehr eine halbe Minute später.
 - **Sync:** Folgen, die du auf einem Gerät gehört hast, stehen auch auf den anderen unter „Zuletzt gehört“.
 - **Sync:** Eine Änderung, die du gleich wieder zurücknimmst – ein Bereich aus- und wieder eingeblendet, eine Folge hin- und zurückgeschoben –, geht nicht mehr an die Relays.
+- **Sync:** Gleicht seltener ab und schickt nur, was sich geändert hat – schont beim Hören den Akku.
 - **Entdecken:** Eine abonnierte Show öffnet sich aus der Suche direkt, nicht mehr als Vorschau, in der sich die Folgen nicht öffnen ließen.
 - **Privatsphäre:** Die Seite nennt auch Nostr-Kontakte, Spenden, die Sync-Relays von Hopp, den Bild-Server und im Browser den Server von Hopp Web.
 - **Wallet:** Der Hinweis, welche Wallets Keysend können, nennt die richtigen.

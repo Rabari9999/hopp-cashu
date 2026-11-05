@@ -175,8 +175,8 @@ Hopp shows what Fountain's listeners say about the same episode.
 - **Merge per entry** with a timestamp inside the payload, newest wins — not
   per document, so two devices do not overwrite each other.
 - **Progress:** only episodes in progress or played in the last 90 days;
-  published at most every five minutes and when playback pauses or Hopp goes
-  to the background. A document over 64 KB is split.
+  published at most every fifteen minutes (five until 2026-11-05) and when
+  playback pauses or Hopp goes to the background. A document over 64 KB is split.
 - **Never synced:** the NWC connection, keys, the wallet's budget and history.
 - **External signers:** a sync needs encrypt and sign each time. With Amber,
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
@@ -394,8 +394,8 @@ switches.
    where the relays have nothing. From another device: applied without being
    noted again; an entry whose show or episode is not here yet, or whose
    episode is playing, waits for the next round. Rounds on start, back in the
-   foreground (at most every five minutes), on pull-to-refresh, ten seconds
-   after a change — a position while playing at most every five minutes,
+   foreground (at most every fifteen minutes since 2026-11-05), on pull-to-refresh, ten seconds
+   after a change — a position while playing at most every fifteen minutes,
    a pause sooner — and what is left on leaving. In the background the signer
    app is never opened; sync waits and the page says so. Signers are asked
    at login for kind 30078 and NIP-44 encryption besides the rest. After a
@@ -779,6 +779,25 @@ changes come with the rounds at the start and at a refresh. Reordering the
 playlist hands the places its episodes had out anew in the new order and notes
 only those whose place changed; "Undo" puts an episode back on its own place.
 Tests: `TakenBackTest`.
+
+**Amendment 2026-11-05 (maintainer): fewer rounds, smaller ones.** Heavy
+listening on a Pixel 9 felt like sync in the background cost battery: a
+position while playing started a round every five minutes, coming back to the
+app one after five minutes, and every round connected to every sync relay and
+read every document. Since then a round after a change here — ten seconds
+after it, while playing, on leaving the app — reads, merges and sends only
+the documents that changed (and the keyring, as every round); after a problem
+it is a full round again, which is what clears it. Full rounds stay on start,
+back in the foreground at most every fifteen minutes, on pull-to-refresh and
+from the sync page; a refresh within two minutes of a full round that got
+through starts none of its own. A position while playing goes out at most
+every fifteen minutes; a pause, the end of an episode and leaving the app
+still send it ten seconds later. Subscriptions still wait for the settings to
+have been read once, whichever round it is. Three hours of listening went
+from about 36 rounds over five documents each to about a dozen over one or
+two. Reading only what is newer (`since`) is left for a later audit: the
+repair of documents a relay lost and the reach shown per relay rely on full
+reads. Tests: `TakenBackTest.aRoundAfterAChangeTakesOnlyThatDocument`.
 
 ## Consequences
 

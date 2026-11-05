@@ -32,6 +32,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** Refreshing ends as soon as the feeds are in, no longer half a minute later.
 - **Sync:** Episodes you listened to on one device show under "Recently played" on the others too.
 - **Sync:** A change you take back right away – a section hidden and shown again, an episode moved and moved back – no longer goes to the relays.
+- **Sync:** Runs less often and sends only what changed – easier on the battery while you listen.
 - **Discover:** A show you follow opens as itself from the search, no longer as a preview whose episodes would not open.
 - **Privacy:** The page also names Nostr contacts, donations, Hopp's sync relays, the image server and, in the browser, Hopp Web's server.
 - **Wallet:** The hint which wallets can send keysend names the right ones.

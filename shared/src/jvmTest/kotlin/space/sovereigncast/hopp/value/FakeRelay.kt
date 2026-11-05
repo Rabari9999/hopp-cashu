@@ -38,6 +38,8 @@ class FakeRelay : RelayConnector {
     /** Events it answers "refused" to and does not keep (delta audit 2026-10-22). */
     var refuse: (Event) -> Boolean = { false }
     val listeners = mutableListOf<(Event) -> Unit>()
+    /** Every read's filters, in order, for a test to look at. */
+    val reads = java.util.Collections.synchronizedList(mutableListOf<JsonObject>())
     /** Keeps only the newest of a person's contact list and other replaceable kinds, as relays do (NIP-01);
      *  off by default, as tests here rely on every version being kept. */
     var replaces = false
@@ -73,6 +75,7 @@ class FakeRelay : RelayConnector {
                 if (readsFail) { session.channel.close(); return }
                 val id = arr[1].jsonPrimitive.content
                 val filters = arr.drop(2).map { it.jsonObject }
+                reads += filters
                 if (filters.any(failReads)) { session.channel.close(); return }
                 session.subs[id] = filters.first()
                 synchronized(this) {
