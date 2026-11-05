@@ -9,7 +9,7 @@ After=network-online.target hopp-feed-proxy.socket
 
 [Service]
 ExecStart=/opt/hopp-feed-proxy/proxy
-Environment=HOPP_PROXY_ORIGINS=https://play.sovereigncast.space
+Environment=HOPP_PROXY_ORIGINS=https://play.sovereigncast.space,https://play-dev.sovereigncast.space
 Environment=HOPP_PROXY_TRUST_FORWARDED=1
 Restart=on-failure
 

@@ -414,6 +414,27 @@ hash also shown in Hopp, compared with the signature there.
   new build offered only after it waited, taken on "Reload"; one with a file
   not on its list never offered.
 
+### 15. A second address for development (maintainer, 2026-11-05)
+
+With 0.4.0 `play.sovereigncast.space` is what listeners use, so it no longer
+takes stages in between. `play-dev.sovereigncast.space` does, on the same server
+under the same headers.
+
+- **`play.` takes only releases:** `deploy.sh` refuses anything but a build of
+  an exact tag; a fix that cannot wait is a release of its own.
+- **Its own origin, not a path:** a path under `play.` would share the sign-in,
+  the keys, the library and the service worker with what listeners use.
+- **Not signed:** the check from outside (§14) takes any build Nodesignal signed
+  as good, so a signed dev build on `play.` would pass it. A signature means
+  released; `sign.mjs` refuses the rest, and dev versions end in `-dev` so
+  that one built from a tag is never taken for the signed one.
+- **Told apart by name:** Hopp Dev in the tab and on the home screen.
+- **Shared proxy and `Caddyfile`:** a dev deploy changes neither, so it cannot
+  reach `play.`. They change with a release's deploy, checked locally before.
+- **From the build Mac, not CI:** the user `deploy` can also write `play.`, a
+  key that does not belong in CI. Automatic deploys would need a user limited
+  to `/srv/hopp-web-dev`.
+
 ## Consequences
 
 - **Distribution (ADR 0011)** gains the web as a channel: a reproducible
