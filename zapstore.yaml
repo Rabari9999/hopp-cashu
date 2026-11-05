@@ -74,21 +74,17 @@ icon: https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en
 # Real screenshots from the app, English UI (devicetests/store makes them);
 # the same files as F-Droid's, phone first, then the tablet.
 images:
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1-player.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-boost.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-home.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-comments.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/5-stats.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/6-show.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/7-community.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/8-person.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/9-per-show.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/10-widget.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/11-discover.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/12-library.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/13-privacy.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/1-player.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/2-comments.jpg
-  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/4-stats.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1-home.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3-comments.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/4-library.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/5-discover.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/phoneScreenshots/6-privacy.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/1-home.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/2-player.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/3-comments.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/4-library.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/5-discover.jpg
+  - https://gitlab.com/nodesignal/hopp/-/raw/main/fastlane/metadata/android/en-US/images/tenInchScreenshots/6-privacy.jpg
 
 release_notes: ./CHANGELOG.md

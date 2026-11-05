@@ -1,0 +1,15 @@
+# Discover at its start with an empty search: the tab keeps the page it showed last (a second tap is
+# its start), and the field's ✕ is labelled "Cancel" (store screenshots 2026-11-05).
+appId: ${APP_ID}
+---
+- tapOn: "(Discover|Entdecken)"
+- runFlow:
+    when:
+      notVisible: "(Search or feed address|Suchen oder Feed-Adresse)"
+    commands:
+      - tapOn: "(Discover|Entdecken)"
+- runFlow:
+    when:
+      visible: "(Cancel|Abbrechen)"
+    commands:
+      - tapOn: "(Cancel|Abbrechen)"

@@ -6,6 +6,8 @@ name: Store screenshots
 ---
 - launchApp:
     stopApp: true
+# Left followed by a run cut off before its clean-up, the comments' show would be on Home.
+- runFlow: unsubscribe-comments.yaml
 - tapOn: "Home"
 # The tab may still show a page from before (the person's, an episode's); a second tap is its start.
 - runFlow:
@@ -113,13 +115,15 @@ name: Store screenshots
 
 # Discover as a search for sats-taking shows: the live lists beside it
 # (new in the index, popular) change by the hour and are no one's to vouch for.
-- tapOn: "(Discover|Entdecken)"
+- runFlow: discover-start.yaml
+# The filter stays as it was left: turned on only where it is off.
 - runFlow:
     when:
-      visible: "(Clear|Löschen)"
+      notVisible:
+        text: ".*(Value4Value only|Nur Value4Value)"
+        selected: true
     commands:
-      - tapOn: "(Clear|Löschen)"
-- tapOn: ".*(Value4Value only|Nur Value4Value)"
+      - tapOn: ".*(Value4Value only|Nur Value4Value)"
 - tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
 - inputText: "Bitcoin"
 - pressKey: Enter
@@ -183,8 +187,7 @@ name: Store screenshots
 # Comments, read only: a V4V show whose episodes Fountain listeners comment
 # on. Subscribed for that alone and unsubscribed again; a bot that repeats
 # every boost with a long link is muted — without an identity only here.
-- tapOn: "(Discover|Entdecken)"
-- tapOn: "(Cancel|Abbrechen)"
+- runFlow: discover-start.yaml
 - tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
 - inputText: "Chad and Reeds"
 - pressKey: Enter
@@ -201,14 +204,6 @@ name: Store screenshots
     visible: ".*(Subscribed|Abonniert).*"
     timeout: 60000
 - waitForAnimationToEnd
-# Subscribed before (a run cut off before its clean-up), the search opens the preview, whose episodes
-# open nothing and have no menu: "✓ Subscribed" opens the show.
-- runFlow:
-    when:
-      notVisible: "(More|Mehr)"
-    commands:
-      - tapOn: ".*(Subscribed|Abonniert).*"
-      - waitForAnimationToEnd
 - tapOn: "009. yawn-boarding"
 - tapOn:
     text: "(Play|Abspielen|Continue|Weiterhören).*"
@@ -286,25 +281,4 @@ name: Store screenshots
       - tapOn:
           point: 50%, 8%
 - tapOn: "(Close player|Player schließen)"
-# The show through Discover's search (its preview, then the show by "✓ Subscribed"): in the library
-# its new episode, downloaded meanwhile, bears its name above the shows (2026-11-04).
-- tapOn: "(Discover|Entdecken)"
-- runFlow:
-    when:
-      visible: "(Cancel|Abbrechen)"
-    commands:
-      - tapOn: "(Cancel|Abbrechen)"
-- tapOn: "(Search or feed address|Suchen oder Feed-Adresse)"
-- inputText: "Chad and Reeds"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Chad and Reeds Podcast"
-    timeout: 30000
-- tapOn: "Chad and Reeds Podcast"
-- tapOn: ".*(Subscribed|Abonniert)"
-- waitForAnimationToEnd
-- tapOn: ".*(Subscribed|Abonniert)"
-- extendedWaitUntil:
-    visible: "(Unsubscribe|Abo beenden)"
-    timeout: 10000
-- tapOn: "(Unsubscribe|Abo beenden)"
+- runFlow: unsubscribe-comments.yaml
