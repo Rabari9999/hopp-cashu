@@ -2189,9 +2189,9 @@ class AndroidAppFlowTest {
         check(scWebsiteOpened("Explorar", "Lo que aporta Sovereigncast", "Más sobre Sovereigncast") == "https://sovereigncast.space/es/")
     }
 
-    /** … and in English where Hopp has no translation — Italian here: Hopp
+    /** … and in English where Hopp has no translation — Japanese here: Hopp
      *  would show English around the link. */
-    @Test @Config(qualifiers = "it-w411dp-h891dp")
+    @Test @Config(qualifiers = "ja-w411dp-h891dp")
     fun scWebsiteFallsBackToEnglish() {
         check(scWebsiteOpened("Discover", "What Sovereigncast brings", "More about Sovereigncast") == "https://sovereigncast.space/")
     }

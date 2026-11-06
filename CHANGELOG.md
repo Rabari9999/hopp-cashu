@@ -7,7 +7,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **App:** Hopp in French, as a preview.
+- **App:** Hopp in French, Italian and Portuguese, translated by AI.
 
 ### 🐛 Fixes
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.

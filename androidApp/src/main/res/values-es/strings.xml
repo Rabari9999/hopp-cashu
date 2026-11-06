@@ -1,5 +1,5 @@
 <resources>
-    <!-- A draft, to be read by a native speaker (maintainer 2026-11-02). -->
+    <!-- Translated by an LLM (maintainer 2026-11-02). -->
     <!-- Android Auto's browse tree (ADR 0012) -->
     <string name="auto_new">Nuevos</string>
     <string name="auto_queue">Lista de reproducción</string>

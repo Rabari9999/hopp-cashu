@@ -1,0 +1,42 @@
+<resources>
+    <!-- Translated by an LLM (maintainer 2026-11-06). -->
+    <!-- Android Auto's browse tree (ADR 0012) -->
+    <string name="auto_new">Novidades</string>
+    <string name="auto_queue">Playlist</string>
+    <string name="auto_downloads">Downloads</string>
+    <string name="auto_library">Biblioteca</string>
+    <!-- Download notification -->
+    <string name="downloads_channel">Downloads</string>
+    <string name="downloads_running">Download de episódios em curso</string>
+    <string name="quick_boost">Boost</string>
+    <string name="boosts_channel">Boosts</string>
+    <string name="quick_boost_sent">%1$s sats em boost para %2$s</string>
+    <string name="quick_boost_partial">%1$s de %2$s sats em boost para %3$s — detalhes no histórico de pagamentos</string>
+    <string name="quick_boost_budget">Boost não enviado: o orçamento de hoje acabou</string>
+    <string name="quick_boost_low_balance">Boost não enviado: a carteira tem só %1$s sats</string>
+    <string name="quick_boost_no_value">Boost não enviado: este podcast não pode receber boosts</string>
+    <string name="quick_boost_no_wallet">Boost não enviado: nenhuma carteira conectada</string>
+    <string name="quick_boost_failed">O boost falhou: %1$s</string>
+    <string name="zap">Zap</string>
+    <string name="zaps_channel">Zaps</string>
+    <string name="zap_someone">alguém</string>
+    <string name="zap_sent">%1$s sats em zap para %2$s</string>
+    <string name="zap_budget">Zap não enviado: o orçamento de hoje acabou</string>
+    <string name="zap_failed">O zap para %1$s falhou: %2$s</string>
+    <string name="copied">Copiado</string>
+    <string name="scan_hint">Aponte a câmera para o código QR da conexão da carteira</string>
+    <string name="scan_close">Fechar</string>
+    <string name="scan_no_camera">O Hopp precisa da câmera só para ler o código QR.</string>
+    <string name="files_summary">Episódios com download feito</string>
+    <!-- Lock screen and notification -->
+    <string name="skip_back">Voltar %1$d segundos</string>
+    <string name="skip_forward">Avançar %1$d segundos</string>
+    <string name="next_chapter">Próximo capítulo</string>
+    <!-- The home-screen widget (0.3.1) -->
+    <string name="widget_name">Player Hopp</string>
+    <string name="widget_description">O que está tocando, com reproduzir, pular, próximo capítulo e seu boost rápido</string>
+    <string name="widget_nothing">Nada tocando – toque para abrir o Hopp</string>
+    <string name="widget_left">faltam %1$d min</string>
+    <string name="widget_play">Reproduzir</string>
+    <string name="widget_pause">Pausar</string>
+</resources>

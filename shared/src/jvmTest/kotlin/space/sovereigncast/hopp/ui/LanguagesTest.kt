@@ -33,11 +33,11 @@ class LanguagesTest {
     @Test
     fun eachLanguageWritesNumbersAndDatesItsWay() {
         val day = kotlinx.datetime.LocalDate(2026, 10, 7)
-        assertEquals(listOf("07.10.2026", "07.10.2026", "07/10/2026", "07/10/2026"), codes.map { formatDate(day, it) })
-        assertEquals(listOf("21,000", "21.000", "21.000", "21\u202F000"), codes.map { formatSats(21_000, it) })
-        assertEquals(listOf("1.5", "1,5", "1,5", "1,5"), codes.map { formatTenths(15, it) })
-        assertEquals(listOf("2.5", "2,5", "2,5", "2,5"), codes.map { formatMsat(2_500, it) })
+        assertEquals(listOf("07.10.2026", "07.10.2026", "07/10/2026", "07/10/2026", "07/10/2026", "07/10/2026"), codes.map { formatDate(day, it) })
+        assertEquals(listOf("21,000", "21.000", "21.000", "21\u202F000", "21.000", "21.000"), codes.map { formatSats(21_000, it) })
+        assertEquals(listOf("1.5", "1,5", "1,5", "1,5", "1,5", "1,5"), codes.map { formatTenths(15, it) })
+        assertEquals(listOf("2.5", "2,5", "2,5", "2,5", "2,5", "2,5"), codes.map { formatMsat(2_500, it) })
         // A language Hopp does not speak writes as English does.
-        assertEquals("21,000", formatSats(21_000, "it"))
+        assertEquals("21,000", formatSats(21_000, "ja"))
     }
 }

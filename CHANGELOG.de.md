@@ -7,7 +7,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **App:** Hopp auf Französisch, als Vorschau.
+- **App:** Hopp auf Französisch, Italienisch und Portugiesisch, von einer KI übersetzt.
 
 ### 🐛 Fixes
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
