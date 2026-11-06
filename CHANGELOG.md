@@ -6,6 +6,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **App:** Hopp speaks French — a draft, to be read by a native speaker before it is announced.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features

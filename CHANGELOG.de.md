@@ -6,6 +6,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **App:** Hopp spricht Französisch — ein Entwurf, der vor der Ankündigung von einem Muttersprachler gelesen wird.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features

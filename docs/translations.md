@@ -1,6 +1,7 @@
 # Translations
 
-Hopp speaks English, German and — as a draft since 0.4.0 — Spanish (ADR 0016).
+Hopp speaks English, German and — as drafts — Spanish (since 0.4.0) and French
+(ADR 0016).
 
 ## Adding a language
 
@@ -40,6 +41,25 @@ speaker:
 - Menu paths of other apps in the move guides (AntennaPod, Pocket Casts …)
   are generic, not checked against their Spanish interfaces.
 - Store listings in Spanish are not written yet.
+
+## French: open points for the reviewer
+
+The draft (2026-11-06) follows the German and Spanish for tone: "tu"
+(informal), "émission" for a show, "portefeuille" for a wallet, "signeur"
+for a Nostr signer. To be decided by a native speaker:
+
+- "boostable" written as *acceptant les boosts*; "value block" as *bloc de
+  valeur*; "build" and "streaming" kept in English.
+- Numbers group with a narrow no-break space (*21 000*, U+202F) — check it
+  renders on small Android widgets.
+- *Salut* for the daytime greeting may be too casual; *Bonsoir* starts at
+  Home's evening hours — check both.
+- Weekdays abbreviated without a period (*Lun*), months in lower case.
+- Menu paths of other apps in the move guides (AntennaPod, Pocket Casts …)
+  are generic, not checked against their French interfaces.
+- `sc_info_url` still points to the English sovereigncast.space page — there
+  is no French one yet; `nwc_explainer_url` stays on /en/.
+- Store listings in French are not written yet.
 
 ## Later
 
