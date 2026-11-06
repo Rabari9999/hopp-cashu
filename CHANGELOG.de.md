@@ -6,6 +6,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **App:** Hopp auf Französisch, als Vorschau.
+
 ### 🐛 Fixes
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
 - **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.

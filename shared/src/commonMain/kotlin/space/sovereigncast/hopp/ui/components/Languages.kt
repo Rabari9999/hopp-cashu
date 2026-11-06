@@ -33,6 +33,9 @@ object Languages {
         // A draft, to be read by a native speaker (maintainer 2026-11-02).
         Language("es", "Español", decimal = ',', grouping = '.', dateSeparator = '/',
             otherTab = "Hopp ya está abierto en otra pestaña." to "Ciérrala o cambia a ella."),
+        // A draft, to be read by a native speaker (maintainer 2026-11-06).
+        Language("fr", "Français", decimal = ',', grouping = '\u202F', dateSeparator = '/',
+            otherTab = "Hopp est déjà ouvert dans un autre onglet." to "Ferme-le, ou bascule dessus."),
     )
 
     /** The language for a code ("de", "de-AT"); English for any other. */

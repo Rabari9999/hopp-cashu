@@ -6,6 +6,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **App:** Hopp in French, as a preview.
+
 ### 🐛 Fixes
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
 - **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
