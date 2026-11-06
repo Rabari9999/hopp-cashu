@@ -182,6 +182,14 @@ Hopp shows what Fountain's listeners say about the same episode.
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
   app is open and never blocks playback. *Superseded 2026-10-21 by the sync
   key, below.*
+- *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
+  of `hopp/queue` (`now`): the newest start on any device. Each device had kept
+  its own, and an episode started on one left "Up next" and was shown nowhere on
+  the other. A device not playing shows the episode, paused, and plays it only
+  when asked; one playing is not interrupted. Its fields are not `show` and
+  `guid`, so a Hopp from before this passes over it. On coming to the foreground
+  between full rounds, Hopp reads positions and `hopp/queue` alone, at most every
+  two minutes, so someone coming from another device goes on from there.
 - *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
   (`hopp/queue`); of the settings only the listening habits — since
   2026-10-23 with downloads, the background refresh and what boosts and zaps

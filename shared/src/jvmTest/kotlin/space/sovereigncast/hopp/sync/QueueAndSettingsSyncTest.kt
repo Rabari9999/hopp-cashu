@@ -13,6 +13,8 @@ import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** "Up next" and listening habits in step over Nostr (package 5 of docs/tasks/nostr-sync.md). */
@@ -26,6 +28,92 @@ class QueueAndSettingsSyncTest {
 
     private suspend fun SyncDevice.id(guid: String) = episode(feed, guid).id
     private suspend fun guids(d: SyncDevice) = d.db.episodeQueries.selectByPodcast(d.row(feed).id).awaitAsList().map { it.guid }
+
+    /** Maintainer 2026-11-06: the episode started on the phone was nowhere on the tablet. */
+    @Test
+    fun whatPlaysNowReachesTheOtherDevice() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val (a, b) = guids(phone).take(2)
+        phone.queue.playLast(phone.id(a))
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertTrue(tablet.nowAdopted.isEmpty(), "nothing started yet")
+
+        // Taken out of "Up next" and started on the phone.
+        phone.ms += 60_000
+        phone.queue.remove(phone.id(a))
+        phone.queue.noteNow(phone.id(a))
+        phone.sync.syncNow()
+        tablet.ms += 61_000
+        tablet.sync.syncNow()
+        assertEquals(listOf(tablet.id(a)), tablet.nowAdopted)
+        assertTrue(tablet.queueGuids().isEmpty(), "out of the playlist there too")
+
+        // Nothing new, nothing again: going on after a pause sends nothing, and no second round brings it back.
+        val noted = phone.store.entry(SyncDocs.QUEUE, SyncDocs.NOW_KEY)
+        phone.ms += 60_000
+        phone.queue.noteNow(phone.id(a))
+        assertEquals(noted, phone.store.entry(SyncDocs.QUEUE, SyncDocs.NOW_KEY))
+        tablet.ms += 60_000
+        tablet.sync.syncNow()
+        assertEquals(1, tablet.nowAdopted.size)
+
+        // The tablet starts another: the newest start wins on the phone.
+        tablet.ms += 60_000
+        tablet.queue.noteNow(tablet.id(b))
+        tablet.sync.syncNow()
+        phone.ms += 120_000
+        phone.sync.syncNow()
+        assertEquals(listOf(phone.id(b)), phone.nowAdopted)
+    }
+
+    /** A Hopp from before this passes over the entry: without `show` and `guid` it is no place in "Up next". */
+    @Test
+    fun whatPlaysNowIsNoPlaceInUpNextForAnOlderHopp() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        phone.sync.enable()
+        phone.queue.noteNow(phone.id(guids(phone).first()))
+        val entry = assertNotNull(phone.store.entry(SyncDocs.QUEUE, SyncDocs.NOW_KEY))
+        assertNull(entry.d["show"]); assertNull(entry.d["guid"])
+        // And a device without the episode counts nothing as waiting for it.
+        val doc = QueueDocument(phone.db, phone.queue)
+        assertEquals(setOf(SyncDocs.NOW_KEY), doc.beyondReach(mapOf(SyncDocs.NOW_KEY to entry)))
+    }
+
+    /** Coming back to the app within the quarter of an hour: only what plays now and where, at most every two minutes. */
+    @Test
+    fun comingBackReadsWhatPlaysNowAndNotEverything() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val a = guids(phone).first()
+        phone.sync.enable()
+        phone.sync.syncNow()
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        tablet.sync.syncNow()
+        phone.ms += 60_000
+        phone.queue.noteNow(phone.id(a))
+        phone.sync.syncNow()
+
+        // A moment after the round: nothing asked.
+        tablet.ms += 60_000
+        var before = relay.reads.size
+        tablet.sync.onForeground()
+        kotlinx.coroutines.delay(300)
+        assertEquals(before, relay.reads.size, "within two minutes")
+        assertTrue(tablet.nowAdopted.isEmpty())
+
+        // Later, still within the quarter of an hour: it is there.
+        tablet.ms += 3 * 60_000
+        tablet.sync.onForeground()
+        kotlinx.coroutines.withTimeout(5_000) { while (tablet.nowAdopted.isEmpty()) kotlinx.coroutines.delay(20) }
+        assertEquals(listOf(tablet.id(a)), tablet.nowAdopted)
+    }
 
     @Test
     fun upNextFollowsAndAReorderAndAnAdditionBothSurvive() = runBlocking<Unit> {

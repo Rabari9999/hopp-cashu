@@ -674,6 +674,9 @@ class EpisodeRepository(
     /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
      *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
      *  a finished download put it in, which only this device knows. */
+    /** Listened to as of [atSeconds], on another device: after a restart here the player brings back the newest ([inProgress]). */
+    suspend fun noteListenedElsewhere(id: Long, atSeconds: Long) = withContext(ioDispatcher) { eq.noteListened(atSeconds, id) }
+
     suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null) = withContext(ioDispatcher) {
         db.transaction {
             if (played) {

@@ -16,9 +16,17 @@ import space.sovereigncast.hopp.sync.SyncDocs.text
  * in, taken out or moved on one device is so on the other. Each episode keeps
  * the place it was given where it was given, so a reorder on one device and an
  * addition on the other both survive. One the feed has not brought yet waits.
+ * With it, what plays now ([SyncDocs.NOW_KEY]): [adoptNow] gets the episode and when it was started.
  */
-class QueueDocument(private val db: HoppDatabase, private val queue: QueueRepository) : SyncedDocument {
+class QueueDocument(
+    private val db: HoppDatabase,
+    private val queue: QueueRepository,
+    private val adoptNow: suspend (episodeId: Long, atSeconds: Long) -> Unit = { _, _ -> },
+) : SyncedDocument {
     override val name = SyncDocs.QUEUE
+
+    /** What plays now, of an episode not here (yet): looked for each round, but no entry "waiting" on the sync page. */
+    override suspend fun beyondReach(entries: Map<String, SyncEntry>): Set<String> = entries.keys.filter { it == SyncDocs.NOW_KEY }.toSet()
 
     override suspend fun prepare() { queue.noteUnknownOnce() }
 
@@ -34,7 +42,10 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
         val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
+        fun episodeOf(show: String, guid: String) = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
+        // What plays now last: the player then finds "Up next" as it is going to be.
         for ((key, e) in entries) {
+            if (key == SyncDocs.NOW_KEY) continue
             val show = e.d.text("show")
             val guid = e.d.text("guid")
             if (show == null || guid == null) { done += key; continue }
@@ -48,6 +59,16 @@ class QueueDocument(private val db: HoppDatabase, private val queue: QueueReposi
             // A place within what Hopp itself gives — one at the edge of a Long would wrap with the next "play last" (MN-06).
             queue.applySynced(id, if (e.del) null else (e.d.long("sort") ?: 0).coerceIn(-QueueRepository.SORT_MAX, QueueRepository.SORT_MAX))
             done += key
+        }
+        entries[SyncDocs.NOW_KEY]?.let { e ->
+            val show = e.d.text("nowShow")
+            val guid = e.d.text("nowGuid")
+            if (e.del || show == null || guid == null) done += SyncDocs.NOW_KEY
+            else episodeOf(show, guid)?.let { p -> withContext(ioDispatcher) { db.episodeQueries.selectByGuid(p.id, guid).awaitAsOneOrNull()?.id } }?.let { id ->
+                // The player follows as an aside: its failing leaves the entry applied, as with positions (M-06).
+                runCatching { adoptNow(id, e.t / 1000) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                done += SyncDocs.NOW_KEY
+            }
         }
         return done
     }

@@ -97,6 +97,13 @@ object SyncDocs {
         put("show", show); put("guid", guid); put("sort", sortKey)
     }
 
+    /** In `hopp/queue`, the one entry that is no place in it: what plays now, the newest start on any device. */
+    const val NOW_KEY = "now"
+
+    /** Not `show` and `guid`: a Hopp from before this takes an entry without them as unreadable, and passes
+     *  over it; with them it would put the episode into "Up next". */
+    fun now(show: String, guid: String): JsonObject = buildJsonObject { put("nowShow", show); put("nowGuid", guid) }
+
     fun setting(value: String): JsonObject = buildJsonObject { put("v", value) }
 
     internal fun JsonObject.long(key: String) = (this[key] as? JsonPrimitive)?.longOrNull

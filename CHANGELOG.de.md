@@ -7,7 +7,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **App:** Hopp auf Französisch, Italienisch und Portugiesisch, von einer KI übersetzt.
+- **App:** Hopp auf Französisch, Italienisch und Portugiesisch.
+- **Sync:** Was gerade läuft, zieht mit: Starte eine Folge auf einem Gerät, und die anderen zeigen sie, bereit zum Weiterhören.
 
 ### 🐛 Fixes
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.

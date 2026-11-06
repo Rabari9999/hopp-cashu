@@ -84,6 +84,22 @@ class QueueRepository(
     }
     private var unknownNoted = false
 
+    /**
+     * What plays now on this device, for the listener's others (maintainer 2026-11-06: each device kept its own, and
+     * the episode started on one was nowhere on the other — out of "Up next", and in no player). Only when it changed:
+     * pausing and going on says nothing new.
+     */
+    suspend fun noteNow(episodeId: Long) = withContext(ioDispatcher) {
+        if (!journal.enabled) return@withContext
+        val r = db.episodeQueries.syncKeysOf(episodeId).awaitAsOneOrNull() ?: return@withContext
+        val now = SyncDocs.now(SyncDocs.showKey(r.podcast_guid, r.feed_url), r.guid)
+        if (journal.current(SyncDocs.QUEUE, SyncDocs.NOW_KEY)?.takeUnless { it.del }?.d == now) return@withContext
+        journal.record(SyncDocs.QUEUE, SyncDocs.NOW_KEY, now)
+    }
+
+    /** Whether the episode is in "Up next". */
+    suspend fun has(episodeId: Long): Boolean = withContext(ioDispatcher) { qq.selectKeys().awaitAsList().any { it.episode_id == episodeId } }
+
     /** "Up next" from another device (sync): the episode at [sortKey], or out of it; not noted again. */
     suspend fun applySynced(episodeId: Long, sortKey: Long?) = withContext(ioDispatcher) {
         if (sortKey == null) qq.remove(episodeId) else qq.put(episodeId, sortKey)
