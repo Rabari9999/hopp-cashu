@@ -254,7 +254,7 @@
     <string name="wallet_quick_boost">Boost rápido (pantalla de bloqueo)</string>
     <string name="wallet_quick_boost_off">Desactivado</string>
     <string name="wallet_quick_boost_note">El botón de boost en la pantalla de bloqueo y en la notificación envía esta cantidad al instante — sin diálogo, dentro del presupuesto diario.</string>
-    <string name="episode_play">Reproducir</string>
+    <string name="episode_play">Iniciar</string>
     <string name="episode_resume">Seguir · quedan %1$s</string>
     <string name="episode_shownotes">Notas del episodio</string>
     <string name="boost_whole_show">Para todo el podcast</string>
@@ -576,7 +576,7 @@
     <string name="home_nothing_new">Nada nuevo</string>
     <string name="home_new_count">Episodios nuevos: %1$d</string>
     <string name="home_updated">actualizado %1$s</string>
-    <string name="home_just_now">ahora mismo</string>
+    <string name="home_just_now">ahora</string>
     <string name="home_minutes_ago">hace %1$d min</string>
     <string name="home_hours_ago">hace %1$d h</string>
     <string name="home_days_ago">hace %1$d días</string>

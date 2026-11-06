@@ -254,7 +254,7 @@
     <string name="wallet_quick_boost">Boost rápido (tela de bloqueio)</string>
     <string name="wallet_quick_boost_off">Desligado</string>
     <string name="wallet_quick_boost_note">O botão de boost na tela de bloqueio e na notificação envia este valor na hora — sem diálogo, dentro do orçamento diário.</string>
-    <string name="episode_play">Reproduzir</string>
+    <string name="episode_play">Ouvir</string>
     <string name="episode_resume">Continuar · faltam %1$s</string>
     <string name="episode_shownotes">Notas do episódio</string>
     <string name="boost_whole_show">Para o podcast inteiro</string>

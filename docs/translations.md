@@ -44,6 +44,9 @@ The choices made, in case a report questions one:
   "portafoglio" for a wallet, "app di firma" for a signer.
 - **Portuguese:** one `pt` for all who speak it — Brazilian spelling, "você",
   "podcast" for a show, "carteira" for a wallet, "assinador" for a signer.
+- **Short labels:** the episode page's play button has room for about seven
+  letters on a phone beside Boost, hence *Ascolta*, *Ouvir* and *Iniciar*
+  (device check 2026-11-06: *Riprod…*, *Repro…*).
 - **All of them:** Nostr contacts are contacts, never friends. `sc_info_url` and
   `nwc_explainer_url` point to the English pages where a language has none.
   Store listings exist in English and German only; "What's new" shows English.

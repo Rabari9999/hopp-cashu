@@ -254,7 +254,7 @@
     <string name="wallet_quick_boost">Boost rapido (schermata di blocco)</string>
     <string name="wallet_quick_boost_off">Disattivato</string>
     <string name="wallet_quick_boost_note">Il pulsante boost nella schermata di blocco e nella notifica invia subito questo importo — senza finestra di dialogo, entro il budget giornaliero.</string>
-    <string name="episode_play">Riproduci</string>
+    <string name="episode_play">Ascolta</string>
     <string name="episode_resume">Continua · ancora %1$s</string>
     <string name="episode_shownotes">Note della puntata</string>
     <string name="boost_whole_show">Per tutto il podcast</string>
