@@ -85,6 +85,25 @@ class PlaybackServiceTest {
      * the system trusts (System UI) get the boost, and a boost sent without
      * it pays nothing.
      */
+    /**
+     * Device check 2026-11-06: after a restart of the phone Hopp stood frozen on its splash. A media browser of the
+     * old API connected, Media3 blocked the main thread until the library's root was there, and the root waited for
+     * the main thread. It has to be there without it: this looper is not run between the two lines.
+     */
+    @Test
+    fun theLibrarysRootIsThereWithoutTheMainThread() {
+        val controller = Robolectric.buildService(PlaybackService::class.java).create()
+        repeat(5) { ShadowLooper.idleMainLooper(); Thread.sleep(50) }
+        val service = controller.get()
+        val browser = androidx.media3.session.MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "com.android.systemui", 0, 0, 0, 0, true, android.os.Bundle.EMPTY, false)
+        val session = service.onGetSession(browser) as androidx.media3.session.MediaLibraryService.MediaLibrarySession
+        val root = service.callback!!.onGetLibraryRoot(session, browser, null)
+        assertTrue("the root waits for the main thread, which waits for the root", root.isDone)
+        assertEquals(androidx.media3.session.LibraryResult.RESULT_SUCCESS, root.get().resultCode)
+        controller.destroy()
+    }
+
     @Test
     fun onlyTrustedControllersMayBoost() {
         val koin = org.koin.mp.KoinPlatform.getKoin()

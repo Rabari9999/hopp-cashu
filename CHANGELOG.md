@@ -11,6 +11,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
 
 ### 🐛 Fixes
+- **App:** Hopp no longer freezes on its start screen after the phone restarts.
 - **Sync:** A relay that does not answer no longer holds up syncing.
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
 - **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
