@@ -176,6 +176,7 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
 private var clipUnlocked = false
 /** What the round has raised so far, settable per test (its goal is 15 120). */
 private var roundRaised = 210L
+private var roundDescription = "Jan-Paul, Thorsten & Calso waren zu Gast."
 /** A suggestion submitted in this test run, listed once there. */
 private var submitted: String? = null
 private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
@@ -186,7 +187,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
         "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
-    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
+    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"$roundDescription","image_url":null},
         "goal_sats":15120,"raised_sats":$roundRaised,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":${if (clipUnlocked) """{"unlocked":true,"at_block":36,"title":"Halving-Clip","duration_seconds":42,"url":"https://pm.test/api/listener/v1/shows/$SC_GUID/release-boosting/clip"}""" else """{"unlocked":false,"at_block":36}"""}},"poll_after_seconds":60}""")
     // A new suggestion: the invoice is its spam filter (phase 2).
@@ -1596,6 +1597,23 @@ class AndroidAppFlowTest {
         check(has("🔒 A clip unlocks at block 36")) { screen().toString() }
         tapTop("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
+    }
+
+    /** Device feedback 2026-11-06: under a long description the buttons stay in sight, no scrolling to get to them. */
+    @Test
+    fun theSheetsButtonsStayInSightUnderALongDescription() {
+        roundDescription = "Eine lange Beschreibung. ".repeat(200)
+        try {
+            rule.setContent { App() }
+            tap("Discover"); subscribe("https://pod.test/sc.xml")
+            waitFor("E297 - BTC++ Berlin")
+            rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+            waitFor("1 of 72 blocks mined · 210 sats each")
+            rule.waitForIdle()
+            rule.onAllNodes(hasText("Boost") and hasClickAction()).onLast().assertIsDisplayed()
+            tapTop("Boost")
+            waitFor("Bring E297 - BTC++ Berlin out sooner")
+        } finally { roundDescription = "Jan-Paul, Thorsten & Calso waren zu Gast." }
     }
 
     /** A round at its goal (maintainer, 2026-10-23): a tick, and no boost or community page offered for it. */

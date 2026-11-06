@@ -7,6 +7,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🐛 Fixes
+- **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
 - **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
 - **Nostr:** Eine ausgenommene Show erreicht deine Nostr-Kontakte nicht mehr über ein Gerät, das noch nichts davon wusste.
 - **Nostr:** Was deine Nostr-Kontakte tun, lädt weiter, wenn du die Seite verlässt.
