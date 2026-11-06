@@ -11,6 +11,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Sync:** Was gerade läuft, zieht mit: Starte eine Folge auf einem Gerät, und die anderen zeigen sie, bereit zum Weiterhören.
 
 ### 🐛 Fixes
+- **Sync:** Ein Relay, das nicht antwortet, bremst den Abgleich nicht mehr aus.
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
 - **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
 - **Nostr:** Eine ausgenommene Show erreicht deine Nostr-Kontakte nicht mehr über ein Gerät, das noch nichts davon wusste.

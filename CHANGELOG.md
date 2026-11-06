@@ -11,6 +11,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
 
 ### 🐛 Fixes
+- **Sync:** A relay that does not answer no longer holds up syncing.
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
 - **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
 - **Nostr:** A show you left out no longer reaches your Nostr contacts from a device that had not heard of it yet.

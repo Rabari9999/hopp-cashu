@@ -55,6 +55,16 @@ internal class RelayPool(private val scope: CoroutineScope) : AbstractCoroutineC
 
     private val lock = Mutex()
     private val open = mutableMapOf<Pair<RelayConnector, String>, Deferred<Shared>>()
+    private val silent = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * A relay that took no connection in a request's time: not asked again while this pool lasts, so one that
+     * hangs costs a round its wait once, not for each document and each part of one (maintainer 2026-11-06:
+     * relay.primal.net took none for a while, and rounds dragged with two relays answering in 100 ms). One that
+     * fails at once costs nothing, and stays asked. The next round tries it again.
+     */
+    fun noteSilent(url: String) { silent.update { it + url } }
+    fun isSilent(url: String): Boolean = url in silent.value
 
     /** The shared connection to [url], opened once — the first request that needs it waits for it. */
     suspend fun session(connector: RelayConnector, url: String): RelaySession {

@@ -182,6 +182,10 @@ Hopp shows what Fountain's listeners say about the same episode.
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
   app is open and never blocks playback. *Superseded 2026-10-21 by the sync
   key, below.*
+- *Amended 2026-11-06 (maintainer):* one relay down no longer holds up a round.
+  A relay that lets a request's time run out without a connection is not asked
+  again in that round (`RelayPool`); the next round tries it again. A document taken by more than half the relays gives the
+  rest two seconds; what they miss, a later version brings them.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on
