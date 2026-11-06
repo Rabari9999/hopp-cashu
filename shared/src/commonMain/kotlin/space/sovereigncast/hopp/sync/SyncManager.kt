@@ -233,6 +233,9 @@ class SyncManager(
      *  on the sync page (maintainer 2026-10-30: "Incomplete" for good, nothing to be done). */
     suspend fun rewrite(doc: String): SyncStatus = withRelayPool { syncNowInPool(interactive = true, rewrite = doc) }
 
+    /** Whether this device has what the listener's other devices changed, a round if need be. Sync off: there is nothing to wait for. */
+    suspend fun upToDate(): Boolean = !settings.current().nostrSync || syncUnlessFresh().problem == null
+
     /** [only]: these documents, not all — a round that sends what changed here. [unlessFresh]: none if a
      *  full round got through a moment ago, and no problem since. */
     private suspend fun syncNowInPool(

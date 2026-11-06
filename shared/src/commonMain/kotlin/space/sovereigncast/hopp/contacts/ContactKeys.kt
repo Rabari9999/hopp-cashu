@@ -84,7 +84,7 @@ class ContactKeys(
             return null
         }
         if (!interactive) return Note(share, inbox, newest.created_at, opened = false)
-        val opened = open(newest)
+        val opened = open(newest, interactive = true)
         keep(Held(me.pubkey, opened.share, opened.inbox, newest.id, newest.created_at))
         Note(opened.share?.pub(), opened.inbox?.pub(), newest.created_at, opened = true)
     }
@@ -98,8 +98,13 @@ class ContactKeys(
         val me = identity.identity.value ?: throw SignerUnavailable("no identity")
         val signer = identity.signer(interactive) ?: throw SignerUnavailable("no signer for the listener's key")
         val newest = newestOnRelays(me.pubkey)
-        val current = held()?.takeIf { it.owner == me.pubkey }
-            ?: newest?.takeIf { it.content.isNotEmpty() }?.let { open(it) }?.let { Held(me.pubkey, it.share, it.inbox, newest.id, newest.created_at) }
+        val mine = held()?.takeIf { it.owner == me.pubkey }
+        // A newer note than this device's goes first: what this device still holds would replace the keys the others use.
+        val current = when {
+            newest == null || (mine != null && (mine.note == newest.id || mine.at >= newest.created_at)) -> mine
+            newest.content.isEmpty() -> null
+            else -> open(newest, interactive).let { Held(me.pubkey, it.share, it.inbox, newest.id, newest.created_at) }
+        }
         val next = Sealed(
             // [newShare]: a mutual contact lost — what is shared from now on, under a key they do not have (ADR 0024, 4).
             share = if (share) current?.share?.takeUnless { newShare } ?: newKey() else null,
@@ -144,8 +149,8 @@ class ContactKeys(
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
     }
 
-    private suspend fun open(note: Event): Sealed {
-        val signer = identity.signer(interactive = true) ?: throw SignerUnavailable("no signer for the listener's key")
+    private suspend fun open(note: Event, interactive: Boolean): Sealed {
+        val signer = identity.signer(interactive) ?: throw SignerUnavailable("no signer for the listener's key")
         return json.decodeFromString(Sealed.serializer(), signer.decryptFromSelf(note.content))
     }
 

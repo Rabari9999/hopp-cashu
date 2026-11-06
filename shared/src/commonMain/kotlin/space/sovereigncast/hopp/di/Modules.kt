@@ -116,7 +116,7 @@ fun sharedModule(platform: Platform) = module {
         val podcasts = get<PodcastRepository>()
         val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {
             podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at, it.image_url) }
-        }) { get<Clock>().now() }
+        }, { getKoin().get<space.sovereigncast.hopp.sync.SyncManager>().upToDate() }) { get<Clock>().now() }
         val db = get<HoppDatabase>()
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         val cache = object : space.sovereigncast.hopp.contacts.ContactsRepository.ContactsCache {

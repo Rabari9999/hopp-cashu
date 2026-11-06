@@ -28,7 +28,9 @@ data class Shelf(val v: Int = 1, val shows: List<SharedShow>)
  * sealed by the share key to itself; and for each mutual contact whose contacts note names an
  * inbox, the share key sealed to that inbox, `d` = `hopp/contacts/key/<inbox>`. Each goes out
  * only when it changed: the list when the shows do, a key once per inbox and share key.
- * Signed by the share key alone — the listener's signer is never asked.
+ * Signed by the share key alone — the listener's signer is never asked. Every device with the
+ * share key sends its own list, so one first takes what the others changed ([upToDate]): a show left
+ * out elsewhere must not go out again from a device that has not heard of it (ADR 0024, 4a).
  */
 class ContactShare(
     private val identity: IdentityRepository,
@@ -36,6 +38,8 @@ class ContactShare(
     private val keys: ContactKeys,
     private val secrets: SecretStore,
     private val shows: suspend () -> List<SharedShow>,
+    /** Whether this device has what the listener's other devices changed; false: the list waits for the next time. */
+    private val upToDate: suspend () -> Boolean = { true },
     private val nowSeconds: () -> Long,
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -52,13 +56,15 @@ class ContactShare(
         val share = keys.shareKey() ?: return
         var sent = sent()?.takeIf { it.share == share.publicKeyHex } ?: Sent(share.publicKeyHex)
         val urls = identity.syncRelays()
-        val shelf = json.encodeToString(Shelf.serializer(), Shelf(shows = fit(shows())))
-        val hash = Sha256.digest(shelf.encodeToByteArray()).toHex()
         val signer = LocalSigner(share)
-        if (hash != sent.shelf) {
-            val sealed = Nip44.encrypt(shelf, Nip44.conversationKey(share.secretKey, share.publicKeyHex.hexToBytes()))
-            val event = signer.sign(UnsignedEvent(Nip78.KIND, sealed, listOf(listOf("d", SHELF)), nowSeconds()))
-            if (publisher.publish(event, urls).isNotEmpty()) sent = sent.copy(shelf = hash).also(::keep)
+        // Asked only when the list changed, and the list made again after: the answer may have changed it.
+        if (shelf().second != sent.shelf && upToDate()) {
+            val (shelf, hash) = shelf()
+            if (hash != sent.shelf) {
+                val sealed = Nip44.encrypt(shelf, Nip44.conversationKey(share.secretKey, share.publicKeyHex.hexToBytes()))
+                val event = signer.sign(UnsignedEvent(Nip78.KIND, sealed, listOf(listOf("d", SHELF)), nowSeconds()))
+                if (publisher.publish(event, urls).isNotEmpty()) sent = sent.copy(shelf = hash).also(::keep)
+            }
         }
         for (inbox in inboxes - sent.inboxes) {
             val sealed = Nip44.encrypt(share.secretKey.toHex(), Nip44.conversationKey(share.secretKey, inbox.hexToBytes()))
@@ -88,6 +94,12 @@ class ContactShare(
         publisher.publish(signer.sign(UnsignedEvent(DELETION, "", addresses + listOf(listOf("k", "${Nip78.KIND}")), at)), urls)
         if (sent()?.share == old.publicKeyHex) secrets.put(SENT, null)
         return all
+    }
+
+    /** The list as it would go out, and its hash. */
+    private suspend fun shelf(): Pair<String, String> {
+        val shelf = json.encodeToString(Shelf.serializer(), Shelf(shows = fit(shows())))
+        return shelf to Sha256.digest(shelf.encodeToByteArray()).toHex()
     }
 
     /** As many shows as one sealed event holds (NIP-44: 65,535 bytes) — the newest first. */

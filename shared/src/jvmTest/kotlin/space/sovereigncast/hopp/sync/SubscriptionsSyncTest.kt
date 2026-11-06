@@ -90,6 +90,33 @@ class SubscriptionsSyncTest {
         assertEquals(0L, phone.row("https://pod.test/selfhosted.xml").contacts_hidden)
     }
 
+    /** ADR 0024, 4a: before a device sends its list, it takes what was left out elsewhere — a round, unless one just ran. */
+    @Test
+    fun aDeviceBecomesUpToDateBeforeSharing() = runBlocking<Unit> {
+        val phone = Device()
+        phone.podcasts.subscribe("https://pod.test/selfhosted.xml")
+        phone.sync.enable()
+        val tablet = Device()
+        tablet.sync.enable()
+        phone.ms += 30_000
+        phone.podcasts.setContactsHidden(phone.row("https://pod.test/selfhosted.xml").id, true)
+        phone.sync.syncNow()
+        assertEquals(0L, tablet.row("https://pod.test/selfhosted.xml").contacts_hidden, "not heard of it yet")
+        tablet.ms += 5 * 60_000
+        assertTrue(tablet.sync.upToDate())
+        assertEquals(1L, tablet.row("https://pod.test/selfhosted.xml").contacts_hidden)
+        assertTrue(tablet.podcasts.shared().isEmpty())
+    }
+
+    /** Sync off: nothing to wait for, and no round. */
+    @Test
+    fun aDeviceWithoutSyncIsUpToDate() = runBlocking<Unit> {
+        val phone = Device()
+        val before = relay.reads.size
+        assertTrue(phone.sync.upToDate())
+        assertEquals(before, relay.reads.size, "nothing asked of a relay")
+    }
+
     /**
      * Maintainer 2026-11-03: tags on shows, as in AntennaPod — any number, on every device; renamed and taken off
      * there too. An entry from a Hopp before tags (none named at all) leaves a device's tags alone.

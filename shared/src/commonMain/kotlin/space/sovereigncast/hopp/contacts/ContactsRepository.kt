@@ -3,6 +3,7 @@ package space.sovereigncast.hopp.contacts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.identity.IdentityRepository
 
 /** What the Nostr page shows of the feature (ADR 0024). */
@@ -84,6 +86,13 @@ class ContactsRepository(
             shareNow()
         }
     }
+
+    /**
+     * [refresh] for a page that opens: it goes on when the page closes. A full read takes a minute with a few
+     * hundred contacts and is kept only at its end; left with the page, the next visit began it anew
+     * (device feedback 2026-11-05). Asks no signer, and every relay is asked with a time limit, so it ends.
+     */
+    suspend fun readToTheEnd(maxAge: Long) = withContext(NonCancellable) { refresh(maxAge = maxAge) }
 
     /** When the shared lists were last looked at again. */
     private var lookedAgainAt = 0L

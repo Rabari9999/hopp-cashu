@@ -50,7 +50,7 @@ class ContactsLiveTest {
         benKeys.set(share = true, see = false)
         val shows = listOf(SharedShow("917393e3-1b1e-5cef-ace4-edaa54e1f810", "https://feeds.podcastindex.org/pc20.xml", "Podcasting 2.0", now()))
         val benContacts = ContactsRepository(benId, benKeys, ContactGraph(benId, publisher, now), now,
-            ContactShare(benId, publisher, benKeys, benSecrets, { shows }, now))
+            ContactShare(benId, publisher, benKeys, benSecrets, { shows }, nowSeconds = now))
         benContacts.refresh(force = true)
         println("ben: ${benContacts.state.value}")
         val annaContacts = ContactsRepository(annaId, annaKeys, ContactGraph(annaId, publisher, now), now)

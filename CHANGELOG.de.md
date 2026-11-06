@@ -8,6 +8,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ### 🐛 Fixes
 - **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
+- **Nostr:** Eine ausgenommene Show erreicht deine Nostr-Kontakte nicht mehr über ein Gerät, das noch nichts davon wusste.
+- **Nostr:** Was deine Nostr-Kontakte tun, lädt weiter, wenn du die Seite verlässt.
+- **Nostr:** Ein Schalter auf einem zurückgebliebenen Gerät ersetzt nicht mehr die Schlüssel deiner anderen Geräte.
 
 ## [0.4.0] - 2026-11-05
 

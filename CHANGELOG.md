@@ -8,6 +8,9 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ### 🐛 Fixes
 - **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
+- **Nostr:** A show you left out no longer reaches your Nostr contacts from a device that had not heard of it yet.
+- **Nostr:** What your Nostr contacts do keeps loading when you leave the page.
+- **Nostr:** A switch flipped on a device left behind no longer replaces the keys of your other devices.
 
 ## [0.4.0] - 2026-11-05
 

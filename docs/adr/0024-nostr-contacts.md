@@ -88,6 +88,10 @@ device takes them over with one question to the signer. Its tags name the
 public halves in the open: `["share", <pubkey>]` when the listener shares,
 `["inbox", <pubkey>]` when they look at what contacts share.
 
+A device left behind that flips a switch starts from the newest note on the
+relays, not from the keys it still holds (2026-11-05): those would replace the
+keys its other devices use.
+
 The contacts note is **public that the listener uses this feature of
 Hopp's**, and with which keys. Hopp says so before it is published — the
 same moment ADR 0021, 8 asks for before a first public action. What the
@@ -126,6 +130,13 @@ with sync in `hopp/subscriptions`, so a show left out on one device is left
 out on all. A show subscribed while sharing is on is shared unless the
 listener leaves it out.
 
+*Added 2026-11-05:* every device with the share key sends its own list, so
+one that has not heard of a show left out elsewhere would share it again. A
+device therefore takes a sync round before it sends a changed list, unless one
+just ran, and leaves the list for the next time when the round fails. A device
+with sync off has only its own view: what is left out elsewhere does not reach
+it, as anything else that travels with sync.
+
 ### 5. Seeing what mutual contacts share
 
 With "Show what my Nostr contacts listen to" on, Hopp reads, once per feed
@@ -133,7 +144,9 @@ refresh and at most every hour: the listener's contact list, then each
 contact's contact list and contacts note — only from contacts in the
 listener's list, in batches of authors; for each mutual contact whose note
 names a share key, the key sealed for the listener's inbox and the shared
-list it opens.
+list it opens. A read opened from a page goes on when the page closes
+(2026-11-05): with a few hundred contacts it takes a minute, and is kept only
+at its end.
 
 ### 6. Public signals
 

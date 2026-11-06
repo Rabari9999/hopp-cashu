@@ -567,7 +567,7 @@ class DiscoverViewModel(
 
     /** Discover shown — each time, not only when first built: the shared lists looked at again every two minutes,
      *  everything read again when older than ten (device feedback 2026-11-02). */
-    fun lookAtContacts() { val c = contacts ?: return; viewModelScope.launch { c.refresh(maxAge = 600) } }
+    fun lookAtContacts() { val c = contacts ?: return; viewModelScope.launch { c.readToTheEnd(maxAge = 600) } }
 
     /** "With your Nostr contacts" (ADR 0024, 7): what they share, most of them first; shows the listener
      *  has left out. Empty unless the listener looks at it — and so without a Nostr identity. */
