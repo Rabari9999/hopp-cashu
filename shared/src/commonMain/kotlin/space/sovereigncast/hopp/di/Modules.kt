@@ -222,8 +222,8 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
-    viewModel { QueueViewModel(get()) }
-    viewModel { DownloadsViewModel(get()) }
+    viewModel { QueueViewModel(get(), get()) }
+    viewModel { DownloadsViewModel(get(), get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get(), get(), get(), get(), get(), get(), get(), get()) }

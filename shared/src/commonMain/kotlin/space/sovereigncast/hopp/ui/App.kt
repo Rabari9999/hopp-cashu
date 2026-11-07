@@ -491,7 +491,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 },
                                 actions = {
                                     // Where a mouse cannot pull the lists down (maintainer 2026-11-01).
-                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
+                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true || destination?.hasRoute(QueueRoute::class) == true || destination?.hasRoute(DownloadsRoute::class) == true)) {
                                         RefreshButton(feeds)
                                     }
                                     // The listener's picture, a menu with signing out (maintainer 2026-11-03).

@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import space.sovereigncast.hopp.ui.components.onSecondaryClick
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -169,7 +170,8 @@ fun DownloadBadge(item: EpisodeItem, modifier: Modifier = Modifier) {
 
 @Composable
 fun EmptyState(title: String, text: String, action: (@Composable () -> Unit)? = null) {
-    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+    // Scrolling, though it fits: a pull only reaches a PullToRefreshBox through something that scrolls.
+    Box(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(32.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)

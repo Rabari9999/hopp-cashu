@@ -99,6 +99,8 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+/** How often the test show's feed was fetched, to see a refresh happen. */
+@Volatile private var feedFetches = 0
 /** The NWC explainer the tour links to is down (device feedback 2026-10-11). */
 private var nwcDown = false
 /** What the phone says about VPN and private DNS, settable per test. */
@@ -230,6 +232,7 @@ class TestApp : Application() {
         // As slow as a phone on the road: the listener moves on while it loads.
         val http = HttpClient(MockEngine { req ->
             kotlinx.coroutines.delay(1_500)
+            if (req.url.encodedPath == "/feed.xml") feedFetches++
             when {
                 req.url.host == "pm.test" -> {
                     val post = req.method == io.ktor.http.HttpMethod.Post
@@ -447,6 +450,50 @@ class AndroidAppFlowTest {
         rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
         waitFor("Ep 1")
         check(has("used", substring = true)) { "no space shown: ${screen()}" }
+    }
+
+    /** A tester's wish 2026-11-07: a pull in Downloads looks for new episodes, from anywhere on the
+     *  page, the empty one too; the same on the playlist's page. */
+    @Test
+    fun aPullLooksForNewEpisodesInDownloadsAndThePlaylist() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Download"); tap("Download")
+        kotlinx.coroutines.runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>().runPending(includeAuto = false) }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val refresh = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.FeedRefresh>()
+        // The refresh waits on the main thread's looper, which only moves on when told to here.
+        fun whileLooking(done: () -> Boolean) = rule.waitUntil(20_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            done()
+        }
+        fun pullLooks() {
+            whileLooking { !refresh.refreshing.value }
+            val before = feedFetches
+            // Well below the first rows: a short list ends above this, and the pull counts all the same.
+            rule.onNode(isRoot()).performTouchInput { swipeDown(startY = height * 0.45f, endY = height * 0.98f, durationMillis = 400) }
+            whileLooking { feedFetches > before }
+            whileLooking { !refresh.refreshing.value }
+        }
+        tap("Library"); waitFor("Downloads")
+        // A finished download joined up next, so the playlist's page is open to it.
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).onFirst().performClick()
+        waitFor("Ep 1")
+        pullLooks()
+        back(); waitFor("Downloads")
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
+        waitFor("Ep 1")
+        pullLooks()
+        // Nothing left: the page says so, in its middle, and still takes the pull.
+        rule.onNode(hasContentDescription("Delete download") and hasClickAction()).performClick()
+        // Ep 2's automatic download still waits.
+        rule.onNode(hasContentDescription("Cancel download") and hasClickAction()).performClick()
+        waitFor("No downloads", substring = true)
+        val middle = rule.onNode(isRoot()).fetchSemanticsNode().boundsInRoot.height / 2
+        val said = rule.onAllNodesWithText("No downloads", substring = true).onFirst().fetchSemanticsNode().boundsInRoot.center.y
+        check(said > middle * 0.7f && said < middle * 1.3f) { "at $said, the middle is $middle" }
+        pullLooks()
     }
 
     /** Device feedback 2026-10-15: an automatic download waiting for Wi-Fi

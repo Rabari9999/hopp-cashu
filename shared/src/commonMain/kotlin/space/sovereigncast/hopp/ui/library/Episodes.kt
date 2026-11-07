@@ -265,6 +265,7 @@ fun QueueList(
     items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
     onOpen: ((EpisodeItem) -> Unit)? = onPlay,
     header: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {}, footer: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     var order by remember { mutableStateOf(items) }
     LaunchedEffect(items) { order = items }
@@ -279,7 +280,7 @@ fun QueueList(
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val dragLabel = stringResource(Res.string.queue_drag)
-    LazyColumn(state = listState) {
+    LazyColumn(modifier, state = listState) {
         header()
         items(order, key = { it.id }) { item ->
             ReorderableItem(reorderable, key = item.id) { dragging ->

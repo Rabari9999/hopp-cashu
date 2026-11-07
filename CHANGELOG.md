@@ -13,6 +13,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🐛 Fixes
 - **App:** Hopp no longer freezes on its start screen after the phone restarts.
 - **Episode:** The button of an episode you began shows the time left, not a cut-off text.
+- **Library:** Pulling down looks for new episodes in Downloads and on the playlist page too.
 - **Sync:** A relay that does not answer no longer holds up syncing.
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
 - **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.

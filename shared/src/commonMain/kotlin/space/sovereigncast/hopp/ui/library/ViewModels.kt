@@ -49,7 +49,7 @@ import space.sovereigncast.hopp.model.Podcast
 private fun <T> ViewModel.state(flow: kotlinx.coroutines.flow.Flow<T>, initial: T): StateFlow<T> =
     flow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
-/** Pull-to-refresh over all subscriptions, shared by Home, New and Library: one refresh for
+/** Pull-to-refresh over all subscriptions, shared by Home, New, Library, the playlist and Downloads: one refresh for
  *  all of them and the top bar's button ([FeedRefresh]). */
 abstract class RefreshingViewModel(private val feeds: space.sovereigncast.hopp.data.FeedRefresh) : ViewModel() {
     val refreshing: StateFlow<Boolean> = feeds.refreshing
@@ -232,7 +232,7 @@ class LibraryViewModel(
     fun showAsList(list: Boolean) = viewModelScope.launch { settings.update { it.copy(libraryAsList = list) } }
 }
 
-class QueueViewModel(private val queue: QueueRepository) : ViewModel() {
+class QueueViewModel(private val queue: QueueRepository, feeds: space.sovereigncast.hopp.data.FeedRefresh) : RefreshingViewModel(feeds) {
     val items: StateFlow<List<EpisodeItem>?> = state(queue.items, null)
     fun remove(item: EpisodeItem) = viewModelScope.launch { queue.remove(item.id) }
     fun reorder(ids: List<Long>) = viewModelScope.launch { queue.reorder(ids) }
@@ -240,7 +240,7 @@ class QueueViewModel(private val queue: QueueRepository) : ViewModel() {
     fun clear() = viewModelScope.launch { queue.clear() }
 }
 
-class DownloadsViewModel(private val downloads: DownloadRepository) : ViewModel() {
+class DownloadsViewModel(private val downloads: DownloadRepository, feeds: space.sovereigncast.hopp.data.FeedRefresh) : RefreshingViewModel(feeds) {
     val items: StateFlow<List<EpisodeItem>?> = state(downloads.downloads, null)
     val usedBytes: StateFlow<Long> = state(downloads.usedBytes, 0L)
     val progress: StateFlow<Map<Long, Float>> = downloads.progress
