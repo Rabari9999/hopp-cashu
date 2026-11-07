@@ -29,7 +29,10 @@ every day in the first release.
   AntennaPod; the next chapter is a button of its own in the notification, on
   the lock screen, in Android Auto and on the widget.)*
 - **Chapters:** list with images, tap to seek, current chapter highlighted,
-  chapter links tappable.
+  chapter links tappable. Added 2026-11-07, in this order: the feed's chapter
+  file, its Podlove chapters, then a list in the notes – at least three lines
+  that each begin, or each end, with a rising time mark; a mark in passing
+  stays a mark.
 - **Transcript:** follows playback with the current cue highlighted, tap to
   seek, searchable.
 - **Episode page:** persons with image and link, soundbites as previews,

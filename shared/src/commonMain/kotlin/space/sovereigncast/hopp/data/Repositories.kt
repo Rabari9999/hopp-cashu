@@ -26,6 +26,7 @@ import kotlinx.serialization.json.Json
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.feed.Chapter
 import space.sovereigncast.hopp.feed.ChaptersParser
+import space.sovereigncast.hopp.feed.NotesChapters
 import space.sovereigncast.hopp.feed.FeedParser
 import space.sovereigncast.hopp.model.Episode
 import space.sovereigncast.hopp.model.Feed
@@ -714,9 +715,27 @@ class EpisodeRepository(
     suspend fun dismiss(id: Long) = withContext(ioDispatcher) { eq.setInbox(0, id) }
     suspend fun clearInbox() = withContext(ioDispatcher) { eq.clearInbox() }
 
-    /** Chapters from the cache, else fetched and cached (offline after the first play). */
+    /** The feed's chapter file, else its Podlove chapters, else a list in the notes (maintainer 2026-11-07).
+     *  A file that fails to load counts only when there is nothing else. */
     suspend fun chapters(item: EpisodeItem): List<Chapter> {
-        val url = item.chaptersUrl ?: return emptyList()
+        val failed = try {
+            val file = item.chaptersUrl?.let { chapterFile(item, it) }.orEmpty()
+            if (file.isNotEmpty()) return file
+            null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e
+        }
+        val own = details(item.id)?.let { e ->
+            e.chapters.ifEmpty { withContext(Dispatchers.Default) { NotesChapters.parse(e.description, item.durationSeconds) } }
+        }.orEmpty()
+        if (own.isEmpty() && failed != null) throw failed
+        return own
+    }
+
+    /** From the cache, else fetched and cached (offline after the first play). */
+    private suspend fun chapterFile(item: EpisodeItem, url: String): List<Chapter> {
         withContext(ioDispatcher) { db.chapterCacheQueries.select(item.id).awaitAsOneOrNull() }?.let {
             return runCatching { ChaptersParser.parse(it) }.getOrDefault(emptyList())
         }

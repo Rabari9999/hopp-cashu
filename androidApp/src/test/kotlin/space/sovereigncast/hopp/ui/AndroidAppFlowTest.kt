@@ -240,6 +240,11 @@ class TestApp : Application() {
                     scInstance(req.url.encodedPath, post)
                 }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
+                // Chapters only as a list in its notes.
+                req.url.encodedPath == "/listed.xml" -> respond("""<?xml version="1.0"?><rss version="2.0"><channel><title>Listed Show</title>
+<item><title>Listed</title><guid>listed</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/listed.mp3" type="audio/mpeg"/><description><![CDATA[<p>(00:00:00) Begrüßung
+(00:10:00) Hauptteil
+(00:50:00) Abschied</p>]]></description></item></channel></rss>""")
                 // A show whose title sorts before Nodesignal's, with no round of its own.
                 req.url.encodedPath == "/begun.xml" -> respond(FEED.replace("<rss version=\"2.0\" ", "<rss version=\"2.0\" xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\" ")
                     .replace("<item><title>Ep 2</title>", "<item><itunes:duration>5400</itunes:duration><title>Ep 2</title>"))
@@ -1975,6 +1980,18 @@ class AndroidAppFlowTest {
         tap("Ep 1"); waitFor("Chapters")
         waitFor("Die Node")
         waitFor("github.com ↗")
+    }
+
+    /** A list in the notes makes chapters (maintainer 2026-11-07): in their tab, and in the player. */
+    @Test
+    fun aListInTheNotesShowsAsChapters() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/listed.xml")
+        waitFor("Listed"); tap("Listed"); waitFor("Chapters")
+        tap("Chapters"); waitFor("Abschied")
+        tap("Play")
+        val player = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.player.PlayerController>()
+        until { player.current.value?.chapters?.stops?.size == 3 }
     }
 
     /** Device feedback 2026-10-17: a chapter's picture full screen from its thumbnail, closed again. */

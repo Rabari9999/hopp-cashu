@@ -146,7 +146,8 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
         if (!notes.isNullOrEmpty()) add(EpisodeTab.Notes)
         // From what the feed declares, not from what has loaded — a tab that
         // arrives late would push the others aside under the listener's thumb.
-        if (e.chaptersUrl != null && (chapters.isNotEmpty() || !chaptersLoaded)) add(EpisodeTab.Chapters)
+        // Chapters may come without a file too (Podlove, the notes); a file is worth the wait, the rest is there at once.
+        if (chapters.isNotEmpty() || (e.chaptersUrl != null && !chaptersLoaded)) add(EpisodeTab.Chapters)
         if (details?.transcripts?.isNotEmpty() == true) add(EpisodeTab.Transcript)
         if (clips.isNotEmpty()) add(EpisodeTab.Clips)
         if (persons.isNotEmpty()) add(EpisodeTab.People)

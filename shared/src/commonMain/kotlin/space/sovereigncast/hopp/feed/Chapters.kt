@@ -7,8 +7,10 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import space.sovereigncast.hopp.ui.components.decodeEntities
 
-/** One entry of a Podcasting 2.0 JSON chapters file. */
+/** One entry of a Podcasting 2.0 JSON chapters file, of a feed's Podlove chapters or of a list in the notes. */
+@kotlinx.serialization.Serializable
 data class Chapter(
     val startSeconds: Double,
     val title: String,
@@ -37,6 +39,78 @@ object ChaptersParser {
             )
         }.sortedBy { it.startSeconds }
     }
+
+    /** A time as Podlove writes it: "01:02:03.500", "02:03" or seconds. */
+    fun normalPlayTime(text: String): Double? {
+        val parts = text.trim().split(':')
+        if (parts.size > 3) return null
+        return parts.fold(0.0 as Double?) { sum, part -> part.toDoubleOrNull()?.takeIf { it >= 0 }?.let { n -> sum?.let { it * 60 + n } } }
+    }
+}
+
+/**
+ * Chapters a show wrote only into its notes (maintainer 2026-11-07): a list of lines that each begin, or
+ * each end, with a time mark. A mark in passing ("at 12:34 he says") is none, so at least [MIN_LINES] of
+ * them, rising, inside the episode; of several runs the longest, for a stray line beside the list.
+ */
+object NotesChapters {
+    private const val MIN_LINES = 3
+
+    fun parse(notes: String?, durationSeconds: Long? = null): List<Chapter> {
+        if (notes.isNullOrBlank()) return emptyList()
+        val lines = BREAK.split(notes)
+        fun list(chapter: (String) -> Chapter?) = lines.mapNotNull(chapter)
+            .filter { durationSeconds == null || durationSeconds <= 0 || it.startSeconds <= durationSeconds }
+            .let(::longestRising).takeIf { it.size >= MIN_LINES }
+        return list(::leading) ?: list(::trailing) ?: emptyList()
+    }
+
+    private fun leading(line: String): Chapter? {
+        val m = LEADING.matchEntire(plain(line)) ?: return null
+        if (CLOCK_TIME.containsMatchIn(m.groupValues[4])) return null
+        return chapter(line, m.groupValues[1], m.groupValues[2], m.groupValues[3], m.groupValues[4])
+    }
+
+    private fun trailing(line: String): Chapter? {
+        val m = TRAILING.matchEntire(plain(line)) ?: return null
+        return chapter(line, m.groupValues[2], m.groupValues[3], m.groupValues[4], m.groupValues[1])
+    }
+
+    private fun plain(line: String) = decodeEntities(TAG.replace(line, "")).replace('\u00A0', ' ').trim()
+
+    private fun chapter(line: String, hours: String, minutes: String, seconds: String, text: String): Chapter? {
+        // A link's address in the title is the chapter's link, not its name.
+        val title = URL.replace(text, "").trim(' ', ':', '-', '–', '—', '|', ',', ';')
+        if (title.isEmpty()) return null
+        val url = HREF.find(line)?.let { it.groupValues[1].ifEmpty { it.groupValues[2] } }?.let(::decodeEntities)
+            ?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) }
+            ?: URL.find(text)?.value?.trimEnd('.', ',', ')', ';', ':', '!', '?')
+        val start = (hours.toLongOrNull() ?: 0) * 3600 + minutes.toLong() * 60 + seconds.toLong()
+        return Chapter(start.toDouble(), title, url = url)
+    }
+
+    private fun longestRising(list: List<Chapter>): List<Chapter> {
+        var best = emptyList<Chapter>()
+        var from = 0
+        for (i in 1..list.size) {
+            if (i < list.size && list[i].startSeconds > list[i - 1].startSeconds) continue
+            if (i - from > best.size) best = list.subList(from, i)
+            from = i
+        }
+        return best
+    }
+
+    private const val TIME = """(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)"""
+    private const val BULLET = """[•·*>#–—-]+\s*"""
+    /** A line each: feeds write them with `<br>`, as list items, or as plain line ends inside a paragraph. */
+    private val BREAK = Regex("""<(?:br|/?(?:p|div|li|ul|ol|tr|h[1-6]|blockquote|section))\b[^>]*>|[\r\n]+""", RegexOption.IGNORE_CASE)
+    private val LEADING = Regex("""^(?:$BULLET|\d+[.)]\s+)?[(\[]?(?<![\d:])$TIME(?:\.\d+)?(?!\d|:\d)[)\]]?[\s:|•·–—-]*(.*)$""")
+    private val TRAILING = Regex("""^(?:$BULLET)?(.+?)[\s:|•·–—-]*[(\[]?(?<![\d:])$TIME(?![\d:])[)\]]?$""")
+    /** "20:15 Uhr", a time of day. */
+    private val CLOCK_TIME = Regex("""^(?:uhr|h|min|mins|minuten|minutes)\b""", RegexOption.IGNORE_CASE)
+    private val TAG = Regex("<[^>]+>")
+    private val HREF = Regex("""href\s*=\s*(?:"([^"]*)"|'([^']*)')""", RegexOption.IGNORE_CASE)
+    private val URL = Regex("""https?://[^\s<>"]+""")
 }
 
 /**

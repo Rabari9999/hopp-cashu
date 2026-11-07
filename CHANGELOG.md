@@ -9,10 +9,12 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🆕 New Features
 - **App:** Hopp in French, Italian and Portuguese.
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
+- **Player:** Chapters also from Podlove feeds and from a list of time marks in the show notes.
 
 ### 🐛 Fixes
 - **App:** Hopp no longer freezes on its start screen after the phone restarts.
 - **Episode:** The button of an episode you began shows the time left, not a cut-off text.
+- **Player:** Chapters of Podigee shows appear, whose feeds name their chapter file in their own way.
 - **Library:** Pulling down looks for new episodes in Downloads and on the playlist page too.
 - **Sync:** A relay that does not answer no longer holds up syncing.
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
