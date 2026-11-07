@@ -470,8 +470,11 @@
     <string name="settings_updates">Atualizações</string>
     <string name="settings_updates_note">Procurar novos episódios</string>
     <string name="settings_appearance">Aparência</string>
-    <string name="settings_appearance_note">Claro, escuro ou como o sistema</string>
-    <string name="settings_theme">Tema</string>
+    <string name="settings_appearance_note">Estilo, claro ou escuro</string>
+    <string name="settings_design">Estilo</string>
+    <string name="settings_design_hopp">Calmo, a preto e branco</string>
+    <string name="settings_design_glut">Quente, como brasas</string>
+    <string name="settings_theme">Claro ou escuro</string>
     <string name="settings_theme_system">Como o sistema</string>
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_dark">Escuro</string>

@@ -72,6 +72,8 @@ data class Settings(
     val libraryTag: String = "",
     /** Light, dark or as the system (the browser) says (maintainer 2026-10-30) — this device's, not synced. */
     val theme: String = THEME_SYSTEM,
+    /** Which of Hopp's looks (maintainer 2026-11-07); light or dark is [theme]. Each device its own, as that. */
+    val design: String = DESIGN_HOPP,
     /** The language Discover's popular and new shows are in: a code ("de"), [LANGUAGE_ALL],
      *  or empty for the device's (device feedback 2026-10-19). */
     val discoverLanguage: String = "",
@@ -155,6 +157,9 @@ data class Settings(
         const val THEME_LIGHT = "light"
         const val THEME_DARK = "dark"
         val themeChoices = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+        const val DESIGN_HOPP = "hopp"
+        const val DESIGN_GLUT = "glut"
+        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"
@@ -206,6 +211,7 @@ data class Settings(
                 librarySort = values["library_sort"]?.takeIf { it in sortChoices } ?: d.librarySort,
                 libraryTag = values["library_tag"] ?: d.libraryTag,
                 theme = values["theme"]?.takeIf { it in themeChoices } ?: d.theme,
+                design = values["design"]?.takeIf { it in designChoices } ?: d.design,
                 discoverLanguage = values["discover_language"] ?: d.discoverLanguage,
                 homeOrder = values["home_order"]?.split('\n')?.filter { it.isNotBlank() } ?: d.homeOrder,
                 homeOrder033 = values["home_order_033"]?.toBooleanStrictOrNull() ?: d.homeOrder033,
@@ -269,6 +275,7 @@ data class Settings(
         "library_sort" to librarySort,
         "library_tag" to libraryTag,
         "theme" to theme,
+        "design" to design,
         "discover_language" to discoverLanguage,
         "home_order" to homeOrder.joinToString("\n"),
         "home_order_033" to homeOrder033.toString(),

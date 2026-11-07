@@ -242,3 +242,21 @@ the reference once the screens exist.
   "All ›" — only once there are any. The tour's wallet page links the NWC
   explainer (nwc.ereignishorizont.xyz) only when the page answers.
 
+### Amendment 2026-11-07: a second design, Glut
+
+Settings → Appearance offers **Hopp** (the default, all of the above) or **Glut**,
+beside light or dark, each device its own. Glut is Sovereigncast's theme of that
+name (`podcast_manager/themes/glut`), its colours taken over by hand rather than
+kept in step: warm like the Sovereigncast poster, orange still only for money.
+Its dark ground is nearly as black as Hopp's, so what sets it apart at night is
+the **glow** of its ground, one for the whole window: `pageGround()` paints it
+at the frame, and what lies on it paints `HoppColors.page` – the ground itself
+in Hopp, nothing in Glut. Rows that hide a swipe's background turn opaque only
+while swiped. Sovereigncast's signal rings have no place in Hopp, whose top bar
+has no symbol; its signal dot and glowing main action may follow.
+
+Contrast is checked by `GlutColorsTest` against this ADR's rules (text 4.5:1,
+controls and the progress bar 3:1). One value differs from Sovereigncast's:
+`valueText` is `#a05000` by day, not `#a65500`, which is 4.47:1 on `surfaceVariant`.
+In the glow's strongest place, the window's very top, secondary text keeps 5.6:1
+by night; nothing orange sits that high.

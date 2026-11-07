@@ -144,6 +144,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.semantics.onClick
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.ui.theme.pageGround
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
@@ -215,7 +216,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     Box(
         Modifier.fillMaxSize()
             .offset { IntOffset(0, dragY.value.roundToInt()) }
-            .background(colors.background)
+            // Over the window, the ground of its own; as a column beside the library, on the window's.
+            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.pageGround())
             .safeDrawingPadding()
             .pointerInput(inPane) {
                 if (inPane) return@pointerInput

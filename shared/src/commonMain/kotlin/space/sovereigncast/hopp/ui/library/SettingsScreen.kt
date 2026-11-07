@@ -103,6 +103,17 @@ import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatBytes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import space.sovereigncast.hopp.resources.settings_design
+import space.sovereigncast.hopp.resources.settings_design_glut
+import space.sovereigncast.hopp.resources.settings_design_hopp
+import space.sovereigncast.hopp.ui.theme.HoppTheme
+import space.sovereigncast.hopp.ui.theme.pageGround
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** The pages behind the settings overview (device feedback 2026-10-10). */
@@ -360,8 +371,16 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
                 }
             }
-            // Light or dark, or as the system says (maintainer 2026-10-30: not to be chosen in Hopp Web).
+            // Hopp's own look or Glut (maintainer 2026-11-07), then light or dark, or as the system says
+            // (maintainer 2026-10-30: not to be chosen in Hopp Web). Each device its own.
             SettingsPage.Appearance -> {
+                Section(stringResource(Res.string.settings_design))
+                val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Settings.designChoices.forEach { d ->
+                        DesignChoice(d, s.design == d, dark, Modifier.weight(1f)) { vm.update { it.copy(design = d) } }
+                    }
+                }
                 Section(stringResource(Res.string.settings_theme))
                 Choices(Settings.themeChoices, s.theme, { t ->
                     stringResource(when (t) {
@@ -470,6 +489,35 @@ private fun Note(text: String) = Text(text, color = MaterialTheme.colorScheme.on
 private fun <T> Choices(options: List<T>, selected: T, label: @Composable (T) -> String, onPick: (T) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { o -> FilterChip(selected = o == selected, onClick = { onPick(o) }, label = { Text(label(o)) }) }
+    }
+}
+
+/** A design to choose, shown as itself: its ground and glow, a card, the main action and the orange of money. */
+@Composable
+private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modifier: Modifier, onPick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier.clip(shape).background(colors.surface).border(if (selected) 2.dp else 1.dp, if (selected) colors.onSurface else colors.outlineVariant, shape)
+            .selectable(selected, role = Role.RadioButton, onClick = onPick),
+    ) {
+        HoppTheme(darkTheme = dark, design = design) {
+            Box(Modifier.fillMaxWidth().height(96.dp).pageGround().padding(12.dp)) {
+                Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface))
+                Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))
+                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value))
+                }
+            }
+        }
+        Column(Modifier.padding(12.dp)) {
+            // The designs' names, in every language.
+            Text(if (design == Settings.DESIGN_GLUT) "Glut" else "Hopp", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(if (design == Settings.DESIGN_GLUT) Res.string.settings_design_glut else Res.string.settings_design_hopp),
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -98,9 +98,9 @@ fun TabbedPage(
                     // Up to three share the width; more scroll, so no label is cut.
                     tabs.size > 3 -> SecondaryScrollableTabRow(
                         selectedTabIndex = pager.currentPage.coerceAtMost(tabs.lastIndex),
-                        containerColor = MaterialTheme.colorScheme.background, edgePadding = 8.dp,
+                        containerColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.page, edgePadding = 8.dp,
                     ) { tabItems(tabs, pager, scope) }
-                    tabs.size > 1 -> SecondaryTabRow(selectedTabIndex = pager.currentPage.coerceAtMost(tabs.lastIndex), containerColor = MaterialTheme.colorScheme.background) {
+                    tabs.size > 1 -> SecondaryTabRow(selectedTabIndex = pager.currentPage.coerceAtMost(tabs.lastIndex), containerColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.page) {
                         tabItems(tabs, pager, scope)
                     }
                     singleLabel && tabs.size == 1 -> Text(tabs[0], Modifier.padding(start = 16.dp, top = 12.dp), style = MaterialTheme.typography.titleMedium)

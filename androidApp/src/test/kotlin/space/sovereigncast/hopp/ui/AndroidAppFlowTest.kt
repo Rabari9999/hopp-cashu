@@ -1995,6 +1995,23 @@ class AndroidAppFlowTest {
         until { player.current.value?.chapters?.stops?.size == 3 }
     }
 
+    /** Hopp's own look or Glut (maintainer 2026-11-07): chosen in the settings, kept, and the whole app goes with it. */
+    @Test
+    fun theDesignIsChosenInTheSettings() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("Appearance"); tap("Appearance")
+        waitFor("Warm, like embers")
+        val settings = koin.get<space.sovereigncast.hopp.data.SettingsRepository>()
+        check(kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP) { "Hopp's own at the start" }
+        rule.onNode(hasText("Glut", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_GLUT }
+        // The page stands as before, on the new ground.
+        waitFor("Light or dark")
+        rule.onNode(hasText("Calm, in black and white", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP }
+    }
+
     /** A mouse over the progress bar names the place (maintainer 2026-11-07). */
     @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
     @Test

@@ -232,10 +232,9 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
             ReorderableItem {
                 // On the page's own ground; lifted only while dragged.
                 Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
-                    // Opaque over what a swipe shows beneath it.
                     PlaylistEntry(
                         item, onClick = onOpen, onOpen = onOpen,
-                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else space.sovereigncast.hopp.ui.theme.Hopp.colors.page,
                         before = { PlayButton(item) },
                     ) {
                         IconButton(onClick = {}, modifier = Modifier.draggableHandle().semantics { contentDescription = dragLabel }) {

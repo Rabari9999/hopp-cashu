@@ -82,6 +82,8 @@ interface PlatformActions {
      *  around Hopp, the status bar's icons (review 2026-10-31: they followed the system's, unreadable on a
      *  theme chosen against it). */
     fun themeChosen(dark: Boolean?) = Unit
+    /** The design's ground, for what the browser colours around the page. */
+    fun groundChosen(argb: Int) = Unit
 }
 
 object NoPlatformActions : PlatformActions {

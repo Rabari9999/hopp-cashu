@@ -41,6 +41,8 @@ private fun saveLink(url: String, name: String): Unit = js("""{
   const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.click();
 }""")
 
+private fun themeColor(color: String): Unit = js("""{ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color)); }""")
+
 private fun clipboard(text: String): Unit = js("{ navigator.clipboard && navigator.clipboard.writeText(text).catch(() => {}); }")
 
 private fun share(text: String, title: String): Unit =
@@ -82,6 +84,7 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     override fun applyUpdate() = WebUpdates.apply()
     override val canSaveAudio: Boolean get() = true
     override val refreshButton: Boolean get() = true
+    override fun groundChosen(argb: Int) = themeColor("#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0'))
     override fun saveAudio(url: String, name: String) {
         // The feed's word, as a link the page clicks: a web address only, whatever the parser let through.
         if (url.startsWith("https://", true) || url.startsWith("http://", true)) saveLink(url, name)

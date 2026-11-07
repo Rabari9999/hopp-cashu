@@ -80,6 +80,7 @@ import space.sovereigncast.hopp.resources.onboarding_welcome_title
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.HoppSymbol
 import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.ui.theme.pageGround
 
 /** [icon] null: Hopp's logo symbol, for the page that says what Hopp is. */
 private data class TourPage(
@@ -149,7 +150,7 @@ fun OnboardingScreen(
     val last = pager.currentPage == PAGES.lastIndex
     // A phone on its side has no height for page, dots and buttons one above the
     // other — the page's text was cut off (device check 2026-10-20): side by side there.
-    BoxWithConstraints(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
+    BoxWithConstraints(Modifier.fillMaxSize().pageGround().safeDrawingPadding()) {
         val sideBySide = maxWidth > maxHeight && maxHeight < 480.dp
         @Composable fun Skip() = Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             // The language right at the start (maintainer 2026-11-03), up here: below, the welcome page would grow and the rest jump.

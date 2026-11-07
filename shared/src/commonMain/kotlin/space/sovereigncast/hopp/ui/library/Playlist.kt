@@ -225,7 +225,9 @@ internal fun PlaylistEntry(
         enableDismissFromStartToEnd = false,
         onDismiss = { remove() },
     ) {
-        Box(Modifier.background(color)) {
+        // Opaque over what a swipe shows beneath it, though the page's row is not on a glowing ground.
+        val swiped = swipe.dismissDirection != SwipeToDismissBoxValue.Settled
+        Box(Modifier.background(if (swiped) MaterialTheme.colorScheme.background else color)) {
             // On the row itself, the node a screen reader stops at.
             val a11y = Modifier.semantics {
                 customActions = listOf(

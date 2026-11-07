@@ -6,9 +6,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 // Colour roles of ADR 0019. Contrast was measured there; change a value only
-// together with that table.
+// together with that table. Glut's are Sovereigncast's theme of that name
+// (podcasting_tools, podcast_manager/themes/glut/tokens.json), taken over by hand.
 
 internal val Ink = Color(0xFF0A0A0A)
 internal val Paper = Color(0xFFF6F5F2)
@@ -81,9 +84,90 @@ data class HoppColors(
     val progressTrack: Color,
     /** "Done" on the privacy page's checks — green, ≥ 4.5:1 as text. */
     val ok: Color,
+    /** What a page, its bars and its rows paint: the ground itself, or nothing where the ground
+     *  glows ([glow]) and has to show through. The ground is [pageGround]'s. */
+    val page: Color,
+    /** The ground's glow, one for the whole window; none in Hopp's own design. */
+    val glow: List<Glow> = emptyList(),
 )
 
-internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32))
-internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784))
+/**
+ * A soft oval of light on the ground: its middle at [x] and [y] of the window plus [dy], faded out
+ * at [reach] of its radii — a CSS radial gradient, as Sovereigncast's `background` token writes it.
+ */
+@Immutable
+data class Glow(val color: Color, val x: Float, val y: Float, val dy: Dp, val radiusX: Dp, val radiusY: Dp, val reach: Float)
+
+internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32), page = Paper)
+internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784), page = Ink)
+
+/** Glut by day: cream and espresso under a warm glow, like the Sovereigncast logo on paper. */
+internal val GlutLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF3B2516),
+    onPrimary = Color(0xFFFFF6EA),
+    secondary = Color(0xFF3B2516),
+    onSecondary = Color(0xFFFFF6EA),
+    background = Color(0xFFFBF5EC),
+    onBackground = Color(0xFF2A1D13),
+    surface = Color(0xFFFFFCF7),
+    onSurface = Color(0xFF2A1D13),
+    surfaceVariant = Color(0xFFF4E9DB),
+    onSurfaceVariant = Color(0xFF6B5746),
+    outline = Color(0xFF8C7561),
+    outlineVariant = Color(0xFFEAD9C5),
+    surfaceContainerLowest = Color(0xFFFFFCF7),
+    surfaceContainerLow = Color(0xFFFFFCF7),
+    surfaceContainer = Color(0xFFFDF8F1),
+    surfaceContainerHigh = Color(0xFFF6EDE1),
+    surfaceContainerHighest = Color(0xFFF4E9DB),
+    secondaryContainer = Color(0xFFEFDFCB),
+    onSecondaryContainer = Color(0xFF2A1D13),
+    error = Color(0xFFAD3A43),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE5E3),
+    onErrorContainer = Color(0xFF862A31),
+)
+
+/** Glut by night, "Kaminfeuer": a deep ground, embers at its edge, candlelight for the main action. */
+internal val GlutDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFFFE1BA),
+    onPrimary = Color(0xFF2A1405),
+    secondary = Color(0xFFFFE1BA),
+    onSecondary = Color(0xFF2A1405),
+    background = Color(0xFF0C0806),
+    onBackground = Color(0xFFF6ECE0),
+    surface = Color(0xFF1D1510),
+    onSurface = Color(0xFFF6ECE0),
+    surfaceVariant = Color(0xFF2C2018),
+    onSurfaceVariant = Color(0xFFB9A693),
+    outline = Color(0xFF8A7663),
+    outlineVariant = Color(0xFF553722),
+    surfaceContainerLowest = Color(0xFF0C0806),
+    surfaceContainerLow = Color(0xFF1D1510),
+    surfaceContainer = Color(0xFF241A14),
+    surfaceContainerHigh = Color(0xFF2C2018),
+    surfaceContainerHighest = Color(0xFF3B2B1F),
+    secondaryContainer = Color(0xFF3D2A1A),
+    onSecondaryContainer = Color(0xFFFFE9CF),
+    error = Color(0xFFEE9BA2),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF3A1E1F),
+    onErrorContainer = Color(0xFFF3B5BA),
+)
+
+internal val GlutLightColors = HoppColors(
+    // valueText a shade under Sovereigncast's #a65500, which is 4.47:1 on the tile "Now" lies on, and less in the glow.
+    value = BitcoinOrange, onValue = Color(0xFF1C120A), valueText = Color(0xFFA05000), progressTrack = Color(0xFF8C7561), ok = Color(0xFF2A7048),
+    page = Color.Transparent,
+    glow = listOf(Glow(Color(0xFFFBDCB4), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+)
+internal val GlutDarkColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF1A1410), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF8A7663), ok = Color(0xFF86C9A1),
+    page = Color.Transparent,
+    glow = listOf(
+        Glow(Color(0x29D65A14), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
+        Glow(Color(0x61F7931A), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+)
 
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }
