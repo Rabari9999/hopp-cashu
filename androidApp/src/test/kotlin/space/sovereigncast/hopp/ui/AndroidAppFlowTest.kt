@@ -1161,6 +1161,26 @@ class AndroidAppFlowTest {
         until { "Ep 1" !in queued() }
     }
 
+    /** Glut's rows show the ground through (beta 2026-11-07): the bin a swipe reveals was there at rest, over the handle. */
+    @Test
+    fun aPlaylistEntryHidesItsBinUntilSwiped() {
+        rule.setContent { App() }
+        val settings = koin.get<space.sovereigncast.hopp.data.SettingsRepository>()
+        kotlinx.coroutines.runBlocking { settings.update { it.copy(design = space.sovereigncast.hopp.data.Settings.DESIGN_GLUT) } }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        menuOf(0); waitFor("Play last"); tap("Play last")
+        tap("Home"); waitFor("Ep 1")
+        fun bins() = rule.onAllNodes(androidx.compose.ui.test.hasTestTag("swipe-remove"), useUnmergedTree = true).fetchSemanticsNodes().size
+        rule.waitForIdle()
+        check(bins() == 0) { "${bins()} bins at rest" }
+        // Part of the way, held: the bin shows.
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(-width * 0.2f, 0f)); moveBy(androidx.compose.ui.geometry.Offset(-width * 0.1f, 0f)) }
+        until { bins() == 1 }
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performTouchInput { cancel() }
+    }
+
     /** "Now" skipped from its long press: the next of the playlist plays (maintainer 2026-11-04). */
     @Test
     fun nowIsSkippedToTheNext() {
