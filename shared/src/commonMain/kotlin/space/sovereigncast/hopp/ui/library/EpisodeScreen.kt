@@ -45,6 +45,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -190,12 +192,13 @@ fun EpisodeScreen(id: Long, onShow: (Long) -> Unit, onGone: () -> Unit, onOpenWa
                     ) {
                         Icon(if (playing) HoppIcons.Pause else HoppIcons.Play, null, Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
+                        // Begun: only the time left, beside the play icon. "Continue · 1:20:00 left" came out as "Cont…"
+                        // beside Boost and three icons (maintainer 2026-11-07); a screen reader still says all of it.
+                        val left = if (!playing && e.positionMs > 0 && !e.played && duration > 0) formatTime(duration - e.positionMs) else null
+                        val spoken = left?.let { stringResource(Res.string.episode_resume, it) }
                         Text(
-                            when {
-                                playing -> stringResource(Res.string.np_pause)
-                                e.positionMs > 0 && !e.played && duration > 0 -> stringResource(Res.string.episode_resume, formatTime(duration - e.positionMs))
-                                else -> stringResource(Res.string.episode_play)
-                            },
+                            left ?: stringResource(if (playing) Res.string.np_pause else Res.string.episode_play),
+                            if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }

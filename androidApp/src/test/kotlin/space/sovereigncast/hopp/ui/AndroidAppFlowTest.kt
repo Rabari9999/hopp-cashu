@@ -238,6 +238,8 @@ class TestApp : Application() {
                 }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
                 // A show whose title sorts before Nodesignal's, with no round of its own.
+                req.url.encodedPath == "/begun.xml" -> respond(FEED.replace("<rss version=\"2.0\" ", "<rss version=\"2.0\" xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\" ")
+                    .replace("<item><title>Ep 2</title>", "<item><itunes:duration>5400</itunes:duration><title>Ep 2</title>"))
                 req.url.encodedPath == "/alpha.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Alpha Show</title>"))
                 // A show without value for value: no podcast:value anywhere.
                 req.url.encodedPath == "/novalue.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Plain Show</title>").replace(Regex("<podcast:value.*?</podcast:value>", RegexOption.DOT_MATCHES_ALL), ""))
@@ -1583,6 +1585,22 @@ class AndroidAppFlowTest {
         rule.onNode(hasContentDescription("Show options")).performClick()
         waitFor("Download new episodes on Wi-Fi")
         check(!has("Unsubscribe")) { "unsubscribe twice: ${screen()}" }
+    }
+
+    /** Maintainer 2026-11-07: begun, the button says only the time left, which fits beside Boost; a screen reader hears all of it. */
+    @Test
+    fun aBegunEpisodesButtonShowsTheTimeLeft() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/begun.xml")
+        waitFor("Ep 2")
+        kotlinx.coroutines.runBlocking {
+            val episodes = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>()
+            episodes.savePosition(episodes.ofPodcast(1).first().first { it.title == "Ep 2" }.id, 600_000)
+        }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Continue · 1:20:00 left") and hasClickAction()).assertIsDisplayed()
+        check(has("1:20:00")) { screen().toString() }
+        check(!has("Continue", substring = true)) { "the long text is on the screen again: ${screen()}" }
     }
 
     /** The round's card opens what the community page shows; the sheet boosts too. */

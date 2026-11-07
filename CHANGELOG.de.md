@@ -12,6 +12,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ### 🐛 Fixes
 - **App:** Hopp bleibt nach einem Neustart des Handys nicht mehr auf dem Startbildschirm hängen.
+- **Folge:** Der Knopf einer angefangenen Folge zeigt die Restzeit statt eines abgeschnittenen Texts.
 - **Sync:** Ein Relay, das nicht antwortet, bremst den Abgleich nicht mehr aus.
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
 - **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
