@@ -17,6 +17,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Hopp bleibt nach einem Neustart des Handys nicht mehr auf dem Startbildschirm hängen.
 - **Folge:** Der Knopf einer angefangenen Folge zeigt die Restzeit statt eines abgeschnittenen Texts.
 - **Player:** Kapitel von Podigee-Shows erscheinen, deren Feeds ihre Kapiteldatei auf eigene Art angeben.
+- **Player:** Ein langer Show-Name bleibt auf zwei Zeilen, statt hinter dem Cover zu verschwinden.
 - **Bibliothek:** Herunterziehen sucht auch in den Downloads und auf der Playlist-Seite nach neuen Folgen.
 - **Sync:** Ein Relay, das nicht antwortet, bremst den Abgleich nicht mehr aus.
 - **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
