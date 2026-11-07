@@ -474,6 +474,7 @@
     <string name="settings_design">Estilo</string>
     <string name="settings_design_hopp">Calmo, a preto e branco</string>
     <string name="settings_design_glut">Quente, como brasas</string>
+    <string name="settings_design_relay">A noite sobre a rede Nostr</string>
     <string name="settings_theme">Claro ou escuro</string>
     <string name="settings_theme_system">Como o sistema</string>
     <string name="settings_theme_light">Claro</string>

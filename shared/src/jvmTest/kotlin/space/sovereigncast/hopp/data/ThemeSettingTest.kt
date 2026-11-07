@@ -19,6 +19,7 @@ class ThemeSettingTest {
     fun theDesignIsKeptAndHoppsIsTheDefault() {
         assertEquals(Settings.DESIGN_HOPP, Settings().design)
         assertEquals(Settings.DESIGN_GLUT, Settings.from(Settings(design = Settings.DESIGN_GLUT).toMap()).design)
+        assertEquals(Settings.DESIGN_RELAY, Settings.from(Settings(design = Settings.DESIGN_RELAY).toMap()).design)
         assertEquals(Settings.DESIGN_HOPP, Settings.from(mapOf("design" to "purple")).design, "an unknown value is Hopp's")
         assertFalse("design" in Settings.SYNCED, "each device its own")
     }

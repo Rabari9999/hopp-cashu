@@ -474,6 +474,7 @@
     <string name="settings_design">Design</string>
     <string name="settings_design_hopp">Ruhig, in Schwarz und Weiß</string>
     <string name="settings_design_glut">Warm wie Glut</string>
+    <string name="settings_design_relay">Die Nacht über dem Nostr-Netz</string>
     <string name="settings_theme">Hell oder dunkel</string>
     <string name="settings_theme_system">Wie das System</string>
     <string name="settings_theme_light">Hell</string>

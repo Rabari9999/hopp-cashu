@@ -474,6 +474,7 @@
     <string name="settings_design">Design</string>
     <string name="settings_design_hopp">Calm, in black and white</string>
     <string name="settings_design_glut">Warm, like embers</string>
+    <string name="settings_design_relay">The night over the Nostr network</string>
     <string name="settings_theme">Light or dark</string>
     <string name="settings_theme_system">As the system</string>
     <string name="settings_theme_light">Light</string>

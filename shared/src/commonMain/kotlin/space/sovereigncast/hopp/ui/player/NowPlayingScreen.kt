@@ -376,7 +376,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             if (withChips) {
                 Spacer(Modifier.height(12.dp))
                 val chipList: @Composable () -> Unit = {
-                    sections.forEach { s -> SheetChip(stringResource(s.label)) { openSection(s) } }
+                    sections.forEach { s -> SheetChip(stringResource(s.label), overNostr = s == PlayerSection.Comments) { openSection(s) } }
                 }
                 if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
                 else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
@@ -393,7 +393,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 // beside the content, and a mouse could not reach the last one.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     sections.forEach { s ->
-                        FilterChip(selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) })
+                        val nostr = Hopp.colors.nostr?.takeIf { s == PlayerSection.Comments }
+                        FilterChip(
+                            selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) },
+                            colors = nostr?.let { androidx.compose.material3.FilterChipDefaults.filterChipColors(containerColor = it.tint, labelColor = it.text, selectedContainerColor = it.fill, selectedLabelColor = it.onFill) }
+                                ?: androidx.compose.material3.FilterChipDefaults.filterChipColors(),
+                        )
                     }
                 }
                 val body = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)
@@ -611,14 +616,15 @@ private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, se
 }
 
 @Composable
-private fun SheetChip(label: String, onClick: () -> Unit) {
+private fun SheetChip(label: String, overNostr: Boolean = false, onClick: () -> Unit) {
+    val nostr = Hopp.colors.nostr?.takeIf { overNostr }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
+        color = nostr?.tint ?: MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
         modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
     ) {
         Text(
             label, Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = nostr?.text ?: MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
         )
     }

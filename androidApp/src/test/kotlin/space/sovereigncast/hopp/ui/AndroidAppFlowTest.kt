@@ -2028,6 +2028,9 @@ class AndroidAppFlowTest {
         until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_GLUT }
         // The page stands as before, on the new ground.
         waitFor("Light or dark")
+        rule.onNode(hasText("Relay", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_RELAY }
+        waitFor("Light or dark")
         rule.onNode(hasText("Calm, in black and white", substring = true) and hasClickAction()).performClick()
         until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP }
     }

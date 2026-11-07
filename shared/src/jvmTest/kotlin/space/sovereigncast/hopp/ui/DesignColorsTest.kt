@@ -12,9 +12,13 @@ import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
 import space.sovereigncast.hopp.ui.theme.GlutLightColors
 import space.sovereigncast.hopp.ui.theme.GlutLightScheme
 import space.sovereigncast.hopp.ui.theme.HoppColors
+import space.sovereigncast.hopp.ui.theme.RelayDarkColors
+import space.sovereigncast.hopp.ui.theme.RelayDarkScheme
+import space.sovereigncast.hopp.ui.theme.RelayLightColors
+import space.sovereigncast.hopp.ui.theme.RelayLightScheme
 
-/** Glut holds to what ADR 0019 asks of Hopp's own colours: text 4.5:1, a control's edge and the progress bar 3:1. */
-class GlutColorsTest {
+/** Glut and Relay hold to what ADR 0019 asks of Hopp's own colours: text 4.5:1, a control's edge and the progress bar 3:1. */
+class DesignColorsTest {
     private fun contrast(a: Color, b: Color): Float {
         val (x, y) = a.luminance() to b.luminance()
         return (max(x, y) + 0.05f) / (min(x, y) + 0.05f)
@@ -36,8 +40,16 @@ class GlutColorsTest {
         at(4.5f, "done", hopp.ok, scheme.background)
         at(3f, "a control's edge", scheme.outline, scheme.background)
         at(3f, "the progress bar", hopp.progressTrack, scheme.background)
+        hopp.nostr?.let { nostr ->
+            at(4.5f, "a label on Nostr's colour", nostr.onFill, nostr.fill)
+            at(4.5f, "Nostr's text on the page", nostr.text, scheme.background)
+            at(4.5f, "Nostr's text on the card", nostr.text, scheme.surface)
+            at(4.5f, "Nostr's text on its tint", nostr.text, nostr.tint)
+        }
     }
 
-    @Test fun byDay() = holds(GlutLightScheme, GlutLightColors, "light")
-    @Test fun byNight() = holds(GlutDarkScheme, GlutDarkColors, "dark")
+    @Test fun glutByDay() = holds(GlutLightScheme, GlutLightColors, "Glut, light")
+    @Test fun glutByNight() = holds(GlutDarkScheme, GlutDarkColors, "Glut, dark")
+    @Test fun relayByDay() = holds(RelayLightScheme, RelayLightColors, "Relay, light")
+    @Test fun relayByNight() = holds(RelayDarkScheme, RelayDarkColors, "Relay, dark")
 }

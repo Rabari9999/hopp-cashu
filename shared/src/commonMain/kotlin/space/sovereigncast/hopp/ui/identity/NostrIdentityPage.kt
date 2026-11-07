@@ -627,8 +627,8 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
         if (withPicture) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ProfilePicture(80.dp, null, picture, name.ifBlank { "+" }) { actions.pickProfileImage { picture = it } }
             Text(stringResource(Res.string.profile_picture_optional), color = muted, style = MaterialTheme.typography.bodySmall)
-        } else Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.value), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.onValue)
+        } else Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.let { it.nostr?.fill ?: it.value }), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.let { it.nostr?.onFill ?: it.onValue })
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Text(stringResource(if (vm.keysInApp) Res.string.nostr_hero_text else Res.string.nostr_hero_text_web), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -639,7 +639,7 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
         return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
-    Button(onClick = { vm.create(name, picture) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+    Button(onClick = { vm.create(name, picture) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp), colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) {
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_start), fontWeight = FontWeight.Bold)
     }
     Text(stringResource(Res.string.nostr_public_line), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -671,7 +671,7 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
     if (vm.signerApp) {
         val ext = vm.signerIsExtension
-        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
+        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
         signerError?.let {
             Text(stringResource(when {
                 it == NostrIdentityViewModel.SignerError.Rejected -> if (ext) Res.string.nostr_extension_rejected else Res.string.nostr_amber_rejected

@@ -255,8 +255,23 @@ in Hopp, nothing in Glut. Rows that hide a swipe's background turn opaque only
 while swiped. Sovereigncast's signal rings have no place in Hopp, whose top bar
 has no symbol; its signal dot and glowing main action may follow.
 
-Contrast is checked by `GlutColorsTest` against this ADR's rules (text 4.5:1,
+Contrast is checked by `DesignColorsTest` against this ADR's rules (text 4.5:1,
 controls and the progress bar 3:1). One value differs from Sovereigncast's:
 `valueText` is `#a05000` by day, not `#a65500`, which is 4.47:1 on `surfaceVariant`.
 In the glow's strongest place, the window's very top, secondary text keeps 5.6:1
 by night; nothing orange sits that high.
+
+### Amendment 2026-11-07: a third design, Relay
+
+The Nostr network as a look: deep indigo with a violet shimmer, built as Glut is,
+with the same `pageGround()`. Its full purple means Nostr, as orange means money,
+and only here does Hopp have such a colour (`HoppColors.nostr`, null elsewhere, so
+Hopp's own and Glut stay as they were): the Nostr contacts' line, the buttons that
+start an identity or sign in, and those that load and send comments. A chapter
+or a boost never takes it; what pays is orange, a zap too. The rest of the frame
+leads in pale indigo, or the purple would stop saying anything.
+
+`DesignColorsTest` holds it to the same rules. The text colour for Nostr and the
+pale indigo are close in lightness by night, so Nostr is never only a coloured word:
+it comes on a tint or a button. The same design exists as a Sovereigncast theme
+package, not in that repository yet.

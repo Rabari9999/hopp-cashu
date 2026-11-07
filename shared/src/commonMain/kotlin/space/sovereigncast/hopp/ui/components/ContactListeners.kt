@@ -58,7 +58,12 @@ fun ContactListeners(guid: String?, feedUrl: String, modifier: Modifier = Modifi
     if (who.isEmpty()) return
     val colors = MaterialTheme.colorScheme
     var open by remember { mutableStateOf(false) }
-    Column(modifier.clip(RoundedCornerShape(8.dp)).clickable { open = true }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val nostr = space.sovereigncast.hopp.ui.theme.Hopp.colors.nostr
+    Column(
+        modifier.clip(RoundedCornerShape(if (nostr != null) 14.dp else 8.dp)).clickable { open = true }
+            .then(if (nostr != null) Modifier.background(nostr.tint).padding(horizontal = 10.dp, vertical = 8.dp) else Modifier),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Overlapping, as Zapstore's "stacked or zapped by" — the group as wide as the faces it shows.
             val faces = minOf(who.size, MAX_FACES)
@@ -72,6 +77,7 @@ fun ContactListeners(guid: String?, feedUrl: String, modifier: Modifier = Modifi
                 pluralStringResource(if (acted) Res.plurals.contacts_acted else Res.plurals.contacts_listen, who.size, who.size),
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+                color = nostr?.text ?: androidx.compose.ui.graphics.Color.Unspecified,
             )
         }
     }

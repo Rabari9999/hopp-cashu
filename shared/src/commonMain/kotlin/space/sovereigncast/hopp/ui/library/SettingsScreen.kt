@@ -114,6 +114,8 @@ import space.sovereigncast.hopp.resources.settings_design_glut
 import space.sovereigncast.hopp.resources.settings_design_hopp
 import space.sovereigncast.hopp.ui.theme.HoppTheme
 import space.sovereigncast.hopp.ui.theme.pageGround
+import space.sovereigncast.hopp.resources.settings_design_relay
+import androidx.compose.foundation.layout.fillMaxHeight
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** The pages behind the settings overview (device feedback 2026-10-10). */
@@ -371,14 +373,15 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
                 }
             }
-            // Hopp's own look or Glut (maintainer 2026-11-07), then light or dark, or as the system says
+            // Hopp's own look, Glut or Relay (maintainer 2026-11-07), then light or dark, or as the system says
             // (maintainer 2026-10-30: not to be chosen in Hopp Web). Each device its own.
             SettingsPage.Appearance -> {
                 Section(stringResource(Res.string.settings_design))
                 val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // As tall as the longest text, in every language.
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Settings.designChoices.forEach { d ->
-                        DesignChoice(d, s.design == d, dark, Modifier.weight(1f)) { vm.update { it.copy(design = d) } }
+                        DesignChoice(d, s.design == d, dark, Modifier.weight(1f).fillMaxHeight()) { vm.update { it.copy(design = d) } }
                     }
                 }
                 Section(stringResource(Res.string.settings_theme))
@@ -502,19 +505,26 @@ private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modif
             .selectable(selected, role = Role.RadioButton, onClick = onPick),
     ) {
         HoppTheme(darkTheme = dark, design = design) {
-            Box(Modifier.fillMaxWidth().height(96.dp).pageGround().padding(12.dp)) {
-                Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface))
-                Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.width(56.dp).height(24.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))
-                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value))
+            Box(Modifier.fillMaxWidth().height(88.dp).pageGround().padding(10.dp)) {
+                Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface))
+                Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.width(36.dp).height(18.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))
+                    Box(Modifier.size(18.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value))
                 }
             }
         }
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(10.dp)) {
             // The designs' names, in every language.
-            Text(if (design == Settings.DESIGN_GLUT) "Glut" else "Hopp", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
-                stringResource(if (design == Settings.DESIGN_GLUT) Res.string.settings_design_glut else Res.string.settings_design_hopp),
+                when (design) { Settings.DESIGN_GLUT -> "Glut"; Settings.DESIGN_RELAY -> "Relay"; else -> "Hopp" },
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(when (design) {
+                    Settings.DESIGN_GLUT -> Res.string.settings_design_glut
+                    Settings.DESIGN_RELAY -> Res.string.settings_design_relay
+                    else -> Res.string.settings_design_hopp
+                }),
                 style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
             )
         }

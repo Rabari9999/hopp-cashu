@@ -159,7 +159,8 @@ data class Settings(
         val themeChoices = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
         const val DESIGN_HOPP = "hopp"
         const val DESIGN_GLUT = "glut"
-        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT)
+        const val DESIGN_RELAY = "relay"
+        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT, DESIGN_RELAY)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"

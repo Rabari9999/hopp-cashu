@@ -89,7 +89,13 @@ data class HoppColors(
     val page: Color,
     /** The ground's glow, one for the whole window; none in Hopp's own design. */
     val glow: List<Glow> = emptyList(),
+    /** A colour of Nostr's own, where the design has one: what goes through Nostr looks as it always did elsewhere. */
+    val nostr: NostrColors? = null,
 )
+
+/** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
+@Immutable
+data class NostrColors(val fill: Color, val onFill: Color, val text: Color, val tint: Color)
 
 /**
  * A soft oval of light on the ground: its middle at [x] and [y] of the window plus [dy], faded out
@@ -168,6 +174,76 @@ internal val GlutDarkColors = HoppColors(
         Glow(Color(0x29D65A14), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
         Glow(Color(0x61F7931A), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
     ),
+)
+
+/** Relay by day: lavender paper under a violet shimmer, deep indigo for the main action. */
+internal val RelayLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF2A2358),
+    onPrimary = Color(0xFFF6F4FF),
+    secondary = Color(0xFF2A2358),
+    onSecondary = Color(0xFFF6F4FF),
+    background = Color(0xFFF7F5FC),
+    onBackground = Color(0xFF1F1A33),
+    surface = Color(0xFFFEFDFF),
+    onSurface = Color(0xFF1F1A33),
+    surfaceVariant = Color(0xFFECE8F6),
+    onSurfaceVariant = Color(0xFF595273),
+    outline = Color(0xFF7F7899),
+    outlineVariant = Color(0xFFDAD5EA),
+    surfaceContainerLowest = Color(0xFFFEFDFF),
+    surfaceContainerLow = Color(0xFFFEFDFF),
+    surfaceContainer = Color(0xFFFAF8FD),
+    surfaceContainerHigh = Color(0xFFF1EDF8),
+    surfaceContainerHighest = Color(0xFFECE8F6),
+    secondaryContainer = Color(0xFFE2DDF3),
+    onSecondaryContainer = Color(0xFF1F1A33),
+    error = Color(0xFFAD3A43),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE5E3),
+    onErrorContainer = Color(0xFF862A31),
+)
+
+/** Relay by night: the night over the Nostr network, deep indigo with a violet shimmer. */
+internal val RelayDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFD6D0FF),
+    onPrimary = Color(0xFF191338),
+    secondary = Color(0xFFD6D0FF),
+    onSecondary = Color(0xFF191338),
+    background = Color(0xFF0A0814),
+    onBackground = Color(0xFFECEBF8),
+    surface = Color(0xFF161328),
+    onSurface = Color(0xFFECEBF8),
+    surfaceVariant = Color(0xFF231F3A),
+    onSurfaceVariant = Color(0xFFA8A3C6),
+    outline = Color(0xFF807AA0),
+    outlineVariant = Color(0xFF3B3560),
+    surfaceContainerLowest = Color(0xFF0A0814),
+    surfaceContainerLow = Color(0xFF161328),
+    surfaceContainer = Color(0xFF1C1830),
+    surfaceContainerHigh = Color(0xFF231F3A),
+    surfaceContainerHighest = Color(0xFF312C4C),
+    secondaryContainer = Color(0xFF2C2750),
+    onSecondaryContainer = Color(0xFFE5E2FB),
+    error = Color(0xFFEE9BA2),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF3A1E1F),
+    onErrorContainer = Color(0xFFF3B5BA),
+)
+
+internal val RelayLightColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF130F24), valueText = Color(0xFFA05000), progressTrack = Color(0xFF7F7899), ok = Color(0xFF2A7048),
+    page = Color.Transparent,
+    glow = listOf(Glow(Color(0xFFDDD2F8), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+    nostr = NostrColors(fill = Color(0xFF8739B8), onFill = Color(0xFFFFFFFF), text = Color(0xFF8739B8), tint = Color(0xFFF3E6F9)),
+)
+internal val RelayDarkColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF130F24), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF807AA0), ok = Color(0xFF86C9A1),
+    page = Color.Transparent,
+    glow = listOf(
+        Glow(Color(0x29963CD2), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
+        Glow(Color(0x5C7058FF), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+    nostr = NostrColors(fill = Color(0xFF8E3FC2), onFill = Color(0xFFFFFFFF), text = Color(0xFFD49CF0), tint = Color(0xFF2D1A3C)),
 )
 
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }
