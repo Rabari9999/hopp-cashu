@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.swipeLeft
@@ -1992,6 +1993,30 @@ class AndroidAppFlowTest {
         tap("Play")
         val player = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.player.PlayerController>()
         until { player.current.value?.chapters?.stops?.size == 3 }
+    }
+
+    /** A mouse over the progress bar names the place (maintainer 2026-11-07). */
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+    @Test
+    fun aMouseOverTheBarNamesTheChapter() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1"); tap("Ep 1"); waitFor("Chapters")
+        tap("Play")
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        until { player.current.value?.chapters?.stops?.size == 2 }
+        player.expand()
+        waitFor("Boost")
+        val bar = rule.onNode(hasContentDescription("Playback position"))
+        // Once the engine knows the length.
+        rule.waitUntil(10_000) {
+            bar.performMouseInput { moveTo(center) }
+            has("30:00 · Die Node")
+        }
+        bar.performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(width * 0.01f, height / 2f)) }
+        waitFor(" · Intro", substring = true)
+        bar.performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(-50f, -50f)) }
+        rule.waitUntil(10_000) { !has(" · Intro", substring = true) }
     }
 
     /** Device feedback 2026-10-17: a chapter's picture full screen from its thumbnail, closed again. */

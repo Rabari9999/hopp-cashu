@@ -23,6 +23,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -33,7 +35,9 @@ import androidx.compose.ui.unit.dp
  * the track (ADR 0019). Tap or drag to seek; while dragging the knob follows
  * the finger and the seek happens on release. Meanwhile [preview] names the
  * place in a bubble over the knob, and [onPreview] tells the screen, whose
- * times below follow too (device feedback 2026-10-21: as YouTube does).
+ * times below follow too (device feedback 2026-10-21: as YouTube does). A mouse
+ * resting over the bar gets the same bubble, and nothing else moves (maintainer
+ * 2026-11-07: which chapter is this, before jumping there).
  */
 @Composable
 fun ChapterProgressBar(
@@ -49,6 +53,7 @@ fun ChapterProgressBar(
     onPreview: (Float?) -> Unit = {},
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
+    var hoverFraction by remember { mutableStateOf<Float?>(null) }
     val shown = (dragFraction ?: fraction).coerceIn(0f, 1f)
     val drag = { f: Float? -> dragFraction = f; onPreview(f) }
     Box(modifier.fillMaxWidth()) {
@@ -57,6 +62,15 @@ fun ChapterProgressBar(
             .fillMaxWidth()
             .height(28.dp)
             .semantics { contentDescription = label }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pointer = event.changes.firstOrNull() ?: continue
+                        hoverFraction = if (pointer.type == PointerType.Mouse && event.type != PointerEventType.Exit) (pointer.position.x / size.width).coerceIn(0f, 1f) else null
+                    }
+                }
+            }
             .pointerInput(Unit) { detectTapGestures { onSeek((it.x / size.width).coerceIn(0f, 1f)) } }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
@@ -75,7 +89,7 @@ fun ChapterProgressBar(
         for (b in boundaries) drawRect(gapColor, Offset(size.width * b - gap / 2, y), Size(gap, h))
         drawCircle(fillColor, radius = 7.5.dp.toPx(), center = Offset(size.width * shown, size.height / 2))
     }
-    val f = dragFraction
+    val f = dragFraction ?: hoverFraction
     if (f != null && preview != null) Text(
         preview(f),
         Modifier

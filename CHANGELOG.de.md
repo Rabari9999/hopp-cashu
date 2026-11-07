@@ -10,6 +10,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Hopp auf Französisch, Italienisch und Portugiesisch.
 - **Sync:** Was gerade läuft, zieht mit: Starte eine Folge auf einem Gerät, und die anderen zeigen sie, bereit zum Weiterhören.
 - **Player:** Kapitel auch aus Podlove-Feeds und aus einer Liste von Zeitmarken in den Shownotes.
+- **Player:** Mit der Maus über dem Fortschrittsbalken siehst du Zeit und Kapitel, bevor du dorthin springst.
 
 ### 🐛 Fixes
 - **App:** Hopp bleibt nach einem Neustart des Handys nicht mehr auf dem Startbildschirm hängen.

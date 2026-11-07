@@ -10,6 +10,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** Hopp in French, Italian and Portuguese.
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
 - **Player:** Chapters also from Podlove feeds and from a list of time marks in the show notes.
+- **Player:** A mouse over the progress bar names the time and chapter before you jump there.
 
 ### 🐛 Fixes
 - **App:** Hopp no longer freezes on its start screen after the phone restarts.
