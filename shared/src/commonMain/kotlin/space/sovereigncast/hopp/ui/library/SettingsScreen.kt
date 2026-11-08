@@ -538,7 +538,7 @@ private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boo
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = onChange, modifier = Modifier.padding(start = 16.dp))
     }
 }
 

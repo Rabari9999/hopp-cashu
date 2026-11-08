@@ -18,6 +18,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Episode:** The button of an episode you began shows the time left, not a cut-off text.
 - **Player:** Chapters of Podigee shows appear, whose feeds name their chapter file in their own way.
 - **Player:** A long show name stays on two lines, not behind the cover.
+- **Settings:** Room between a setting's words and its switch on a phone; the Nostr page parts what goes out in public from the Nostr contacts.
+- **Profile:** The account menu opens your profile from its picture and name, one entry shorter.
 - **Library:** Pulling down looks for new episodes in Downloads and on the playlist page too.
 - **Sync:** A relay that does not answer no longer holds up syncing.
 - **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.

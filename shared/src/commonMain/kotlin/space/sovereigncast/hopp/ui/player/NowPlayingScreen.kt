@@ -574,7 +574,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(label, Modifier.weight(1f))
-                        Switch(checked = on, onCheckedChange = null)
+                        Switch(checked = on, onCheckedChange = null, modifier = Modifier.padding(start = 16.dp))
                     }
                     if (model.engine.supportsSkipSilence) SwitchLine(stringResource(Res.string.skip_silence), settings.skipSilence) { on -> settingsVm.update { it.copy(skipSilence = on) } }
                     // Quiet shows louder (maintainer 2026-10-21), beside skipping silence.

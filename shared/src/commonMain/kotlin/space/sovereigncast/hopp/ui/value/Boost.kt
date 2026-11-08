@@ -475,7 +475,7 @@ internal fun BoostForm(
                         Text(stringResource(Res.string.boost_on_nostr))
                         Text(stringResource(Res.string.boost_on_nostr_note), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
-                    Switch(checked = onNostr, onCheckedChange = { onNostr = it })
+                    Switch(checked = onNostr, onCheckedChange = { onNostr = it }, modifier = Modifier.padding(start = 16.dp))
                 }
             }
 

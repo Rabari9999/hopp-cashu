@@ -208,7 +208,7 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                     )
                 }
-                Switch(checked = fromHere && kind != ShareKind.AudioFile, onCheckedChange = { fromHere = it }, enabled = kind != ShareKind.AudioFile)
+                Switch(checked = fromHere && kind != ShareKind.AudioFile, onCheckedChange = { fromHere = it }, enabled = kind != ShareKind.AudioFile, modifier = Modifier.padding(start = 16.dp))
             }
             Text(
                 stringResource(when (kind) {

@@ -26,6 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -79,8 +83,21 @@ fun ProfileButton(
             else Picture(signedIn, 28.dp, null)
         }
         if (signedIn != null) DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Picture(signedIn, 36.dp, null)
+            // The head opens the profile: one entry less (maintainer 2026-11-08), the pencil says so.
+            val edit = stringResource(Res.string.profile_edit)
+            Row(
+                Modifier.fillMaxWidth().clickable(onClickLabel = edit) { open = false; ProfileEditRequest.request(); onNostr() }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(Modifier.size(42.dp)) {
+                    Picture(signedIn, 38.dp, null)
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).size(18.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface)
+                            .border(2.dp, MaterialTheme.colorScheme.surfaceContainer, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.Edit, null, Modifier.size(10.dp), tint = MaterialTheme.colorScheme.surface) }
+                }
                 Column {
                     Text(signedIn.name ?: "Nostr", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(signedIn.npub.take(12) + "…" + signedIn.npub.takeLast(6), fontFamily = FontFamily.Monospace,
@@ -94,7 +111,6 @@ fun ProfileButton(
                 onTurnOn = { open = false; onNostr() },
             )
             HorizontalDivider(Modifier.padding(top = 4.dp))
-            DropdownMenuItem(text = { Text(stringResource(Res.string.profile_edit)) }, onClick = { open = false; ProfileEditRequest.request(); onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.nostr_title)) }, onClick = { open = false; onNostr() })
             DropdownMenuItem(text = { Text(stringResource(Res.string.stats_title)) }, onClick = { open = false; onStats() })
             DropdownMenuItem(

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
@@ -162,6 +163,28 @@ class HomeLayoutTest {
         check(has("nos.lol") && has("Still to send") && has("nothing")) { screen().toString() }
         tap("Settings")
         waitFor("Sync across devices")
+    }
+
+    /** Maintainer 2026-11-08: the menu one entry shorter, the profile opened from its head (picture and name). */
+    @Test @Config(qualifiers = "en-w411dp-h891dp-night")
+    fun theProfileOpensFromTheMenusHead() {
+        runBlocking {
+            settings.update { it.copy(design = space.sovereigncast.hopp.data.Settings.DESIGN_RELAY) }
+            org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
+        }
+        home()
+        openProfileMenu()
+        check(!has("Edit profile")) { "an entry of its own still: ${screen()}" }
+        shoot("menu-relay")
+        // The Nostr page's switches with room before them, a line before what goes out in public (2026-11-08).
+        tap("Nostr identity")
+        waitFor("Nostr contacts")
+        rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Relays"))
+        shoot("nostr-relay")
+        rule.onNode(hasContentDescription("Back")).performClick()
+        openProfileMenu()
+        tap("Nakamoto")
+        rule.waitUntil(10_000) { has("Your Nostr profile") }
     }
 
     private fun openProfileMenu() {

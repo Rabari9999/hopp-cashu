@@ -924,6 +924,8 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         SyncActions(vm, renew = !me.holdsKey)
     }
     ContactsSection(vm, onSharedShows)
+    // What goes out in public, apart from the contacts (maintainer 2026-11-08).
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
     var relaysOpen by remember { mutableStateOf(false) }
@@ -1257,7 +1259,8 @@ private fun SwitchRow(title: String, note: String, checked: Boolean, enabled: Bo
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        // Room between the words and the switch: on a phone they touched (maintainer 2026-11-08).
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(start = 16.dp))
     }
 }
 
