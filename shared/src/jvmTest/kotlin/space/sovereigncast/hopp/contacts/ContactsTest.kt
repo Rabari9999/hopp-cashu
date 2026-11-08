@@ -616,4 +616,87 @@ class ContactsTest {
         assertEquals(1, tries)
         assertTrue(took < kotlin.time.Duration.parse("8s"), "took $took")
     }
+
+    // Maintainer 2026-11-08: a contact followed after the sharer's last read turned on looking — and saw only
+    // what the sharer boosted, for hours: the sharer's Hopp read its contacts only on a page or a pull.
+
+    /** The list going out again reads first when the last read is an hour old: the contact new since gets the key. */
+    @Test
+    fun aContactNewSinceTheLastReadGetsTheKeyWhenTheListGoesOut(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        val testers = Device(tester)
+        val subscriptions = kotlinx.coroutines.flow.MutableStateFlow(1)
+        val sharing = ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now }
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now }, sharing)
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+        try {
+            testerContacts.start(scope, subscriptions, pause = kotlin.time.Duration.ZERO)
+            testerContacts.setSharing(true)
+            // Afterwards: the two follow each other, and the listener turns looking on.
+            now += 60
+            follows(tester, listener.publicKeyHex)
+            follows(listener, tester.publicKeyHex)
+            val me = Device()
+            me.contacts.setSeeing(true)
+            val inbox = me.keys.inboxKey()!!.publicKeyHex
+            // An hour later the tester subscribes to a show: the list goes out, and the key with it.
+            now += 3601
+            shows = shows + SharedShow("guid-c", "https://c.test/feed", "Show C", 300)
+            subscriptions.value = 2
+            kotlinx.coroutines.withTimeout(5_000) { while (inbox !in sharing.sentTo()) kotlinx.coroutines.delay(20) }
+            now += 121
+            me.contacts.refresh(maxAge = 600)
+            assertEquals(shows.toSet(), me.contacts.state.value.read!!.listening().map { it.show }.toSet())
+        } finally {
+            scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        }
+    }
+
+    /** A mutual contact who shares but sealed no key for this inbox yet is told apart — and no longer once it opens. */
+    @Test
+    fun aListNotYetOpenForThisInboxIsSaid(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val testers = Device(tester)
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now },
+            ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now })
+        testerContacts.setSharing(true)
+        val me = Device()
+        me.contacts.setSeeing(true)
+        assertEquals(listOf(tester.publicKeyHex), me.contacts.state.value.read!!.waiting.map { it.pubkey })
+        now += 60
+        testerContacts.refresh(force = true)
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        val read = me.contacts.state.value.read!!
+        assertTrue(read.waiting.isEmpty())
+        assertEquals(shows.toSet(), read.listening().map { it.show }.toSet())
+    }
+
+    /** On start, back in the foreground and in the background refresh: a read only when the last is an hour old. */
+    @Test
+    fun whenDueReadsOncePerHour(): Unit = runBlocking {
+        follows(listener, KeyPair.generate().publicKeyHex)
+        val asked = mutableListOf<String>()
+        val watching = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { asked += message; inner.send(message) }
+                }
+            }
+        }
+        val me = Device()
+        val contacts = ContactsRepository(me.identity, me.keys, ContactGraph(me.identity, RelayPublisher(watching)) { now }, { now })
+        contacts.setSeeing(true)
+        val reads = { asked.count { it.contains("\"kinds\":[3]") && it.contains(listener.publicKeyHex) && !it.contains("#p") } }
+        val first = reads()
+        now += 1800
+        contacts.whenDue()
+        assertEquals(first, reads(), "half an hour: not yet")
+        now += 1801
+        contacts.whenDue()
+        assertTrue(reads() > first, "an hour: read again")
+    }
 }

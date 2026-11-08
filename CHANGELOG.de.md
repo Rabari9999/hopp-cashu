@@ -15,6 +15,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Einstellungen:** Zwei weitere Designs: Glut, warm wie das Sovereigncast-Plakat, und Relay, die Nacht über dem Nostr-Netz.
 
 ### 🐛 Fixes
+- **Nostr:** Ein Nostr-Kontakt, der neu zuschaut, bekommt deine geteilten Abos innerhalb einer Stunde, ohne dass du eine Seite öffnest; bis dahin sagt seine Nostr-Seite, dass sie kommen.
 - **Nostr:** Deine Nostr-Kontakte sind in Sekunden statt Minuten gelesen; die Seite zeigt, wie weit sie ist, und ein weiteres Gerät bietet die Übernahme sofort an.
 - **App:** Hopp bleibt nach einem Neustart des Handys nicht mehr auf dem Startbildschirm hängen.
 - **Folge:** Der Knopf einer angefangenen Folge zeigt die Restzeit statt eines abgeschnittenen Texts.

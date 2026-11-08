@@ -307,6 +307,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
     val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
+    // The Nostr contacts too, when their last read is an hour old: a contact new since gets their key (ADR 0024, 5).
+    val contacts: space.sovereigncast.hopp.contacts.ContactsRepository = koinInject()
+    val contactsScope = rememberCoroutineScope()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { contactsScope.launch { contacts.whenDue() } }
     // The listening statistics noted before that round, all of it (they otherwise go every half hour).
     val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }

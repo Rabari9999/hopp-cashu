@@ -167,6 +167,18 @@ four at a time. The page shows how far a read got — the contacts, who follows
 back, what they share — and otherwise the last read and how old it is; the
 switches do not wait for a read, and sharing and renewing run after it unseen.
 
+*Added 2026-11-08 (maintainer: a contact followed in the morning saw only the
+sharer's public boosts all afternoon):* the read "once per feed refresh" ran
+only after a refresh started in the app — a pull — and on opening the Nostr
+page or Discover; Android's background refresh left it out, so a new inbox got
+its key only once the sharer opened one of those. Now the read, when the last
+is an hour old, also runs on start, on coming back to the foreground and in the
+background refresh; and a shared list going out again reads first when the
+last read is that old. A mutual contact who shares but sealed no key for the
+listener's inbox yet is shown as such on the Nostr page — "shares with you,
+shows up once their Hopp next checks its contacts" — instead of their public
+signals passing for all there is.
+
 ### 6. Public signals
 
 What the listener's contacts did in public already counts too, without any

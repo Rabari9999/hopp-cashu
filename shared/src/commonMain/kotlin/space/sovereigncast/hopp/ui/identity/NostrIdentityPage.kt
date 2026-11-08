@@ -1020,6 +1020,13 @@ private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Uni
         Text(stringResource(Res.string.contacts_renew_text), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_renew)) }
     }
+    // Shared, but not with this inbox yet: said, rather than left to look like all there is (maintainer 2026-11-08).
+    val waiting = state.read?.waiting.orEmpty().takeIf { note?.seeing == true && note.opened && state.reading == null }.orEmpty()
+    if (waiting.isNotEmpty()) Text(
+        if (waiting.size == 1) stringResource(Res.string.contacts_waiting_one, space.sovereigncast.hopp.ui.library.contactNames(waiting))
+        else stringResource(Res.string.contacts_waiting_more, waiting.size),
+        color = muted, style = MaterialTheme.typography.bodySmall,
+    )
     ContactsReadLine(state.read, state.reading.takeIf { note != null })
     state.error?.let { Text(stringResource(Res.string.contacts_failed, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     ask?.let { act ->

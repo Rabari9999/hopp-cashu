@@ -41,6 +41,9 @@ data class Contact(
     val signals: List<PublicSignal> = emptyList(),
     /** Their write relays (NIP-65), where their list is looked for again. */
     val relays: List<String> = emptyList(),
+    /** They share, but sealed no key for the listener's inbox yet: their Hopp does when it next reads its
+     *  contacts (maintainer 2026-11-08: a list seen only in part, with nothing to say why). */
+    val locked: Boolean = false,
 )
 
 /** A contact's public act about a show: a boost made public or a comment, naming the show's `podcast:guid`. */
@@ -59,6 +62,8 @@ data class ContactsRead(
     val mutual: List<Contact> get() = contacts.values.filter { it.mutual }
     /** Mutual contacts who use the feature: their contacts note names a key. */
     val withHopp: List<Contact> get() = mutual.filter { it.share != null || it.inbox != null }
+    /** Mutual contacts who share, whose list this inbox cannot open yet. */
+    val waiting: List<Contact> get() = mutual.filter { it.locked }
 
     /**
      * Shows the contacts share or did something about in public, each with who (ADR 0024, 7):
@@ -192,7 +197,8 @@ class ContactGraph(
         }
         val contacts = bare.mapValues { (who, c) ->
             val p = named[who]
-            c.copy(shows = shelves[who].orEmpty(), name = p?.first, picture = p?.second, signals = signals[who].orEmpty())
+            c.copy(shows = shelves[who].orEmpty(), name = p?.first, picture = p?.second, signals = signals[who].orEmpty(),
+                locked = who in shelves && shelves[who] == null)
         }
         return ContactsRead(following, contacts, nowSeconds())
     }
@@ -226,11 +232,12 @@ class ContactGraph(
      * their key for this inbox may have come since (device feedback 2026-11-02: it came minutes after the
      * read, and the show waited for the next one). One request per contact, not the whole read.
      */
-    suspend fun shelvesAgain(sharing: List<Contact>, inbox: KeyPair): Map<String, List<SharedShow>> =
+    suspend fun shelvesAgain(sharing: List<Contact>, inbox: KeyPair): Map<String, List<SharedShow>?> =
         withRelayPool { shelves(sharing, sharing.associate { it.pubkey to it.relays }, inbox) }
 
-    /** Each sharing contact's list, opened: the share key sealed to [inbox], then the list sealed by that key. */
-    private suspend fun shelves(sharing: List<Contact>, outbox: Map<String, List<String>>, inbox: KeyPair): Map<String, List<SharedShow>> = coroutineScope {
+    /** Each sharing contact's list, opened: the share key sealed to [inbox], then the list sealed by that key.
+     *  Null for one that sealed no key for [inbox] (yet), or none that opens it. */
+    private suspend fun shelves(sharing: List<Contact>, outbox: Map<String, List<String>>, inbox: KeyPair): Map<String, List<SharedShow>?> = coroutineScope {
         val gate = Semaphore(PARALLEL)
         sharing.map { c ->
             async {
@@ -245,16 +252,16 @@ class ContactGraph(
                     val found = runCatching { withTimeoutOrNull(SHELF_WAIT) { publisher.query(listOf(filter), urls, SETTLE) }.orEmpty() }.getOrDefault(emptyList())
                         .filter { it.pubkey == share && it.kind == Nip78.KIND }
                     val newest = { d: String -> found.filter { it.tag("d") == d }.maxByOrNull { it.created_at } }
-                    val shows = runCatching {
-                        val sealedKey = newest(ContactShare.keyTag(inbox.publicKeyHex))?.takeIf { it.content.isNotEmpty() } ?: return@runCatching emptyList()
+                    val shows: List<SharedShow>? = runCatching<List<SharedShow>?> {
+                        val sealedKey = newest(ContactShare.keyTag(inbox.publicKeyHex))?.takeIf { it.content.isNotEmpty() } ?: return@runCatching null
                         val secret = Nip44.decrypt(sealedKey.content, Nip44.conversationKey(inbox.secretKey, share.hexToBytes()))
                         val key = KeyPair.fromHex(secret)
                         // A key that is not the one the contact's note names opens nothing.
-                        if (key.publicKeyHex != share) return@runCatching emptyList()
+                        if (key.publicKeyHex != share) return@runCatching null
                         val shelf = newest(ContactShare.SHELF)?.takeIf { it.content.isNotEmpty() } ?: return@runCatching emptyList()
                         json.decodeFromString(Shelf.serializer(), Nip44.decrypt(shelf.content, Nip44.conversationKey(key.secretKey, share.hexToBytes()))).shows
                             .filter { it.url.startsWith("http") }.take(MAX_SHOWS)
-                    }.getOrDefault(emptyList())
+                    }.getOrNull()
                     c.pubkey to shows
                 }
             }

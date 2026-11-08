@@ -138,11 +138,16 @@ class ContactsRepository(
         val unnamed = read.contacts.values.filter { it.name == null && (it.shows.isNotEmpty() || it.signals.isNotEmpty()) }.map { it.pubkey }
         if ((sharing.isEmpty() && unnamed.isEmpty()) || nowSeconds() - lookedAgainAt < LOOK_AGAIN_EVERY) return
         lookedAgainAt = nowSeconds()
-        val opened = graph.shelvesAgain(sharing, inbox).filterValues { it.isNotEmpty() }.filter { (who, shows) -> read.contacts[who]?.shows != shows }
+        val again = graph.shelvesAgain(sharing, inbox)
+        val opened = again.mapNotNull { (who, shows) -> shows?.takeIf { it.isNotEmpty() }?.let { who to it } }.toMap()
+            .filter { (who, shows) -> read.contacts[who]?.shows != shows }
+        // A list that opens now is no longer waited for.
+        val unlocked = again.filterValues { it != null }.keys.filter { read.contacts[it]?.locked == true }
         val named = runCatching { graph.profiles((unnamed + opened.keys.filter { read.contacts[it]?.name == null }).toSet()) }.getOrDefault(emptyMap())
-        if (opened.isEmpty() && named.isEmpty()) return
+        if (opened.isEmpty() && named.isEmpty() && unlocked.isEmpty()) return
         val updated = read.copy(contacts = read.contacts.mapValues { (who, c) ->
-            c.copy(shows = opened[who] ?: c.shows, name = c.name ?: named[who]?.first, picture = c.picture ?: named[who]?.second)
+            c.copy(shows = opened[who] ?: c.shows, name = c.name ?: named[who]?.first, picture = c.picture ?: named[who]?.second,
+                locked = c.locked && who !in unlocked)
         })
         _state.update { it.copy(read = updated) }
         runCatching { cache?.save(updated) }
@@ -211,8 +216,31 @@ class ContactsRepository(
     /** Sends the shared list again when [subscriptions] change — at most every [pause] (ADR 0024, 4). */
     @OptIn(FlowPreview::class)
     fun start(scope: CoroutineScope, subscriptions: Flow<*>, pause: Duration = 5.minutes) {
-        scope.launch { subscriptions.drop(1).debounce(pause).collect { lock.withLock { work { shareNow() } } } }
+        scope.launch {
+            subscriptions.drop(1).debounce(pause).collect {
+                lock.withLock {
+                    withRelayPool {
+                        work {
+                            // The list goes to the inboxes the last read found: read first when that is due — a contact
+                            // followed since got no key, and saw a part of what is shared (maintainer 2026-11-08).
+                            val note = _state.value.note
+                            val last = _state.value.read?.at
+                            if (note != null && note.sharing && note.opened && (last == null || nowSeconds() - last >= readEvery)) readNow()
+                            shareNow()
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    /**
+     * Hopp started or came back to the foreground, or looked for new episodes in the background: the
+     * contacts read when the last read is [readEvery] old (ADR 0024, 5) — so a contact who turned on looking
+     * gets the key to what is shared without the listener opening a page (maintainer 2026-11-08: only the
+     * Nostr page, Discover and a pull read them, and a new contact waited hours). Goes on when the caller goes.
+     */
+    suspend fun whenDue() = withContext(NonCancellable) { refresh() }
 
     /** What changed of the shared list and the keys for mutual contacts who look, sent — only while sharing. */
     private suspend fun shareNow() {

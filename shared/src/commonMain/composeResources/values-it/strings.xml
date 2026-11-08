@@ -1205,6 +1205,8 @@
         <item quantity="other">%1$d contatti · verifico chi ti segue a sua volta …</item>
     </plurals>
     <string name="contacts_step_shared">Apertura di ciò che condividono i contatti …</string>
+    <string name="contacts_waiting_one">%1$s condivide le sue iscrizioni con te. Compariranno quando Hopp controllerà i contatti sul dispositivo di %1$s.</string>
+    <string name="contacts_waiting_more">%1$d contatti condividono le loro iscrizioni con te. Compariranno quando Hopp controllerà i contatti sui loro dispositivi.</string>
     <string name="contacts_updated">Aggiornato %1$s</string>
     <string name="contacts_elsewhere_title">Attivato su un altro dispositivo</string>
     <string name="contacts_elsewhere_text">Attivalo qui per condividere e vedere anche su questo dispositivo.</string>
