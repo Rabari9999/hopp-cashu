@@ -53,7 +53,9 @@ class NostrContactsLayoutTest {
             shows = listOf(SharedShow(null, "https://pod.test/feed.xml", "Test Show", now - 100), SharedShow(null, "https://pod.test/alpha.xml", "Alpha Show", now - 50)))
         val ben = Contact("b".repeat(64), mutual = false, name = "Ben mit einem recht langen Namen",
             signals = listOf(PublicSignal("guid-boosted", boost = true, at = now - 10)))
-        val read = ContactsRead(setOf(anna.pubkey, ben.pubkey), mapOf(anna.pubkey to anna, ben.pubkey to ben), now - 60,
+        // Shares, but sealed no key for this inbox yet (maintainer 2026-11-08).
+        val carl = Contact("e".repeat(64), mutual = true, inbox = "f".repeat(64), share = "9".repeat(64), name = "Carl", locked = true)
+        val read = ContactsRead(setOf(anna.pubkey, ben.pubkey, carl.pubkey), mapOf(anna.pubkey to anna, ben.pubkey to ben, carl.pubkey to carl), now - 60,
             looked = mapOf("guid-boosted" to SharedShow("guid-boosted", "https://pod.test/novalue.xml", "Ein geboosteter Podcast mit langem Titel", 0)))
         koin.get<space.sovereigncast.hopp.db.HoppDatabase>().contactsQueries.put(kotlinx.serialization.json.Json.encodeToString(ContactsRead.serializer(), read), read.at)
     }
@@ -94,14 +96,52 @@ class NostrContactsLayoutTest {
         waitFor("Nostr-Kontakte")
         rule.onAllNodesWithText("Nostr-Kontakte").onFirst().performScrollTo()
         rule.waitForIdle()
+        // The last read and how old it is (maintainer 2026-11-08).
+        waitFor("Aktualisiert vor 1 Min.")
+        org.junit.Assert.assertTrue(has("Carl teilt Abos mit dir."))
+        rule.onNode(hasText("Aktualisiert vor 1 Min.")).performScrollTo()
+        rule.waitForIdle()
         shoot("nostr")
-        // Every show and whether it is shared, one tap away (maintainer 2026-11-02).
+        // Every show and whether it is shared, one tap away (maintainer 2026-11-02), sharing off too: chosen
+        // before the first share (2026-11-08).
         rule.onNode(hasText("Geteilte Shows") and hasClickAction()).performScrollTo().performClick()
         waitFor("Noch keine Abos")
         shoot("shared-shows")
     }
 
-    /** Sync on: its line and, in one row, sync now, the key to show and to renew (maintainer 2026-11-03). */
+    /**
+     * Turned on on another device (maintainer 2026-11-08): the card that takes it over shows at once, the
+     * switches say they are not on this device yet. A note this device cannot open stands in for one its
+     * signer app has to open.
+     */
+    @Test
+    fun theTakeOverShowsAtOnce() {
+        val identity = koin.get<space.sovereigncast.hopp.identity.IdentityRepository>()
+        val me = space.sovereigncast.hopp.nostr.KeyPair.generate()
+        runBlocking { identity.importKey(space.sovereigncast.hopp.nostr.Bech32.encode("nsec", me.secretKey)) }
+        OkRelays.held = listOf(space.sovereigncast.hopp.nostr.Event.sign(me, 30078, "sealed elsewhere", listOf(
+            listOf("d", "hopp/contacts"), listOf("share", "d".repeat(64)), listOf("inbox", "c".repeat(64))), System.currentTimeMillis() / 1000 - 30))
+        try {
+            rule.setContent { App() }
+            rule.waitForIdle()
+            rule.onNode(hasContentDescription("Einstellungen")).performClick()
+            waitFor("Nostr-Identität")
+            rule.onNode(hasText("Nostr-Identität") and hasClickAction()).performScrollTo().performClick()
+            waitFor("Auf einem anderen Gerät eingeschaltet")
+            rule.onAllNodesWithText("Nostr-Kontakte").onFirst().performScrollTo()
+            rule.waitForIdle()
+            org.junit.Assert.assertTrue(has("Auf diesem Gerät übernehmen"))
+            org.junit.Assert.assertEquals(2, rule.onAllNodesWithText("An, aber auf diesem Gerät noch nicht übernommen").fetchSemanticsNodes().size)
+            org.junit.Assert.assertFalse("nothing read before it is taken over", has("Lese deine Kontaktliste"))
+            rule.onAllNodesWithText("An, aber auf diesem Gerät noch nicht übernommen")[1].performScrollTo()
+            rule.waitForIdle()
+            shoot("nostr-elsewhere")
+        } finally {
+            OkRelays.held = emptyList()
+        }
+    }
+
+    /** Sync on: its line and sync now; the key to show and to renew under "Erweitert" (maintainer 2026-11-03, 2026-11-08). */
     @Test
     fun theSyncRowFitsAPhone() {
         looking()
@@ -111,6 +151,9 @@ class NostrContactsLayoutTest {
         rule.onNode(hasContentDescription("Einstellungen")).performClick()
         waitFor("Nostr-Identität")
         rule.onNode(hasText("Nostr-Identität") and hasClickAction()).performScrollTo().performClick()
+        // Folded under "Erweitert" since 2026-11-08.
+        waitFor("Erweitert")
+        rule.onNode(hasText("Erweitert") and hasClickAction()).performScrollTo().performClick()
         waitFor("Schlüssel zeigen")
         rule.onAllNodesWithText("Schlüssel zeigen").onFirst().performScrollTo()
         rule.waitForIdle()

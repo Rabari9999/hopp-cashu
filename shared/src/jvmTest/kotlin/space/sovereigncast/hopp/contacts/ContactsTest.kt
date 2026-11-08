@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.contacts
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.crypto.hexToBytes
 import space.sovereigncast.hopp.crypto.toHex
@@ -7,12 +8,14 @@ import space.sovereigncast.hopp.identity.IdentityRepository
 import space.sovereigncast.hopp.nostr.Bech32
 import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.KeyPair
+import space.sovereigncast.hopp.nostr.Nip44
 import space.sovereigncast.hopp.nostr.Nip78
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.platform.MemorySecretStore
 import space.sovereigncast.hopp.value.FakeRelay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -64,6 +67,39 @@ class ContactsTest {
         assertTrue(assertNotNull(laptop.keys.note(interactive = true)).opened)
         assertEquals(phone.keys.shareKey()!!.publicKeyHex, laptop.keys.shareKey()!!.publicKeyHex)
         assertEquals(phone.keys.inboxKey()!!.publicKeyHex, laptop.keys.inboxKey()!!.publicKeyHex)
+    }
+
+    /** A device left behind that flips a switch keeps the keys the note on the relays names — none of its own over them. */
+    @Test
+    fun aDeviceLeftBehindKeepsTheNewestKeys(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = false, see = true)
+        val laptop = Device()
+        laptop.keys.note(interactive = true)
+        now += 10
+        phone.keys.set(share = true, see = true)
+        val share = phone.keys.shareKey()!!.publicKeyHex
+        val inbox = phone.keys.inboxKey()!!.publicKeyHex
+        now += 10
+        // The laptop never heard of the share key; it is the note that says so.
+        assertEquals(share, laptop.keys.set(share = true, see = true)!!.share)
+        assertEquals(share, laptop.keys.shareKey()!!.publicKeyHex)
+        assertEquals(inbox, laptop.keys.inboxKey()!!.publicKeyHex)
+    }
+
+    /** Both turned off elsewhere since: what this device still held is not taken up again. */
+    @Test
+    fun aDeviceLeftBehindDoesNotBringOldKeysBack(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = false, see = true)
+        val inbox = phone.keys.inboxKey()!!.publicKeyHex
+        val laptop = Device()
+        laptop.keys.note(interactive = true)
+        now += 10
+        phone.keys.set(share = false, see = false)
+        now += 10
+        laptop.keys.set(share = false, see = true)
+        assertNotEquals(inbox, laptop.keys.inboxKey()!!.publicKeyHex)
     }
 
     /** A part turned off loses its key; turned on again it gets a new one. The other part keeps its own. */
@@ -134,6 +170,56 @@ class ContactsTest {
     private fun share(device: Device) = ContactShare(device.identity, RelayPublisher(relay), device.keys, device.secrets, { shows }) { now }
 
     private fun byShareKey(share: KeyPair) = relay.stored().filter { it.pubkey == share.publicKeyHex && it.kind == Nip78.KIND }.distinctBy { it.id }
+
+    /** ADR 0024, 4a: a device not known to be up to date sends no list — and one up to date sends what it knows then. */
+    @Test
+    fun aListGoesOutOnlyFromADeviceUpToDate(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = false)
+        val leftOutElsewhere = shows.first()
+        var list = shows
+        var upToDate = false
+        var asked = 0
+        val sharer = ContactShare(phone.identity, RelayPublisher(relay), phone.keys, phone.secrets, { list }, { asked++; upToDate.also { if (it) list = shows - leftOutElsewhere } }) { now }
+        val inbox = KeyPair.generate()
+        sharer.publish(setOf(inbox.publicKeyHex))
+        val key = phone.keys.shareKey()!!
+        assertEquals(1, asked)
+        assertTrue(byShareKey(key).none { it.tag("d") == ContactShare.SHELF }, "no list yet")
+        assertTrue(byShareKey(key).any { it.tag("d") == ContactShare.keyTag(inbox.publicKeyHex) }, "the key says nothing of the shows")
+        upToDate = true
+        sharer.publish(setOf(inbox.publicKeyHex))
+        val shelf = byShareKey(key).single { it.tag("d") == ContactShare.SHELF }
+        val opened = Nip44.decrypt(shelf.content, Nip44.conversationKey(key.secretKey, key.publicKeyHex.hexToBytes()))
+        assertFalse(leftOutElsewhere.url in opened, "what the round brought counts")
+        // Nothing changed: no round asked for it.
+        asked = 0
+        sharer.publish(setOf(inbox.publicKeyHex))
+        assertEquals(0, asked)
+    }
+
+    /** Device feedback 2026-11-05: a read takes a minute, and leaving the page threw away what it had found. */
+    @Test
+    fun aReadGoesOnWhenThePageCloses(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        val slow = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { kotlinx.coroutines.delay(20); inner.send(message) }
+                }
+            }
+        }
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val contacts = ContactsRepository(me.identity, me.keys, ContactGraph(me.identity, RelayPublisher(slow)) { now }, { now })
+        val page = launch(kotlinx.coroutines.Dispatchers.Default) { contacts.readToTheEnd(maxAge = 300) }
+        kotlinx.coroutines.delay(5)
+        page.cancel()
+        page.join()
+        assertEquals(setOf(anna.publicKeyHex), contacts.state.value.read?.following)
+    }
 
     /** The list opens with the share key alone; a mutual contact's inbox opens the share key. */
     @Test
@@ -370,6 +456,46 @@ class ContactsTest {
         assertEquals("Testjupp", read.contacts.getValue(tester.publicKeyHex).name)
     }
 
+    /** Device feedback 2026-11-05: a contact whose profile was not found stayed an npub until the next full read. */
+    @Test
+    fun aContactWithoutANameIsAskedForAgainSoon(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val testers = Device(tester)
+        testers.keys.set(share = true, see = false)
+        ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now }.publish(setOf(me.keys.inboxKey()!!.publicKeyHex))
+        me.contacts.refresh(force = true)
+        assertNull(me.contacts.state.value.read!!.contacts.getValue(tester.publicKeyHex).name)
+        relay.publish(Event.sign(tester, 0, """{"name":"Testjupp","picture":"https://t.test/j.png"}""", emptyList(), now))
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        val found = me.contacts.state.value.read!!.contacts.getValue(tester.publicKeyHex)
+        assertEquals("Testjupp", found.name)
+        assertEquals("https://t.test/j.png", found.picture)
+        assertEquals(shows.toSet(), found.shows.toSet(), "what they share stays")
+    }
+
+    /** A look-up that finds no profile is no profile gone: the name stays through the next read. */
+    @Test
+    fun aNameOnceFoundStays(): Unit = runBlocking {
+        val before = ContactsRead(setOf("a", "b"), mapOf(
+            "a" to Contact("a", mutual = true, name = "Anna", picture = "https://a.test/a.png"),
+            "b" to Contact("b", mutual = true, name = "Ben"),
+        ), now)
+        val read = ContactsRead(setOf("a", "b", "c"), mapOf(
+            "a" to Contact("a", mutual = true),
+            "b" to Contact("b", mutual = true, name = "Benjamin"),
+            "c" to Contact("c", mutual = false),
+        ), now + 3600).keepingNames(before)
+        assertEquals("Anna", read.contacts.getValue("a").name)
+        assertEquals("https://a.test/a.png", read.contacts.getValue("a").picture)
+        assertEquals("Benjamin", read.contacts.getValue("b").name, "a name found now goes first")
+        assertNull(read.contacts.getValue("c").name)
+    }
+
     /** Device feedback 2026-11-02: a show subscribed by the sharer appeared only after a full read. The shared
      *  lists are looked at again every two minutes between full reads; one that does not come keeps what was there. */
     @Test
@@ -398,5 +524,179 @@ class ContactsTest {
         now += 121
         me.contacts.refresh(maxAge = 600)
         assertEquals(3, me.contacts.state.value.read!!.listening().size)
+    }
+
+    // Maintainer 2026-11-08: a read took one to two minutes with one contact, and another device waited
+    // for a whole read before it even offered to take the keys over.
+
+    /** A key Hopp holds opens the note made on another device without anyone asked: nothing to tap. */
+    @Test
+    fun aKeyHoppHoldsTakesTheNoteOverWithoutATap(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = true)
+        val laptop = Device()
+        laptop.contacts.refresh(maxAge = 300)
+        assertTrue(assertNotNull(laptop.contacts.state.value.note).opened)
+        assertEquals(phone.keys.shareKey()!!.publicKeyHex, laptop.keys.shareKey()!!.publicKeyHex)
+        assertNotNull(laptop.contacts.state.value.read, "and read at once")
+    }
+
+    /** With a signer app the note shows at once — no read before it is taken over, and no question to the
+     *  signer until the listener taps; the tap opens it and reads. */
+    @Test
+    fun aSignerAppDeviceOffersTheTakeOverBeforeAnyRead(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        Device().keys.set(share = true, see = true)
+        val asked = mutableListOf<String>()
+        val watching = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { asked += message; inner.send(message) }
+                }
+            }
+        }
+        val app = space.sovereigncast.hopp.identity.FakeSignerApp(listener)
+        val secrets = MemorySecretStore()
+        val identity = IdentityRepository(secrets, RelayPublisher(relay), { now }, app).also { it.signInWithSigner() }
+        val keys = ContactKeys(identity, RelayPublisher(relay), secrets) { now }
+        val contacts = ContactsRepository(identity, keys, ContactGraph(identity, RelayPublisher(watching)) { now }, { now })
+        contacts.refresh(maxAge = 300)
+        val note = assertNotNull(contacts.state.value.note)
+        assertTrue(note.sharing && note.seeing && !note.opened)
+        assertNull(contacts.state.value.read)
+        assertTrue(asked.none { it.contains("\"kinds\":[3]") }, "no contact list asked for")
+        assertTrue("nip44_decrypt" !in app.requests, "the signer is not asked without the listener")
+        contacts.refresh(force = true, interactive = true)
+        assertTrue(contacts.state.value.note!!.opened)
+        assertFalse(contacts.state.value.working)
+        assertEquals(setOf(anna.publicKeyHex), contacts.state.value.read!!.mutual.map { it.pubkey }.toSet())
+    }
+
+    /** A read says how far it got: the contacts, then who follows back and who of them uses Hopp. */
+    @Test
+    fun aReadSaysHowFarItGot(): Unit = runBlocking {
+        val anna = KeyPair.generate(); val ben = KeyPair.generate()
+        follows(listener, anna.publicKeyHex, ben.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        Device(anna).keys.set(share = false, see = true)
+        val steps = mutableListOf<ReadProgress>()
+        val read = assertNotNull(Device().graph.read { steps += it })
+        assertEquals(listOf(ReadProgress(), ReadProgress(2), ReadProgress(2, 1, 1)), steps)
+        assertEquals(1, read.withHopp.size)
+    }
+
+    /** A contact's relay that never answers is waited for once, and briefly — not by every step, nor for the
+     *  full timeout (maintainer 2026-11-08). */
+    @Test
+    fun aDeadRelayOfAContactIsWaitedForOnce(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        relay.publish(Event.sign(anna, 10002, "", listOf(listOf("r", "wss://gone.test")), now - 100))
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val annas = Device(anna)
+        annas.keys.set(share = true, see = false)
+        ContactShare(annas.identity, RelayPublisher(relay), annas.keys, annas.secrets, { shows }) { now }.publish(setOf(me.keys.inboxKey()!!.publicKeyHex))
+        var tries = 0
+        val oneGone = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                if ("gone.test" in url) { tries++; kotlinx.coroutines.awaitCancellation() }
+                return relay.connect(url)
+            }
+        }
+        val graph = ContactGraph(me.identity, RelayPublisher(oneGone)) { now }
+        val started = kotlin.time.TimeSource.Monotonic.markNow()
+        val read = assertNotNull(graph.read(me.keys.inboxKey()))
+        val took = started.elapsedNow()
+        assertEquals(shows.toSet(), read.contacts.getValue(anna.publicKeyHex).shows.toSet(), "her list still opens, from Hopp's relays")
+        assertEquals(1, tries)
+        assertTrue(took < kotlin.time.Duration.parse("8s"), "took $took")
+    }
+
+    // Maintainer 2026-11-08: a contact followed after the sharer's last read turned on looking — and saw only
+    // what the sharer boosted, for hours: the sharer's Hopp read its contacts only on a page or a pull.
+
+    /** The list going out again reads first when the last read is an hour old: the contact new since gets the key. */
+    @Test
+    fun aContactNewSinceTheLastReadGetsTheKeyWhenTheListGoesOut(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        val testers = Device(tester)
+        val subscriptions = kotlinx.coroutines.flow.MutableStateFlow(1)
+        val sharing = ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now }
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now }, sharing)
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+        try {
+            testerContacts.start(scope, subscriptions, pause = kotlin.time.Duration.ZERO)
+            testerContacts.setSharing(true)
+            // Afterwards: the two follow each other, and the listener turns looking on.
+            now += 60
+            follows(tester, listener.publicKeyHex)
+            follows(listener, tester.publicKeyHex)
+            val me = Device()
+            me.contacts.setSeeing(true)
+            val inbox = me.keys.inboxKey()!!.publicKeyHex
+            // An hour later the tester subscribes to a show: the list goes out, and the key with it.
+            now += 3601
+            shows = shows + SharedShow("guid-c", "https://c.test/feed", "Show C", 300)
+            subscriptions.value = 2
+            kotlinx.coroutines.withTimeout(5_000) { while (inbox !in sharing.sentTo()) kotlinx.coroutines.delay(20) }
+            now += 121
+            me.contacts.refresh(maxAge = 600)
+            assertEquals(shows.toSet(), me.contacts.state.value.read!!.listening().map { it.show }.toSet())
+        } finally {
+            scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        }
+    }
+
+    /** A mutual contact who shares but sealed no key for this inbox yet is told apart — and no longer once it opens. */
+    @Test
+    fun aListNotYetOpenForThisInboxIsSaid(): Unit = runBlocking {
+        val tester = KeyPair.generate()
+        follows(listener, tester.publicKeyHex)
+        follows(tester, listener.publicKeyHex)
+        val testers = Device(tester)
+        val testerContacts = ContactsRepository(testers.identity, testers.keys, testers.graph, { now },
+            ContactShare(testers.identity, RelayPublisher(relay), testers.keys, testers.secrets, { shows }) { now })
+        testerContacts.setSharing(true)
+        val me = Device()
+        me.contacts.setSeeing(true)
+        assertEquals(listOf(tester.publicKeyHex), me.contacts.state.value.read!!.waiting.map { it.pubkey })
+        now += 60
+        testerContacts.refresh(force = true)
+        now += 121
+        me.contacts.refresh(maxAge = 600)
+        val read = me.contacts.state.value.read!!
+        assertTrue(read.waiting.isEmpty())
+        assertEquals(shows.toSet(), read.listening().map { it.show }.toSet())
+    }
+
+    /** On start, back in the foreground and in the background refresh: a read only when the last is an hour old. */
+    @Test
+    fun whenDueReadsOncePerHour(): Unit = runBlocking {
+        follows(listener, KeyPair.generate().publicKeyHex)
+        val asked = mutableListOf<String>()
+        val watching = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { asked += message; inner.send(message) }
+                }
+            }
+        }
+        val me = Device()
+        val contacts = ContactsRepository(me.identity, me.keys, ContactGraph(me.identity, RelayPublisher(watching)) { now }, { now })
+        contacts.setSeeing(true)
+        val reads = { asked.count { it.contains("\"kinds\":[3]") && it.contains(listener.publicKeyHex) && !it.contains("#p") } }
+        val first = reads()
+        now += 1800
+        contacts.whenDue()
+        assertEquals(first, reads(), "half an hour: not yet")
+        now += 1801
+        contacts.whenDue()
+        assertTrue(reads() > first, "an hour: read again")
     }
 }

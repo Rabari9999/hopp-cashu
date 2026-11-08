@@ -5,11 +5,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import org.w3c.dom.HTMLAudioElement
+import space.sovereigncast.hopp.data.BrowserDownloads
 import space.sovereigncast.hopp.platform.PlaybackEngine
 import space.sovereigncast.hopp.platform.PlaybackItem
 import space.sovereigncast.hopp.platform.PlaybackState
 
 private fun hasMediaSession(): Boolean = js("'mediaSession' in navigator")
+private fun revokeAddress(address: String): Unit = js("{ try { URL.revokeObjectURL(address); } catch (e) {} }")
+// A refused play() — no gesture yet, no source (a stream with the network gone) — leaves the state paused; the
+// promise's rejection is no error of the page's.
+private fun playAudio(audio: HTMLAudioElement): Unit = js("{ const p = audio.play(); if (p && p.catch) p.catch(() => {}); }")
 
 private fun setMetadata(title: String, artist: String, artwork: String?): Unit =
     js("{ navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: artist, artwork: artwork ? [{ src: artwork }] : [] }); }")
@@ -101,9 +106,30 @@ class HtmlAudioPlaybackEngine(
         }
     }
 
+    // An episode kept in the browser plays from an address made for it, given back when another one loads.
+    private var stored: String? = null
+    private var loads = 0
+
     override fun load(item: PlaybackItem, playWhenReady: Boolean) {
         _state.value = PlaybackState(itemId = item.id, positionMs = item.startPositionMs, speed = _state.value.speed)
-        audio.src = item.url
+        val load = ++loads
+        stored?.let(::revokeAddress); stored = null
+        val kept = item.url.removePrefix(BrowserDownloads.PATH_PREFIX).takeIf { item.url.startsWith(BrowserDownloads.PATH_PREFIX) }
+        if (kept == null) return start(item, item.url, playWhenReady)
+        // From the browser's storage (WebDownloads.kt) — the stream after the # when the browser let it go.
+        val id = kept.substringBefore('#').toLongOrNull()
+        val stream = kept.substringAfter('#', "")
+        if (id == null) return start(item, stream, playWhenReady)
+        space.sovereigncast.hopp.playStored(id) { address ->
+            // Another episode asked for meanwhile: this one's address is not needed.
+            if (load != loads) { if (address.isNotEmpty()) revokeAddress(address); return@playStored }
+            stored = address.ifEmpty { null }
+            start(item, address.ifEmpty { stream }, playWhenReady)
+        }
+    }
+
+    private fun start(item: PlaybackItem, url: String, playWhenReady: Boolean) {
+        audio.src = url
         audio.currentTime = item.startPositionMs / 1000.0
         if (hasMediaSession()) setMetadata(item.title, item.artist, item.artworkUrl)
         if (playWhenReady) play()
@@ -111,7 +137,7 @@ class HtmlAudioPlaybackEngine(
 
     // play() returns a promise that rejects without a user gesture (autoplay policy);
     // the state then simply stays paused.
-    override fun play() { audio.play() }
+    override fun play() = playAudio(audio)
     override fun pause() = audio.pause()
     override fun seekTo(positionMs: Long) { audio.currentTime = positionMs.coerceAtLeast(0) / 1000.0; publish() }
     override fun setSpeed(speed: Float) {
@@ -120,6 +146,8 @@ class HtmlAudioPlaybackEngine(
         audio.playbackRate = this.speed
     }
     override fun unload() {
+        loads++
+        stored?.let(::revokeAddress); stored = null
         _state.value = PlaybackState(speed = speed.toFloat())
         audio.pause(); audio.removeAttribute("src"); audio.load()
         _state.value = PlaybackState(speed = speed.toFloat())

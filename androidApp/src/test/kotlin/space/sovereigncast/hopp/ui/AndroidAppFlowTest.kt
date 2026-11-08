@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.swipeLeft
@@ -99,6 +100,8 @@ private const val SC_FEED = """<?xml version="1.0"?><rss version="2.0" xmlns:pod
 </channel></rss>"""
 
 private var votes = 12
+/** How often the test show's feed was fetched, to see a refresh happen. */
+@Volatile private var feedFetches = 0
 /** The NWC explainer the tour links to is down (device feedback 2026-10-11). */
 private var nwcDown = false
 /** What the phone says about VPN and private DNS, settable per test. */
@@ -158,13 +161,19 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
     /** A relay that refuses every event, with its words; one that takes no connection — for a test that sets them. */
     var refusing: Pair<String, String>? = null
     var unreachable: String? = null
+    /** Events every query is answered with — the publisher keeps only what the query asked for; reset by the test that sets them. */
+    var held: List<space.sovereigncast.hopp.nostr.Event> = emptyList()
 
     override suspend fun connect(url: String) = if (url == unreachable) error("connection refused") else object : space.sovereigncast.hopp.nostr.RelaySession {
         private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
         override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
         override suspend fun send(message: String) {
             // A query finds nothing here: end of stored events at once.
-            Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { channel.trySend("""["EOSE","${it.groupValues[1]}"]"""); return }
+            Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { req ->
+                val sub = req.groupValues[1]
+                held.forEach { e -> channel.trySend("""["EVENT","$sub",${kotlinx.serialization.json.Json.encodeToString(space.sovereigncast.hopp.nostr.Event.serializer(), e)}]""") }
+                channel.trySend("""["EOSE","$sub"]"""); return
+            }
             val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
             val refused = refusing?.takeIf { it.first == url }?.second
             channel.trySend(if (refused != null) """["OK","$id",false,"$refused"]""" else """["OK","$id",true,""]""")
@@ -176,6 +185,7 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
 private var clipUnlocked = false
 /** What the round has raised so far, settable per test (its goal is 15 120). */
 private var roundRaised = 210L
+private var roundDescription = "Jan-Paul, Thorsten & Calso waren zu Gast."
 /** A suggestion submitted in this test run, listed once there. */
 private var submitted: String? = null
 private val INVOICE_21 get() = """{"payment_hash":"596b662c3cd19554e15b3bdd8553c7af2bedbc13835db3fd7167f9203878b7d9","bolt11":"${java.io.File("../shared/src/jvmTest/resources/invoices/alby-21sat.txt").readText().trim()}","amount_sats":21,"expires_at":"2026-10-09T22:00:00Z"}"""
@@ -186,7 +196,7 @@ private fun io.ktor.client.engine.mock.MockRequestHandleScope.scInstance(path: S
     path == "/api/listener/v1/shows/by-guid/$SC_GUID" -> respond("""{"podcast_guid":"$SC_GUID","title":"Nodesignal","feed_url":"https://pod.test/sc.xml",
         "capabilities":{"release_boosting":true,"boost2unlock":false,"halving_clip":true,"suggestions":true,"leaderboard":true,"top_episodes":true,"payment_metadata":true},
         "amounts":{"suggestion_min_sats":21},"poll_after_seconds":3600}""")
-    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"Jan-Paul, Thorsten & Calso waren zu Gast.","image_url":null},
+    path.endsWith("/release-boosting") -> respond("""{"round":{"episode":{"episode_guid":"e297","episode_nr":297,"title":"E297 - BTC++ Berlin","description":"$roundDescription","image_url":null},
         "goal_sats":15120,"raised_sats":$roundRaised,"sats_per_minute":21,"publish_at":"2026-10-09T21:50:00Z","chain":{"block_sats":210,"blocks":72,"mined_blocks":1,"halving_block":36},
         "clip":${if (clipUnlocked) """{"unlocked":true,"at_block":36,"title":"Halving-Clip","duration_seconds":42,"url":"https://pm.test/api/listener/v1/shows/$SC_GUID/release-boosting/clip"}""" else """{"unlocked":false,"at_block":36}"""}},"poll_after_seconds":60}""")
     // A new suggestion: the invoice is its spam filter (phase 2).
@@ -229,6 +239,7 @@ class TestApp : Application() {
         // As slow as a phone on the road: the listener moves on while it loads.
         val http = HttpClient(MockEngine { req ->
             kotlinx.coroutines.delay(1_500)
+            if (req.url.encodedPath == "/feed.xml") feedFetches++
             when {
                 req.url.host == "pm.test" -> {
                     val post = req.method == io.ktor.http.HttpMethod.Post
@@ -236,7 +247,14 @@ class TestApp : Application() {
                     scInstance(req.url.encodedPath, post)
                 }
                 req.url.encodedPath == "/sc.xml" -> respond(SC_FEED)
+                // Chapters only as a list in its notes.
+                req.url.encodedPath == "/listed.xml" -> respond("""<?xml version="1.0"?><rss version="2.0"><channel><title>Listed Show</title>
+<item><title>Listed</title><guid>listed</guid><pubDate>Mon, 01 Jun 2026 06:00:00 +0000</pubDate><enclosure url="https://cdn.test/listed.mp3" type="audio/mpeg"/><description><![CDATA[<p>(00:00:00) Begrüßung
+(00:10:00) Hauptteil
+(00:50:00) Abschied</p>]]></description></item></channel></rss>""")
                 // A show whose title sorts before Nodesignal's, with no round of its own.
+                req.url.encodedPath == "/begun.xml" -> respond(FEED.replace("<rss version=\"2.0\" ", "<rss version=\"2.0\" xmlns:itunes=\"http://www.itunes.com/dtds/podcast-1.0.dtd\" ")
+                    .replace("<item><title>Ep 2</title>", "<item><itunes:duration>5400</itunes:duration><title>Ep 2</title>"))
                 req.url.encodedPath == "/alpha.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Alpha Show</title>"))
                 // A show without value for value: no podcast:value anywhere.
                 req.url.encodedPath == "/novalue.xml" -> respond(FEED.replace("<title>Test Show</title>", "<title>Plain Show</title>").replace(Regex("<podcast:value.*?</podcast:value>", RegexOption.DOT_MATCHES_ALL), ""))
@@ -444,6 +462,50 @@ class AndroidAppFlowTest {
         rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
         waitFor("Ep 1")
         check(has("used", substring = true)) { "no space shown: ${screen()}" }
+    }
+
+    /** A tester's wish 2026-11-07: a pull in Downloads looks for new episodes, from anywhere on the
+     *  page, the empty one too; the same on the playlist's page. */
+    @Test
+    fun aPullLooksForNewEpisodesInDownloadsAndThePlaylist() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Download"); tap("Download")
+        kotlinx.coroutines.runBlocking { org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>().runPending(includeAuto = false) }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Downloaded", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val refresh = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.FeedRefresh>()
+        // The refresh waits on the main thread's looper, which only moves on when told to here.
+        fun whileLooking(done: () -> Boolean) = rule.waitUntil(20_000) {
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            done()
+        }
+        fun pullLooks() {
+            whileLooking { !refresh.refreshing.value }
+            val before = feedFetches
+            // Well below the first rows: a short list ends above this, and the pull counts all the same.
+            rule.onNode(isRoot()).performTouchInput { swipeDown(startY = height * 0.45f, endY = height * 0.98f, durationMillis = 400) }
+            whileLooking { feedFetches > before }
+            whileLooking { !refresh.refreshing.value }
+        }
+        tap("Library"); waitFor("Downloads")
+        // A finished download joined up next, so the playlist's page is open to it.
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).onFirst().performClick()
+        waitFor("Ep 1")
+        pullLooks()
+        back(); waitFor("Downloads")
+        rule.onAllNodes(hasText("All 1 ›") and hasClickAction()).fetchSemanticsNodes().size.let { n -> rule.onAllNodes(hasText("All 1 ›") and hasClickAction())[n - 1].performClick() }
+        waitFor("Ep 1")
+        pullLooks()
+        // Nothing left: the page says so, in its middle, and still takes the pull.
+        rule.onNode(hasContentDescription("Delete download") and hasClickAction()).performClick()
+        // Ep 2's automatic download still waits.
+        rule.onNode(hasContentDescription("Cancel download") and hasClickAction()).performClick()
+        waitFor("No downloads", substring = true)
+        val middle = rule.onNode(isRoot()).fetchSemanticsNode().boundsInRoot.height / 2
+        val said = rule.onAllNodesWithText("No downloads", substring = true).onFirst().fetchSemanticsNode().boundsInRoot.center.y
+        check(said > middle * 0.7f && said < middle * 1.3f) { "at $said, the middle is $middle" }
+        pullLooks()
     }
 
     /** Device feedback 2026-10-15: an automatic download waiting for Wi-Fi
@@ -1105,6 +1167,26 @@ class AndroidAppFlowTest {
         until { "Ep 1" !in queued() }
     }
 
+    /** Glut's rows show the ground through (beta 2026-11-07): the bin a swipe reveals was there at rest, over the handle. */
+    @Test
+    fun aPlaylistEntryHidesItsBinUntilSwiped() {
+        rule.setContent { App() }
+        val settings = koin.get<space.sovereigncast.hopp.data.SettingsRepository>()
+        kotlinx.coroutines.runBlocking { settings.update { it.copy(design = space.sovereigncast.hopp.data.Settings.DESIGN_GLUT) } }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1")
+        menuOf(1); waitFor("Play next"); tap("Play next")
+        menuOf(0); waitFor("Play last"); tap("Play last")
+        tap("Home"); waitFor("Ep 1")
+        fun bins() = rule.onAllNodes(androidx.compose.ui.test.hasTestTag("swipe-remove"), useUnmergedTree = true).fetchSemanticsNodes().size
+        rule.waitForIdle()
+        check(bins() == 0) { "${bins()} bins at rest" }
+        // Part of the way, held: the bin shows.
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(-width * 0.2f, 0f)); moveBy(androidx.compose.ui.geometry.Offset(-width * 0.1f, 0f)) }
+        until { bins() == 1 }
+        rule.onNode(hasText("Ep 1") and hasClickAction()).performTouchInput { cancel() }
+    }
+
     /** "Now" skipped from its long press: the next of the playlist plays (maintainer 2026-11-04). */
     @Test
     fun nowIsSkippedToTheNext() {
@@ -1584,6 +1666,22 @@ class AndroidAppFlowTest {
         check(!has("Unsubscribe")) { "unsubscribe twice: ${screen()}" }
     }
 
+    /** Maintainer 2026-11-07: begun, the button says only the time left, which fits beside Boost; a screen reader hears all of it. */
+    @Test
+    fun aBegunEpisodesButtonShowsTheTimeLeft() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/begun.xml")
+        waitFor("Ep 2")
+        kotlinx.coroutines.runBlocking {
+            val episodes = koin.get<space.sovereigncast.hopp.data.EpisodeRepository>()
+            episodes.savePosition(episodes.ofPodcast(1).first().first { it.title == "Ep 2" }.id, 600_000)
+        }
+        tap("Ep 2"); waitFor("Show notes")
+        rule.onNode(hasContentDescription("Continue · 1:20:00 left") and hasClickAction()).assertIsDisplayed()
+        check(has("1:20:00")) { screen().toString() }
+        check(!has("Continue", substring = true)) { "the long text is on the screen again: ${screen()}" }
+    }
+
     /** The round's card opens what the community page shows; the sheet boosts too. */
     @Test
     fun releaseBoostingShowsItsDetails() {
@@ -1596,6 +1694,23 @@ class AndroidAppFlowTest {
         check(has("🔒 A clip unlocks at block 36")) { screen().toString() }
         tapTop("Boost")
         waitFor("Bring E297 - BTC++ Berlin out sooner")
+    }
+
+    /** Device feedback 2026-11-06: under a long description the buttons stay in sight, no scrolling to get to them. */
+    @Test
+    fun theSheetsButtonsStayInSightUnderALongDescription() {
+        roundDescription = "Eine lange Beschreibung. ".repeat(200)
+        try {
+            rule.setContent { App() }
+            tap("Discover"); subscribe("https://pod.test/sc.xml")
+            waitFor("E297 - BTC++ Berlin")
+            rule.onNode(hasText("E297 - BTC++ Berlin") and hasClickAction()).performClick()
+            waitFor("1 of 72 blocks mined · 210 sats each")
+            rule.waitForIdle()
+            rule.onAllNodes(hasText("Boost") and hasClickAction()).onLast().assertIsDisplayed()
+            tapTop("Boost")
+            waitFor("Bring E297 - BTC++ Berlin out sooner")
+        } finally { roundDescription = "Jan-Paul, Thorsten & Calso waren zu Gast." }
     }
 
     /** A round at its goal (maintainer, 2026-10-23): a tick, and no boost or community page offered for it. */
@@ -1894,6 +2009,62 @@ class AndroidAppFlowTest {
         waitFor("github.com ↗")
     }
 
+    /** A list in the notes makes chapters (maintainer 2026-11-07): in their tab, and in the player. */
+    @Test
+    fun aListInTheNotesShowsAsChapters() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/listed.xml")
+        waitFor("Listed"); tap("Listed"); waitFor("Chapters")
+        tap("Chapters"); waitFor("Abschied")
+        tap("Play")
+        val player = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.player.PlayerController>()
+        until { player.current.value?.chapters?.stops?.size == 3 }
+    }
+
+    /** Hopp's own look or Glut (maintainer 2026-11-07): chosen in the settings, kept, and the whole app goes with it. */
+    @Test
+    fun theDesignIsChosenInTheSettings() {
+        rule.setContent { App() }
+        rule.onNode(hasContentDescription("Settings")).performClick()
+        waitFor("Appearance"); tap("Appearance")
+        waitFor("Warm, like embers")
+        val settings = koin.get<space.sovereigncast.hopp.data.SettingsRepository>()
+        check(kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP) { "Hopp's own at the start" }
+        rule.onNode(hasText("Glut", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_GLUT }
+        // The page stands as before, on the new ground.
+        waitFor("Light or dark")
+        rule.onNode(hasText("Relay", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_RELAY }
+        waitFor("Light or dark")
+        rule.onNode(hasText("Calm, in black and white", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP }
+    }
+
+    /** A mouse over the progress bar names the place (maintainer 2026-11-07). */
+    @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
+    @Test
+    fun aMouseOverTheBarNamesTheChapter() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe()
+        waitFor("Ep 1"); tap("Ep 1"); waitFor("Chapters")
+        tap("Play")
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        until { player.current.value?.chapters?.stops?.size == 2 }
+        player.expand()
+        waitFor("Boost")
+        val bar = rule.onNode(hasContentDescription("Playback position"))
+        // Once the engine knows the length.
+        rule.waitUntil(10_000) {
+            bar.performMouseInput { moveTo(center) }
+            has("30:00 · Die Node")
+        }
+        bar.performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(width * 0.01f, height / 2f)) }
+        waitFor(" · Intro", substring = true)
+        bar.performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(-50f, -50f)) }
+        rule.waitUntil(10_000) { !has(" · Intro", substring = true) }
+    }
+
     /** Device feedback 2026-10-17: a chapter's picture full screen from its thumbnail, closed again. */
     @Test
     fun aChapterPictureOpensFullScreen() {
@@ -2171,9 +2342,9 @@ class AndroidAppFlowTest {
         check(scWebsiteOpened("Explorar", "Lo que aporta Sovereigncast", "Más sobre Sovereigncast") == "https://sovereigncast.space/es/")
     }
 
-    /** … and in English where Hopp has no translation — French here: Hopp
+    /** … and in English where Hopp has no translation — Japanese here: Hopp
      *  would show English around the link. */
-    @Test @Config(qualifiers = "fr-w411dp-h891dp")
+    @Test @Config(qualifiers = "ja-w411dp-h891dp")
     fun scWebsiteFallsBackToEnglish() {
         check(scWebsiteOpened("Discover", "What Sovereigncast brings", "More about Sovereigncast") == "https://sovereigncast.space/")
     }

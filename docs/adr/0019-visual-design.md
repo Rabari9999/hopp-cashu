@@ -242,3 +242,41 @@ the reference once the screens exist.
   "All ›" — only once there are any. The tour's wallet page links the NWC
   explainer (nwc.ereignishorizont.xyz) only when the page answers.
 
+### Amendment 2026-11-07: a second design, Glut
+
+Settings → Appearance offers **Hopp** (the default, all of the above) or **Glut**,
+beside light or dark, each device its own. Glut is Sovereigncast's theme of that
+name (`podcast_manager/themes/glut`), its colours taken over by hand rather than
+kept in step: warm like the Sovereigncast poster, orange still only for money.
+Its dark ground is nearly as black as Hopp's, so what sets it apart at night is
+the **glow** of its ground, one for the whole window: `pageGround()` paints it
+at the frame, and what lies on it paints `HoppColors.page` – the ground itself
+in Hopp, nothing in Glut. Rows that hide a swipe's background turn opaque only
+while swiped. Sovereigncast's signal rings have no place in Hopp, whose top bar
+has no symbol; its signal dot and glowing main action may follow.
+
+Contrast is checked by `DesignColorsTest` against this ADR's rules (text 4.5:1,
+controls and the progress bar 3:1). One value differs from Sovereigncast's:
+`valueText` is `#a05000` by day, not `#a65500`, which is 4.47:1 on `surfaceVariant`.
+In the glow's strongest place, the window's very top, secondary text keeps 5.6:1
+by night; nothing orange sits that high.
+
+### Amendment 2026-11-07: a third design, Relay
+
+The Nostr network as a look: deep purple under a violet and magenta shimmer,
+built as Glut is, with the same `pageGround()`. Purple leads throughout: ground,
+surfaces, the main action, what is chosen and the heard part of the progress
+bars (`HoppColors.progressFill`, null elsewhere). A first draft kept purple for
+Nostr alone and let a pale indigo lead; on the beta it hardly showed, as a
+listener who is signed in and has loaded the comments meets those places rarely
+(maintainer 2026-11-08).
+
+What runs over Nostr keeps a stronger purple of its own (`HoppColors.nostr`,
+null in Hopp's own and Glut): the Nostr contacts' line, the buttons that start
+an identity, sign in and load comments, the comments' chip, the send button and
+the mark on the Nostr page. A chapter or a boost never takes it; what pays is
+orange, a zap too. It differs from the frame's purple in strength, not hue, so
+Nostr comes on a tint or a button, never as a coloured word alone.
+
+`DesignColorsTest` holds it to the same rules. The same design exists as a
+Sovereigncast theme package, not in that repository yet.

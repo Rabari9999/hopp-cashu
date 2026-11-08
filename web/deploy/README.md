@@ -8,13 +8,38 @@ fault in the proxy reaches nothing of it.
 | File | What |
 |---|---|
 | `build.sh [amd64\|arm64]` | a clean web build without source maps, the proxy's address set, Brotli and gzip beside each file; the proxy as a static Linux binary (its tests first) → `build/web-release/<version>/` |
-| `deploy.sh <server> [--setup]` | the site into `releases/<version>`, `current` switched at once, the last five kept; the proxy and the server files replaced when they changed |
+| `build.sh --dev` | the same client, named Hopp Dev with the icons and the mark over the app from `dev/`, version ending in `-dev`, no proxy → `build/web-dev/<version>-dev/` |
+| `deploy.sh <server> [--setup]` | an exact tag's build only: the site into `releases/<version>`, `current` switched at once, the last five kept; the proxy and the server files replaced when they changed |
+| `deploy.sh <server> --dev` | a `--dev` build into `/srv/hopp-web-dev` the same way; proxy and server files untouched |
 | `setup.sh` | a fresh Debian 13 once (and again at any time): updates, security updates by themselves, nftables (22, 80, 443), SSH by key only, Caddy, the proxy's socket and service, the user `deploy` |
 | `Caddyfile` | both sites, the headers of ADR 0022, 7, certificates from Let's Encrypt, no access logs |
 | `release.mjs <site> [version]` | the build list `release.json` (every file with its SHA-256; its own SHA-256 is the build's hash) and the version in `sw.js` — run by `build.sh` |
-| `sign.mjs <site>` | Nodesignal's signature for the build (NIP-94, kind 1063), through the Amber bunker in `SIGN_WITH` |
+| `sign.mjs <site>` | Nodesignal's signature for an exact tag's build (NIP-94, kind 1063), through the Amber bunker in `SIGN_WITH` |
 | `verify.mjs [url]` | the live site against the signature, file by file — also the CI job `web-verify` on a schedule |
 | `hopp-feed-proxy.socket`, `.service` | the proxy behind a Unix socket only Caddy may open; systemd denies it every local and private address on top of its own checks |
+
+## Two addresses
+
+ADR 0022, 15. `play.sovereigncast.space` is what listeners use: only builds of
+a release tag, signed. `play-dev.sovereigncast.space` takes any stage of the
+development branch.
+
+```bash
+web/deploy/build.sh --dev
+web/deploy/deploy.sh <server> --dev
+cd web/e2e && node run.mjs --url https://play-dev.sovereigncast.space/
+```
+
+- **An origin of its own:** sign-in, library and service worker are apart from
+  `play.`. A path under `play.` would share all of them.
+- **Not signed, and it cannot be:** `verify.mjs` takes any signed build as good,
+  so a signed dev build would pass on `play.`. `sign.mjs` refuses anything but
+  an exact tag; About says the build is not signed. `verify.mjs` is for `play.`.
+- **The same relays, the same wallet:** when the sync format changes, use a
+  second Nostr identity.
+- **One proxy, one `Caddyfile`:** a `--dev` deploy touches neither. Changes to
+  them are checked locally (`scripts/web-dev.sh`) and reach the server with
+  the next release's deploy, or by deploying the current release's build again.
 
 ## The server
 

@@ -30,9 +30,16 @@ object Languages {
             otherTab = "Hopp is open in another tab." to "Close it, or switch to it."),
         Language("de", "Deutsch", decimal = ',', grouping = '.', dateSeparator = '.',
             otherTab = "Hopp ist schon in einem anderen Tab offen." to "Schließ ihn oder wechsle dorthin."),
-        // A draft, to be read by a native speaker (maintainer 2026-11-02).
+        // The ones below translated by an LLM (ADR 0016, amended 2026-11-06).
         Language("es", "Español", decimal = ',', grouping = '.', dateSeparator = '/',
             otherTab = "Hopp ya está abierto en otra pestaña." to "Ciérrala o cambia a ella."),
+        Language("fr", "Français", decimal = ',', grouping = '\u202F', dateSeparator = '/',
+            otherTab = "Hopp est déjà ouvert dans un autre onglet." to "Ferme-le, ou bascule dessus."),
+        Language("it", "Italiano", decimal = ',', grouping = '.', dateSeparator = '/',
+            otherTab = "Hopp è già aperto in un’altra scheda." to "Chiudila o passa a quella."),
+        // One Portuguese for all who speak it: Brazilian spelling, "você".
+        Language("pt", "Português", decimal = ',', grouping = '.', dateSeparator = '/',
+            otherTab = "O Hopp já está aberto em outra aba." to "Feche-a ou mude para ela."),
     )
 
     /** The language for a code ("de", "de-AT"); English for any other. */

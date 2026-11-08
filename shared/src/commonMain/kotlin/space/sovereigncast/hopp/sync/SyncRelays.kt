@@ -118,7 +118,7 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
             if (part.part > 1) delay(PART_PAUSE)
             val content = signer.encryptToSelf(SyncCodec.encode(part))
             val event = signer.sign(UnsignedEvent(Nip78.KIND, content, listOf(listOf("d", SyncCodec.dTag(doc, part.part))), now))
-            val ok = publisher.publish(event, relays)
+            val ok = publisher.publish(event, relays, SENT_SETTLE)
             took = took?.intersect(ok) ?: ok
         }
         if (took.isNullOrEmpty() || took.size * 2 <= relays.distinct().size) throw SyncNotPublished(took?.size ?: 0, relays.distinct().size, rev)
@@ -138,6 +138,8 @@ class SyncRelays(private val publisher: RelayPublisher, private val nowSeconds: 
 
     companion object {
         private val PART_PAUSE = 500.milliseconds
+        /** Taken by more than half: the others get this long. The document is on those; a later version reaches the rest. */
+        private val SENT_SETTLE = 2.seconds
         /** A version's revision, shared by its parts. */
         fun newRev(): String = secureRandomBytes(8).toHex()
     }

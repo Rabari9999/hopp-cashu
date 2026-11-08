@@ -417,7 +417,9 @@ fun CommentsPane(vm: CommentsViewModel, onTimestamp: (Long) -> Unit, modifier: M
             CommentsViewModel.State.Idle -> {
                 Text(stringResource(Res.string.comments_intro), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 if (privacy.vpn == false) CheckLine(Check.Open, stringResource(Res.string.privacy_vpn_off)) { actions.openVpnSettings() }
-                FilledTonalButton(onClick = vm::load) { Text(stringResource(Res.string.comments_load)) }
+                Hopp.colors.nostr?.let {
+                    androidx.compose.material3.Button(onClick = vm::load, colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) { Text(stringResource(Res.string.comments_load)) }
+                } ?: FilledTonalButton(onClick = vm::load) { Text(stringResource(Res.string.comments_load)) }
             }
             CommentsViewModel.State.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -528,7 +530,7 @@ private fun Composer(vm: CommentsViewModel, hasIdentity: Boolean, authors: Map<S
             trailingIcon = {
                 if (sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else IconButton(onClick = vm::send, enabled = draft.isNotBlank()) {
-                    Icon(Icons.AutoMirrored.Rounded.Send, stringResource(Res.string.comments_send))
+                    Icon(Icons.AutoMirrored.Rounded.Send, stringResource(Res.string.comments_send), tint = Hopp.colors.nostr?.text?.takeIf { draft.isNotBlank() } ?: androidx.compose.material3.LocalContentColor.current)
                 }
             },
         )

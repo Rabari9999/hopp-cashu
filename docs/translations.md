@@ -1,6 +1,7 @@
 # Translations
 
-Hopp speaks English, German and — as a draft since 0.4.0 — Spanish (ADR 0016).
+Hopp speaks English and German, and through an LLM's translation Spanish, French,
+Italian and Portuguese (ADR 0016).
 
 ## Adding a language
 
@@ -24,26 +25,34 @@ Hopp speaks English, German and — as a draft since 0.4.0 — Spanish (ADR 0016
 `./gradlew :shared:jvmTest --tests '*StringResourcesTest*' --tests '*LanguagesTest*'`
 checks 1–4.
 
-## Spanish: open points for the reviewer
+## How the translations are made
 
-The draft (2026-11-02) follows the German for tone: "tú", neutral Spanish,
-"podcast" for a show, "billetera" for a wallet. To be decided by a native
-speaker:
+Spanish, French, Italian and Portuguese are translated by an LLM (maintainer,
+2026-11-06): from English, with the German as a reference for meaning. No native
+speaker reads them first and no translation platform is planned; a mistake
+someone reports is corrected in the file. A new string in English gets its
+translations in the same change — `StringResourcesTest` fails without them for
+a language marked complete.
 
-- *Importe* (Spain) or *monto* (Latin America); *denunciar* or *reportar*;
-  "me gusta" for likes.
-- "boostable" written as *que admite boosts*; "value block" as *bloque de
-  valor*; "build" kept in English.
-- *Buenas tardes* covers the afternoon and the early evening: check it against
-  the hours Home greets with.
-- Weekdays abbreviated without a period (*Lun*), *wifi* in lower case.
-- Menu paths of other apps in the move guides (AntennaPod, Pocket Casts …)
-  are generic, not checked against their Spanish interfaces.
-- Store listings in Spanish are not written yet.
+The choices made, in case a report questions one:
+
+- **Spanish:** "tú", neutral Spanish, "podcast" for a show, "billetera" for a
+  wallet.
+- **French:** "tu", "émission" for a show, "portefeuille" for a wallet, "signeur"
+  for a Nostr signer. Numbers group with a narrow no-break space (*21 000*).
+- **Italian:** "tu", "podcast" for a show, "puntata" for an episode,
+  "portafoglio" for a wallet, "app di firma" for a signer.
+- **Portuguese:** one `pt` for all who speak it — Brazilian spelling, "você",
+  "podcast" for a show, "carteira" for a wallet, "assinador" for a signer.
+- **Short labels:** the episode page's play button has room for about seven
+  letters on a phone beside Boost, hence *Ascolta*, *Ouvir* and *Iniciar*
+  (device check 2026-11-06: *Riprod…*, *Repro…*).
+- **All of them:** Nostr contacts are contacts, never friends. `sc_info_url` and
+  `nwc_explainer_url` point to the English pages where a language has none.
+  Store listings exist in English and German only; "What's new" shows English.
 
 ## Later
 
-- Hosted Weblate (ADR 0016) for the app's strings and the store listings.
 - Store screenshots selected by test tags instead of labels
   (`devicetests/store/shots.yaml`), so a language does not mean a new
   alternative in every selector.

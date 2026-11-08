@@ -309,8 +309,11 @@ private fun ActionSheet(
 ) {
     val colors = MaterialTheme.colorScheme
     val uri = LocalUriHandler.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Open in full: half open, the buttons below would lie under the edge of the screen.
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        // What it says scrolls, what can be done stays: no scrolling to get to the button, and no tap on it taken
+        // for part of a scroll (device feedback 2026-11-06: after scrolling to the end, neither button reacted).
+        Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (episode.imageUrl != null) {
                     Cover(episode.imageUrl, 72.dp, corner = 14.dp)
@@ -327,6 +330,8 @@ private fun ActionSheet(
             }
             Progress(raised, goal, 6)
             Text(stringResource(Res.string.sc_progress, formatSats(raised), formatSats(goal)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (action != null) Box(
                 Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onAction),
                 contentAlignment = Alignment.Center,

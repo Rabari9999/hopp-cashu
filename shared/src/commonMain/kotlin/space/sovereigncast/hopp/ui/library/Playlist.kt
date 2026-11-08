@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -216,16 +217,18 @@ internal fun PlaylistEntry(
         swipe,
         backgroundContent = {
             val colors = MaterialTheme.colorScheme
-            Box(
-                Modifier.fillMaxSize().background(if (swipe.dismissDirection == SwipeToDismissBoxValue.EndToStart) colors.errorContainer else Color.Transparent)
-                    .padding(horizontal = 24.dp),
+            // Only while swiped: at rest a row on a glowing ground shows what lies beneath it.
+            if (swipe.dismissDirection == SwipeToDismissBoxValue.EndToStart) Box(
+                Modifier.fillMaxSize().background(colors.errorContainer).padding(horizontal = 24.dp),
                 contentAlignment = Alignment.CenterEnd,
-            ) { Icon(Icons.Rounded.Delete, null, tint = colors.onErrorContainer) }
+            ) { Icon(Icons.Rounded.Delete, null, Modifier.testTag("swipe-remove"), tint = colors.onErrorContainer) }
         },
         enableDismissFromStartToEnd = false,
         onDismiss = { remove() },
     ) {
-        Box(Modifier.background(color)) {
+        // Opaque over what a swipe shows beneath it, though the page's row is not on a glowing ground.
+        val swiped = swipe.dismissDirection != SwipeToDismissBoxValue.Settled
+        Box(Modifier.background(if (swiped) MaterialTheme.colorScheme.background else color)) {
             // On the row itself, the node a screen reader stops at.
             val a11y = Modifier.semantics {
                 customActions = listOf(

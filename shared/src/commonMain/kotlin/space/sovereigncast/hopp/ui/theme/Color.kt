@@ -6,9 +6,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 // Colour roles of ADR 0019. Contrast was measured there; change a value only
-// together with that table.
+// together with that table. Glut's are Sovereigncast's theme of that name
+// (podcasting_tools, podcast_manager/themes/glut/tokens.json), taken over by hand.
 
 internal val Ink = Color(0xFF0A0A0A)
 internal val Paper = Color(0xFFF6F5F2)
@@ -81,9 +84,170 @@ data class HoppColors(
     val progressTrack: Color,
     /** "Done" on the privacy page's checks — green, ≥ 4.5:1 as text. */
     val ok: Color,
+    /** What a page, its bars and its rows paint: the ground itself, or nothing where the ground
+     *  glows ([glow]) and has to show through. The ground is [pageGround]'s. */
+    val page: Color,
+    /** The ground's glow, one for the whole window; none in Hopp's own design. */
+    val glow: List<Glow> = emptyList(),
+    /** A colour of Nostr's own, where the design has one: what goes through Nostr looks as it always did elsewhere. */
+    val nostr: NostrColors? = null,
+    /** The heard part of a progress bar, where the design gives it a colour; else the text's. */
+    val progressFill: Color? = null,
 )
 
-internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32))
-internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784))
+/** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
+@Immutable
+data class NostrColors(val fill: Color, val onFill: Color, val text: Color, val tint: Color)
+
+/**
+ * A soft oval of light on the ground: its middle at [x] and [y] of the window plus [dy], faded out
+ * at [reach] of its radii — a CSS radial gradient, as Sovereigncast's `background` token writes it.
+ */
+@Immutable
+data class Glow(val color: Color, val x: Float, val y: Float, val dy: Dp, val radiusX: Dp, val radiusY: Dp, val reach: Float)
+
+internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32), page = Paper)
+internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784), page = Ink)
+
+/** Glut by day: cream and espresso under a warm glow, like the Sovereigncast logo on paper. */
+internal val GlutLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF3B2516),
+    onPrimary = Color(0xFFFFF6EA),
+    secondary = Color(0xFF3B2516),
+    onSecondary = Color(0xFFFFF6EA),
+    background = Color(0xFFFAF1E3),
+    onBackground = Color(0xFF2A1D13),
+    surface = Color(0xFFFFFCF7),
+    onSurface = Color(0xFF2A1D13),
+    surfaceVariant = Color(0xFFF1E2CD),
+    onSurfaceVariant = Color(0xFF6B5746),
+    outline = Color(0xFF8C7561),
+    outlineVariant = Color(0xFFE6D1B8),
+    surfaceContainerLowest = Color(0xFFFFFCF7),
+    surfaceContainerLow = Color(0xFFFFFCF7),
+    surfaceContainer = Color(0xFFFCF5EA),
+    surfaceContainerHigh = Color(0xFFF4E7D4),
+    surfaceContainerHighest = Color(0xFFF1E2CD),
+    secondaryContainer = Color(0xFFECD6B9),
+    onSecondaryContainer = Color(0xFF2A1D13),
+    error = Color(0xFFAD3A43),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE5E3),
+    onErrorContainer = Color(0xFF862A31),
+)
+
+/** Glut by night, "Kaminfeuer": a deep ground, embers at its edge, candlelight for the main action. */
+internal val GlutDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFFFE1BA),
+    onPrimary = Color(0xFF2A1405),
+    secondary = Color(0xFFFFE1BA),
+    onSecondary = Color(0xFF2A1405),
+    background = Color(0xFF0C0806),
+    onBackground = Color(0xFFF6ECE0),
+    surface = Color(0xFF1D1510),
+    onSurface = Color(0xFFF6ECE0),
+    surfaceVariant = Color(0xFF2C2018),
+    onSurfaceVariant = Color(0xFFB9A693),
+    outline = Color(0xFF8A7663),
+    outlineVariant = Color(0xFF553722),
+    surfaceContainerLowest = Color(0xFF0C0806),
+    surfaceContainerLow = Color(0xFF1D1510),
+    surfaceContainer = Color(0xFF241A14),
+    surfaceContainerHigh = Color(0xFF2C2018),
+    surfaceContainerHighest = Color(0xFF3B2B1F),
+    secondaryContainer = Color(0xFF3D2A1A),
+    onSecondaryContainer = Color(0xFFFFE9CF),
+    error = Color(0xFFEE9BA2),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF3A1E1F),
+    onErrorContainer = Color(0xFFF3B5BA),
+)
+
+internal val GlutLightColors = HoppColors(
+    // valueText a shade under Sovereigncast's #a65500, which is 4.47:1 on the tile "Now" lies on, and less in the glow.
+    value = BitcoinOrange, onValue = Color(0xFF1C120A), valueText = Color(0xFFA05000), progressTrack = Color(0xFF8C7561), ok = Color(0xFF2A7048),
+    page = Color.Transparent,
+    glow = listOf(Glow(Color(0xFFF9D3A1), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+)
+internal val GlutDarkColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF1A1410), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF8A7663), ok = Color(0xFF86C9A1),
+    page = Color.Transparent,
+    glow = listOf(
+        Glow(Color(0x29D65A14), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
+        Glow(Color(0x61F7931A), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+)
+
+/** Relay by day: lavender paper under a violet shimmer, purple for the main action. */
+internal val RelayLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF5224A3),
+    onPrimary = Color(0xFFFBF7FF),
+    secondary = Color(0xFF5224A3),
+    onSecondary = Color(0xFFFBF7FF),
+    background = Color(0xFFF1E7FC),
+    onBackground = Color(0xFF24163D),
+    surface = Color(0xFFFBF7FF),
+    onSurface = Color(0xFF24163D),
+    surfaceVariant = Color(0xFFE5D4F8),
+    onSurfaceVariant = Color(0xFF57447A),
+    outline = Color(0xFF7F6BA3),
+    outlineVariant = Color(0xFFD6C3EF),
+    surfaceContainerLowest = Color(0xFFFBF7FF),
+    surfaceContainerLow = Color(0xFFFBF7FF),
+    surfaceContainer = Color(0xFFF6EFFD),
+    surfaceContainerHigh = Color(0xFFECE0FA),
+    surfaceContainerHighest = Color(0xFFE5D4F8),
+    secondaryContainer = Color(0xFFD9C1F9),
+    onSecondaryContainer = Color(0xFF24163D),
+    error = Color(0xFFAD3A43),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE5E3),
+    onErrorContainer = Color(0xFF862A31),
+)
+
+/** Relay by night: the night over the Nostr network, deep purple under a violet and magenta shimmer. */
+internal val RelayDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFC2A8F5),
+    onPrimary = Color(0xFF200A3A),
+    secondary = Color(0xFFC2A8F5),
+    onSecondary = Color(0xFF200A3A),
+    background = Color(0xFF100B1D),
+    onBackground = Color(0xFFF1EAFD),
+    surface = Color(0xFF1B1430),
+    onSurface = Color(0xFFF1EAFD),
+    surfaceVariant = Color(0xFF281E42),
+    onSurfaceVariant = Color(0xFFB3A7CF),
+    outline = Color(0xFF8A7CAC),
+    outlineVariant = Color(0xFF3F3362),
+    surfaceContainerLowest = Color(0xFF100B1D),
+    surfaceContainerLow = Color(0xFF1B1430),
+    surfaceContainer = Color(0xFF211936),
+    surfaceContainerHigh = Color(0xFF281E42),
+    surfaceContainerHighest = Color(0xFF342A52),
+    secondaryContainer = Color(0xFF352663),
+    onSecondaryContainer = Color(0xFFEFE4FF),
+    error = Color(0xFFEE9BA2),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF3A1E1F),
+    onErrorContainer = Color(0xFFF3B5BA),
+)
+
+internal val RelayLightColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF130F24), valueText = Color(0xFF8F4700), progressTrack = Color(0xFF7F6BA3), ok = Color(0xFF2A7048),
+    page = Color.Transparent,
+    glow = listOf(Glow(Color(0xFFCBA8FA), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+    nostr = NostrColors(fill = Color(0xFF8739B8), onFill = Color(0xFFFFFFFF), text = Color(0xFF8739B8), tint = Color(0xFFF3E6F9)),
+    progressFill = Color(0xFF5224A3),
+)
+internal val RelayDarkColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF130F24), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF8A7CAC), ok = Color(0xFF86C9A1),
+    page = Color.Transparent,
+    glow = listOf(
+        Glow(Color(0x24C026D3), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
+        Glow(Color(0x618B5CF6), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+    nostr = NostrColors(fill = Color(0xFF8E3FC2), onFill = Color(0xFFFFFFFF), text = Color(0xFFE2B0FF), tint = Color(0xFF2F1846)),
+    progressFill = Color(0xFFC2A8F5),
+)
 
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }

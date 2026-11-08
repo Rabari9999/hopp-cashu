@@ -1,5 +1,6 @@
 package space.sovereigncast.hopp.contacts
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -65,10 +66,11 @@ class ContactKeys(
 
     /**
      * The listener's note on the relays, and whether this device holds its keys — taking them
-     * over with [interactive] (the signer opens it once). Null without an identity, or with no
-     * note anywhere: the feature is off.
+     * over with [interactive] (the signer opens it once), or with [takeOver] where no one has to be
+     * asked: a key Hopp holds opens it without a question (maintainer 2026-11-08). Null without an
+     * identity, or with no note anywhere: the feature is off.
      */
-    suspend fun note(interactive: Boolean = false): Note? = lock.withLock {
+    suspend fun note(interactive: Boolean = false, takeOver: Boolean = interactive): Note? = lock.withLock {
         val me = identity.identity.value ?: return null
         // Looked at on every refresh: not waited for to the slowest relay (maintainer 2026-11-04); a newer
         // note a slow one has is seen at a later look.
@@ -83,8 +85,16 @@ class ContactKeys(
             secrets.put(SECRET, null)
             return null
         }
-        if (!interactive) return Note(share, inbox, newest.created_at, opened = false)
-        val opened = open(newest)
+        val closed = Note(share, inbox, newest.created_at, opened = false)
+        if (!takeOver) return closed
+        val opened = if (interactive) open(newest, interactive = true) else try {
+            open(newest, interactive = false)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Not opened without a question: the Nostr page offers to take it over.
+            return closed
+        }
         keep(Held(me.pubkey, opened.share, opened.inbox, newest.id, newest.created_at))
         Note(opened.share?.pub(), opened.inbox?.pub(), newest.created_at, opened = true)
     }
@@ -98,8 +108,13 @@ class ContactKeys(
         val me = identity.identity.value ?: throw SignerUnavailable("no identity")
         val signer = identity.signer(interactive) ?: throw SignerUnavailable("no signer for the listener's key")
         val newest = newestOnRelays(me.pubkey)
-        val current = held()?.takeIf { it.owner == me.pubkey }
-            ?: newest?.takeIf { it.content.isNotEmpty() }?.let { open(it) }?.let { Held(me.pubkey, it.share, it.inbox, newest.id, newest.created_at) }
+        val mine = held()?.takeIf { it.owner == me.pubkey }
+        // A newer note than this device's goes first: what this device still holds would replace the keys the others use.
+        val current = when {
+            newest == null || (mine != null && (mine.note == newest.id || mine.at >= newest.created_at)) -> mine
+            newest.content.isEmpty() -> null
+            else -> open(newest, interactive).let { Held(me.pubkey, it.share, it.inbox, newest.id, newest.created_at) }
+        }
         val next = Sealed(
             // [newShare]: a mutual contact lost — what is shared from now on, under a key they do not have (ADR 0024, 4).
             share = if (share) current?.share?.takeUnless { newShare } ?: newKey() else null,
@@ -144,8 +159,8 @@ class ContactKeys(
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
     }
 
-    private suspend fun open(note: Event): Sealed {
-        val signer = identity.signer(interactive = true) ?: throw SignerUnavailable("no signer for the listener's key")
+    private suspend fun open(note: Event, interactive: Boolean): Sealed {
+        val signer = identity.signer(interactive) ?: throw SignerUnavailable("no signer for the listener's key")
         return json.decodeFromString(Sealed.serializer(), signer.decryptFromSelf(note.content))
     }
 

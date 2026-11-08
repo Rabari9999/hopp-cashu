@@ -6,6 +6,34 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+
+### 🆕 New Features
+- **App:** Hopp auf Französisch, Italienisch und Portugiesisch.
+- **Sync:** Was gerade läuft, zieht mit: Starte eine Folge auf einem Gerät, und die anderen zeigen sie, bereit zum Weiterhören.
+- **Player:** Kapitel auch aus Podlove-Feeds und aus einer Liste von Zeitmarken in den Shownotes.
+- **Player:** Mit der Maus über dem Fortschrittsbalken siehst du Zeit und Kapitel, bevor du dorthin springst.
+- **Web:** Folgen herunterladen und offline hören, direkt in Hopp Web; wo der Server eines Podcasts das nicht erlaubt, lässt sich die Audiodatei wie bisher speichern.
+- **Einstellungen:** Zwei weitere Designs: Glut, warm wie das Sovereigncast-Plakat, und Relay, die Nacht über dem Nostr-Netz.
+
+### 🐛 Fixes
+- **Nostr:** Ein Nostr-Kontakt, der neu zuschaut, bekommt deine geteilten Abos innerhalb einer Stunde, ohne dass du eine Seite öffnest; bis dahin sagt seine Nostr-Seite, dass sie kommen.
+- **Nostr:** Deine Nostr-Kontakte sind in Sekunden statt Minuten gelesen; die Seite zeigt, wie weit sie ist, und ein weiteres Gerät bietet die Übernahme sofort an.
+- **App:** Hopp bleibt nach einem Neustart des Handys nicht mehr auf dem Startbildschirm hängen.
+- **Folge:** Der Knopf einer angefangenen Folge zeigt die Restzeit statt eines abgeschnittenen Texts.
+- **Player:** Kapitel von Podigee-Shows erscheinen, deren Feeds ihre Kapiteldatei auf eigene Art angeben.
+- **Player:** Ein langer Show-Name bleibt auf zwei Zeilen, statt hinter dem Cover zu verschwinden.
+- **Einstellungen:** Abstand zwischen Text und Schalter auf dem Handy.
+- **Nostr:** Die Nostr-Seite in Abschnitten mit Überschriften (Abgleich, Nostr-Kontakte, Öffentlich), Seltenes unter „Erweitert“ eingeklappt, deine Hörstatistik als Link unter deinem Namen.
+- **Profil:** Das Kontomenü öffnet dein Profil über Bild und Name, ein Eintrag weniger.
+- **Bibliothek:** Herunterziehen sucht auch in den Downloads und auf der Playlist-Seite nach neuen Folgen.
+- **Sync:** Ein Relay, das nicht antwortet, bremst den Abgleich nicht mehr aus.
+- **Sovereigncast:** Der Boost-Knopf bei Release Boosting und Boost2Unlock bleibt unter dem Text sichtbar.
+- **Nostr:** Deine Nostr-Kontakte erscheinen mit Name und Bild statt als npub.
+- **Nostr:** Eine ausgenommene Show erreicht deine Nostr-Kontakte nicht mehr über ein Gerät, das noch nichts davon wusste.
+- **Nostr:** Was deine Nostr-Kontakte tun, lädt weiter, wenn du die Seite verlässt.
+- **Nostr:** Ein Schalter auf einem zurückgebliebenen Gerät ersetzt nicht mehr die Schlüssel deiner anderen Geräte.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features

@@ -182,6 +182,18 @@ Hopp shows what Fountain's listeners say about the same episode.
   Hopp asks once for standing permission; a NIP-46 signer syncs only while the
   app is open and never blocks playback. *Superseded 2026-10-21 by the sync
   key, below.*
+- *Amended 2026-11-06 (maintainer):* one relay down no longer holds up a round.
+  A relay that lets a request's time run out without a connection is not asked
+  again in that round (`RelayPool`); the next round tries it again. A document taken by more than half the relays gives the
+  rest two seconds; what they miss, a later version brings them.
+- *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
+  of `hopp/queue` (`now`): the newest start on any device. Each device had kept
+  its own, and an episode started on one left "Up next" and was shown nowhere on
+  the other. A device not playing shows the episode, paused, and plays it only
+  when asked; one playing is not interrupted. Its fields are not `show` and
+  `guid`, so a Hopp from before this passes over it. On coming to the foreground
+  between full rounds, Hopp reads positions and `hopp/queue` alone, at most every
+  two minutes, so someone coming from another device goes on from there.
 - *Amended 2026-10-20 (maintainer):* favourites and "Up next" travel too
   (`hopp/queue`); of the settings only the listening habits — since
   2026-10-23 with downloads, the background refresh and what boosts and zaps
@@ -297,6 +309,9 @@ switches.
    hold. Profiles are looked up as clients do (device feedback 2026-10-16:
    the maintainer's was only on an index): Hopp's relays and two indexes
    (purplepag.es, user.kindpag.es), then the person's NIP-65 write relays.
+   *Amended 2026-11-05:* two more indexes, profiles.nostr1.com and
+   directory.yabu.me — the first two knew names for only 133 of a tester's
+   300 Nostr contacts, all four for all 300.
    *1c built 2026-10-16:* a remote signer (NIP-46) on both platforms —
    a pasted or scanned `bunker://` address, or a `nostrconnect://` code
    Hopp shows (copy, share, open in the signer; no QR drawn yet). Hopp keeps

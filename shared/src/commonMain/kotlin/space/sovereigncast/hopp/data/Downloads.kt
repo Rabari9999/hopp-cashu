@@ -78,18 +78,35 @@ internal fun takeUtf8(s: String, max: Int): String {
     return s.substring(0, i)
 }
 
-class DownloadFiles(val dir: String) {
+open class DownloadFiles(val dir: String) {
     fun path(episodeId: Long, url: String) = Path(dir, "$episodeId.${extension(url)}")
     fun partial(episodeId: Long) = Path(dir, "$episodeId.part")
-    fun size(path: Path): Long = SystemFileSystem.metadataOrNull(path)?.size ?: 0L
-    fun exists(path: String) = SystemFileSystem.exists(Path(path))
-    fun delete(path: String) = runCatching { SystemFileSystem.delete(Path(path), mustExist = false) }.let { }
-    fun ensureDir() = SystemFileSystem.createDirectories(Path(dir))
+    open fun size(path: Path): Long = SystemFileSystem.metadataOrNull(path)?.size ?: 0L
+    open fun exists(path: String) = SystemFileSystem.exists(Path(path))
+    open fun delete(path: String) = runCatching { SystemFileSystem.delete(Path(path), mustExist = false) }.let { }
+    open fun ensureDir() = SystemFileSystem.createDirectories(Path(dir))
+    /** Everything in the folder, a .part of an interrupted download too. */
+    open fun clearAll() { runCatching { SystemFileSystem.list(Path(dir)).forEach { SystemFileSystem.delete(it, mustExist = false) } } }
 
     private fun extension(url: String): String {
         val ext = url.substringBefore('?').substringBefore('#').substringAfterLast('/').substringAfterLast('.', "").lowercase()
         return ext.takeIf { it.length in 2..4 && it.all(Char::isLetterOrDigit) } ?: "audio"
     }
+}
+
+/**
+ * The browser's way to download (maintainer 2026-11-08, as Squirrel does): the audio straight from the
+ * podcast's server — never through the feed proxy — into the browser's own storage, for offline listening
+ * in Hopp Web. Returns the bytes kept; [stopped] is asked as it goes. Throws [DownloadRefused] for what
+ * will not get better by retrying — a server that does not let a web page read its audio (CORS) among them.
+ */
+interface BrowserDownloads {
+    suspend fun fetch(id: Long, url: String, maxBytes: Long, progress: (written: Long, total: Long?) -> Unit, stopped: () -> Boolean): Long
+    /** Where [fetch] put an episode, in the download's row. */
+    fun pathOf(id: Long): String = "$PATH_PREFIX$id"
+    /** What [fetch] kept of [id] goes. */
+    suspend fun delete(id: Long)
+    companion object { const val PATH_PREFIX = "idb:" }
 }
 
 /** Thrown for answers that will not get better by retrying (404, 410 …, too large, not audio). */
@@ -110,6 +127,8 @@ class DownloadRepository(
     private val settings: SettingsRepository,
     /** false in the browser: nothing is downloaded there (ADR 0022, 1). */
     private val enabled: Boolean = true,
+    /** In the browser: downloads go there instead of into files. */
+    private val browser: BrowserDownloads? = null,
 ) {
     /** The episode playing — never put into "Up next"; the player sets it once it
      *  exists (a download in the background alone does not make one). */
@@ -139,8 +158,7 @@ class DownloadRepository(
      *  in the folder (a .part of an interrupted one); running ones stop. */
     suspend fun removeAll() = withContext(ioDispatcher) {
         eq.downloadIds().awaitAsList().forEach { remove(it) }
-        runCatching { SystemFileSystem.list(Path(files.dir)).forEach { SystemFileSystem.delete(it, mustExist = false) } }
-        Unit
+        files.clearAll()
     }
 
     /** The listener asked for it: any network. */
@@ -174,7 +192,7 @@ class DownloadRepository(
     /** Stops a download or removes a finished one. */
     suspend fun remove(episodeId: Long) = withContext(ioDispatcher) {
         cancelled.update { it + episodeId }
-        eq.selectById(episodeId).awaitAsOneOrNull()?.download_path?.let(files::delete)
+        eq.selectById(episodeId).awaitAsOneOrNull()?.download_path?.let { deleteKept(it) }
         files.delete(files.partial(episodeId).toString())
         eq.clearDownload(episodeId)
     }
@@ -242,6 +260,21 @@ class DownloadRepository(
 
     private suspend fun download(id: Long, url: String, automatic: Boolean = false) {
         withContext(ioDispatcher) { eq.setDownloadState(DownloadState.DOWNLOADING.toLong(), id) }
+        browser?.let { b ->
+            val bytes = try {
+                b.fetch(id, url, maxBytes(), { written, total ->
+                    if (total != null && total > 0) _progress.update { it + (id to written.toFloat() / total) }
+                }) { id in cancelled.value }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (id in cancelled.value) throw DownloadCancelled()
+                throw e
+            }
+            if (id in cancelled.value) { b.delete(id); throw DownloadCancelled() }
+            withContext(ioDispatcher) { eq.setDownloaded(b.pathOf(id), bytes, id) }
+            return
+        }
         val part = files.partial(id)
         val have = files.size(part)
         client.prepareGet(url) {
@@ -304,6 +337,14 @@ class DownloadRepository(
         // device and in step (Settings.newToQueue, maintainer 2026-11-03).
     }
 
+    /** In the browser's storage: the rows say what is kept, and one the browser let go plays the stream. */
+    private fun kept(path: String) = path.startsWith(BrowserDownloads.PATH_PREFIX) || files.exists(path)
+
+    private suspend fun deleteKept(path: String) {
+        val id = path.removePrefix(BrowserDownloads.PATH_PREFIX).takeIf { path.startsWith(BrowserDownloads.PATH_PREFIX) }?.toLongOrNull()
+        if (id != null) browser?.delete(id) else files.delete(path)
+    }
+
     /** The most one download may take: [MAX_EPISODE_BYTES], or the storage limit if that is smaller. */
     private suspend fun maxBytes(): Long {
         val limit = settings.current().storageLimitMb.toLong() * 1024 * 1024
@@ -315,17 +356,17 @@ class DownloadRepository(
     suspend fun cleanup() = withContext(ioDispatcher) {
         val dayAgo = clock.now() - 24 * 3600
         eq.playedDownloadsBefore(dayAgo).awaitAsList().forEach { r ->
-            r.download_path?.let(files::delete); eq.clearDownload(r.id)
+            r.download_path?.let { deleteKept(it) }; eq.clearDownload(r.id)
         }
         val unplayed = eq.unplayedDownloadsOldestFirst().awaitAsList()
-        unplayed.filter { r -> r.download_path?.let(files::exists) != true }.forEach { eq.clearDownload(it.id) }
+        unplayed.filter { r -> r.download_path?.let { kept(it) } != true }.forEach { eq.clearDownload(it.id) }
         val limit = settings.current().storageLimitMb.toLong() * 1024 * 1024
         if (limit > 0) {
             var used = eq.downloadedBytes().awaitAsOne()
             // Never the newest one — that is what the listener is about to hear.
             for (r in unplayed.dropLast(1)) {
                 if (used <= limit) break
-                r.download_path?.let(files::delete); eq.clearDownload(r.id)
+                r.download_path?.let { deleteKept(it) }; eq.clearDownload(r.id)
                 used -= r.download_size ?: 0
             }
         }

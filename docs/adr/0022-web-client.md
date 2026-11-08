@@ -52,7 +52,7 @@ What is different from the apps, and drives this ADR:
 | Boosts, also public boosts as comments | ✅ with WebLN or NWC (§4) | decided 2026-10-21 |
 | Streaming sats | ✅ while the page plays | a hidden tab throttles timers; settlement per ADR 0014 |
 | Sovereigncast layer (ADR 0010) | ✅ | NIP-98 through the signer |
-| Downloads, offline | ❌ in the first version | would need the proxy for every audio byte |
+| Downloads, offline | ✅ on request, since 2026-11-08 | straight from the podcast's host into IndexedDB, where it allows CORS; see the amendment below |
 | Push (ADR 0007) | later | Web Push, home-screen apps only on iOS |
 | A key made in Hopp | ❌ | the web never holds an nsec (§2) |
 
@@ -414,6 +414,30 @@ hash also shown in Hopp, compared with the signature there.
   new build offered only after it waited, taken on "Reload"; one with a file
   not on its list never offered.
 
+### 15. A second address for development (maintainer, 2026-11-05)
+
+With 0.4.0 `play.sovereigncast.space` is what listeners use, so it no longer
+takes stages in between. `play-dev.sovereigncast.space` does, on the same server
+under the same headers.
+
+- **`play.` takes only releases:** `deploy.sh` refuses anything but a build of
+  an exact tag; a fix that cannot wait is a release of its own.
+- **Its own origin, not a path:** a path under `play.` would share the sign-in,
+  the keys, the library and the service worker with what listeners use.
+- **Not signed:** the check from outside (§14) takes any build Nodesignal signed
+  as good, so a signed dev build on `play.` would pass it. A signature means
+  released; `sign.mjs` refuses the rest, and dev versions end in `-dev` so
+  that one built from a tag is never taken for the signed one.
+- **Told apart at a glance:** Hopp Dev and an orange icon in the tab and on the
+  home screen, a line and "DEV · <version>" over the app. All of it is added
+  around the app at build time (`web/deploy/dev/`), so its code stays what a
+  release runs.
+- **Shared proxy and `Caddyfile`:** a dev deploy changes neither, so it cannot
+  reach `play.`. They change with a release's deploy, checked locally before.
+- **From the build Mac, not CI:** the user `deploy` can also write `play.`, a
+  key that does not belong in CI. Automatic deploys would need a user limited
+  to `/srv/hopp-web-dev`.
+
 ## Consequences
 
 - **Distribution (ADR 0011)** gains the web as a channel: a reproducible
@@ -427,5 +451,34 @@ hash also shown in Hopp, compared with the signature there.
 - **Sync (ADR 0021, 5):** "Renew sync key" — built — helps the apps too (a
   lost phone, a signer session no longer trusted).
 - **iOS (ADR 0009):** the web takes pressure off the App Store, but does not
-  replace a native app: no downloads, weaker background playback, no
+  replace a native app: no automatic downloads, weaker background playback, no
   CarPlay. The `altstore` and `appstore` plans stay.
+
+### Amendment 2026-11-08: episodes kept in the browser
+
+The maintainer, after Squirrel (github.com/Anthonyushie/squirrel): an episode
+can be downloaded in Hopp Web and heard offline there, without leaving it for a
+local player. "Save audio file" (2026-10-28) gave the file to the browser
+instead, and stays only for what cannot be kept.
+
+- **Straight from the host, never through the proxy (§6).** The proxy takes
+  feeds, chapters and pictures and holds 32 MB at most; every audio byte would
+  run through Nodesignal's server, and it would see what each listener keeps.
+  So the browser fetches the audio itself, which needs CORS on the host and on
+  every redirect before it. On 2026-11-08 seven of twelve popular feeds allowed
+  it (PodHome, Podigee, Fireside, art19, Blubrry, Megaphone, archive.org); the
+  rest did not on some hop (Anchor, Podlove's own redirects, Libsyn, one
+  tracker). A browser tells no network and a refused one apart only by
+  `navigator.onLine`: online, a failed fetch is taken as refused, and the
+  episode menu offers "Save audio file" for it.
+- **Where:** IndexedDB (`hopp-downloads`), in pieces of 4 MB, so no episode is
+  held in memory whole; played as one Blob from them, with the stream after a
+  `#` in the address for when the browser has let them go. `storage.persist()`
+  is asked once. The download's row in the database names `idb:<id>`.
+- **What does not change:** no automatic downloads (a tab has no background);
+  a tab that keeps nothing (§2) keeps no episode, and turning it on deletes
+  those kept; signing out deletes them with the library. The storage limit and
+  "Delete all downloads" apply as in the apps.
+- **Not yet:** resuming a download the tab left half done (it starts again);
+  on iOS the first play of a kept episode may need a second tap, as Safari
+  wants a gesture and the stored file is found a moment later.

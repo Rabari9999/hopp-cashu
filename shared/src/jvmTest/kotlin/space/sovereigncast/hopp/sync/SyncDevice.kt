@@ -39,6 +39,8 @@ internal class SyncDevice(
     /** The episode playing here, as the player would say. */
     var playingId: Long? = null
     val adopted = mutableListOf<Triple<Long, Long, Boolean>>()
+    /** What plays now elsewhere, as the player would have been told. */
+    val nowAdopted = mutableListOf<Long>()
     /** How often automatic downloads were turned off here by sync — the waiting ones dropped. */
     var autoDownloadsDropped = 0
     /** Settings this device does not sync yet — as a build from before they were added. */
@@ -65,7 +67,7 @@ internal class SyncDevice(
             },
             SubscriptionsDocument(db, podcasts),
             ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
-            QueueDocument(db, queue),
+            QueueDocument(db, queue) { id, _ -> nowAdopted += id },
             StatsDocument(db, listening) { ms },
         )
     }, { ms }, publishDelay = publishDelay)

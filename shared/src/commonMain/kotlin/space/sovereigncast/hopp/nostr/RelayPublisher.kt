@@ -35,9 +35,26 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     private suspend fun open(url: String): RelaySession =
         kotlin.coroutines.coroutineContext[RelayPool]?.session(connector, url) ?: connectRetrying(connector, url)
 
-    /** The relays that answered `OK true`; one that fails or stays silent is left out. */
-    suspend fun publish(event: Event, relays: List<String>): Set<String> = coroutineScope {
-        relays.distinct().map { url -> async { url.takeIf { publishTo(event, url) } } }.awaitAll().filterNotNull().toSet()
+    /**
+     * The relays that answered `OK true`; one that fails or stays silent is left out. [settle]: once more than half
+     * took it, the others get that long and no longer — what they do not take now, later versions bring them.
+     */
+    suspend fun publish(event: Event, relays: List<String>, settle: Duration? = null): Set<String> = coroutineScope {
+        val urls = relays.distinct()
+        val answers = Channel<Answer<String>>(Channel.UNLIMITED)
+        val jobs = urls.map { url -> launch { answers.send(Answer(url.takeIf { publishTo(event, url) })) } }
+        val took = mutableSetOf<String>()
+        var until: TimeMark? = null
+        var received = 0
+        while (received < urls.size) {
+            val left = until?.let { -it.elapsedNow() }
+            val box = if (left == null) answers.receive() else withTimeoutOrNull(left) { answers.receive() } ?: break
+            received++
+            box.value?.let { took += it }
+            if (settle != null && until == null && took.size * 2 > urls.size) until = TimeSource.Monotonic.markNow() + settle
+        }
+        jobs.forEach { it.cancel() }
+        took
     }
 
     /** The newest valid event of [kind] by [author] on any of [relays], or null. [settle]: see [query]. */
@@ -126,6 +143,8 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * answer counts as not to the end.
      */
     private suspend fun queryOn(filters: List<JsonObject>, url: String, toTheEnd: Boolean = false): List<Event>? {
+        val pool = kotlin.coroutines.coroutineContext[RelayPool]
+        if (pool?.isSilent(url) == true) { noteAnswer(url, RelayOp.Read, RelayAnswer.Unreachable(null)); return null }
         val found = mutableListOf<Event>()
         val started = TimeSource.Monotonic.markNow()
         var reached = false
@@ -137,7 +156,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         var timedOut = false
         val finished = try {
             withTimeoutOrNull(timeout) {
-                val session = runCatching { open(url) }.onFailure { openError = it.message ?: it::class.simpleName }.getOrNull() ?: return@withTimeoutOrNull
+                val session = runCatching { open(url) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) openError = it.message ?: it::class.simpleName }.getOrNull() ?: return@withTimeoutOrNull
                 reached = true
                 try {
                     coroutineScope {
@@ -176,10 +195,12 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
                 }
             } != null
         } catch (e: kotlinx.coroutines.CancellationException) {
-            // Left behind by the others' settle time (gather): no answer in time.
+            // Left behind by the others' settle time (gather): no answer in time. Without even a connection by then: not waited for again.
+            if (!reached && openError == null) pool?.noteSilent(url)
             withContext(NonCancellable) { noteAnswer(url, RelayOp.Read, if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)) }
             throw e
         }
+        if (!finished && !reached && openError == null) pool?.noteSilent(url)
         // Noted also when the read was called off (the others' settle time): a relay left behind did not answer in time.
         val answer = when {
             ended -> RelayAnswer.Ok(started.elapsedNow().inWholeMilliseconds)
@@ -239,6 +260,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * only events it asked for, and only so much.
      */
     private suspend fun latestOn(kind: Int, author: String, url: String): LatestAnswer? = withTimeoutOrNull(timeout) {
+        if (kotlin.coroutines.coroutineContext[RelayPool]?.isSilent(url) == true) return@withTimeoutOrNull null
         val session = runCatching { open(url) }.getOrNull() ?: return@withTimeoutOrNull null
         try {
             coroutineScope {
@@ -276,7 +298,14 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     }
 
     private suspend fun publishTo(event: Event, url: String): Boolean {
-        var answer = publishOnce(event, url)
+        if (kotlin.coroutines.coroutineContext[RelayPool]?.isSilent(url) == true) { noteAnswer(url, RelayOp.Send, RelayAnswer.Unreachable(null)); return false }
+        var answer = try {
+            publishOnce(event, url)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Left behind by the others' settle time ([publish]): no answer in time.
+            withContext(NonCancellable) { noteAnswer(url, RelayOp.Send, RelayAnswer.Silent) }
+            throw e
+        }
         // Turned away for sending too fast: once more after a pause (maintainer 2026-10-30, relays
         // refusing a long document's parts sent one after another).
         if (answer is RelayAnswer.Refused && Refusal.of(answer.reason) == Refusal.RateLimited) {
@@ -291,37 +320,45 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
         val started = TimeSource.Monotonic.markNow()
         var reached = false
         var answer: RelayAnswer? = null
-        withTimeoutOrNull(timeout) {
-            val session = runCatching { open(url) }.onFailure { answer = RelayAnswer.Unreachable(it.message ?: it::class.simpleName) }.getOrNull()
-                ?: return@withTimeoutOrNull
-            reached = true
-            try {
-                coroutineScope {
-                    // Listen before sending, so a fast OK is not missed.
-                    val ok = async(start = CoroutineStart.UNDISPATCHED) {
-                        session.incoming.mapNotNull { text ->
-                            // Only this event's OK is read; the rest passed over by its head.
-                            if (RelayFrame.head(text) != ("OK" to event.id)) return@mapNotNull null
-                            runCatching {
-                                val arr = json.parseToJsonElement(text).jsonArray
-                                if (arr[0].jsonPrimitive.content == "OK" && arr[1].jsonPrimitive.content == event.id) {
-                                    if (arr[2].jsonPrimitive.content == "true") RelayAnswer.Ok(started.elapsedNow().inWholeMilliseconds)
-                                    else RelayAnswer.Refused((arr.getOrNull(3) as? JsonPrimitive)?.content.orEmpty().ifBlank { "refused" })
-                                } else null
-                            }.getOrNull()
-                        }.first()
+        val pool = kotlin.coroutines.coroutineContext[RelayPool]
+        try {
+            withTimeoutOrNull(timeout) {
+                val session = runCatching { open(url) }.onFailure { if (it !is kotlinx.coroutines.CancellationException) answer = RelayAnswer.Unreachable(it.message ?: it::class.simpleName) }.getOrNull()
+                    ?: return@withTimeoutOrNull
+                reached = true
+                try {
+                    coroutineScope {
+                        // Listen before sending, so a fast OK is not missed.
+                        val ok = async(start = CoroutineStart.UNDISPATCHED) {
+                            session.incoming.mapNotNull { text ->
+                                // Only this event's OK is read; the rest passed over by its head.
+                                if (RelayFrame.head(text) != ("OK" to event.id)) return@mapNotNull null
+                                runCatching {
+                                    val arr = json.parseToJsonElement(text).jsonArray
+                                    if (arr[0].jsonPrimitive.content == "OK" && arr[1].jsonPrimitive.content == event.id) {
+                                        if (arr[2].jsonPrimitive.content == "true") RelayAnswer.Ok(started.elapsedNow().inWholeMilliseconds)
+                                        else RelayAnswer.Refused((arr.getOrNull(3) as? JsonPrimitive)?.content.orEmpty().ifBlank { "refused" })
+                                    } else null
+                                }.getOrNull()
+                            }.first()
+                        }
+                        session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
+                        answer = ok.await()
                     }
-                    session.send(buildJsonArray { add(JsonPrimitive("EVENT")); add(json.encodeToJsonElement(Event.serializer(), event)) }.toString())
-                    answer = ok.await()
+                } catch (e: Exception) {
+                    // The connection dropped before the answer.
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    answer = RelayAnswer.Unreachable(e.message)
+                } finally {
+                    runCatching { session.close() }
                 }
-            } catch (e: Exception) {
-                // The connection dropped before the answer.
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                answer = RelayAnswer.Unreachable(e.message)
-            } finally {
-                runCatching { session.close() }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Left behind by the others' settle time, without even a connection by then: not waited for again.
+            if (!reached && answer == null) pool?.noteSilent(url)
+            throw e
         }
+        if (answer == null && !reached) pool?.noteSilent(url)
         return answer ?: if (reached) RelayAnswer.Silent else RelayAnswer.Unreachable(null)
     }
 }

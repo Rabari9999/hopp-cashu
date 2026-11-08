@@ -77,7 +77,7 @@ echo "== the site's files, written by deploy only"
 id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
-install -d -m 755 -o deploy -g deploy /srv/hopp-web /srv/hopp-web/releases
+install -d -m 755 -o deploy -g deploy /srv/hopp-web /srv/hopp-web/releases /srv/hopp-web-dev /srv/hopp-web-dev/releases
 install -d -m 755 /opt/hopp-feed-proxy
 
 echo "== the feed proxy"

@@ -46,7 +46,7 @@
 <ul>
 <li>✅ A privacy page: who sees what when you listen, and what you can do about it</li>
 <li>✅ Notifications for boosts and zaps, set for each on its own</li>
-<li>✅ Phones and tablets, upright and sideways, light and dark, English and German, Spanish as a preview</li>
+<li>✅ Phones and tablets, upright and sideways, light and dark, English and German; Spanish, French, Italian and Portuguese as a preview</li>
 </ul>
 
 <p>Hopp is open source (MIT).</p>

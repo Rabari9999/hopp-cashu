@@ -64,6 +64,8 @@ private fun wipeIfMarked(): Promise<JsString> = js("""(async () => {
     } catch (e) {}
   }
   await new Promise(ok => { const r = indexedDB.deleteDatabase('hopp-secrets'); r.onsuccess = r.onerror = r.onblocked = () => ok(); });
+  // The episodes kept for offline listening (WebDownloads.kt) go with the library.
+  await new Promise(ok => { const r = indexedDB.deleteDatabase('hopp-downloads'); r.onsuccess = r.onerror = r.onblocked = () => ok(); });
   if (held) return 'held';
   try { localStorage.removeItem('hopp-wipe'); } catch (e) {}
   return 'wiped';

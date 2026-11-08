@@ -6,6 +6,34 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+
+### 🆕 New Features
+- **App:** Hopp in French, Italian and Portuguese.
+- **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
+- **Player:** Chapters also from Podlove feeds and from a list of time marks in the show notes.
+- **Player:** A mouse over the progress bar names the time and chapter before you jump there.
+- **Web:** Download an episode and hear it offline, in Hopp Web itself; where a podcast's server does not allow that, the audio file can be saved as before.
+- **Settings:** Two more designs: Glut, warm like the Sovereigncast poster, and Relay, the night over the Nostr network.
+
+### 🐛 Fixes
+- **Nostr:** A Nostr contact who starts looking gets what you share within the hour, without you opening a page; until then their Nostr page says it is coming.
+- **Nostr:** Your Nostr contacts are read in seconds, not minutes; the page shows how far it got, and another device offers to take over at once.
+- **App:** Hopp no longer freezes on its start screen after the phone restarts.
+- **Episode:** The button of an episode you began shows the time left, not a cut-off text.
+- **Player:** Chapters of Podigee shows appear, whose feeds name their chapter file in their own way.
+- **Player:** A long show name stays on two lines, not behind the cover.
+- **Settings:** Room between a setting's words and its switch on a phone.
+- **Nostr:** The Nostr page in parts with headings (sync, Nostr contacts, public), the rarely needed folded under "Advanced", your listening stats a link under your name.
+- **Profile:** The account menu opens your profile from its picture and name, one entry shorter.
+- **Library:** Pulling down looks for new episodes in Downloads and on the playlist page too.
+- **Sync:** A relay that does not answer no longer holds up syncing.
+- **Sovereigncast:** The boost button of a Release Boosting or Boost2Unlock stays in sight below the text.
+- **Nostr:** Your Nostr contacts appear with their name and picture, not as an npub.
+- **Nostr:** A show you left out no longer reaches your Nostr contacts from a device that had not heard of it yet.
+- **Nostr:** What your Nostr contacts do keeps loading when you leave the page.
+- **Nostr:** A switch flipped on a device left behind no longer replaces the keys of your other devices.
+
 ## [0.4.0] - 2026-11-05
 
 ### 🆕 New Features

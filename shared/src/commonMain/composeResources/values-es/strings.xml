@@ -254,7 +254,7 @@
     <string name="wallet_quick_boost">Boost rápido (pantalla de bloqueo)</string>
     <string name="wallet_quick_boost_off">Desactivado</string>
     <string name="wallet_quick_boost_note">El botón de boost en la pantalla de bloqueo y en la notificación envía esta cantidad al instante — sin diálogo, dentro del presupuesto diario.</string>
-    <string name="episode_play">Reproducir</string>
+    <string name="episode_play">Iniciar</string>
     <string name="episode_resume">Seguir · quedan %1$s</string>
     <string name="episode_shownotes">Notas del episodio</string>
     <string name="boost_whole_show">Para todo el podcast</string>
@@ -470,8 +470,12 @@
     <string name="settings_updates">Actualizaciones</string>
     <string name="settings_updates_note">Búsqueda de episodios nuevos</string>
     <string name="settings_appearance">Apariencia</string>
-    <string name="settings_appearance_note">Claro, oscuro o como el sistema</string>
-    <string name="settings_theme">Tema</string>
+    <string name="settings_appearance_note">Diseño, claro u oscuro</string>
+    <string name="settings_design">Diseño</string>
+    <string name="settings_design_hopp">Tranquilo, en blanco y negro</string>
+    <string name="settings_design_glut">Cálido, como las brasas</string>
+    <string name="settings_design_relay">La noche sobre la red Nostr</string>
+    <string name="settings_theme">Claro u oscuro</string>
     <string name="settings_theme_system">Como el sistema</string>
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_dark">Oscuro</string>
@@ -576,7 +580,7 @@
     <string name="home_nothing_new">Nada nuevo</string>
     <string name="home_new_count">Episodios nuevos: %1$d</string>
     <string name="home_updated">actualizado %1$s</string>
-    <string name="home_just_now">ahora mismo</string>
+    <string name="home_just_now">ahora</string>
     <string name="home_minutes_ago">hace %1$d min</string>
     <string name="home_hours_ago">hace %1$d h</string>
     <string name="home_days_ago">hace %1$d días</string>
@@ -679,7 +683,7 @@
     <string name="nostr_sign_out">Cerrar sesión en Hopp</string>
     <string name="nostr_sign_out_text">La clave se borra de este dispositivo. Sin copia de seguridad, la identidad se pierde. Lo que publicaste se queda en Nostr.</string>
     <string name="nostr_sign_out_confirm">Cerrar sesión</string>
-    <string name="pv_nostr_who">Relays de Nostr (relay.damus.io, nos.lol, relay.primal.net, relay.nostr.net para la sincronización, tus propios relays de tu lista de relays, los relays de tus contactos de Nostr y los que indica un podcast; purplepag.es, user.kindpag.es y relay.fountain.fm para buscar perfiles)</string>
+    <string name="pv_nostr_who">Relays de Nostr (relay.damus.io, nos.lol, relay.primal.net, relay.nostr.net para la sincronización, tus propios relays de tu lista de relays, los relays de tus contactos de Nostr y los que indica un podcast; purplepag.es, user.kindpag.es, profiles.nostr1.com, directory.yabu.me y relay.fountain.fm para buscar perfiles)</string>
     <string name="pv_nostr_sees">tu dirección IP; cuando lees comentarios, de qué episodio; lo que publicas con tu identidad de Nostr — tu perfil, comentarios, me gusta, denuncias y lista de silenciados; público para todos y para siempre. Con la sincronización activada: que usas Hopp y cuándo cambia tu biblioteca — la biblioteca en sí está cifrada; solo la abren tus dispositivos con la sincronización activada. Aun así, los relays ven su tamaño y cuándo cambia. Con contactos de Nostr: que usas la función (una nota pública) y cuándo cambia tu lista compartida — la lista en sí está sellada</string>
     <string name="pv_nostr_when">cuando cargas los comentarios de un episodio (al instante si usas una VPN) y, con una identidad de Nostr, cuando se crea y se publica su perfil; con la sincronización activada, al iniciar, al volver a primer plano y tras un cambio; con contactos de Nostr, cuando Descubrir o un podcast muestra lo que escuchan tus contactos</string>
     <string name="pv_nostr_tip">Hopp solo consulta a los relays cuando abres los comentarios o usas una identidad de Nostr. Una VPN les oculta tu dirección IP; lo que publicas sigue siendo público.</string>
@@ -935,6 +939,9 @@
     <string name="sync_restore_text">Tus suscripciones, tu progreso, tu lista de reproducción, tus hábitos de escucha y los ajustes de descarga están en tus relays, cifrados con tu clave. Al restaurar se activa la sincronización entre tus dispositivos.</string>
     <string name="sync_restore_button">Restaurar</string>
     <string name="sync_restore_later">Ahora no</string>
+    <string name="nostr_section_sync">Sincronización</string>
+    <string name="nostr_section_public">Público</string>
+    <string name="nostr_section_advanced">Avanzado</string>
     <string name="sync_title">Sincronizar entre dispositivos</string>
     <string name="sync_note">Suscripciones, progreso, lista de reproducción, hábitos de escucha y ajustes de descarga, cifrados con tu clave en tus relays — sin servidor de Hopp.</string>
     <string name="sync_running">Sincronizando…</string>
@@ -1192,9 +1199,21 @@
     <string name="contacts_share_note">Solo con contactos que también te siguen y usan Hopp. Cifrado.</string>
     <string name="contacts_see">Mostrar lo que escuchan mis contactos</string>
     <string name="contacts_see_note">Lo que comparten, boostean y comentan, en Explorar y en los podcasts.</string>
-    <string name="contacts_reading">Revisando tus contactos …</string>
-    <string name="contacts_elsewhere">Activado en otro dispositivo.</string>
-    <string name="contacts_take_over">Usar aquí</string>
+    <string name="contacts_step_list">Leyendo tu lista de contactos …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d contacto · comprobando quién te sigue …</item>
+        <item quantity="other">%1$d contactos · comprobando quién te sigue …</item>
+    </plurals>
+    <string name="contacts_step_shared">Abriendo lo que comparten tus contactos …</string>
+    <string name="contacts_waiting_one">%1$s comparte suscripciones contigo. Aparecerán cuando Hopp revise los contactos en el dispositivo de %1$s.</string>
+    <string name="contacts_waiting_more">%1$d contactos comparten suscripciones contigo. Aparecerán cuando Hopp revise los contactos en sus dispositivos.</string>
+    <string name="contacts_updated">Actualizado %1$s</string>
+    <string name="contacts_elsewhere_title">Activado en otro dispositivo</string>
+    <string name="contacts_elsewhere_text">Úsalo aquí para compartir y ver también en este dispositivo.</string>
+    <string name="contacts_not_here">Activado, pero aún no en este dispositivo</string>
+    <string name="contacts_taking_over">Activando …</string>
+    <string name="contacts_confirm_signer">Confirma en tu firmante …</string>
+    <string name="contacts_take_over">Usar en este dispositivo</string>
     <string name="contacts_none">Aún no sigues a nadie en Nostr.</string>
     <string name="contacts_counts">%1$d contactos · %2$d te siguen · %3$d de ellos con Hopp</string>
     <string name="contacts_failed">No se pudo completar: %1$s</string>

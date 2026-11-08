@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import space.sovereigncast.hopp.data.Settings
@@ -74,6 +75,9 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.nostr_bunker_qr
 import space.sovereigncast.hopp.resources.nostr_extension
+import space.sovereigncast.hopp.resources.nostr_section_advanced
+import space.sovereigncast.hopp.resources.nostr_section_public
+import space.sovereigncast.hopp.resources.nostr_section_sync
 import space.sovereigncast.hopp.resources.nostr_extension_failed
 import space.sovereigncast.hopp.resources.nostr_extension_rejected
 import space.sovereigncast.hopp.resources.nostr_hero_text_web
@@ -175,7 +179,7 @@ class NostrIdentityViewModel(
     val contactsState: StateFlow<space.sovereigncast.hopp.contacts.ContactsState> =
         contacts?.state ?: MutableStateFlow(space.sovereigncast.hopp.contacts.ContactsState())
     /** On opening the page: what is older than five minutes is read again. [force]: now, the signer asked if needed. */
-    fun refreshContacts(force: Boolean = false) { val c = contacts ?: return; viewModelScope.launch { c.refresh(force, interactive = force, maxAge = 300) } }
+    fun refreshContacts(force: Boolean = false) { val c = contacts ?: return; viewModelScope.launch { if (force) c.refresh(force = true, interactive = true, maxAge = 300) else c.readToTheEnd(maxAge = 300) } }
     fun setContactsSharing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSharing(on) } }
     fun setContactsSeeing(on: Boolean) { val c = contacts ?: return; viewModelScope.launch { c.setSeeing(on) } }
     val identity: StateFlow<NostrIdentity?> = identities.identity
@@ -627,8 +631,8 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
         if (withPicture) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ProfilePicture(80.dp, null, picture, name.ifBlank { "+" }) { actions.pickProfileImage { picture = it } }
             Text(stringResource(Res.string.profile_picture_optional), color = muted, style = MaterialTheme.typography.bodySmall)
-        } else Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.value), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.onValue)
+        } else Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(space.sovereigncast.hopp.ui.theme.Hopp.colors.let { it.nostr?.fill ?: it.value }), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(space.sovereigncast.hopp.ui.components.HoppIcons.Hop, null, Modifier.size(34.dp), tint = space.sovereigncast.hopp.ui.theme.Hopp.colors.let { it.nostr?.onFill ?: it.onValue })
         }
         Text(stringResource(Res.string.nostr_hero_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Text(stringResource(if (vm.keysInApp) Res.string.nostr_hero_text else Res.string.nostr_hero_text_web), style = MaterialTheme.typography.bodyLarge, color = muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -639,7 +643,7 @@ private fun Welcome(boostName: String, busy: Boolean, vm: NostrIdentityViewModel
         return
     }
     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(stringResource(Res.string.nostr_name)) }, singleLine = true)
-    Button(onClick = { vm.create(name, picture) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+    Button(onClick = { vm.create(name, picture) }, enabled = !busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp), colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) {
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(Res.string.nostr_start), fontWeight = FontWeight.Bold)
     }
     Text(stringResource(Res.string.nostr_public_line), Modifier.fillMaxWidth(), color = muted, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -671,7 +675,7 @@ private fun SignIn(busy: Boolean, vm: NostrIdentityViewModel) {
     val locked = text.trim().removePrefix("nostr:").startsWith("ncryptsec1")
     if (vm.signerApp) {
         val ext = vm.signerIsExtension
-        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
+        Button(onClick = vm::signInWithSigner, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) { Text(stringResource(if (ext) Res.string.nostr_extension else Res.string.nostr_amber)) }
         signerError?.let {
             Text(stringResource(when {
                 it == NostrIdentityViewModel.SignerError.Rejected -> if (ext) Res.string.nostr_extension_rejected else Res.string.nostr_amber_rejected
@@ -892,6 +896,15 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         }
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
+    // The profile's own numbers: what was heard and given (maintainer 2026-10-26) — a link under the name, not a
+    // button of its own (2026-11-08).
+    val openStats = LocalOpenStats.current
+    Text(
+        stringResource(Res.string.stats_nostr_link) + " ›",
+        Modifier.padding(start = 68.dp).clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = openStats)
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
+    )
     val pictureFailed by vm.pictureFailed.collectAsState()
     if (pictureFailed) Text(stringResource(Res.string.profile_welcome_failed), Modifier.clickable { editing = true }, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
@@ -899,9 +912,6 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         val active by tabOnly.active.collectAsState()
         if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
     }
-    // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
-    val openStats = LocalOpenStats.current
-    OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }
     // Only when something is wrong: the profile reached no relay.
     if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -914,27 +924,45 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     // A key Hopp holds lives only on this device and in no backup (ADR 0015).
     if (me.holdsKey) Backup(me, busy, vm)
 
+    // Each part under a heading, the rare things folded away (maintainer 2026-11-08).
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    Text(stringResource(Res.string.nostr_section_sync), style = MaterialTheme.typography.titleMedium)
     val restoring by vm.restoring.collectAsState()
     SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
     if (settings?.nostrSync == true) {
         SyncStatusLine(vm)
-        // One row (maintainer 2026-11-03): sync now, the sync key to show — for a relay that takes only keys it
-        // knows — and, only where the key is elsewhere, a new one (a lost phone that held the key itself has it).
-        SyncActions(vm, renew = !me.holdsKey)
+        SyncActions(vm, now = true)
     }
     ContactsSection(vm, onSharedShows)
+    // What goes out in public, apart from the contacts (maintainer 2026-11-08).
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    Text(stringResource(Res.string.nostr_section_public), style = MaterialTheme.typography.titleMedium)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
-    var relaysOpen by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.nostr_relays))
-            Text(stringResource(Res.string.nostr_relays_note), color = muted, style = MaterialTheme.typography.bodySmall)
-        }
-        Text("›", color = muted, style = MaterialTheme.typography.titleLarge)
+    // Rarely needed: the sync key to show — for a relay that takes only keys it knows — and, only where the key is
+    // elsewhere, a new one (a lost phone that held the key itself has it); the relays.
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    var advanced by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .toggleable(advanced, role = androidx.compose.ui.semantics.Role.Button, onValueChange = { advanced = it }).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(Res.string.nostr_section_advanced), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Text(if (advanced) "▴" else "▾", color = muted, style = MaterialTheme.typography.titleMedium)
     }
-    if (relaysOpen) RelaysSheet(vm) { relaysOpen = false }
+    if (advanced) {
+        if (settings?.nostrSync == true) SyncActions(vm, now = false, renew = !me.holdsKey)
+        var relaysOpen by remember { mutableStateOf(false) }
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.nostr_relays))
+                Text(stringResource(Res.string.nostr_relays_note), color = muted, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("›", color = muted, style = MaterialTheme.typography.titleLarge)
+        }
+        if (relaysOpen) RelaysSheet(vm) { relaysOpen = false }
+    }
 
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {
         Text(stringResource(Res.string.nostr_sign_out), color = MaterialTheme.colorScheme.error)
@@ -973,35 +1001,33 @@ private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Uni
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
     Text(stringResource(Res.string.contacts_title), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(Res.string.contacts_intro), color = muted, style = MaterialTheme.typography.bodySmall)
-    SwitchRow(stringResource(Res.string.contacts_share), stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
+    val me by vm.identity.collectAsState()
+    // Turned on on another device: its keys come over with one tap — shown at once, not after a read (maintainer 2026-11-08).
+    val elsewhere = note != null && !note.opened
+    if (elsewhere) TakeOverCard(state.working, holdsKey = me?.holdsKey == true) { vm.refreshContacts(force = true) }
+    // Until then a switch says so: on, but not on this device yet.
+    val notHere = stringResource(Res.string.contacts_not_here)
+    SwitchRow(stringResource(Res.string.contacts_share), if (elsewhere) notHere else stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSharing(true) } else vm.setContactsSharing(false)
     }
+    // Always, sharing off too: which shows go is chosen before the first share (maintainer 2026-11-08).
     SharedShowsRow(note?.sharing == true, onSharedShows)
-    SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
+    SwitchRow(stringResource(Res.string.contacts_see), if (elsewhere) notHere else stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
-    }
-    // Only while the feature is on: off, the page must not jump under the listener's finger as it looks (CI 2026-11-02).
-    if (state.working && note != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-        Text(stringResource(Res.string.contacts_reading), color = muted, style = MaterialTheme.typography.bodySmall)
-    }
-    // Turned on on another device: its keys come over with one question to the signer.
-    if (note != null && !note.opened && !state.working) Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(Res.string.contacts_elsewhere), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_take_over)) }
     }
     // A mutual contact lost, and the signer has to be asked for the new share key (ADR 0024, 4).
     if (state.renewPending && !state.working) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.contacts_renew_text), Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { vm.refreshContacts(force = true) }) { Text(stringResource(Res.string.contacts_renew)) }
     }
-    state.read?.let { read ->
-        Text(
-            if (read.following.isEmpty()) stringResource(Res.string.contacts_none)
-            else stringResource(Res.string.contacts_counts, read.following.size, read.mutual.size, read.withHopp.size),
-            color = muted, style = MaterialTheme.typography.bodySmall,
-        )
-    }
+    // Shared, but not with this inbox yet: said, rather than left to look like all there is (maintainer 2026-11-08).
+    val waiting = state.read?.waiting.orEmpty().takeIf { note?.seeing == true && note.opened && state.reading == null }.orEmpty()
+    if (waiting.isNotEmpty()) Text(
+        if (waiting.size == 1) stringResource(Res.string.contacts_waiting_one, space.sovereigncast.hopp.ui.library.contactNames(waiting))
+        else stringResource(Res.string.contacts_waiting_more, waiting.size),
+        color = muted, style = MaterialTheme.typography.bodySmall,
+    )
+    ContactsReadLine(state.read, state.reading.takeIf { note != null })
     state.error?.let { Text(stringResource(Res.string.contacts_failed, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     ask?.let { act ->
         AlertDialog(
@@ -1011,6 +1037,58 @@ private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Uni
             confirmButton = { TextButton(onClick = { ask = null; act() }) { Text(stringResource(Res.string.contacts_public_confirm)) } },
             dismissButton = { TextButton(onClick = { ask = null }) { Text(stringResource(Res.string.cancel)) } },
         )
+    }
+}
+
+/** The contacts note made on another device, and the one tap that takes its keys over to this one. */
+@Composable
+private fun TakeOverCard(working: Boolean, holdsKey: Boolean, onTakeOver: () -> Unit) {
+    val nostr = space.sovereigncast.hopp.ui.theme.Hopp.colors.nostr
+    androidx.compose.material3.Surface(
+        color = nostr?.tint ?: MaterialTheme.colorScheme.surfaceVariant,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.contacts_elsewhere_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(Res.string.contacts_elsewhere_text), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            if (working) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                // A signer elsewhere has to say yes; a key Hopp holds needs no one.
+                Text(stringResource(if (holdsKey) Res.string.contacts_taking_over else Res.string.contacts_confirm_signer), style = MaterialTheme.typography.bodySmall)
+            } else Button(onClick = onTakeOver, colors = space.sovereigncast.hopp.ui.theme.nostrButtonColors()) { Text(stringResource(Res.string.contacts_take_over)) }
+        }
+    }
+}
+
+/**
+ * What the contacts read found: while a read is under way, how far it got — the contacts, then who follows
+ * back, then what they share — and the counts as soon as they are known; otherwise the counts of the last
+ * read and how old it is (maintainer 2026-11-08: a minute of "Looking at your contacts" said nothing).
+ */
+@Composable
+private fun ContactsReadLine(read: space.sovereigncast.hopp.contacts.ContactsRead?, reading: space.sovereigncast.hopp.contacts.ReadProgress?) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val counts = when {
+        reading?.mutual != null -> stringResource(Res.string.contacts_counts, reading.following ?: 0, reading.mutual, reading.withHopp ?: 0)
+        read == null -> null
+        read.following.isEmpty() -> stringResource(Res.string.contacts_none)
+        else -> stringResource(Res.string.contacts_counts, read.following.size, read.mutual.size, read.withHopp.size)
+    }
+    counts?.let { Text(it, color = muted, style = MaterialTheme.typography.bodySmall) }
+    if (reading != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        Text(
+            when {
+                reading.following == null -> stringResource(Res.string.contacts_step_list)
+                reading.mutual == null -> pluralStringResource(Res.plurals.contacts_step_mutual, reading.following, reading.following)
+                else -> stringResource(Res.string.contacts_step_shared)
+            },
+            color = muted, style = MaterialTheme.typography.bodySmall,
+        )
+    } else if (read != null && read.following.isNotEmpty()) {
+        val now = remember(read.at) { kotlin.time.Clock.System.now().epochSeconds }
+        Text(stringResource(Res.string.contacts_updated, space.sovereigncast.hopp.ui.library.ago((now - read.at).coerceAtLeast(0))), color = muted, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -1097,16 +1175,17 @@ private fun relayLine(answered: Int, asked: Int): String =
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun SyncActions(vm: NostrIdentityViewModel, renew: Boolean, keys: space.sovereigncast.hopp.sync.SyncKeys = org.koin.compose.koinInject()) {
+/** Sync now, with the sync's state; or ([now] false) the sync key to show and, with [renew], a new one. */
+private fun SyncActions(vm: NostrIdentityViewModel, now: Boolean, renew: Boolean = false, keys: space.sovereigncast.hopp.sync.SyncKeys = org.koin.compose.koinInject()) {
     val status by vm.syncStatus.collectAsState()
     val renewing by vm.renewing.collectAsState()
     val renewed by vm.renewed.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf<String?>(null) }
-    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalArrangement = Arrangement.Center) {
-        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
-        TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
-        if (renew) {
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = if (now) Arrangement.End else Arrangement.Start, verticalArrangement = Arrangement.Center) {
+        if (now && !status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+        if (!now) TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
+        if (!now && renew) {
             if (renewing) CircularProgressIndicator(Modifier.padding(12.dp).size(18.dp), strokeWidth = 2.dp)
             else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew_short)) }
         }
@@ -1257,7 +1336,8 @@ private fun SwitchRow(title: String, note: String, checked: Boolean, enabled: Bo
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        // Room between the words and the switch: on a phone they touched (maintainer 2026-11-08).
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(start = 16.dp))
     }
 }
 

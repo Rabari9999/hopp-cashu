@@ -1,8 +1,9 @@
 # ADR 0016 — Languages and accessibility
 
 - **Status:** accepted; amended 2026-11-02 (maintainer): Spanish as a draft in
-  0.4.0, and the preparation for many languages
-- **Date:** 2026-10-07, amended 2026-11-02
+  0.4.0, and the preparation for many languages; amended 2026-11-06
+  (maintainer): further languages translated by an LLM, no Weblate
+- **Date:** 2026-10-07, amended 2026-11-02 and 2026-11-06
 
 ## Decision
 
@@ -17,9 +18,10 @@
 - Numbers and dates are locale-formatted ("1.234 Sats" / "1,234 sats").
 - German addresses the listener with "du", as Sovereigncast does.
 - Store listings in the same languages as the app.
-- **Further languages through hosted Weblate** (free for libre projects): the
+- ~~**Further languages through hosted Weblate** (free for libre projects): the
   community translates in the browser, changes arrive as commits. Spanish — the
-  third language of sovereigncast.space — is the obvious first candidate.
+  third language of sovereigncast.space — is the obvious first candidate.~~
+  *Replaced 2026-11-06, see below.*
 
 ### Amendment 2026-11-02: Spanish, and room for many languages
 
@@ -42,6 +44,14 @@
 - Weblate and store listings in Spanish follow once a reviewer is found;
   `docs/translations.md` says how a language is added.
 
+### Amendment 2026-11-06: translated by an LLM
+
+Maintainer, after the review options were laid out: languages beyond English
+and German are translated by an LLM, without a native speaker's reading first
+and without Weblate. Spanish and French stop being drafts waiting for a reader;
+Italian and Portuguese join them. What someone reports is corrected in the file.
+Replaces the plan for Weblate above and below.
+
 ### Accessibility: best effort
 
 Accessibility is designed in but **does not block a release**. What applies
@@ -62,7 +72,8 @@ because it costs nothing extra when done from the start:
 
 ## Consequences
 
-- A Weblate project is set up once the string resources exist (phase 1).
+- ~~A Weblate project is set up once the string resources exist (phase 1).~~
+  Not planned any more (amendment 2026-11-06).
 - Accessibility regressions are fixed when found, not gated; a TalkBack/VoiceOver
   walkthrough of the core flows (subscribe, listen, chapters, boost) belongs in
   the release checklist of topic 15 as a recommended, non-blocking step.

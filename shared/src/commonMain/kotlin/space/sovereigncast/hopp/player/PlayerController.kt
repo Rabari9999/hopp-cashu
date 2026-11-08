@@ -187,6 +187,8 @@ class PlayerController(
                 val outro = outroReached(id, s)
                 hear(id, s)
                 if (s.isPlaying) startBatch()
+                // Started here, however it was — a tap, the lock screen, Android Auto: what plays now, everywhere.
+                if (s.isPlaying && !wasPlaying && clip?.itemId != id) scope.launch { runCatching { queue.noteNow(id) } }
                 val ended = !s.isPlaying && s.durationMs > 0 && s.positionMs >= s.durationMs - 1_500
                 when {
                     (ended && wasPlaying) || outro != null -> {
@@ -535,6 +537,25 @@ class PlayerController(
         if (played) { close(); return }
         if (loaded) { engine.seekTo(positionMs); lastSaved = positionMs }
         shown?.let { _current.value = it.copy(item = it.item.copy(positionMs = positionMs, played = false)) }
+    }
+
+    /**
+     * What plays now on another device (sync, maintainer 2026-11-06): shown here, paused where it is, and started
+     * only by the listener. What plays here is never interrupted; it stays until it is done. The episode here until
+     * now is in "Up next" if the other device had it; if not, it goes there, begun as it is.
+     */
+    suspend fun adoptNow(id: Long, atSeconds: Long) {
+        val s = engine.state.value
+        if (s.isPlaying || s.isBuffering || clip != null || _remoteClip.value != null || _current.value?.item?.id == id) return
+        val item = episodes.item(id)?.takeUnless { it.played } ?: return
+        episodes.noteListenedElsewhere(id, atSeconds)
+        val before = _current.value?.item?.id
+        if (before != null && !queue.has(before)) keepInterrupted(id)
+        expectedId = null
+        introUnchecked = null
+        lastSaved = 0
+        engine.unload()
+        open(item, load = false, autoplay = false)
     }
 
     /** Nothing in the player: the episode unloaded, the bar and the screen gone. */

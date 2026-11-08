@@ -84,7 +84,7 @@ object FeedParser {
         }
     }
 
-    private enum class Ns { NONE, ITUNES, PODCAST, CONTENT, ATOM, OTHER }
+    private enum class Ns { NONE, ITUNES, PODCAST, CONTENT, ATOM, PSC, OTHER }
 
     private fun ns(uri: String): Ns {
         val u = uri.trim().lowercase().removeSuffix("/")
@@ -92,6 +92,7 @@ object FeedParser {
             u.isEmpty() -> Ns.NONE
             u.endsWith("itunes.com/dtds/podcast-1.0.dtd") -> Ns.ITUNES
             u.endsWith("podcastindex.org/namespace/1.0") -> Ns.PODCAST
+            u.endsWith("podlove.org/simple-chapters") -> Ns.PSC
             // Early feeds declared the spec document itself as the namespace.
             u.contains("podcastindex-org/podcast-namespace") -> Ns.PODCAST
             u == "http://purl.org/rss/1.0/modules/content" -> Ns.CONTENT
@@ -153,7 +154,8 @@ object FeedParser {
                     "transcript" -> if (inItem) attrs["url"]?.takeIf { it.isNotEmpty() }?.let {
                         episode!!.transcripts += TranscriptRef(it, attrs["type"].orEmpty(), attrs["language"], attrs["rel"])
                     }
-                    "chapters" -> if (inItem) episode!!.chaptersUrl = attrs["url"]
+                    // Podigee writes `href`, the spec `url`.
+                    "chapters" -> if (inItem) episode!!.chaptersUrl = (attrs["url"] ?: attrs["href"])?.takeIf { it.isNotEmpty() }
                     "socialInteract" -> if (inItem) attrs["uri"]?.takeIf { it.isNotEmpty() }?.let {
                         episode!!.socialInteracts += SocialInteract(it, attrs["protocol"] ?: "", attrs["accountId"], attrs["priority"]?.toIntOrNull())
                     }
@@ -163,6 +165,10 @@ object FeedParser {
                 // hands it to the browser as a link — `javascript:` or `data:` from a feed has no place there.
                 el.ns == Ns.NONE && el.name == "enclosure" && inItem -> attrs["url"]?.takeIf { it.trim().let { u -> u.startsWith("https://", true) || u.startsWith("http://", true) } }?.let {
                     episode!!.enclosure = Enclosure(it, attrs["length"]?.toLongOrNull()?.takeIf { n -> n > 0 }, attrs["type"]?.ifEmpty { null })
+                }
+                el.ns == Ns.PSC && el.name == "chapter" && inItem -> ChaptersParser.normalPlayTime(attrs["start"].orEmpty())?.let { start ->
+                    fun web(key: String) = attrs[key]?.takeIf { it.startsWith("https://", true) || it.startsWith("http://", true) }
+                    episode!!.chapters += Chapter(start, attrs["title"].orEmpty(), web("image"), web("href"))
                 }
                 el.ns == Ns.ITUNES && el.name == "category" && !inItem -> attrs["text"]?.takeIf { it.isNotEmpty() }?.let {
                     if (it !in podcast.categories) podcast.categories += it
@@ -303,7 +309,7 @@ object FeedParser {
         var publishedAt: Long? = null; var enclosure: Enclosure? = null; var duration: Long? = null
         var imageUrl: String? = null; var podcastImage: String? = null
         var season: Int? = null; var number: Double? = null; var episodeType: String? = null
-        var explicit: Boolean? = null; var chaptersUrl: String? = null
+        var explicit: Boolean? = null; var chaptersUrl: String? = null; val chapters = mutableListOf<Chapter>()
         val transcripts = mutableListOf<TranscriptRef>(); val persons = mutableListOf<Person>()
         val soundbites = mutableListOf<Soundbite>(); var value: ValueBlock? = null
         val socialInteracts = mutableListOf<SocialInteract>()
@@ -318,7 +324,7 @@ object FeedParser {
                 guid = id, title = title, description = contentEncoded ?: description ?: summary, link = link,
                 publishedAt = publishedAt, enclosure = enclosure, durationSeconds = duration,
                 imageUrl = podcastImage ?: imageUrl, season = season, episodeNumber = number,
-                episodeType = episodeType, explicit = explicit, chaptersUrl = chaptersUrl,
+                episodeType = episodeType, explicit = explicit, chaptersUrl = chaptersUrl, chapters = chapters.sortedBy { it.startSeconds },
                 transcripts = transcripts, persons = persons, soundbites = soundbites, value = value,
                 socialInteracts = socialInteracts,
             )

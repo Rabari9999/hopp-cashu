@@ -28,6 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -143,6 +145,71 @@ class RelayPoolTest {
             first to read.answered
         }
         assertEquals(setOf(url) to 1, took)
+    }
+
+    // ── a relay that hangs (maintainer 2026-11-06) ──────────────────────────
+
+    private val hanging = "wss://hanging.test"
+    private val anything = kotlinx.serialization.json.buildJsonObject { }
+    /** [hanging] takes no connection, ever; all others go to [relay]. */
+    private fun hangingAt(relay: FakeRelay) = RelayConnector { u -> if (u == hanging) kotlinx.coroutines.awaitCancellation() else relay.connect(u) }
+
+    /** Once in a round it costs the settle time; after that nothing, reading and sending. */
+    @Test
+    fun aRelayThatHangsIsNotWaitedForAgainInARound() = runBlocking<Unit> {
+        val publisher = RelayPublisher(hangingAt(FakeRelay()), timeout = 10.seconds)
+        withRelayPool {
+            val first = publisher.queryChecked(listOf(anything), listOf(url, hanging), settle = 300.milliseconds)
+            assertEquals(1, first.answered)
+            val read = kotlin.time.measureTimedValue { publisher.queryChecked(listOf(anything), listOf(url, hanging), settle = 300.milliseconds) }
+            assertEquals(1, read.value.answered)
+            assertEquals(2, read.value.asked, "asked of both still: this is no majority of one")
+            assertTrue(read.duration < 250.milliseconds, "read waited ${read.duration}")
+            val sent = kotlin.time.measureTimedValue { publisher.publish(event("one"), listOf(url, hanging)) }
+            assertEquals(setOf(url), sent.value)
+            assertTrue(sent.duration < 1.seconds, "sending waited ${sent.duration}")
+        }
+    }
+
+    /** The next round asks it again: it may be back. */
+    @Test
+    fun aRelayThatHungIsAskedAgainInTheNextRound() = runBlocking<Unit> {
+        val relay = FakeRelay()
+        var hangs = true
+        val publisher = RelayPublisher(RelayConnector { u -> if (hangs) kotlinx.coroutines.awaitCancellation() else relay.connect(u) }, timeout = 200.milliseconds)
+        withRelayPool { assertEquals(emptySet(), publisher.publish(event("one"), listOf(url))) }
+        hangs = false
+        withRelayPool { assertEquals(setOf(url), publisher.publish(event("two"), listOf(url))) }
+    }
+
+    /** A relay connected and slow to answer, left behind by the settle time, is no relay down. */
+    @Test
+    fun aRelaySlowToAnswerIsAskedAgain() = runBlocking<Unit> {
+        val relay = FakeRelay()
+        val slow = "wss://slow.test"
+        val silentOnce = Scripted()
+        val publisher = RelayPublisher(RelayConnector { u -> if (u == slow) silentOnce.connect(u) else relay.connect(u) }, timeout = 10.seconds)
+        withRelayPool {
+            publisher.queryChecked(listOf(anything), listOf(url, slow), settle = 200.milliseconds)
+            val asked = silentOnce.sent.size
+            publisher.queryChecked(listOf(anything), listOf(url, slow), settle = 200.milliseconds)
+            assertTrue(silentOnce.sent.size > asked, "asked again")
+        }
+    }
+
+    /** Taken by more than half: the others get the settle time. Fewer: everyone gets the full time, as before. */
+    @Test
+    fun sendingEndsSoonAfterMoreThanHalfTookIt() = runBlocking<Unit> {
+        val relay = FakeRelay()
+        val silent = Scripted()
+        val a = "wss://a.test"; val b = "wss://b.test"; val quiet = "wss://quiet.test"; val quiet2 = "wss://quiet2.test"
+        val publisher = RelayPublisher(RelayConnector { u -> if (u == quiet || u == quiet2) silent.connect(u) else relay.connect(u) }, timeout = 1500.milliseconds)
+        val two = kotlin.time.measureTimedValue { publisher.publish(event("one"), listOf(a, b, quiet), settle = 100.milliseconds) }
+        assertEquals(setOf(a, b), two.value)
+        assertTrue(two.duration < 1.seconds, "waited ${two.duration}")
+        val one = kotlin.time.measureTimedValue { publisher.publish(event("two"), listOf(a, quiet, quiet2), settle = 100.milliseconds) }
+        assertEquals(setOf(a), one.value)
+        assertTrue(one.duration >= 1400.milliseconds, "no majority, and it stopped after ${one.duration}")
     }
 
     // ── delta audit 5 2026-10-24 ────────────────────────────────────────────

@@ -15,8 +15,10 @@ interface PlatformActions {
     fun pickProfileImage(onImage: (ByteArray) -> Unit) = Unit
     /** Hands text to the system's share sheet (mail, messenger, …). */
     fun shareText(text: String, subject: String) = Unit
-    /** Whether episodes can be downloaded at all — not in the browser (ADR 0022, 1). */
+    /** Whether episodes can be downloaded at all — in the browser too since 2026-11-08, not in a tab that keeps nothing. */
     val canDownload: Boolean get() = true
+    /** Whether new episodes download by themselves — a show's switch, the setting; not in the browser. */
+    val canAutoDownload: Boolean get() = canDownload
     /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments. */
     val canPay: Boolean get() = true
     /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
@@ -27,7 +29,8 @@ interface PlatformActions {
     fun applyUpdate() = Unit
     /** Whether the system shows Hopp's notifications — a payment's outcome among them; not the browser's tab. */
     val canNotify: Boolean get() = true
-    /** Where nothing is downloaded (the browser): whether an episode's audio file can be saved instead. */
+    /** Whether an episode's audio file can be saved instead — in the browser, where nothing is downloaded or a server
+     *  does not let a web page download its audio. */
     val canSaveAudio: Boolean get() = false
     /** Saves the audio file at [url] as [name], as the platform can (maintainer 2026-10-28). */
     fun saveAudio(url: String, name: String) = Unit
@@ -82,6 +85,8 @@ interface PlatformActions {
      *  around Hopp, the status bar's icons (review 2026-10-31: they followed the system's, unreadable on a
      *  theme chosen against it). */
     fun themeChosen(dark: Boolean?) = Unit
+    /** The design's ground, for what the browser colours around the page. */
+    fun groundChosen(argb: Int) = Unit
 }
 
 object NoPlatformActions : PlatformActions {

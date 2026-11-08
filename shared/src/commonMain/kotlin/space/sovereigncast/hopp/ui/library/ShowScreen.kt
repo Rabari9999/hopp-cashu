@@ -421,7 +421,7 @@ private fun ShowMenu(
             Icon(Icons.Rounded.MoreVert, stringResource(Res.string.show_options), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            if (LocalPlatformActions.current.canDownload) DropdownMenuItem(
+            if (LocalPlatformActions.current.canAutoDownload) DropdownMenuItem(
                 text = { Text(stringResource(Res.string.show_auto_download)) },
                 trailingIcon = { Switch(checked = autoDownload, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp)) },
                 onClick = { onAutoDownload(!autoDownload) },

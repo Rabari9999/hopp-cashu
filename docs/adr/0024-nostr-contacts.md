@@ -64,6 +64,11 @@ and on the relays: `contacts`, not `friends`.
 - **For public signals** (6): everyone the listener follows — one way, as
   Zapstore does: what is public is public.
 
+Nostr contacts are named from the indexes of ADR 0021 (four since
+2026-11-05, device feedback). A name found once stays when a later look-up
+finds none, and a contact shown without one is asked for again at the next
+look at the shared lists.
+
 Nothing in Hopp makes or breaks a contact: following someone in any Nostr
 client does. A key made in Hopp starts without contacts; the feature is for
 listeners who already have a Nostr identity, and the page says so.
@@ -82,6 +87,17 @@ NIP-44-sealed to the listener's own key — as the sync keyring — so another
 device takes them over with one question to the signer. Its tags name the
 public halves in the open: `["share", <pubkey>]` when the listener shares,
 `["inbox", <pubkey>]` when they look at what contacts share.
+
+A device left behind that flips a switch starts from the newest note on the
+relays, not from the keys it still holds (2026-11-05): those would replace the
+keys its other devices use.
+
+*Added 2026-11-08 (maintainer):* another device shows the note as soon as it
+has looked for it — a card that takes it over, the switches marked "not taken
+over on this device yet" — and reads no contacts until then: without the keys
+a read opens nothing, and it had kept the card hidden for a minute. A key Hopp
+holds takes the note over without a tap, as there is no one to ask; a signer
+app or bunker is asked only from the card.
 
 The contacts note is **public that the listener uses this feature of
 Hopp's**, and with which keys. Hopp says so before it is published — the
@@ -121,6 +137,13 @@ with sync in `hopp/subscriptions`, so a show left out on one device is left
 out on all. A show subscribed while sharing is on is shared unless the
 listener leaves it out.
 
+*Added 2026-11-05:* every device with the share key sends its own list, so
+one that has not heard of a show left out elsewhere would share it again. A
+device therefore takes a sync round before it sends a changed list, unless one
+just ran, and leaves the list for the next time when the round fails. A device
+with sync off has only its own view: what is left out elsewhere does not reach
+it, as anything else that travels with sync.
+
 ### 5. Seeing what mutual contacts share
 
 With "Show what my Nostr contacts listen to" on, Hopp reads, once per feed
@@ -128,7 +151,33 @@ refresh and at most every hour: the listener's contact list, then each
 contact's contact list and contacts note — only from contacts in the
 listener's list, in batches of authors; for each mutual contact whose note
 names a share key, the key sealed for the listener's inbox and the shared
-list it opens.
+list it opens. A read opened from a page goes on when the page closes
+(2026-11-05): with a few hundred contacts it takes a minute, and is kept only
+at its end.
+
+*Added 2026-11-08 (maintainer: one to two minutes with a single contact):* the
+relays answer within a second or two (measured that day); the time went to
+steps waiting on each other, a new connection per step, a contact's dead relay
+waited for its full ten seconds by each step, twelve directory look-ups one
+after another, and sharing and a sync round behind the same spinner. Now one
+connection per relay for the whole read, a relay that did not answer not asked
+again, a contact's own relay given four seconds, Hopp's relays asked while the
+relay lists are still looked up, profiles and shared lists at once, look-ups
+four at a time. The page shows how far a read got — the contacts, who follows
+back, what they share — and otherwise the last read and how old it is; the
+switches do not wait for a read, and sharing and renewing run after it unseen.
+
+*Added 2026-11-08 (maintainer: a contact followed in the morning saw only the
+sharer's public boosts all afternoon):* the read "once per feed refresh" ran
+only after a refresh started in the app — a pull — and on opening the Nostr
+page or Discover; Android's background refresh left it out, so a new inbox got
+its key only once the sharer opened one of those. Now the read, when the last
+is an hour old, also runs on start, on coming back to the foreground and in the
+background refresh; and a shared list going out again reads first when the
+last read is that old. A mutual contact who shares but sealed no key for the
+listener's inbox yet is shown as such on the Nostr page — "shares with you,
+shows up once their Hopp next checks its contacts" — instead of their public
+signals passing for all there is.
 
 ### 6. Public signals
 

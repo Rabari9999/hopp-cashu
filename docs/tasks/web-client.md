@@ -127,6 +127,11 @@ How to run and check it: [web/README.md](../../web/README.md).
       Home", whose sheet froze the mirror; a button's exact name now goes
       first).
 
+## Development address (2026-11-05)
+
+`play-dev.sovereigncast.space` for stages in between, `play.` for releases only
+(ADR 0022, 15; `web/deploy/README.md`).
+
 ## Not in 0.3.2
 
 Hosting on `play.sovereigncast.space` with own headers, imprint and privacy

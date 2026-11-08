@@ -67,8 +67,14 @@ interface Platform {
     fun externalSigner(): space.sovereigncast.hopp.nostr.ExternalSigner? = null
     /** Where a boost's result goes when the listener wants to hear of it. */
     fun boostNotifier(): space.sovereigncast.hopp.value.BoostNotifier = space.sovereigncast.hopp.value.BoostNotifier.None
-    /** Whether episodes are downloaded here — not in the browser (ADR 0022, 1). */
+    /** Whether episodes are downloaded here — in the browser too, on request, since 2026-11-08 (ADR 0022, 1). */
     val downloads: Boolean get() = true
+    /** Whether new episodes download by themselves — not in the browser, which has no background. */
+    val autoDownloads: Boolean get() = downloads
+    /** Where downloads are kept: files, or the browser's storage. */
+    fun downloadFiles(): DownloadFiles = DownloadFiles(downloadDir())
+    /** The browser's way to download ([BrowserDownloads]); null in the apps. */
+    fun browserDownloads(): space.sovereigncast.hopp.data.BrowserDownloads? = null
     /** After signing out: in the browser everything Hopp kept goes too — the library, the secrets (ADR 0022, 2). */
     suspend fun signedOut() = Unit
     /** Whether a Nostr key may be made or imported here — not in the browser (ADR 0022, 2). */
@@ -116,7 +122,7 @@ fun sharedModule(platform: Platform) = module {
         val podcasts = get<PodcastRepository>()
         val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {
             podcasts.shared().map { space.sovereigncast.hopp.contacts.SharedShow(it.podcast_guid, it.feed_url, it.title, it.subscribed_at, it.image_url) }
-        }) { get<Clock>().now() }
+        }, { getKoin().get<space.sovereigncast.hopp.sync.SyncManager>().upToDate() }) { get<Clock>().now() }
         val db = get<HoppDatabase>()
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         val cache = object : space.sovereigncast.hopp.contacts.ContactsRepository.ContactsCache {
@@ -147,20 +153,22 @@ fun sharedModule(platform: Platform) = module {
                 space.sovereigncast.hopp.sync.ProgressDocument(koin.get(), koin.get(), koin.get<Clock>()::now, player::isPlaying) { id, pos, played ->
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
                 },
-                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()),
+                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()) { id, at ->
+                    kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptNow(id, at) }
+                },
                 space.sovereigncast.hopp.sync.StatsDocument(koin.get(), koin.get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() },
             )
         }, { kotlin.time.Clock.System.now().toEpochMilliseconds() }, afterRound = { koin.get<PodcastRepository>().releaseHeldDownloads() })
     }
-    single { DownloadFiles(platform.downloadDir()) }
+    single { platform.downloadFiles() }
     single { platform.downloadScheduler() }
     single { space.sovereigncast.hopp.platform.CrashReports(platform.crashDir()) }
     single { SettingsRepository(get(), get()) }
     single { QueueRepository(get(), get()) }
-    single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads) }
+    single { DownloadRepository(get(), get(), get(), get(), get(), get(), enabled = platform.downloads, browser = platform.browserDownloads()) }
     single {
         PodcastRepository(get(), get(), get(), get(), get(), get(),
-            autoDownloads = { platform.downloads && get<SettingsRepository>().current().autoDownloads },
+            autoDownloads = { platform.autoDownloads && get<SettingsRepository>().current().autoDownloads },
             onNewEpisodes = { new -> if (get<SettingsRepository>().current().newToQueue) get<QueueRepository>().addNew(new) },
         )
     }
@@ -220,8 +228,8 @@ fun sharedModule(platform: Platform) = module {
     viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
-    viewModel { QueueViewModel(get()) }
-    viewModel { DownloadsViewModel(get()) }
+    viewModel { QueueViewModel(get(), get()) }
+    viewModel { DownloadsViewModel(get(), get()) }
     viewModel { EpisodeActionsViewModel(get(), get(), get()) }
     viewModel { params -> EpisodeViewModel(params.get(), get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.comments.CommentsViewModel(params.get(), get(), get(), get(), get(), get(), get(), get(), get()) }

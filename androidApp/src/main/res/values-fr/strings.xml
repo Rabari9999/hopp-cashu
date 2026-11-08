@@ -1,0 +1,42 @@
+<resources>
+    <!-- Translated by an LLM (maintainer 2026-11-06). -->
+    <!-- Android Auto's browse tree (ADR 0012) -->
+    <string name="auto_new">Nouveautés</string>
+    <string name="auto_queue">Liste de lecture</string>
+    <string name="auto_downloads">Téléchargements</string>
+    <string name="auto_library">Bibliothèque</string>
+    <!-- Download notification -->
+    <string name="downloads_channel">Téléchargements</string>
+    <string name="downloads_running">Téléchargement des épisodes</string>
+    <string name="quick_boost">Boost</string>
+    <string name="boosts_channel">Boosts</string>
+    <string name="quick_boost_sent">%1$s sats boostés à %2$s</string>
+    <string name="quick_boost_partial">%1$s sats sur %2$s boostés à %3$s — détails dans l\'historique des paiements</string>
+    <string name="quick_boost_budget">Boost non envoyé : le budget du jour est épuisé</string>
+    <string name="quick_boost_low_balance">Boost non envoyé : le portefeuille ne contient que %1$s sats</string>
+    <string name="quick_boost_no_value">Boost non envoyé : cette émission ne peut pas recevoir de boosts</string>
+    <string name="quick_boost_no_wallet">Boost non envoyé : pas de portefeuille connecté</string>
+    <string name="quick_boost_failed">Le boost a échoué : %1$s</string>
+    <string name="zap">Zap</string>
+    <string name="zaps_channel">Zaps</string>
+    <string name="zap_someone">quelqu\'un</string>
+    <string name="zap_sent">%1$s sats zappés à %2$s</string>
+    <string name="zap_budget">Zap non envoyé : le budget du jour est épuisé</string>
+    <string name="zap_failed">Le zap à %1$s a échoué : %2$s</string>
+    <string name="copied">Copié</string>
+    <string name="scan_hint">Pointe la caméra vers le code QR de la connexion du portefeuille</string>
+    <string name="scan_close">Fermer</string>
+    <string name="scan_no_camera">Hopp n\'a besoin de la caméra que pour lire le code QR.</string>
+    <string name="files_summary">Épisodes téléchargés</string>
+    <!-- Lock screen and notification -->
+    <string name="skip_back">Reculer de %1$d secondes</string>
+    <string name="skip_forward">Avancer de %1$d secondes</string>
+    <string name="next_chapter">Chapitre suivant</string>
+    <!-- The home-screen widget (0.3.1) -->
+    <string name="widget_name">Lecteur Hopp</string>
+    <string name="widget_description">Ce qui joue, avec lecture, saut, chapitre suivant et ton boost rapide</string>
+    <string name="widget_nothing">Rien en lecture – touche pour ouvrir Hopp</string>
+    <string name="widget_left">%1$d min restantes</string>
+    <string name="widget_play">Lecture</string>
+    <string name="widget_pause">Pause</string>
+</resources>

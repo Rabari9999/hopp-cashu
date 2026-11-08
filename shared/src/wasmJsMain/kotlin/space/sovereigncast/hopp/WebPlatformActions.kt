@@ -41,6 +41,8 @@ private fun saveLink(url: String, name: String): Unit = js("""{
   const a = document.createElement('a'); a.href = url; a.download = name; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.click();
 }""")
 
+private fun themeColor(color: String): Unit = js("""{ document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', color)); }""")
+
 private fun clipboard(text: String): Unit = js("{ navigator.clipboard && navigator.clipboard.writeText(text).catch(() => {}); }")
 
 private fun share(text: String, title: String): Unit =
@@ -69,9 +71,11 @@ private fun isMobileBrowser(): Boolean = js("/Android|iPhone|iPad|iPod|Mobile/i.
 private val LANGUAGES = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
 
 /** What the browser can do for the shared UI (ADR 0022): files by picker and download, the
- *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */
+ *  system's share where there is one, the clipboard — episodes downloaded on request into the
+ *  browser's storage (maintainer 2026-11-08), not in a tab that keeps nothing, none by themselves. */
 class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformActions {
-    override val canDownload: Boolean get() = false
+    override val canDownload: Boolean get() = tabOnly?.active?.value != true
+    override val canAutoDownload: Boolean get() = false
     // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
     // Paid from the browser's own wallet, an extension's (WebLN — ADR 0022, 4, stage W3).
     override val canPay: Boolean get() = true
@@ -82,6 +86,7 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     override fun applyUpdate() = WebUpdates.apply()
     override val canSaveAudio: Boolean get() = true
     override val refreshButton: Boolean get() = true
+    override fun groundChosen(argb: Int) = themeColor("#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0'))
     override fun saveAudio(url: String, name: String) {
         // The feed's word, as a link the page clicks: a web address only, whatever the parser let through.
         if (url.startsWith("https://", true) || url.startsWith("http://", true)) saveLink(url, name)

@@ -58,6 +58,8 @@ data class Episode(
     val episodeType: String? = null,
     val explicit: Boolean? = null,
     val chaptersUrl: String? = null,
+    /** Podlove's chapters, written into the feed itself. */
+    val chapters: List<space.sovereigncast.hopp.feed.Chapter> = emptyList(),
     val transcripts: List<TranscriptRef> = emptyList(),
     val persons: List<Person> = emptyList(),
     val soundbites: List<Soundbite> = emptyList(),

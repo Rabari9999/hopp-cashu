@@ -1,0 +1,4 @@
+/* Only in a --dev build (web/deploy/build.sh, ADR 0022, 15): over the app, not part of it, so what is
+   checked here is the code a release runs. Clicks go through it. */
+html::before { content: ""; position: fixed; inset: 0 0 auto 0; height: 3px; background: #f7931a; z-index: 2147483647; pointer-events: none; }
+html::after { content: "DEV · __VERSION__"; position: fixed; top: 0; left: 50%; transform: translateX(-50%); padding: calc(3px + env(safe-area-inset-top)) 8px 2px; border-radius: 0 0 6px 6px; background: #f7931a; color: #0a0a0a; font: 700 11px/1.2 system-ui, sans-serif; white-space: nowrap; z-index: 2147483647; pointer-events: none; }

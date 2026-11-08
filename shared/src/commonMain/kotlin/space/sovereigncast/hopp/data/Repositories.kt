@@ -26,6 +26,7 @@ import kotlinx.serialization.json.Json
 import space.sovereigncast.hopp.db.HoppDatabase
 import space.sovereigncast.hopp.feed.Chapter
 import space.sovereigncast.hopp.feed.ChaptersParser
+import space.sovereigncast.hopp.feed.NotesChapters
 import space.sovereigncast.hopp.feed.FeedParser
 import space.sovereigncast.hopp.model.Episode
 import space.sovereigncast.hopp.model.Feed
@@ -93,8 +94,11 @@ data class EpisodeItem(
     /** The file's size as the feed states it, in bytes; null when it states none. */
     val enclosureLength: Long? = null,
 ) {
-    /** What the player opens: the file once it is complete, else the stream. */
-    val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let { "file://$it" } ?: enclosureUrl
+    /** What the player opens: the file once it is complete, else the stream. In the browser the episode in its
+     *  storage, with the stream after a # for when the browser let it go. */
+    val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let {
+        if (it.startsWith(BrowserDownloads.PATH_PREFIX)) "$it#${enclosureUrl.orEmpty()}" else "file://$it"
+    } ?: enclosureUrl
 }
 
 /** One mapping for every query that selects `episode.*` (plus the show's
@@ -674,6 +678,9 @@ class EpisodeRepository(
     /** Progress from another device (sync): as it was there, and not noted again. Heard there, it
      *  leaves "Up next" here too — the other device notes that for the queue it shares, not for one
      *  a finished download put it in, which only this device knows. */
+    /** Listened to as of [atSeconds], on another device: after a restart here the player brings back the newest ([inProgress]). */
+    suspend fun noteListenedElsewhere(id: Long, atSeconds: Long) = withContext(ioDispatcher) { eq.noteListened(atSeconds, id) }
+
     suspend fun applyProgress(id: Long, positionMs: Long, played: Boolean, atSeconds: Long, listenedSeconds: Long? = null) = withContext(ioDispatcher) {
         db.transaction {
             if (played) {
@@ -711,9 +718,27 @@ class EpisodeRepository(
     suspend fun dismiss(id: Long) = withContext(ioDispatcher) { eq.setInbox(0, id) }
     suspend fun clearInbox() = withContext(ioDispatcher) { eq.clearInbox() }
 
-    /** Chapters from the cache, else fetched and cached (offline after the first play). */
+    /** The feed's chapter file, else its Podlove chapters, else a list in the notes (maintainer 2026-11-07).
+     *  A file that fails to load counts only when there is nothing else. */
     suspend fun chapters(item: EpisodeItem): List<Chapter> {
-        val url = item.chaptersUrl ?: return emptyList()
+        val failed = try {
+            val file = item.chaptersUrl?.let { chapterFile(item, it) }.orEmpty()
+            if (file.isNotEmpty()) return file
+            null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e
+        }
+        val own = details(item.id)?.let { e ->
+            e.chapters.ifEmpty { withContext(Dispatchers.Default) { NotesChapters.parse(e.description, item.durationSeconds) } }
+        }.orEmpty()
+        if (own.isEmpty() && failed != null) throw failed
+        return own
+    }
+
+    /** From the cache, else fetched and cached (offline after the first play). */
+    private suspend fun chapterFile(item: EpisodeItem, url: String): List<Chapter> {
         withContext(ioDispatcher) { db.chapterCacheQueries.select(item.id).awaitAsOneOrNull() }?.let {
             return runCatching { ChaptersParser.parse(it) }.getOrDefault(emptyList())
         }

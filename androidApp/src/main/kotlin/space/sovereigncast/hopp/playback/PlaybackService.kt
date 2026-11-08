@@ -241,9 +241,14 @@ class PlaybackService : MediaLibraryService() {
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
 
+        /**
+         * Answered at once, never through [scope]: for a media browser of the old API (the system after a restart,
+         * the car) Media3 blocks the main thread in onGetRoot until this is done, and [scope] needs that thread. Hopp
+         * stood frozen on its splash, not responding (device check 2026-11-06).
+         */
         override fun onGetLibraryRoot(
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?,
-        ): ListenableFuture<LibraryResult<MediaItem>> = scope.future { LibraryResult.ofItem(tree.root(), params) }
+        ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(LibraryResult.ofItem(tree.root(), params))
 
         override fun onGetChildren(
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo, parentId: String,

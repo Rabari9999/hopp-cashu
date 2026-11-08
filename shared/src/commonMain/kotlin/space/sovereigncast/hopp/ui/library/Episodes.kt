@@ -141,7 +141,7 @@ fun PlayButton(item: EpisodeItem) {
     ) {
         CircularProgressIndicator(
             progress = { heard }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp,
-            color = MaterialTheme.colorScheme.onSurface, trackColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressTrack,
+            color = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressFill ?: MaterialTheme.colorScheme.onSurface, trackColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressTrack,
             gapSize = 0.dp,
         )
         Icon(if (playing) HoppIcons.Pause else HoppIcons.Play, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
@@ -168,8 +168,9 @@ fun EpisodeMenu(item: EpisodeItem, favorite: Boolean = true, vm: EpisodeActionsV
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_next)) }, onClick = { pick { vm.playNext(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_last)) }, onClick = { pick { vm.playLast(item) } })
             val actions = LocalPlatformActions.current
-            // Nothing is downloaded in the browser; the audio file can be saved instead (maintainer 2026-10-28).
-            if (!actions.canDownload && actions.canSaveAudio) item.enclosureUrl?.let { url ->
+            // Where nothing is downloaded, or the download failed — in the browser a server that does not let a web page
+            // read its audio — the audio file can be saved instead (maintainer 2026-10-28, 2026-11-08).
+            if (actions.canSaveAudio && (!actions.canDownload || item.downloadState == DownloadState.FAILED)) item.enclosureUrl?.let { url ->
                 DropdownMenuItem(text = { Text(stringResource(Res.string.menu_save_audio)) }, onClick = { pick {
                     val ext = url.substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").lowercase().takeIf { it.length in 2..4 } ?: "mp3"
                     actions.saveAudio(url, space.sovereigncast.hopp.data.episodeFileName(item.podcastTitle.orEmpty(), item.title, ext))
@@ -232,10 +233,9 @@ fun QueuePreview(items: List<EpisodeItem>, limit: Int, onOpen: (EpisodeItem) -> 
             ReorderableItem {
                 // On the page's own ground; lifted only while dragged.
                 Surface(color = if (dragging) MaterialTheme.colorScheme.surface else androidx.compose.ui.graphics.Color.Transparent, tonalElevation = if (dragging) 4.dp else 0.dp) {
-                    // Opaque over what a swipe shows beneath it.
                     PlaylistEntry(
                         item, onClick = onOpen, onOpen = onOpen,
-                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
+                        color = if (dragging) androidx.compose.ui.graphics.Color.Transparent else space.sovereigncast.hopp.ui.theme.Hopp.colors.page,
                         before = { PlayButton(item) },
                     ) {
                         IconButton(onClick = {}, modifier = Modifier.draggableHandle().semantics { contentDescription = dragLabel }) {
@@ -265,6 +265,7 @@ fun QueueList(
     items: List<EpisodeItem>, onPlay: (EpisodeItem) -> Unit, onReorder: (List<Long>) -> Unit,
     onOpen: ((EpisodeItem) -> Unit)? = onPlay,
     header: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {}, footer: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     var order by remember { mutableStateOf(items) }
     LaunchedEffect(items) { order = items }
@@ -279,7 +280,7 @@ fun QueueList(
         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val dragLabel = stringResource(Res.string.queue_drag)
-    LazyColumn(state = listState) {
+    LazyColumn(modifier, state = listState) {
         header()
         items(order, key = { it.id }) { item ->
             ReorderableItem(reorderable, key = item.id) { dragging ->

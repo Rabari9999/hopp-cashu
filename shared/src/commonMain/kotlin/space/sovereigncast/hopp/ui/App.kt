@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.size
 import space.sovereigncast.hopp.resources.refresh
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -156,7 +157,9 @@ import space.sovereigncast.hopp.ui.library.ShowPreviewScreen
 import space.sovereigncast.hopp.ui.library.ShowScreen
 import space.sovereigncast.hopp.ui.player.MiniPlayer
 import space.sovereigncast.hopp.ui.player.NowPlayingScreen
+import space.sovereigncast.hopp.ui.theme.Hopp
 import space.sovereigncast.hopp.ui.theme.HoppTheme
+import space.sovereigncast.hopp.ui.theme.pageGround
 
 @Serializable object HomeRoute
 @Serializable object InboxRoute
@@ -304,6 +307,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     // Sync (ADR 0021, 5): a round on start and back in the foreground, what is left goes on leaving.
     val sync: space.sovereigncast.hopp.sync.SyncManager = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { sync.onForeground() }
+    // The Nostr contacts too, when their last read is an hour old: a contact new since gets their key (ADR 0024, 5).
+    val contacts: space.sovereigncast.hopp.contacts.ContactsRepository = koinInject()
+    val contactsScope = rememberCoroutineScope()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { contactsScope.launch { contacts.whenDue() } }
     // The listening statistics noted before that round, all of it (they otherwise go every half hour).
     val listening: space.sovereigncast.hopp.data.ListeningRepository = koinInject()
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { sync.onBackground { listening.flush(force = true) } }
@@ -400,7 +407,10 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val chosenDark = when (appSettings?.theme) { Settings.THEME_LIGHT -> false; Settings.THEME_DARK -> true; else -> null }
     LaunchedEffect(chosenDark) { platformActions.themeChosen(chosenDark) }
-    HoppTheme(darkTheme = chosenDark ?: systemDark) {
+    HoppTheme(darkTheme = chosenDark ?: systemDark, design = appSettings?.design ?: Settings.DESIGN_HOPP) {
+        // What the browser colours around Hopp follows the choice, not only its own light or dark.
+        val ground = MaterialTheme.colorScheme.background
+        LaunchedEffect(ground) { platformActions.groundChosen(ground.toArgb()) }
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPlatformActions provides platformActions, LocalEpisodeActions provides episodeActions, LocalEpisodeNav provides episodeNav,
             space.sovereigncast.hopp.ui.library.LocalSnackbar provides snackbar,
@@ -427,7 +437,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     close = { if (player.expanded.value) { player.minimize(); true } else false },
                 )
             }
-            Surface(Modifier.fillMaxSize().keyShortcuts(shortcuts), color = MaterialTheme.colorScheme.background) {
+            Surface(Modifier.fillMaxSize().pageGround().keyShortcuts(shortcuts), color = Hopp.colors.page, contentColor = MaterialTheme.colorScheme.onBackground) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                   // A rail at the side once the window is wider than a phone held
                   // upright (ADR 0020): a tablet, a phone on its side, a Mac window.
@@ -445,7 +455,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     val railStart = androidx.compose.foundation.layout.WindowInsets.safeDrawing
                         .only(androidx.compose.foundation.layout.WindowInsetsSides.Start).asPaddingValues()
                         .calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
-                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH + railStart), containerColor = MaterialTheme.colorScheme.surface) {
+                    if (rail) NavigationRail(Modifier.width(space.sovereigncast.hopp.ui.components.RAIL_WIDTH + railStart), containerColor = if (Hopp.colors.glow.isEmpty()) MaterialTheme.colorScheme.surface else Hopp.colors.page, contentColor = MaterialTheme.colorScheme.onSurface) {
                         androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
                         val inSettings = destination?.hasRoute(SettingsRoute::class) == true || destination?.hasRoute(SettingsPageRoute::class) == true
                         tabs.forEach { tab ->
@@ -476,7 +486,8 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                     }
                     Scaffold(
                         modifier = Modifier.weight(1f),
-                        containerColor = MaterialTheme.colorScheme.background,
+                        containerColor = Hopp.colors.page,
+                        contentColor = MaterialTheme.colorScheme.onBackground,
                         snackbarHost = { SnackbarHost(snackbar) },
                         topBar = {
                             CenterAlignedTopAppBar(
@@ -491,7 +502,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 },
                                 actions = {
                                     // Where a mouse cannot pull the lists down (maintainer 2026-11-01).
-                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true)) {
+                                    if (platformActions.refreshButton && (onTab == tabs[0] || onTab == tabs[1] || destination?.hasRoute(InboxRoute::class) == true || destination?.hasRoute(QueueRoute::class) == true || destination?.hasRoute(DownloadsRoute::class) == true)) {
                                         RefreshButton(feeds)
                                     }
                                     // The listener's picture, a menu with signing out (maintainer 2026-11-03).
@@ -503,7 +514,7 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                         Icon(Icons.Rounded.Settings, stringResource(Res.string.settings))
                                     }
                                 },
-                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Hopp.colors.page),
                             )
                         },
                         bottomBar = {

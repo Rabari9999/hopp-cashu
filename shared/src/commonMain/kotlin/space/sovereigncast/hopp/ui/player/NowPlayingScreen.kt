@@ -144,6 +144,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.semantics.onClick
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.ui.theme.pageGround
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
@@ -215,7 +216,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     Box(
         Modifier.fillMaxSize()
             .offset { IntOffset(0, dragY.value.roundToInt()) }
-            .background(colors.background)
+            // Over the window, the ground of its own; as a column beside the library, on the window's.
+            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.pageGround())
             .safeDrawingPadding()
             .pointerInput(inPane) {
                 if (inPane) return@pointerInput
@@ -317,7 +319,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.seekTo((f * duration).toLong()) },
-                trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
+                trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
                 preview = { f ->
                     val at = (f * duration).toLong()
@@ -374,7 +376,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             if (withChips) {
                 Spacer(Modifier.height(12.dp))
                 val chipList: @Composable () -> Unit = {
-                    sections.forEach { s -> SheetChip(stringResource(s.label)) { openSection(s) } }
+                    sections.forEach { s -> SheetChip(stringResource(s.label), overNostr = s == PlayerSection.Comments) { openSection(s) } }
                 }
                 if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
                 else Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) { chipList() }
@@ -391,7 +393,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 // beside the content, and a mouse could not reach the last one.
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     sections.forEach { s ->
-                        FilterChip(selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) })
+                        val nostr = Hopp.colors.nostr?.takeIf { s == PlayerSection.Comments }
+                        FilterChip(
+                            selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) },
+                            colors = nostr?.let { androidx.compose.material3.FilterChipDefaults.filterChipColors(containerColor = it.tint, labelColor = it.text, selectedContainerColor = it.fill, selectedLabelColor = it.onFill) }
+                                ?: androidx.compose.material3.FilterChipDefaults.filterChipColors(),
+                        )
                     }
                 }
                 val body = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)
@@ -433,7 +440,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = model::minimize) { Icon(HoppIcons.ChevronDown, stringResource(Res.string.np_close)) }
-                    Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+                    // Two lines at most: a long name ran on behind the cover.
+                    Text(playing.podcastTitle, Modifier.weight(1f), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     IconButton(onClick = { sharing = true }) { Icon(androidx.compose.material.icons.Icons.Rounded.Share, stringResource(Res.string.share_title)) }
                     IconButton(onClick = { showQueue = true }) { Icon(HoppIcons.Queue, stringResource(Res.string.queue_title)) }
                 }
@@ -566,7 +574,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(label, Modifier.weight(1f))
-                        Switch(checked = on, onCheckedChange = null)
+                        Switch(checked = on, onCheckedChange = null, modifier = Modifier.padding(start = 16.dp))
                     }
                     if (model.engine.supportsSkipSilence) SwitchLine(stringResource(Res.string.skip_silence), settings.skipSilence) { on -> settingsVm.update { it.copy(skipSilence = on) } }
                     // Quiet shows louder (maintainer 2026-10-21), beside skipping silence.
@@ -608,14 +616,15 @@ private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, se
 }
 
 @Composable
-private fun SheetChip(label: String, onClick: () -> Unit) {
+private fun SheetChip(label: String, overNostr: Boolean = false, onClick: () -> Unit) {
+    val nostr = Hopp.colors.nostr?.takeIf { overNostr }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
+        color = nostr?.tint ?: MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
         modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
     ) {
         Text(
             label, Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = nostr?.text ?: MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
         )
     }

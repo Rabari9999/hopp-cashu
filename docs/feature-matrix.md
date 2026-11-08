@@ -16,7 +16,8 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:guid` | ✅ | ✅ | P1 | Identity key for subscriptions and for Sovereigncast verification (ADR 0002). |
 | `podcast:value` / `valueRecipient` | ✅ `keysend` and `lnaddress` | ✅ `keysend` **and** `lnaddress` | P1 | Both methods required; a block can mix them. `lnaddress` recipients carry `customKey="lnurl_callback"` on both paths (Sovereigncast's editors resolve it the same way). |
 | `podcast:valueTimeSplit` | ✅ inline and `remoteItem` | ✅ (`remoteItem`, music) | P2 | Needs `remoteItem` resolution for remote splits. |
-| `podcast:chapters` | ✅ JSON | ✅ JSON | P1 | Chapter images in now-playing. |
+| `podcast:chapters` | ✅ JSON | ✅ JSON | P1 | Chapter images in now-playing. Podigee's `href` is read as well as the spec's `url`. |
+| `psc:chapters` (Podlove) | ✅ | ✅ | P1 | When the feed names no chapter file. After them, a list of at least three rising time marks in the notes. |
 | `podcast:transcript` | VTT + SRT (`rel="captions"`), `text/plain` when untimed | SRT + VTT + HTML | P1 | Support SRT, VTT, HTML, JSON, plain text; prefer VTT/JSON. |
 | `podcast:person` | ✅ | ✅ | P1 | |
 | `podcast:soundbite` | ✅ | ✅ | P1 | Preview / share clips. |

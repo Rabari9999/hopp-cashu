@@ -158,6 +158,80 @@ class PlayerControllerTest {
         until("plays from there") { fresh.loaded.lastOrNull()?.let { it.id == e1.id.toString() && it.startPositionMs == 90_000L } == true }
     }
 
+    /** Maintainer 2026-11-06: what started elsewhere shows here, paused, and plays only when asked to. */
+    @Test
+    fun whatPlaysElsewhereShowsHerePaused() = test {
+        val (e1, e2, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        queue.playNext(e1.id) // As the other device, which had it and interrupted it, said.
+        episodes.applyProgress(e2.id, 30_000, false, 1_000)
+        val loads = engine.loaded.size
+        player.adoptNow(e2.id, 2_000)
+        assertEquals(e2.id, player.current.value?.item?.id)
+        until("where it is") { player.state.value.positionMs == 30_000L }
+        assertEquals(loads, engine.loaded.size, "nothing loaded before the listener asks")
+        assertEquals(1, engine.unloaded)
+        assertEquals(listOf(e1.id), queue.items.first().map { it.id })
+        // The engine's old state is no switch made elsewhere.
+        delay(50)
+        assertEquals(e2.id, player.current.value?.item?.id)
+        player.togglePlay()
+        until("plays from there") { engine.loaded.lastOrNull()?.let { it.id == e2.id.toString() && it.startPositionMs == 30_000L } == true }
+        // After a restart the same one is back.
+        step { pause() }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again") { again.current.value?.item?.id == e2.id }
+    }
+
+    /** What plays here is never interrupted, and an episode heard to its end is no "now". */
+    @Test
+    fun whatPlaysElsewhereDoesNotInterrupt() = test {
+        val (e1, e2, e3) = episodes()
+        start(e1)
+        at(90_000)
+        player.adoptNow(e2.id, 2_000)
+        assertEquals(e1.id, player.current.value?.item?.id)
+        assertEquals(0, engine.unloaded)
+        step { pause() }
+        episodes.applyProgress(e3.id, 0, true, 1_000)
+        player.adoptNow(e3.id, 2_000)
+        assertEquals(e1.id, player.current.value?.item?.id)
+    }
+
+    /** An episode this device had and no other knew of is not lost: begun, it goes to "Up next". */
+    @Test
+    fun theEpisodeHereGoesToUpNextIfTheOtherDeviceHadNot() = test {
+        val (e1, e2, _) = episodes()
+        start(e1)
+        at(90_000)
+        step { pause() }
+        player.adoptNow(e2.id, 2_000)
+        assertEquals(listOf(e1.id), queue.items.first().map { it.id })
+    }
+
+    /** Started here, however it was: noted once for the other devices; a pause and going on say nothing new. */
+    @Test
+    fun aStartIsNotedForTheOtherDevices() = test {
+        val (e1, _, _) = episodes()
+        val store = space.sovereigncast.hopp.sync.SyncStore(db) { clockMs }
+        val journal = space.sovereigncast.hopp.sync.SyncJournal(store).also { it.enabled = true }
+        var notes = 0
+        journal.onChange = { doc, _ -> if (doc == space.sovereigncast.hopp.sync.SyncDocs.QUEUE) notes++ }
+        val fresh = RecordingEngine()
+        val noting = PlayerController(fresh, episodes, podcasts, QueueRepository(db, journal), settings, scope) { clockMs }
+        noting.play(e1)
+        until("loaded") { fresh.loaded.lastOrNull()?.id == e1.id.toString() }
+        fresh.play()
+        val now = space.sovereigncast.hopp.sync.SyncDocs.NOW_KEY
+        until("noted") { store.entry(space.sovereigncast.hopp.sync.SyncDocs.QUEUE, now) != null }
+        val entry = store.entry(space.sovereigncast.hopp.sync.SyncDocs.QUEUE, now)
+        delay(30); fresh.pause(); delay(30); clockMs += 60_000; fresh.play(); delay(50)
+        assertEquals(entry, store.entry(space.sovereigncast.hopp.sync.SyncDocs.QUEUE, now))
+    }
+
     /** Delta audit 3 2026-10-22, ND-03: after a restart, a newer position from another device arrives while
      *  the episode is only shown — played, it starts there, and the database keeps it. */
     @Test
@@ -190,15 +264,18 @@ class PlayerControllerTest {
         episodes.applyProgress(e1.id, 0, true, clockMs / 1000)
         player.adoptProgress(e1.id, 0, true)
         assertEquals(null, player.current.value, "nothing in the player")
-        assertEquals(1, engine.unloaded)
+        // Once or twice: the player's own watch on "played" may close it at the same moment, on another
+        // thread (CI 2026-11-08) — what counts is that it is closed.
+        assertTrue(engine.unloaded >= 1)
         assertEquals(null, engine.state.value.itemId)
         assertTrue(episodes.item(e1.id)!!.played)
         // Playing here: left alone.
         start(e2)
         at(30_000)
+        val unloaded = engine.unloaded
         player.adoptProgress(e2.id, 0, true)
         assertEquals(e2.id, player.current.value?.item?.id)
-        assertEquals(1, engine.unloaded)
+        assertEquals(unloaded, engine.unloaded)
     }
 
     /** Maintainer 2026-11-01: the episode in the player marked played — on its own or with all of its show

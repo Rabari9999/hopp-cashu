@@ -106,7 +106,10 @@ device therefore fills the library.
 
 ### 5. "Up next" and settings
 
-As above; settings only from the list of listening habits.
+As above; settings only from the list of listening habits. What plays now
+travels with "Up next" as its entry `now`: the newest start on any device, shown
+paused on a device not playing, and read with the positions on coming to the
+foreground, at most every two minutes (ADR 0021, amendment 2026-11-06).
 
 ### 6. Restore on a new device
 

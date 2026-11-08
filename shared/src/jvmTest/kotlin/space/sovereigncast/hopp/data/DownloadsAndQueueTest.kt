@@ -10,6 +10,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import space.sovereigncast.hopp.AsyncOnlyDriver
 import space.sovereigncast.hopp.db.HoppDatabase
@@ -79,6 +80,59 @@ class DownloadsAndQueueTest {
     private fun test(block: suspend () -> Unit) { runBlocking { block() } }
     private suspend fun subscribe() = (podcasts.subscribe("https://pod.test/feed.xml") as SubscribeResult.Subscribed).podcastId
     private suspend fun byTitle(podcastId: Long, title: String) = episodes.ofPodcast(podcastId).first().single { it.title == title }
+
+    /**
+     * Hopp Web (maintainer 2026-11-08): a download goes into the browser's storage and plays from there, with the
+     * stream behind it; a server that does not let the page download fails at once, not after tries; one the
+     * listener stops while it runs is gone.
+     */
+    @Test
+    fun aBrowserDownloadIsKeptInTheBrowser() = test {
+        val kept = mutableMapOf<Long, String>()
+        var refuse = false
+        var hold = -1L
+        val browser = object : BrowserDownloads {
+            override suspend fun fetch(id: Long, url: String, maxBytes: Long, progress: (written: Long, total: Long?) -> Unit, stopped: () -> Boolean): Long {
+                if (refuse) throw DownloadRefused(0, "the server does not let a web page download it")
+                progress(50, 100)
+                if (id == hold) { while (!stopped()) kotlinx.coroutines.delay(10); throw IllegalStateException("stopped") }
+                kept[id] = url
+                return 100
+            }
+            override suspend fun delete(id: Long) { kept.remove(id) }
+        }
+        val web = DownloadRepository(db, http, clock, files, scheduler, settings, browser = browser)
+        // None by themselves in the browser.
+        settings.update { it.copy(autoDownloads = false) }
+        val show = subscribe()
+        val ep2 = byTitle(show, "Ep 2")
+        web.request(ep2.id)
+        web.runPending(includeAuto = false)
+        val done = byTitle(show, "Ep 2")
+        assertEquals(DownloadState.DONE, done.downloadState)
+        assertEquals("idb:${ep2.id}#${ep2.enclosureUrl}", done.playableUrl)
+        assertEquals(ep2.enclosureUrl, kept[ep2.id])
+        assertTrue(ranges.isEmpty(), "nothing fetched past the browser's own way")
+
+        refuse = true
+        val ep1 = byTitle(show, "Ep 1")
+        web.request(ep1.id)
+        assertTrue(web.runPending(includeAuto = false), "refused is no reason to try again")
+        assertEquals(DownloadState.FAILED, byTitle(show, "Ep 1").downloadState)
+
+        refuse = false
+        web.remove(ep1.id)
+        hold = ep1.id
+        web.request(ep1.id)
+        kotlinx.coroutines.coroutineScope {
+            val run = launch { web.runPending(includeAuto = false) }
+            while (byTitle(show, "Ep 1").downloadState != DownloadState.DOWNLOADING) kotlinx.coroutines.delay(10)
+            web.remove(ep1.id)
+            run.join()
+        }
+        assertEquals(DownloadState.NONE, byTitle(show, "Ep 1").downloadState)
+        assertEquals(null, kept[ep1.id])
+    }
 
     /**
      * Review 2026-10-31: the migrations as a whole, against the schema a new install gets — every table's

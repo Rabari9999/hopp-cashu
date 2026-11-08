@@ -92,7 +92,7 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val track = Hopp.colors.progressTrack
-    val fill = colors.onSurface
+    val fill = Hopp.colors.progressFill ?: colors.onSurface
     // A large window: a player bar instead — seek, speed and, in a browser, volume at hand (UX review 2026-10-30).
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH) { PlayerBar(model, playing, state, duration, foot); return@BoxWithConstraints }
@@ -218,7 +218,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                         fraction = if (duration > 0) position.toFloat() / duration else 0f,
                         boundaries = chapters.boundaryFractions(duration),
                         onSeek = { f -> model.seekTo((f * duration).toLong()) },
-                        trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.surface,
+                        trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, gapColor = colors.surface,
                         label = stringResource(Res.string.np_progress),
                         preview = { f ->
                             val at = (f * duration).toLong()

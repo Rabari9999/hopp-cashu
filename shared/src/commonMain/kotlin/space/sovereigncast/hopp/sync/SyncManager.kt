@@ -67,8 +67,8 @@ data class Restored(val shows: Int, val entries: Int)
 
 /**
  * Runs sync (ADR 0021, 5; docs/tasks/nostr-sync.md): on start, on coming to
- * the foreground at most every [FOREGROUND_EVERY], on pull-to-refresh, and a
- * little after the listener changed something. Only a round of the first kind reads every
+ * the foreground at most every [FOREGROUND_EVERY] (in between only what plays now, [onForeground]), on
+ * pull-to-refresh, and a little after the listener changed something. Only a round of the first kind reads every
  * document; one after a change here takes only the documents that changed — read, merged and
  * sent (maintainer 2026-11-05: rounds every few minutes while playing, each to every relay for
  * every document, cost battery). The documents in order —
@@ -233,6 +233,9 @@ class SyncManager(
      *  on the sync page (maintainer 2026-10-30: "Incomplete" for good, nothing to be done). */
     suspend fun rewrite(doc: String): SyncStatus = withRelayPool { syncNowInPool(interactive = true, rewrite = doc) }
 
+    /** Whether this device has what the listener's other devices changed, a round if need be. Sync off: there is nothing to wait for. */
+    suspend fun upToDate(): Boolean = !settings.current().nostrSync || syncUnlessFresh().problem == null
+
     /** [only]: these documents, not all — a round that sends what changed here. [unlessFresh]: none if a
      *  full round got through a moment ago, and no problem since. */
     private suspend fun syncNowInPool(
@@ -303,13 +306,20 @@ class SyncManager(
         }
     }
 
-    /** The app came to the foreground (or started): a round, unless one ran a moment ago. */
+    /**
+     * The app came to the foreground (or started): a round, unless one ran a moment ago. Then only what plays now
+     * and where, at most every [NOW_EVERY]: someone who comes here from another device goes on with that
+     * (maintainer 2026-11-06). The document for positions too, or play would start from an old one.
+     */
     fun onForeground() {
         // Not by the journal's flag: at start it may not have read the setting yet; a round with sync off ends at once.
         val last = lastFullMs
-        if (last != null && nowMs() - last < FOREGROUND_EVERY.inWholeMilliseconds) return
-        scope.launch { syncNow() }
+        if (last == null || nowMs() - last >= FOREGROUND_EVERY.inWholeMilliseconds) { scope.launch { syncNow() }; return }
+        if (nowMs() - maxOf(last, lookedAtNowMs) < NOW_EVERY.inWholeMilliseconds) return
+        lookedAtNowMs = nowMs()
+        scope.launch { withRelayPool { syncNowInPool(only = setOf(SyncDocs.PROGRESS, SyncDocs.QUEUE)) } }
     }
+    private var lookedAtNowMs = 0L
 
     /**
      * A change here: sent out a little later, several changes in one round. A
@@ -344,6 +354,8 @@ class SyncManager(
         /** Rounds over every document on coming to the foreground, at most this often (5 minutes until
          *  2026-11-05, maintainer: battery). */
         val FOREGROUND_EVERY = 15.minutes
+        /** Between those, what plays now and where, at most this often. */
+        val NOW_EVERY = 2.minutes
         /** A full round this recent makes a refresh's own round unnecessary. */
         val FRESH_FOR = 2.minutes
         /** How many rounds per relay the sync page shows. */

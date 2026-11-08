@@ -1,5 +1,6 @@
 # Hopp Web on its own server (ADR 0022, 5–7): the client as static files on play., the feed
 # proxy on feeds. — two origins, so nothing fetched through the proxy ever runs with the page.
+# play-dev. is the same site for stages of the development branch (ADR 0022, 15).
 # Installed as /etc/caddy/Caddyfile by web/deploy/setup.sh; certificates come from Let's Encrypt.
 
 # The headers of ADR 0022, 7. web/e2e/serve.mjs --strict reads them from here, so the local
@@ -24,9 +25,10 @@
 	}
 }
 
-play.sovereigncast.space {
+# The client's site, but for its folder: what play-dev. is checked under is what play. runs.
+(hopp_web_site) {
 	import hopp_web_headers
-	root * /srv/hopp-web/current
+	root * {args[0]}
 	# Webpack's content-hashed files never change under their name; everything else is asked again (ETag).
 	@hashed path_regexp hashed ^/[0-9a-f]{20}\.(wasm|js)$
 	@unhashed not path_regexp ^/[0-9a-f]{20}\.(wasm|js)$
@@ -47,6 +49,17 @@ play.sovereigncast.space {
 	log {
 		output discard
 	}
+}
+
+play.sovereigncast.space {
+	import hopp_web_site /srv/hopp-web/current
+}
+
+# An origin of its own (ADR 0022, 15): nothing of play.'s sign-in, library or service worker is
+# shared. Out of search engines for good, also once play. no longer is.
+play-dev.sovereigncast.space {
+	import hopp_web_site /srv/hopp-web-dev/current
+	header X-Robots-Tag "noindex, nofollow"
 }
 
 feeds.sovereigncast.space {

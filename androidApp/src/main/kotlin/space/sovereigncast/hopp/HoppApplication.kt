@@ -79,6 +79,9 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val summary = podcasts.refreshAll()
         // The Sovereigncast instances in the same go (device feedback 2026-10-17).
         runCatching { KoinPlatform.getKoin().get<SovereigncastRepository>().refresh(force = true) }
+        // The Nostr contacts, when their last read is an hour old (ADR 0024, 5): left out here, a contact who turned
+        // on looking got the key to what is shared only once the listener opened a page (maintainer 2026-11-08).
+        runCatching { KoinPlatform.getKoin().get<space.sovereigncast.hopp.contacts.ContactsRepository>().whenDue() }
         KoinPlatform.getKoin().get<DownloadRepository>().cleanup()
         return if (summary.failed == summary.checked && summary.checked > 0) Result.retry() else Result.success()
     }

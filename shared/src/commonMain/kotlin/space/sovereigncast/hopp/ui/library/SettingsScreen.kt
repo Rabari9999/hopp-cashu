@@ -103,6 +103,19 @@ import space.sovereigncast.hopp.resources.*
 import space.sovereigncast.hopp.ui.LocalPlatformActions
 import space.sovereigncast.hopp.ui.components.HoppIcons
 import space.sovereigncast.hopp.ui.components.formatBytes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import space.sovereigncast.hopp.resources.settings_design
+import space.sovereigncast.hopp.resources.settings_design_glut
+import space.sovereigncast.hopp.resources.settings_design_hopp
+import space.sovereigncast.hopp.ui.theme.HoppTheme
+import space.sovereigncast.hopp.ui.theme.pageGround
+import space.sovereigncast.hopp.resources.settings_design_relay
+import androidx.compose.foundation.layout.fillMaxHeight
 import space.sovereigncast.hopp.ui.theme.Hopp
 
 /** The pages behind the settings overview (device feedback 2026-10-10). */
@@ -289,7 +302,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
                 // One switch for all shows (device feedback 2026-10-22); a show's own in its menu comes on top.
-                Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
+                if (actions.canAutoDownload) Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
                     vm.setAutoDownloads(on)
                 }
                 // Up top with the downloads, where it was before (maintainer 2026-11-03: under refresh it was easily missed).
@@ -360,8 +373,17 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                     Text(stringResource(if (app.isIos) Res.string.settings_notifications_open_ios else Res.string.settings_notifications_open))
                 }
             }
-            // Light or dark, or as the system says (maintainer 2026-10-30: not to be chosen in Hopp Web).
+            // Hopp's own look, Glut or Relay (maintainer 2026-11-07), then light or dark, or as the system says
+            // (maintainer 2026-10-30: not to be chosen in Hopp Web). Each device its own.
             SettingsPage.Appearance -> {
+                Section(stringResource(Res.string.settings_design))
+                val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                // As tall as the longest text, in every language.
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Settings.designChoices.forEach { d ->
+                        DesignChoice(d, s.design == d, dark, Modifier.weight(1f).fillMaxHeight()) { vm.update { it.copy(design = d) } }
+                    }
+                }
                 Section(stringResource(Res.string.settings_theme))
                 Choices(Settings.themeChoices, s.theme, { t ->
                     stringResource(when (t) {
@@ -473,6 +495,42 @@ private fun <T> Choices(options: List<T>, selected: T, label: @Composable (T) ->
     }
 }
 
+/** A design to choose, shown as itself: its ground and glow, a card, the main action and the orange of money. */
+@Composable
+private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modifier: Modifier, onPick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier.clip(shape).background(colors.surface).border(if (selected) 2.dp else 1.dp, if (selected) colors.onSurface else colors.outlineVariant, shape)
+            .selectable(selected, role = Role.RadioButton, onClick = onPick),
+    ) {
+        HoppTheme(darkTheme = dark, design = design) {
+            Box(Modifier.fillMaxWidth().height(88.dp).pageGround().padding(10.dp)) {
+                Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface))
+                Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.width(36.dp).height(18.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))
+                    Box(Modifier.size(18.dp).clip(RoundedCornerShape(50)).background(Hopp.colors.value))
+                }
+            }
+        }
+        Column(Modifier.padding(10.dp)) {
+            // The designs' names, in every language.
+            Text(
+                when (design) { Settings.DESIGN_GLUT -> "Glut"; Settings.DESIGN_RELAY -> "Relay"; else -> "Hopp" },
+                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(when (design) {
+                    Settings.DESIGN_GLUT -> Res.string.settings_design_glut
+                    Settings.DESIGN_RELAY -> Res.string.settings_design_relay
+                    else -> Res.string.settings_design_hopp
+                }),
+                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -480,7 +538,7 @@ private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boo
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = onChange, modifier = Modifier.padding(start = 16.dp))
     }
 }
 
