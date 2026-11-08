@@ -40,6 +40,7 @@ class DesignColorsTest {
         at(4.5f, "done", hopp.ok, scheme.background)
         at(3f, "a control's edge", scheme.outline, scheme.background)
         at(3f, "the progress bar", hopp.progressTrack, scheme.background)
+        hopp.progressFill?.let { at(3f, "the heard part of the progress bar", it, scheme.background) }
         hopp.nostr?.let { nostr ->
             at(4.5f, "a label on Nostr's colour", nostr.onFill, nostr.fill)
             at(4.5f, "Nostr's text on the page", nostr.text, scheme.background)

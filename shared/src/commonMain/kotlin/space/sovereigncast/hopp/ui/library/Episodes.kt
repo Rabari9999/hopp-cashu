@@ -141,7 +141,7 @@ fun PlayButton(item: EpisodeItem) {
     ) {
         CircularProgressIndicator(
             progress = { heard }, modifier = Modifier.size(34.dp), strokeWidth = 2.dp,
-            color = MaterialTheme.colorScheme.onSurface, trackColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressTrack,
+            color = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressFill ?: MaterialTheme.colorScheme.onSurface, trackColor = space.sovereigncast.hopp.ui.theme.Hopp.colors.progressTrack,
             gapSize = 0.dp,
         )
         Icon(if (playing) HoppIcons.Pause else HoppIcons.Play, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)

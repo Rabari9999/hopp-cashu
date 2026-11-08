@@ -319,7 +319,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.seekTo((f * duration).toLong()) },
-                trackColor = Hopp.colors.progressTrack, fillColor = colors.onSurface, gapColor = colors.background,
+                trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, gapColor = colors.background,
                 label = stringResource(Res.string.np_progress),
                 preview = { f ->
                     val at = (f * duration).toLong()

@@ -263,15 +263,20 @@ by night; nothing orange sits that high.
 
 ### Amendment 2026-11-07: a third design, Relay
 
-The Nostr network as a look: deep indigo with a violet shimmer, built as Glut is,
-with the same `pageGround()`. Its full purple means Nostr, as orange means money,
-and only here does Hopp have such a colour (`HoppColors.nostr`, null elsewhere, so
-Hopp's own and Glut stay as they were): the Nostr contacts' line, the buttons that
-start an identity or sign in, and those that load and send comments. A chapter
-or a boost never takes it; what pays is orange, a zap too. The rest of the frame
-leads in pale indigo, or the purple would stop saying anything.
+The Nostr network as a look: deep purple under a violet and magenta shimmer,
+built as Glut is, with the same `pageGround()`. Purple leads throughout: ground,
+surfaces, the main action, what is chosen and the heard part of the progress
+bars (`HoppColors.progressFill`, null elsewhere). A first draft kept purple for
+Nostr alone and let a pale indigo lead; on the beta it hardly showed, as a
+listener who is signed in and has loaded the comments meets those places rarely
+(maintainer 2026-11-08).
 
-`DesignColorsTest` holds it to the same rules. The text colour for Nostr and the
-pale indigo are close in lightness by night, so Nostr is never only a coloured word:
-it comes on a tint or a button. The same design exists as a Sovereigncast theme
-package, not in that repository yet.
+What runs over Nostr keeps a stronger purple of its own (`HoppColors.nostr`,
+null in Hopp's own and Glut): the Nostr contacts' line, the buttons that start
+an identity, sign in and load comments, the comments' chip, the send button and
+the mark on the Nostr page. A chapter or a boost never takes it; what pays is
+orange, a zap too. It differs from the frame's purple in strength, not hue, so
+Nostr comes on a tint or a button, never as a coloured word alone.
+
+`DesignColorsTest` holds it to the same rules. The same design exists as a
+Sovereigncast theme package, not in that repository yet.
