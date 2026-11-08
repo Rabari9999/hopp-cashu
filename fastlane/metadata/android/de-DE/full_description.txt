@@ -46,7 +46,7 @@
 <ul>
 <li>✅ Eine Seite zur Privatsphäre: wer beim Hören was sieht – und was du dagegen tun kannst</li>
 <li>✅ Benachrichtigungen für Boosts und Zaps, für jeden Fall einzeln einstellbar</li>
-<li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch, Spanisch als Vorschau</li>
+<li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch; Spanisch, Französisch, Italienisch und Portugiesisch als Vorschau</li>
 </ul>
 
 <p>Hopp ist Open Source (MIT).</p>

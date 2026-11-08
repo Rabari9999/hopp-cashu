@@ -6,6 +6,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+
 ### 🆕 New Features
 - **App:** Hopp in French, Italian and Portuguese.
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.

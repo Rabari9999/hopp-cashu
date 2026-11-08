@@ -6,6 +6,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+
 ### 🆕 New Features
 - **App:** Hopp auf Französisch, Italienisch und Portugiesisch.
 - **Sync:** Was gerade läuft, zieht mit: Starte eine Folge auf einem Gerät, und die anderen zeigen sie, bereit zum Weiterhören.
