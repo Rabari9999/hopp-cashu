@@ -95,8 +95,11 @@ class NostrContactsLayoutTest {
         rule.onAllNodesWithText("Nostr-Kontakte").onFirst().performScrollTo()
         rule.waitForIdle()
         shoot("nostr")
-        // Every show and whether it is shared (maintainer 2026-11-02) — a row only while sharing is on (2026-11-08).
-        check(!has("Geteilte Shows")) { "sharing is off" }
+        // Every show and whether it is shared, one tap away (maintainer 2026-11-02), sharing off too: chosen
+        // before the first share (2026-11-08).
+        rule.onNode(hasText("Geteilte Shows") and hasClickAction()).performScrollTo().performClick()
+        waitFor("Noch keine Abos")
+        shoot("shared-shows")
     }
 
     /** Sync on: its line and sync now; the key to show and to renew under "Erweitert" (maintainer 2026-11-03, 2026-11-08). */

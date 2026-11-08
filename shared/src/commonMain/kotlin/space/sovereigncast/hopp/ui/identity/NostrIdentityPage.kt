@@ -1003,8 +1003,8 @@ private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Uni
     SwitchRow(stringResource(Res.string.contacts_share), stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSharing(true) } else vm.setContactsSharing(false)
     }
-    // Only while sharing is on (maintainer 2026-11-08): off, which shows would go is no question.
-    if (note?.sharing == true) SharedShowsRow(true, onSharedShows)
+    // Always, sharing off too: which shows go is chosen before the first share (maintainer 2026-11-08).
+    SharedShowsRow(note?.sharing == true, onSharedShows)
     SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
     }
