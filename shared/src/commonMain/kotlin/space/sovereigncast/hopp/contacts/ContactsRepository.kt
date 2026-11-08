@@ -16,6 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import space.sovereigncast.hopp.nostr.withRelayPool
 import kotlinx.coroutines.withContext
 import space.sovereigncast.hopp.identity.IdentityRepository
 
@@ -27,7 +33,10 @@ data class ContactsState(
     val renewPending: Boolean = false,
     /** The contacts, as last read; null until then. */
     val read: ContactsRead? = null,
+    /** A switch being turned, or the keys taken over: the switches wait for it. */
     val working: Boolean = false,
+    /** A read under way, and what it found so far; null: none. The switches do not wait for it (maintainer 2026-11-08). */
+    val reading: ReadProgress? = null,
     /** Why the last change or read did not go through. */
     val error: String? = null,
 )
@@ -69,21 +78,37 @@ class ContactsRepository(
      * The note and, when due or [force]d, the contacts. Due after [readEvery] seconds — or after [maxAge],
      * when given: the Nostr page reads again what is older than a few minutes, so a contact's new inbox
      * gets its key and what they share shows without waiting for the hour (device feedback 2026-11-02).
-     * [interactive]: a note made on another device is taken over.
+     * [interactive]: a note made on another device is taken over, the signer asked; with a key Hopp holds
+     * it is taken over without asking anyone. A device holding none of its keys reads nothing until then:
+     * such a read opens nothing, and it kept the page's "Take over" hidden for a minute (maintainer 2026-11-08).
      */
-    suspend fun refresh(force: Boolean = false, interactive: Boolean = false, maxAge: Long = readEvery) = lock.withLock {
-        if (identity.identity.value == null) { _state.value = ContactsState(); return@withLock }
+    suspend fun refresh(force: Boolean = false, interactive: Boolean = false, maxAge: Long = readEvery) {
+        // Said at once, while an earlier read still holds the lock: the page shows the signer is being asked.
+        if (interactive) _state.update { it.copy(working = true) }
+        try {
+            lock.withLock { refreshLocked(force, interactive, maxAge) }
+        } finally {
+            if (interactive) _state.update { it.copy(working = false) }
+        }
+    }
+
+    private suspend fun refreshLocked(force: Boolean, interactive: Boolean, maxAge: Long) {
+        if (identity.identity.value == null) { _state.value = ContactsState(); return }
         // What was read before this start first: a refresh right after it is then no new read.
         loadKept()
-        work {
-            val note = keys.note(interactive)
-            _state.update { it.copy(note = note) }
-            // Both switches off: nobody's lists are asked for — not even hourly in the background.
-            if (note == null) return@work
-            val last = _state.value.read?.at
-            if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow() else if (maxAge < readEvery) lookAgain()
-            renewIfLost(interactive)
-            shareNow()
+        withRelayPool {
+            work {
+                val note = keys.note(interactive, takeOver = interactive || identity.identity.value?.holdsKey == true)
+                _state.update { it.copy(note = note, working = false) }
+                // Both switches off: nobody's lists are asked for — not even hourly in the background.
+                if (note == null) return@work
+                // Turned on on another device, and none of its keys here: nothing to read with yet.
+                if (!note.opened && keys.inboxKey() == null && keys.shareKey() == null) return@work
+                val last = _state.value.read?.at
+                if (force || last == null || nowSeconds() - last >= minOf(maxAge, readEvery)) readNow() else if (maxAge < readEvery) lookAgain()
+                renewIfLost(interactive)
+                shareNow()
+            }
         }
     }
 
@@ -123,13 +148,18 @@ class ContactsRepository(
         runCatching { cache?.save(updated) }
     }
 
-    /** The contacts read now — with the inbox key while the listener looks — and kept. */
+    /** The contacts read now — with the inbox key while the listener looks — and kept; what was found so far shown as it comes. */
     private suspend fun readNow() {
         val note = _state.value.note
         val before = _state.value.read
-        val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null)?.let { lookedUp(it, before) }?.keepingNames(before)
-        _state.update { it.copy(read = read) }
-        runCatching { cache?.save(read) }
+        try {
+            val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null) { found -> _state.update { it.copy(reading = found) } }
+                ?.let { lookedUp(it, before) }?.keepingNames(before)
+            _state.update { it.copy(read = read, reading = null) }
+            runCatching { cache?.save(read) }
+        } finally {
+            _state.update { it.copy(reading = null) }
+        }
     }
 
     /** Inboxes found lost in the read before: one lost twice in a row makes a new share key (one relay
@@ -170,7 +200,11 @@ class ContactsRepository(
         val shared = read.contacts.values.flatMap { c -> c.shows.mapNotNull { it.guid?.lowercase() } }.toSet()
         val wanted = read.signalShows().filter { it !in shared }.take(LOOKUPS)
         val kept = before?.looked.orEmpty()
-        val looked = wanted.mapNotNull { guid -> (kept[guid] ?: runCatching { find(guid) }.getOrNull())?.let { guid to it } }.toMap()
+        // A few at once: one after the other, twelve took as long as the rest of the read (maintainer 2026-11-08).
+        val gate = Semaphore(LOOKUPS_AT_ONCE)
+        val looked = coroutineScope {
+            wanted.map { guid -> async { gate.withPermit { (kept[guid] ?: runCatching { find(guid) }.getOrNull())?.let { guid to it } } } }.awaitAll()
+        }.filterNotNull().toMap()
         return read.copy(looked = looked)
     }
 
@@ -197,10 +231,20 @@ class ContactsRepository(
     /** Signed out: nothing of it stays on this device. */
     suspend fun forget() { keys.forget(); _state.value = ContactsState(); runCatching { cache?.save(null) } }
 
-    private suspend fun change(share: Boolean, see: Boolean) = lock.withLock {
+    private suspend fun change(share: Boolean, see: Boolean) {
+        // Said at once: a read under way holds the lock until it ends.
+        _state.update { it.copy(working = true) }
+        try {
+            lock.withLock { withRelayPool { changeInPool(share, see) } }
+        } finally {
+            _state.update { it.copy(working = false) }
+        }
+    }
+
+    private suspend fun changeInPool(share: Boolean, see: Boolean) {
         work {
             val before = keys.shareKey()
-            _state.update { it.copy(note = keys.set(share, see)) }
+            _state.update { it.copy(note = keys.set(share, see), working = false) }
             // Sharing off, or a new share key: what the old one signed goes from the relays.
             if (before != null && keys.shareKey()?.publicKeyHex != before.publicKeyHex) this.share?.retire(before)
             // Read again at once: looking now opens what contacts share; sharing now needs their inboxes
@@ -213,20 +257,20 @@ class ContactsRepository(
     private companion object {
         /** Shows looked up in the directory per read, at most. */
         const val LOOKUPS = 12
+        const val LOOKUPS_AT_ONCE = 4
         /** Seconds between looks at the shared lists, between full reads. */
         const val LOOK_AGAIN_EVERY = 120L
     }
 
+    /** [block], what goes wrong said on the page; [ContactsState.working] is set by who asked for it. */
     private suspend fun work(block: suspend () -> Unit) {
-        _state.update { it.copy(working = true, error = null) }
+        _state.update { it.copy(error = null) }
         try {
             block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             _state.update { it.copy(error = e.message ?: e::class.simpleName ?: "error") }
-        } finally {
-            _state.update { it.copy(working = false) }
         }
     }
 }

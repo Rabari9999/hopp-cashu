@@ -92,6 +92,13 @@ A device left behind that flips a switch starts from the newest note on the
 relays, not from the keys it still holds (2026-11-05): those would replace the
 keys its other devices use.
 
+*Added 2026-11-08 (maintainer):* another device shows the note as soon as it
+has looked for it — a card that takes it over, the switches marked "not taken
+over on this device yet" — and reads no contacts until then: without the keys
+a read opens nothing, and it had kept the card hidden for a minute. A key Hopp
+holds takes the note over without a tap, as there is no one to ask; a signer
+app or bunker is asked only from the card.
+
 The contacts note is **public that the listener uses this feature of
 Hopp's**, and with which keys. Hopp says so before it is published — the
 same moment ADR 0021, 8 asks for before a first public action. What the
@@ -147,6 +154,18 @@ names a share key, the key sealed for the listener's inbox and the shared
 list it opens. A read opened from a page goes on when the page closes
 (2026-11-05): with a few hundred contacts it takes a minute, and is kept only
 at its end.
+
+*Added 2026-11-08 (maintainer: one to two minutes with a single contact):* the
+relays answer within a second or two (measured that day); the time went to
+steps waiting on each other, a new connection per step, a contact's dead relay
+waited for its full ten seconds by each step, twelve directory look-ups one
+after another, and sharing and a sync round behind the same spinner. Now one
+connection per relay for the whole read, a relay that did not answer not asked
+again, a contact's own relay given four seconds, Hopp's relays asked while the
+relay lists are still looked up, profiles and shared lists at once, look-ups
+four at a time. The page shows how far a read got — the contacts, who follows
+back, what they share — and otherwise the last read and how old it is; the
+switches do not wait for a read, and sharing and renewing run after it unseen.
 
 ### 6. Public signals
 

@@ -1199,9 +1199,19 @@
     <string name="contacts_share_note">Seulement avec les contacts qui te suivent en retour et utilisent Hopp. Chiffré.</string>
     <string name="contacts_see">Montrer ce que mes contacts écoutent</string>
     <string name="contacts_see_note">Ce qu’ils partagent, boostent et commentent – dans Découvrir et sur les émissions.</string>
-    <string name="contacts_reading">Lecture de tes contacts …</string>
-    <string name="contacts_elsewhere">Activé sur un autre appareil.</string>
-    <string name="contacts_take_over">Reprendre ici</string>
+    <string name="contacts_step_list">Lecture de ta liste de contacts …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d contact · on regarde qui te suit en retour …</item>
+        <item quantity="other">%1$d contacts · on regarde qui te suit en retour …</item>
+    </plurals>
+    <string name="contacts_step_shared">Ouverture de ce que tes contacts partagent …</string>
+    <string name="contacts_updated">Mis à jour %1$s</string>
+    <string name="contacts_elsewhere_title">Activé sur un autre appareil</string>
+    <string name="contacts_elsewhere_text">Reprends-le pour partager et voir aussi sur cet appareil.</string>
+    <string name="contacts_not_here">Activé, mais pas encore repris sur cet appareil</string>
+    <string name="contacts_taking_over">Reprise …</string>
+    <string name="contacts_confirm_signer">Confirme dans ton signataire …</string>
+    <string name="contacts_take_over">Reprendre sur cet appareil</string>
     <string name="contacts_none">Tu ne suis encore personne sur Nostr.</string>
     <string name="contacts_counts">%1$d contacts · %2$d te suivent en retour · %3$d d’entre eux avec Hopp</string>
     <string name="contacts_failed">Ça n’est pas passé : %1$s</string>

@@ -15,6 +15,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Settings:** Two more designs: Glut, warm like the Sovereigncast poster, and Relay, the night over the Nostr network.
 
 ### 🐛 Fixes
+- **Nostr:** Your Nostr contacts are read in seconds, not minutes; the page shows how far it got, and another device offers to take over at once.
 - **App:** Hopp no longer freezes on its start screen after the phone restarts.
 - **Episode:** The button of an episode you began shows the time left, not a cut-off text.
 - **Player:** Chapters of Podigee shows appear, whose feeds name their chapter file in their own way.

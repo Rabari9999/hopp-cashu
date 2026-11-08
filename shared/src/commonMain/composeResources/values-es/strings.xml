@@ -1199,9 +1199,19 @@
     <string name="contacts_share_note">Solo con contactos que también te siguen y usan Hopp. Cifrado.</string>
     <string name="contacts_see">Mostrar lo que escuchan mis contactos</string>
     <string name="contacts_see_note">Lo que comparten, boostean y comentan, en Explorar y en los podcasts.</string>
-    <string name="contacts_reading">Revisando tus contactos …</string>
-    <string name="contacts_elsewhere">Activado en otro dispositivo.</string>
-    <string name="contacts_take_over">Usar aquí</string>
+    <string name="contacts_step_list">Leyendo tu lista de contactos …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d contacto · comprobando quién te sigue …</item>
+        <item quantity="other">%1$d contactos · comprobando quién te sigue …</item>
+    </plurals>
+    <string name="contacts_step_shared">Abriendo lo que comparten tus contactos …</string>
+    <string name="contacts_updated">Actualizado %1$s</string>
+    <string name="contacts_elsewhere_title">Activado en otro dispositivo</string>
+    <string name="contacts_elsewhere_text">Úsalo aquí para compartir y ver también en este dispositivo.</string>
+    <string name="contacts_not_here">Activado, pero aún no en este dispositivo</string>
+    <string name="contacts_taking_over">Activando …</string>
+    <string name="contacts_confirm_signer">Confirma en tu firmante …</string>
+    <string name="contacts_take_over">Usar en este dispositivo</string>
     <string name="contacts_none">Aún no sigues a nadie en Nostr.</string>
     <string name="contacts_counts">%1$d contactos · %2$d te siguen · %3$d de ellos con Hopp</string>
     <string name="contacts_failed">No se pudo completar: %1$s</string>

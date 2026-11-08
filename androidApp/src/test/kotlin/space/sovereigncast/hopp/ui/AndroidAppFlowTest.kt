@@ -161,13 +161,19 @@ internal object OkRelays : space.sovereigncast.hopp.nostr.RelayConnector {
     /** A relay that refuses every event, with its words; one that takes no connection — for a test that sets them. */
     var refusing: Pair<String, String>? = null
     var unreachable: String? = null
+    /** Events every query is answered with — the publisher keeps only what the query asked for; reset by the test that sets them. */
+    var held: List<space.sovereigncast.hopp.nostr.Event> = emptyList()
 
     override suspend fun connect(url: String) = if (url == unreachable) error("connection refused") else object : space.sovereigncast.hopp.nostr.RelaySession {
         private val channel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
         override val incoming: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow { for (m in channel) emit(m) }
         override suspend fun send(message: String) {
             // A query finds nothing here: end of stored events at once.
-            Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { channel.trySend("""["EOSE","${it.groupValues[1]}"]"""); return }
+            Regex("^\\[\"REQ\",\"([^\"]+)\"").find(message)?.let { req ->
+                val sub = req.groupValues[1]
+                held.forEach { e -> channel.trySend("""["EVENT","$sub",${kotlinx.serialization.json.Json.encodeToString(space.sovereigncast.hopp.nostr.Event.serializer(), e)}]""") }
+                channel.trySend("""["EOSE","$sub"]"""); return
+            }
             val id = Regex("\"id\":\"([0-9a-f]{64})\"").find(message)?.groupValues?.get(1) ?: return
             val refused = refusing?.takeIf { it.first == url }?.second
             channel.trySend(if (refused != null) """["OK","$id",false,"$refused"]""" else """["OK","$id",true,""]""")

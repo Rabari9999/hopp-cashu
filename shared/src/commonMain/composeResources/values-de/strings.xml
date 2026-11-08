@@ -1199,9 +1199,19 @@
     <string name="contacts_share_note">Nur mit Kontakten, die dir auch folgen und Hopp nutzen. Verschlüsselt.</string>
     <string name="contacts_see">Zeigen, was meine Kontakte hören</string>
     <string name="contacts_see_note">Was sie teilen, boosten und kommentieren – in Entdecken und bei den Shows.</string>
-    <string name="contacts_reading">Schaue nach deinen Kontakten …</string>
-    <string name="contacts_elsewhere">Auf einem anderen Gerät eingeschaltet.</string>
-    <string name="contacts_take_over">Übernehmen</string>
+    <string name="contacts_step_list">Lese deine Kontaktliste …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d Kontakt · schaue, wer dir zurückfolgt …</item>
+        <item quantity="other">%1$d Kontakte · schaue, wer dir zurückfolgt …</item>
+    </plurals>
+    <string name="contacts_step_shared">Öffne, was deine Kontakte teilen …</string>
+    <string name="contacts_updated">Aktualisiert %1$s</string>
+    <string name="contacts_elsewhere_title">Auf einem anderen Gerät eingeschaltet</string>
+    <string name="contacts_elsewhere_text">Übernimm es, um auch auf diesem Gerät zu teilen und zu sehen.</string>
+    <string name="contacts_not_here">An, aber auf diesem Gerät noch nicht übernommen</string>
+    <string name="contacts_taking_over">Übernehme …</string>
+    <string name="contacts_confirm_signer">Bestätige in deiner Signer-App …</string>
+    <string name="contacts_take_over">Auf diesem Gerät übernehmen</string>
     <string name="contacts_none">Du folgst auf Nostr noch niemandem.</string>
     <string name="contacts_counts">%1$d Kontakte · %2$d folgen dir zurück · %3$d davon mit Hopp</string>
     <string name="contacts_failed">Das hat nicht geklappt: %1$s</string>

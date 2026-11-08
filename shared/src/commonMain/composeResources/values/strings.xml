@@ -1199,9 +1199,19 @@
     <string name="contacts_share_note">Only with contacts who follow you back and use Hopp. Encrypted.</string>
     <string name="contacts_see">Show what my contacts listen to</string>
     <string name="contacts_see_note">What they share, boost and comment on – in Discover and on shows.</string>
-    <string name="contacts_reading">Looking at your contacts …</string>
-    <string name="contacts_elsewhere">Turned on on another device.</string>
-    <string name="contacts_take_over">Take over</string>
+    <string name="contacts_step_list">Reading your contact list …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d contact · checking who follows you back …</item>
+        <item quantity="other">%1$d contacts · checking who follows you back …</item>
+    </plurals>
+    <string name="contacts_step_shared">Opening what your contacts share …</string>
+    <string name="contacts_updated">Updated %1$s</string>
+    <string name="contacts_elsewhere_title">Turned on on another device</string>
+    <string name="contacts_elsewhere_text">Take it over to share and see on this device too.</string>
+    <string name="contacts_not_here">On, but not taken over on this device yet</string>
+    <string name="contacts_taking_over">Taking over …</string>
+    <string name="contacts_confirm_signer">Confirm in your signer …</string>
+    <string name="contacts_take_over">Take over on this device</string>
     <string name="contacts_none">You don't follow anyone on Nostr yet.</string>
     <string name="contacts_counts">%1$d contacts · %2$d follow you back · %3$d of them with Hopp</string>
     <string name="contacts_failed">That did not go through: %1$s</string>

@@ -525,4 +525,95 @@ class ContactsTest {
         me.contacts.refresh(maxAge = 600)
         assertEquals(3, me.contacts.state.value.read!!.listening().size)
     }
+
+    // Maintainer 2026-11-08: a read took one to two minutes with one contact, and another device waited
+    // for a whole read before it even offered to take the keys over.
+
+    /** A key Hopp holds opens the note made on another device without anyone asked: nothing to tap. */
+    @Test
+    fun aKeyHoppHoldsTakesTheNoteOverWithoutATap(): Unit = runBlocking {
+        val phone = Device()
+        phone.keys.set(share = true, see = true)
+        val laptop = Device()
+        laptop.contacts.refresh(maxAge = 300)
+        assertTrue(assertNotNull(laptop.contacts.state.value.note).opened)
+        assertEquals(phone.keys.shareKey()!!.publicKeyHex, laptop.keys.shareKey()!!.publicKeyHex)
+        assertNotNull(laptop.contacts.state.value.read, "and read at once")
+    }
+
+    /** With a signer app the note shows at once — no read before it is taken over, and no question to the
+     *  signer until the listener taps; the tap opens it and reads. */
+    @Test
+    fun aSignerAppDeviceOffersTheTakeOverBeforeAnyRead(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        Device().keys.set(share = true, see = true)
+        val asked = mutableListOf<String>()
+        val watching = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                val inner = relay.connect(url)
+                return object : space.sovereigncast.hopp.nostr.RelaySession by inner {
+                    override suspend fun send(message: String) { asked += message; inner.send(message) }
+                }
+            }
+        }
+        val app = space.sovereigncast.hopp.identity.FakeSignerApp(listener)
+        val secrets = MemorySecretStore()
+        val identity = IdentityRepository(secrets, RelayPublisher(relay), { now }, app).also { it.signInWithSigner() }
+        val keys = ContactKeys(identity, RelayPublisher(relay), secrets) { now }
+        val contacts = ContactsRepository(identity, keys, ContactGraph(identity, RelayPublisher(watching)) { now }, { now })
+        contacts.refresh(maxAge = 300)
+        val note = assertNotNull(contacts.state.value.note)
+        assertTrue(note.sharing && note.seeing && !note.opened)
+        assertNull(contacts.state.value.read)
+        assertTrue(asked.none { it.contains("\"kinds\":[3]") }, "no contact list asked for")
+        assertTrue("nip44_decrypt" !in app.requests, "the signer is not asked without the listener")
+        contacts.refresh(force = true, interactive = true)
+        assertTrue(contacts.state.value.note!!.opened)
+        assertFalse(contacts.state.value.working)
+        assertEquals(setOf(anna.publicKeyHex), contacts.state.value.read!!.mutual.map { it.pubkey }.toSet())
+    }
+
+    /** A read says how far it got: the contacts, then who follows back and who of them uses Hopp. */
+    @Test
+    fun aReadSaysHowFarItGot(): Unit = runBlocking {
+        val anna = KeyPair.generate(); val ben = KeyPair.generate()
+        follows(listener, anna.publicKeyHex, ben.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        Device(anna).keys.set(share = false, see = true)
+        val steps = mutableListOf<ReadProgress>()
+        val read = assertNotNull(Device().graph.read { steps += it })
+        assertEquals(listOf(ReadProgress(), ReadProgress(2), ReadProgress(2, 1, 1)), steps)
+        assertEquals(1, read.withHopp.size)
+    }
+
+    /** A contact's relay that never answers is waited for once, and briefly — not by every step, nor for the
+     *  full timeout (maintainer 2026-11-08). */
+    @Test
+    fun aDeadRelayOfAContactIsWaitedForOnce(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        follows(anna, listener.publicKeyHex)
+        relay.publish(Event.sign(anna, 10002, "", listOf(listOf("r", "wss://gone.test")), now - 100))
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val annas = Device(anna)
+        annas.keys.set(share = true, see = false)
+        ContactShare(annas.identity, RelayPublisher(relay), annas.keys, annas.secrets, { shows }) { now }.publish(setOf(me.keys.inboxKey()!!.publicKeyHex))
+        var tries = 0
+        val oneGone = object : space.sovereigncast.hopp.nostr.RelayConnector {
+            override suspend fun connect(url: String): space.sovereigncast.hopp.nostr.RelaySession {
+                if ("gone.test" in url) { tries++; kotlinx.coroutines.awaitCancellation() }
+                return relay.connect(url)
+            }
+        }
+        val graph = ContactGraph(me.identity, RelayPublisher(oneGone)) { now }
+        val started = kotlin.time.TimeSource.Monotonic.markNow()
+        val read = assertNotNull(graph.read(me.keys.inboxKey()))
+        val took = started.elapsedNow()
+        assertEquals(shows.toSet(), read.contacts.getValue(anna.publicKeyHex).shows.toSet(), "her list still opens, from Hopp's relays")
+        assertEquals(1, tries)
+        assertTrue(took < kotlin.time.Duration.parse("8s"), "took $took")
+    }
 }

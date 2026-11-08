@@ -1199,9 +1199,19 @@
     <string name="contacts_share_note">Solo con i contatti che ti seguono a loro volta e usano Hopp. Cifrato.</string>
     <string name="contacts_see">Mostra cosa ascoltano i miei contatti</string>
     <string name="contacts_see_note">Cosa condividono, i loro boost e commenti – in Scopri e sui podcast.</string>
-    <string name="contacts_reading">Consultazione dei contatti …</string>
-    <string name="contacts_elsewhere">Attivato su un altro dispositivo.</string>
-    <string name="contacts_take_over">Attiva qui</string>
+    <string name="contacts_step_list">Lettura della lista dei contatti …</string>
+    <plurals name="contacts_step_mutual">
+        <item quantity="one">%1$d contatto · verifico chi ti segue a sua volta …</item>
+        <item quantity="other">%1$d contatti · verifico chi ti segue a sua volta …</item>
+    </plurals>
+    <string name="contacts_step_shared">Apertura di ciò che condividono i contatti …</string>
+    <string name="contacts_updated">Aggiornato %1$s</string>
+    <string name="contacts_elsewhere_title">Attivato su un altro dispositivo</string>
+    <string name="contacts_elsewhere_text">Attivalo qui per condividere e vedere anche su questo dispositivo.</string>
+    <string name="contacts_not_here">Attivo, ma non ancora su questo dispositivo</string>
+    <string name="contacts_taking_over">Attivazione …</string>
+    <string name="contacts_confirm_signer">Conferma nel tuo firmatario …</string>
+    <string name="contacts_take_over">Attiva su questo dispositivo</string>
     <string name="contacts_none">Non segui ancora nessuno su Nostr.</string>
     <string name="contacts_counts">%1$d contatti · %2$d ti seguono a loro volta · %3$d di loro con Hopp</string>
     <string name="contacts_failed">Non è andata a buon fine: %1$s</string>
