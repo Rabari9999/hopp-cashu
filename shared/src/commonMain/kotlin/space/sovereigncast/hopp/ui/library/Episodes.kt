@@ -168,8 +168,9 @@ fun EpisodeMenu(item: EpisodeItem, favorite: Boolean = true, vm: EpisodeActionsV
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_next)) }, onClick = { pick { vm.playNext(item) } })
             DropdownMenuItem(text = { Text(stringResource(Res.string.menu_play_last)) }, onClick = { pick { vm.playLast(item) } })
             val actions = LocalPlatformActions.current
-            // Nothing is downloaded in the browser; the audio file can be saved instead (maintainer 2026-10-28).
-            if (!actions.canDownload && actions.canSaveAudio) item.enclosureUrl?.let { url ->
+            // Where nothing is downloaded, or the download failed — in the browser a server that does not let a web page
+            // read its audio — the audio file can be saved instead (maintainer 2026-10-28, 2026-11-08).
+            if (actions.canSaveAudio && (!actions.canDownload || item.downloadState == DownloadState.FAILED)) item.enclosureUrl?.let { url ->
                 DropdownMenuItem(text = { Text(stringResource(Res.string.menu_save_audio)) }, onClick = { pick {
                     val ext = url.substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").lowercase().takeIf { it.length in 2..4 } ?: "mp3"
                     actions.saveAudio(url, space.sovereigncast.hopp.data.episodeFileName(item.podcastTitle.orEmpty(), item.title, ext))

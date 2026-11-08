@@ -302,7 +302,7 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 }) { v -> vm.update { it.copy(storageLimitMb = v) } }
                 Note(stringResource(Res.string.settings_downloads_text))
                 // One switch for all shows (device feedback 2026-10-22); a show's own in its menu comes on top.
-                Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
+                if (actions.canAutoDownload) Toggle(stringResource(Res.string.settings_auto_downloads), stringResource(Res.string.settings_auto_downloads_note), s.autoDownloads) { on ->
                     vm.setAutoDownloads(on)
                 }
                 // Up top with the downloads, where it was before (maintainer 2026-11-03: under refresh it was easily missed).

@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp
 
 import app.cash.sqldelight.db.SqlDriver
+import kotlinx.coroutines.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,8 @@ class WebTabOnly(private val driver: SqlDriver, private val secrets: SecretStore
         mark()
         keepDatabaseInMemory(driver)
         (secrets as? WebSecretStore)?.forget()
+        // Episodes kept for offline listening are stored too: gone (the rows that name them play the stream).
+        runCatching { clearStoredEpisodes().await<JsAny?>() }
         _active.value = true
     }
 }

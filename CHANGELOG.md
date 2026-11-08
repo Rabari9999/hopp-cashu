@@ -11,6 +11,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Sync:** What plays now follows you: start an episode on one device and the others show it, ready to go on.
 - **Player:** Chapters also from Podlove feeds and from a list of time marks in the show notes.
 - **Player:** A mouse over the progress bar names the time and chapter before you jump there.
+- **Web:** Download an episode and hear it offline, in Hopp Web itself; where a podcast's server does not allow that, the audio file can be saved as before.
 - **Settings:** Two more designs: Glut, warm like the Sovereigncast poster, and Relay, the night over the Nostr network.
 
 ### 🐛 Fixes

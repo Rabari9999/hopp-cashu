@@ -71,9 +71,11 @@ private fun isMobileBrowser(): Boolean = js("/Android|iPhone|iPad|iPod|Mobile/i.
 private val LANGUAGES = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
 
 /** What the browser can do for the shared UI (ADR 0022): files by picker and download, the
- *  system's share where there is one, the clipboard — no downloads of episodes (ADR 0022, 1). */
+ *  system's share where there is one, the clipboard — episodes downloaded on request into the
+ *  browser's storage (maintainer 2026-11-08), not in a tab that keeps nothing, none by themselves. */
 class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformActions {
-    override val canDownload: Boolean get() = false
+    override val canDownload: Boolean get() = tabOnly?.active?.value != true
+    override val canAutoDownload: Boolean get() = false
     // No wallet in the browser until ADR 0022, 4's stage W5 (maintainer 2026-10-30).
     // Paid from the browser's own wallet, an extension's (WebLN — ADR 0022, 4, stage W3).
     override val canPay: Boolean get() = true

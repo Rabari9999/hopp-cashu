@@ -136,7 +136,6 @@ await a.press('Skip', 4000);
 await openShow(a, 'Nodesignal');
 await a.press('Subscribe', 8000);
 check(await a.has('Subscribed'), 'a show found and subscribed (feed through the proxy)');
-check(!(await a.has('Download')), 'no download offered in the browser');
 await a.press('Top episodes', 4000);
 check(await a.has('Library'), "a Sovereigncast show's tabs open (Listener API, CORS)");
 await a.press('Episodes', 2000);
@@ -149,11 +148,13 @@ check((await a.buttons()).some(b => b.trim() === 'Boost'), 'a boost is offered i
 await a.shot('playing');
 await a.press('Pause', 2000);
 
-// 1b. The episode menu saves the audio file instead of downloading it.
-const opened = new Promise(ok => { a.ctx.once('page', p => ok(p.url())); setTimeout(() => ok(null), 15_000); });
+// 1b. The episode menu downloads into the browser (maintainer 2026-11-08); saving the audio file is for where
+// that is refused (1f).
 await a.press('More', 1500);
-await a.press('Save audio file', 1000);
-check(!!(await opened), "Save audio file hands the episode's audio to the browser");
+{
+  const menu = await a.mirrored('*');
+  check(menu.includes('Download') && !menu.includes('Save audio file'), 'the episode menu offers a download, not the file');
+}
 await a.reload();
 
 // 1c. The browser's wallet (WebLN): taken on the wallet page, a boost sent through it with its boostagram.
@@ -199,6 +200,45 @@ await a.press('Einstellungen', 2000);
 await a.press('Sprache', 1500);
 await a.pick('Sprache des Browsers', 10_000);
 check(await a.has('Library'), "back to the browser's language");
+
+// 1f. An episode kept in the browser (maintainer 2026-11-08, as Squirrel does): fetched from its own host,
+// not through the proxy, it plays with the network gone. A short one, two megabytes. First its host refuses,
+// as one without CORS does: the menu then offers the audio file instead.
+const E71_AUDIO = /63840663199762821660ebfbc8/;
+const toE71 = async () => {
+  await openShow(a, 'Nodesignal');
+  await a.press('Search episodes', 800);
+  await a.page.keyboard.type('Preppersignal', { delay: 25 }); await a.page.keyboard.press('Enter'); await a.page.waitForTimeout(3000);
+  await a.pick('Kommentar und Anmerkungen', 4000);
+};
+// WebKit fails blob: loads while Playwright intercepts anything (see device()): the refusal in Chromium only.
+if (!inWebKit) {
+  await a.page.route(E71_AUDIO, r => r.abort('failed'));
+  await toE71();
+  await a.press('More', 1500);
+  await a.pick('Download', 8000);
+  await a.reload();
+  await toE71();
+  check((await a.mirrored('*')).some(t => t.includes('Download failed')), 'refused by its host, the download fails at once');
+  await a.press('More', 1500);
+  const saved = new Promise(ok => { a.ctx.once('page', p => ok(p.url())); setTimeout(() => ok(null), 15_000); });
+  await a.press('Save audio file', 1000);
+  check(!!(await saved), 'refused by its host, the audio file is offered instead');
+  await a.reload();
+  await a.page.unroute(E71_AUDIO);
+}
+await toE71();
+await a.press('More', 1500);
+await a.pick('Download', 10_000);
+await a.reload();
+await toE71();
+check((await a.mirrored('*')).some(t => t.includes('Downloaded')), 'an episode downloaded into the browser');
+await a.ctx.setOffline(true);
+await a.press('Play', 5000);
+check(await a.page.evaluate(() => navigator.mediaSession?.playbackState === 'playing'), 'it plays with the network gone');
+await a.press('Pause', 1000);
+await a.ctx.setOffline(false);
+await a.reload();
 
 // 2. Signing in: the connect code as a QR code; the extension; the identity survives a reload.
 await a.press('Settings', 2000);

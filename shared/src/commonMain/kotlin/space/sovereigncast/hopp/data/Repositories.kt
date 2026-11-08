@@ -94,8 +94,11 @@ data class EpisodeItem(
     /** The file's size as the feed states it, in bytes; null when it states none. */
     val enclosureLength: Long? = null,
 ) {
-    /** What the player opens: the file once it is complete, else the stream. */
-    val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let { "file://$it" } ?: enclosureUrl
+    /** What the player opens: the file once it is complete, else the stream. In the browser the episode in its
+     *  storage, with the stream after a # for when the browser let it go. */
+    val playableUrl: String? get() = downloadPath?.takeIf { downloadState == DownloadState.DONE }?.let {
+        if (it.startsWith(BrowserDownloads.PATH_PREFIX)) "$it#${enclosureUrl.orEmpty()}" else "file://$it"
+    } ?: enclosureUrl
 }
 
 /** One mapping for every query that selects `episode.*` (plus the show's

@@ -8,6 +8,7 @@ import io.ktor.client.plugins.plugin
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
+import kotlinx.coroutines.launch
 import space.sovereigncast.hopp.data.DownloadScheduler
 import space.sovereigncast.hopp.di.Platform
 import space.sovereigncast.hopp.net.createHttpClient
@@ -25,10 +26,31 @@ class WebPlatform(private val driver: SqlDriver, private val secrets: SecretStor
     override fun sqlDriver(): SqlDriver = driver
     override fun playbackEngine(): PlaybackEngine = HtmlAudioPlaybackEngine()
 
-    // No downloads on the web in the first version (ADR 0022, 1).
-    override val downloads: Boolean get() = false
+    // Downloads on request, kept in the browser (maintainer 2026-11-08, ADR 0022, 1); none by themselves:
+    // a tab has no background.
+    private val store = WebDownloads()
+    override val downloads: Boolean get() = true
+    override val autoDownloads: Boolean get() = false
     override fun downloadDir(): String = "/downloads"
-    override fun downloadScheduler(): DownloadScheduler = DownloadScheduler.None
+    override fun downloadFiles(): space.sovereigncast.hopp.data.DownloadFiles = WebDownloadFiles()
+    override fun browserDownloads(): space.sovereigncast.hopp.data.BrowserDownloads = store
+    private val downloadScope = kotlinx.coroutines.MainScope()
+    private var downloading: kotlinx.coroutines.Job? = null
+    // While the tab is open: one run at a time; one the network broke off is tried again a minute later,
+    // and what was left half done when the tab closed goes on when Hopp opens again.
+    override fun downloadScheduler(): DownloadScheduler = DownloadScheduler { _ -> runDownloads() }.also {
+        downloadScope.launch { kotlinx.coroutines.delay(5_000); runDownloads() }
+    }
+    private fun runDownloads() {
+        if (downloading?.isActive == true) {
+            // Asked while one runs: that run takes the new one too, as it looks for the next in the queue.
+            return
+        }
+        downloading = downloadScope.launch {
+            val repository = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.DownloadRepository>()
+            while (!runCatching { repository.runPending(includeAuto = false) }.getOrDefault(true)) kotlinx.coroutines.delay(60_000)
+        }
+    }
 
     override fun secretStore(): SecretStore = secrets
 
