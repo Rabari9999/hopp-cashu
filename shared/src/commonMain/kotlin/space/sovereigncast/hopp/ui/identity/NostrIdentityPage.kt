@@ -74,6 +74,9 @@ import space.sovereigncast.hopp.identity.NostrIdentity
 import space.sovereigncast.hopp.nostr.SignerRejected
 import space.sovereigncast.hopp.resources.nostr_bunker_qr
 import space.sovereigncast.hopp.resources.nostr_extension
+import space.sovereigncast.hopp.resources.nostr_section_advanced
+import space.sovereigncast.hopp.resources.nostr_section_public
+import space.sovereigncast.hopp.resources.nostr_section_sync
 import space.sovereigncast.hopp.resources.nostr_extension_failed
 import space.sovereigncast.hopp.resources.nostr_extension_rejected
 import space.sovereigncast.hopp.resources.nostr_hero_text_web
@@ -892,6 +895,15 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         }
         TextButton(onClick = { actions.copyText(me.npub, "npub") }) { Text(stringResource(Res.string.nostr_copy)) }
     }
+    // The profile's own numbers: what was heard and given (maintainer 2026-10-26) — a link under the name, not a
+    // button of its own (2026-11-08).
+    val openStats = LocalOpenStats.current
+    Text(
+        stringResource(Res.string.stats_nostr_link) + " ›",
+        Modifier.padding(start = 68.dp).clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = openStats)
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold,
+    )
     val pictureFailed by vm.pictureFailed.collectAsState()
     if (pictureFailed) Text(stringResource(Res.string.profile_welcome_failed), Modifier.clickable { editing = true }, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     if (!me.holdsKey) Text(stringResource(if (me.signerPackage == space.sovereigncast.hopp.nostr.ExternalSigner.NIP07_PACKAGE) Res.string.nostr_via_extension else Res.string.nostr_via_amber), color = muted, style = MaterialTheme.typography.bodySmall)
@@ -899,9 +911,6 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         val active by tabOnly.active.collectAsState()
         if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
     }
-    // The profile's own numbers: what was heard and given (maintainer 2026-10-26).
-    val openStats = LocalOpenStats.current
-    OutlinedButton(onClick = openStats) { Text(stringResource(Res.string.stats_nostr_link)) }
     // Only when something is wrong: the profile reached no relay.
     if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -914,29 +923,45 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
     // A key Hopp holds lives only on this device and in no backup (ADR 0015).
     if (me.holdsKey) Backup(me, busy, vm)
 
+    // Each part under a heading, the rare things folded away (maintainer 2026-11-08).
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    Text(stringResource(Res.string.nostr_section_sync), style = MaterialTheme.typography.titleMedium)
     val restoring by vm.restoring.collectAsState()
     SwitchRow(stringResource(Res.string.sync_title), stringResource(Res.string.sync_note), settings?.nostrSync == true || restoring) { if (!restoring) vm.setSync(it) }
     if (settings?.nostrSync == true) {
         SyncStatusLine(vm)
-        // One row (maintainer 2026-11-03): sync now, the sync key to show — for a relay that takes only keys it
-        // knows — and, only where the key is elsewhere, a new one (a lost phone that held the key itself has it).
-        SyncActions(vm, renew = !me.holdsKey)
+        SyncActions(vm, now = true)
     }
     ContactsSection(vm, onSharedShows)
     // What goes out in public, apart from the contacts (maintainer 2026-11-08).
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    Text(stringResource(Res.string.nostr_section_public), style = MaterialTheme.typography.titleMedium)
     SwitchRow(stringResource(Res.string.nostr_boosts), stringResource(Res.string.nostr_boosts_note), settings?.nostrBoosts == true, onChange = vm::setNostrBoosts)
     SwitchRow(stringResource(Res.string.nostr_anonymous), stringResource(Res.string.nostr_anonymous_note), settings?.scAnonymous == true, onChange = vm::setAnonymous)
-    var relaysOpen by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(Res.string.nostr_relays))
-            Text(stringResource(Res.string.nostr_relays_note), color = muted, style = MaterialTheme.typography.bodySmall)
-        }
-        Text("›", color = muted, style = MaterialTheme.typography.titleLarge)
+    // Rarely needed: the sync key to show — for a relay that takes only keys it knows — and, only where the key is
+    // elsewhere, a new one (a lost phone that held the key itself has it); the relays.
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+    var advanced by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .toggleable(advanced, role = androidx.compose.ui.semantics.Role.Button, onValueChange = { advanced = it }).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(Res.string.nostr_section_advanced), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Text(if (advanced) "▴" else "▾", color = muted, style = MaterialTheme.typography.titleMedium)
     }
-    if (relaysOpen) RelaysSheet(vm) { relaysOpen = false }
+    if (advanced) {
+        if (settings?.nostrSync == true) SyncActions(vm, now = false, renew = !me.holdsKey)
+        var relaysOpen by remember { mutableStateOf(false) }
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { vm.loadRelays(); relaysOpen = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(Res.string.nostr_relays))
+                Text(stringResource(Res.string.nostr_relays_note), color = muted, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("›", color = muted, style = MaterialTheme.typography.titleLarge)
+        }
+        if (relaysOpen) RelaysSheet(vm) { relaysOpen = false }
+    }
 
     TextButton(onClick = { confirmSignOut = true }, modifier = Modifier.padding(top = 8.dp)) {
         Text(stringResource(Res.string.nostr_sign_out), color = MaterialTheme.colorScheme.error)
@@ -978,7 +1003,8 @@ private fun ContactsSection(vm: NostrIdentityViewModel, onSharedShows: () -> Uni
     SwitchRow(stringResource(Res.string.contacts_share), stringResource(Res.string.contacts_share_note), note?.sharing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSharing(true) } else vm.setContactsSharing(false)
     }
-    SharedShowsRow(note?.sharing == true, onSharedShows)
+    // Only while sharing is on (maintainer 2026-11-08): off, which shows would go is no question.
+    if (note?.sharing == true) SharedShowsRow(true, onSharedShows)
     SwitchRow(stringResource(Res.string.contacts_see), stringResource(Res.string.contacts_see_note), note?.seeing == true, enabled = !state.working) { on ->
         if (on) turnOn { vm.setContactsSeeing(true) } else vm.setContactsSeeing(false)
     }
@@ -1099,16 +1125,17 @@ private fun relayLine(answered: Int, asked: Int): String =
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun SyncActions(vm: NostrIdentityViewModel, renew: Boolean, keys: space.sovereigncast.hopp.sync.SyncKeys = org.koin.compose.koinInject()) {
+/** Sync now, with the sync's state; or ([now] false) the sync key to show and, with [renew], a new one. */
+private fun SyncActions(vm: NostrIdentityViewModel, now: Boolean, renew: Boolean = false, keys: space.sovereigncast.hopp.sync.SyncKeys = org.koin.compose.koinInject()) {
     val status by vm.syncStatus.collectAsState()
     val renewing by vm.renewing.collectAsState()
     val renewed by vm.renewed.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf<String?>(null) }
-    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalArrangement = Arrangement.Center) {
-        if (!status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
-        TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
-        if (renew) {
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = if (now) Arrangement.End else Arrangement.Start, verticalArrangement = Arrangement.Center) {
+        if (now && !status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
+        if (!now) TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
+        if (!now && renew) {
             if (renewing) CircularProgressIndicator(Modifier.padding(12.dp).size(18.dp), strokeWidth = 2.dp)
             else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew_short)) }
         }

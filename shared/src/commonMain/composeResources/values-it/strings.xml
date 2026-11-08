@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Le tue iscrizioni, progressi, playlist, abitudini di ascolto e impostazioni di download sono sui tuoi relay, cifrati con la tua chiave. Il ripristino attiva la sincronizzazione tra i tuoi dispositivi.</string>
     <string name="sync_restore_button">Ripristina</string>
     <string name="sync_restore_later">Non ora</string>
+    <string name="nostr_section_sync">Sincronizzazione</string>
+    <string name="nostr_section_public">Pubblico</string>
+    <string name="nostr_section_advanced">Avanzate</string>
     <string name="sync_title">Sincronizzazione tra dispositivi</string>
     <string name="sync_note">Iscrizioni, progressi, playlist, abitudini di ascolto e impostazioni di download, cifrati con la tua chiave sui tuoi relay — nessun server Hopp.</string>
     <string name="sync_running">Sincronizzazione…</string>

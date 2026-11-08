@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Deine Abos, dein Hörstand, deine Playlist, deine Hörgewohnheiten und Download-Einstellungen liegen verschlüsselt mit deinem Schlüssel auf deinen Relays. Wiederherstellen schaltet den Abgleich zwischen deinen Geräten ein.</string>
     <string name="sync_restore_button">Wiederherstellen</string>
     <string name="sync_restore_later">Nicht jetzt</string>
+    <string name="nostr_section_sync">Abgleich</string>
+    <string name="nostr_section_public">Öffentlich</string>
+    <string name="nostr_section_advanced">Erweitert</string>
     <string name="sync_title">Zwischen Geräten abgleichen</string>
     <string name="sync_note">Abos, Hörstand, Playlist, Hörgewohnheiten und Download-Einstellungen, mit deinem Schlüssel verschlüsselt auf deinen Relays – ohne Hopp-Server.</string>
     <string name="sync_running">Gleiche ab …</string>

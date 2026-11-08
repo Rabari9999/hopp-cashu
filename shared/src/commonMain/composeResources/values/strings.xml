@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Your subscriptions, progress, playlist, listening habits and download settings are on your relays, encrypted with your key. Restoring turns on sync between your devices.</string>
     <string name="sync_restore_button">Restore</string>
     <string name="sync_restore_later">Not now</string>
+    <string name="nostr_section_sync">Sync</string>
+    <string name="nostr_section_public">Public</string>
+    <string name="nostr_section_advanced">Advanced</string>
     <string name="sync_title">Sync across devices</string>
     <string name="sync_note">Subscriptions, progress, playlist, listening habits and download settings, encrypted to your key on your relays — no Hopp server.</string>
     <string name="sync_running">Syncing…</string>

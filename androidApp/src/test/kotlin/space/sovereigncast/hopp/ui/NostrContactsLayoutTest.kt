@@ -95,13 +95,11 @@ class NostrContactsLayoutTest {
         rule.onAllNodesWithText("Nostr-Kontakte").onFirst().performScrollTo()
         rule.waitForIdle()
         shoot("nostr")
-        // Every show and whether it is shared, one tap away (maintainer 2026-11-02).
-        rule.onNode(hasText("Geteilte Shows") and hasClickAction()).performScrollTo().performClick()
-        waitFor("Noch keine Abos")
-        shoot("shared-shows")
+        // Every show and whether it is shared (maintainer 2026-11-02) — a row only while sharing is on (2026-11-08).
+        check(!has("Geteilte Shows")) { "sharing is off" }
     }
 
-    /** Sync on: its line and, in one row, sync now, the key to show and to renew (maintainer 2026-11-03). */
+    /** Sync on: its line and sync now; the key to show and to renew under "Erweitert" (maintainer 2026-11-03, 2026-11-08). */
     @Test
     fun theSyncRowFitsAPhone() {
         looking()
@@ -111,6 +109,9 @@ class NostrContactsLayoutTest {
         rule.onNode(hasContentDescription("Einstellungen")).performClick()
         waitFor("Nostr-Identität")
         rule.onNode(hasText("Nostr-Identität") and hasClickAction()).performScrollTo().performClick()
+        // Folded under "Erweitert" since 2026-11-08.
+        waitFor("Erweitert")
+        rule.onNode(hasText("Erweitert") and hasClickAction()).performScrollTo().performClick()
         waitFor("Schlüssel zeigen")
         rule.onAllNodesWithText("Schlüssel zeigen").onFirst().performScrollTo()
         rule.waitForIdle()

@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Tes abonnements, ta progression, ta liste de lecture, tes habitudes d’écoute et tes réglages de téléchargement sont sur tes relais, chiffrés avec ta clé. Restaurer active la sync entre tes appareils.</string>
     <string name="sync_restore_button">Restaurer</string>
     <string name="sync_restore_later">Pas maintenant</string>
+    <string name="nostr_section_sync">Synchronisation</string>
+    <string name="nostr_section_public">Public</string>
+    <string name="nostr_section_advanced">Avancé</string>
     <string name="sync_title">Sync entre appareils</string>
     <string name="sync_note">Abonnements, progression, liste de lecture, habitudes d’écoute et réglages de téléchargement, chiffrés avec ta clé sur tes relais — pas de serveur Hopp.</string>
     <string name="sync_running">Synchronisation…</string>

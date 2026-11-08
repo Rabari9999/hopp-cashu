@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Suas inscrições, progresso, playlist, hábitos de escuta e configurações de download estão nos seus relays, criptografados com sua chave. Restaurar ativa a sincronização entre seus dispositivos.</string>
     <string name="sync_restore_button">Restaurar</string>
     <string name="sync_restore_later">Agora não</string>
+    <string name="nostr_section_sync">Sincronização</string>
+    <string name="nostr_section_public">Público</string>
+    <string name="nostr_section_advanced">Avançado</string>
     <string name="sync_title">Sincronização entre dispositivos</string>
     <string name="sync_note">Inscrições, progresso, playlist, hábitos de escuta e configurações de download, criptografados com sua chave nos seus relays — sem servidor do Hopp.</string>
     <string name="sync_running">Sincronizando…</string>

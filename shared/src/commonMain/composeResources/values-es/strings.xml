@@ -939,6 +939,9 @@
     <string name="sync_restore_text">Tus suscripciones, tu progreso, tu lista de reproducción, tus hábitos de escucha y los ajustes de descarga están en tus relays, cifrados con tu clave. Al restaurar se activa la sincronización entre tus dispositivos.</string>
     <string name="sync_restore_button">Restaurar</string>
     <string name="sync_restore_later">Ahora no</string>
+    <string name="nostr_section_sync">Sincronización</string>
+    <string name="nostr_section_public">Público</string>
+    <string name="nostr_section_advanced">Avanzado</string>
     <string name="sync_title">Sincronizar entre dispositivos</string>
     <string name="sync_note">Suscripciones, progreso, lista de reproducción, hábitos de escucha y ajustes de descarga, cifrados con tu clave en tus relays — sin servidor de Hopp.</string>
     <string name="sync_running">Sincronizando…</string>

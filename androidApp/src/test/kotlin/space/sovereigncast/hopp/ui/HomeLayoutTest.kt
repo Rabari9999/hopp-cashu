@@ -179,6 +179,11 @@ class HomeLayoutTest {
         // The Nostr page's switches with room before them, a line before what goes out in public (2026-11-08).
         tap("Nostr identity")
         waitFor("Nostr contacts")
+        // Each part under its heading; shared shows only while sharing; the rare things folded (2026-11-08).
+        check(has("Sync") && has("Public") && !has("Shared shows") && !has("Relays")) { screen().toString() }
+        shoot("nostr-top")
+        rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Advanced"))
+        tap("Advanced")
         rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Relays"))
         shoot("nostr-relay")
         rule.onNode(hasContentDescription("Back")).performClick()
