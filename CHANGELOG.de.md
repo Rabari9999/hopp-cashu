@@ -10,6 +10,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
+- **Sync:** „Details“ neben „Jetzt abgleichen“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
 
 ### 🐛 Fixes
 - **Sync:** Der erste Abgleich nach dem Start von Hopp wartet nicht mehr auf ein Relay, das nicht antwortet.

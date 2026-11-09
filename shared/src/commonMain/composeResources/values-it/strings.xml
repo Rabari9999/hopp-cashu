@@ -968,6 +968,7 @@
     <string name="sync_too_large">Troppi dati da sincronizzare: un documento è più grande di quanto Hopp invia. Non è stato tagliato nulla.</string>
     <string name="sync_pending">%1$d in attesa del loro feed</string>
     <string name="sync_now">Sincronizza ora</string>
+    <string name="sync_details">Dettagli</string>
     <string name="sync_renew">Rinnova la chiave di sync</string>
     <string name="sync_renew_text">Per un dispositivo perso o un browser che non usi più: la tua libreria riceve una nuova chiave, e quella vecchia non apre nulla di ciò che viene dopo. I tuoi altri dispositivi chiedono una volta alla tua app di firma, poi proseguono. Chiudi anche la vecchia sessione nella tua app di firma.</string>
     <string name="sync_renew_confirm">Rinnova</string>

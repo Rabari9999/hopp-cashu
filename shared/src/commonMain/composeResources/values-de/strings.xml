@@ -973,6 +973,7 @@
     <string name="sync_renewed">✓ Neuer Abgleich-Schlüssel. Deine anderen Geräte fragen deinen Signer einmal.</string>
     <string name="sync_renew_failed">Nicht erneuert – ein Abgleich vorher kam nicht durch, etwas wartet noch auf das Senden, oder dein Signer hat abgelehnt. Nichts hat sich geändert.</string>
     <string name="sync_now">Jetzt abgleichen</string>
+    <string name="sync_details">Details</string>
     <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
     <string name="onboarding_returning">Ich nutze Hopp schon</string>
     <string name="nostr_restore_hint">Melde dich mit dem Nostr-Schlüssel deines anderen Geräts an – danach holt Hopp deine Bibliothek zurück.</string>

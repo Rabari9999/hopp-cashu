@@ -163,6 +163,11 @@ class HomeLayoutTest {
         check(has("nos.lol") && has("Still to send") && has("nothing")) { screen().toString() }
         tap("Settings")
         waitFor("Sync across devices")
+        // And back from there: the same sheet, without the way to where it was opened (maintainer 2026-11-09).
+        rule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Details"))
+        tap("Details")
+        waitFor("Still to send")
+        check(rule.onAllNodes(hasText("Settings") and hasClickAction()).fetchSemanticsNodes().isEmpty()) { "the sheet leads to where it is: ${screen()}" }
     }
 
     /** Maintainer 2026-11-08: the menu one entry shorter, the profile opened from its head (picture and name). */

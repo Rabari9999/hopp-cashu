@@ -968,6 +968,7 @@
     <string name="sync_too_large">Demasiado para sincronizar: un documento supera el tamaño que Hopp envía. No se ha recortado nada.</string>
     <string name="sync_pending">%1$d esperando su feed</string>
     <string name="sync_now">Sincronizar ahora</string>
+    <string name="sync_details">Detalles</string>
     <string name="sync_renew">Renovar clave de sincronización</string>
     <string name="sync_renew_text">Para un dispositivo perdido o un navegador que ya no usas: tu biblioteca recibe una clave nueva, y la antigua no abre nada de lo que venga después. Tus otros dispositivos le preguntan una vez a tu firmante y luego siguen. Cierra también la sesión antigua en tu app firmante.</string>
     <string name="sync_renew_confirm">Renovar</string>

@@ -968,6 +968,7 @@
     <string name="sync_too_large">Dados demais para sincronizar: um documento é maior do que o Hopp envia. Nada foi cortado.</string>
     <string name="sync_pending">%1$d aguardando o feed</string>
     <string name="sync_now">Sincronizar agora</string>
+    <string name="sync_details">Detalhes</string>
     <string name="sync_renew">Renovar chave de sincronização</string>
     <string name="sync_renew_text">Para um dispositivo perdido ou um navegador que você não usa mais: sua biblioteca recebe uma nova chave, e a antiga não abre nada do que vier depois. Seus outros dispositivos pedem uma vez ao seu assinador e depois continuam. Encerre também a sessão antiga no seu app assinador.</string>
     <string name="sync_renew_confirm">Renovar</string>

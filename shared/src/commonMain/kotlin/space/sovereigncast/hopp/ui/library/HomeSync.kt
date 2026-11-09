@@ -166,7 +166,8 @@ internal fun look(status: SyncStatus): Look = when {
 /** What the last round came to — only what matters, no explanations. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: () -> Unit, onRewrite: (String) -> Unit = {}, onDismiss: () -> Unit) {
+/** [onSettings]: the way to sync's settings; null where the sheet opened from them (the Nostr page). */
+internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: (() -> Unit)?, onRewrite: (String) -> Unit = {}, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val problem = status.problem
     // Each relay after every round (maintainer 2026-10-29: two of three went through and the third's reason was
@@ -240,7 +241,7 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                         else -> Res.string.sync_now
                     }), label, min = 11.sp)
                 }
-                OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
+                if (onSettings != null) OutlinedButton(onClick = onSettings, modifier = Modifier.weight(1f).height(48.dp), contentPadding = inside) {
                     FittingLine(stringResource(Res.string.settings), label, min = 11.sp)
                 }
             }

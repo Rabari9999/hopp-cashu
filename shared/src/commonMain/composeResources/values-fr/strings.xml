@@ -968,6 +968,7 @@
     <string name="sync_too_large">Trop à synchroniser : un document est plus grand que ce que Hopp envoie. Rien n’a été coupé.</string>
     <string name="sync_pending">%1$d en attente de leur flux</string>
     <string name="sync_now">Synchroniser maintenant</string>
+    <string name="sync_details">Détails</string>
     <string name="sync_renew">Renouveler la clé de sync</string>
     <string name="sync_renew_text">Pour un appareil perdu ou un navigateur que tu n’utilises plus : ta bibliothèque reçoit une nouvelle clé, et l’ancienne n’ouvre rien de ce qui suit. Tes autres appareils demandent une fois à ton signeur, puis continuent. Termine aussi l’ancienne session dans ton appli de signature.</string>
     <string name="sync_renew_confirm">Renouveler</string>

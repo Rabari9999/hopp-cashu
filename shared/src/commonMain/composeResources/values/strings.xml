@@ -968,6 +968,7 @@
     <string name="sync_too_large">Too much to sync: one document is larger than Hopp sends. Nothing was cut.</string>
     <string name="sync_pending">%1$d waiting for their feed</string>
     <string name="sync_now">Sync now</string>
+    <string name="sync_details">Details</string>
     <string name="sync_renew">Renew sync key</string>
     <string name="sync_renew_text">For a lost device or a browser you no longer use: your library gets a new key, and the old one opens nothing that comes after. Your other devices ask your signer once, then go on. End the old session in your signer app too.</string>
     <string name="sync_renew_confirm">Renew</string>
