@@ -9,6 +9,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🆕 New Features
 - **Settings:** A fourth design, Coldstorage: frosty blue like snow and ice.
 - **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
+- **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
 
 ### 🐛 Fixes
 - **Sync:** The first sync after starting Hopp no longer waits for a relay that does not answer.

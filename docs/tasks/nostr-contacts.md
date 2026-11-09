@@ -1,7 +1,7 @@
 # What your Nostr contacts listen to
 
 - **Implements:** [ADR 0024](../adr/0024-nostr-contacts.md); release 0.4.0.
-- **Status:** stages 1–5 released in 0.4.0 (2026-11-05), faster and with names and pictures in 0.4.1 (2026-11-09); stage 4's zaps and follows of a show's npub left.
+- **Status:** done — stages 1–5 released in 0.4.0 (2026-11-05), faster and with names and pictures in 0.4.1 (2026-11-09); zaps and follows of a show's npub built for 0.4.2 (2026-11-09).
 
 Only with a Nostr identity: without one, nothing of it is shown or done.
 
@@ -64,9 +64,13 @@ Only with a Nostr identity: without one, nothing of it is shown or done.
       — a boost when the note ends "⚡ N sats". Ranked: boost 3, comment 2,
       shared subscription 1, per contact the most, summed; shows known only
       from these looked up in the Podcast Index by guid (12 at most per read).
-- [ ] Zaps to a show's npub, follows of a show's npub; comments naming an
-      episode only (no `podcast:guid`): not yet — they need the show's npub or
-      the episode's show.
+- [x] Zaps to a show's npub and follows of it (2026-11-09), for the shows
+      whose npub Hopp knows: the subscribed ones and the Sovereigncast
+      directory's. Zap receipts by `#p` and `#P`, counted only with a request
+      the contact signed; follows from mutual contacts' lists, read anyway.
+      Zap 3, follow 1 (ADR 0024, 6, amended 2026-11-09).
+- Not done, on purpose: zaps to episode notes and comments naming an episode
+  alone (no `podcast:guid`) — each needs a look-up of the episode's show.
 
 ## Stage 5 — a new share key when a mutual contact is lost
 

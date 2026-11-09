@@ -1237,14 +1237,16 @@
         <item quantity="other">%1$d de tus contactos de Nostr escuchan esto</item>
     </plurals>
     <plurals name="contacts_acted">
-        <item quantity="one">%1$d de tus contactos de Nostr escucha esto, lo ha boosteado o comentado</item>
-        <item quantity="other">%1$d de tus contactos de Nostr escuchan esto, lo han boosteado o comentado</item>
+        <item quantity="one">%1$d de tus contactos de Nostr escucha esto, lo ha boosteado, zapeado o comentado</item>
+        <item quantity="other">%1$d de tus contactos de Nostr escuchan esto, lo han boosteado, zapeado o comentado</item>
     </plurals>
     <string name="contacts_renew_text">Un contacto ya no te sigue mutuamente. Una clave nueva lo deja fuera.</string>
     <string name="contacts_renew">Renovar clave</string>
     <string name="contacts_did_share">comparte la suscripción</string>
     <string name="contacts_did_boost">boosteó</string>
     <string name="contacts_did_comment">comentó</string>
+    <string name="contacts_did_zap">zapeó</string>
+    <string name="contacts_did_follow">sigue el podcast en Nostr</string>
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Podcasts compartidos</string>
     <string name="contacts_shared_summary">%1$d de %2$d compartidos</string>

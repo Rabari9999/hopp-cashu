@@ -173,6 +173,17 @@ class PodcastRepository(
         q.selectById(id).awaitAsOneOrNull()?.let { json.decodeFromString(Podcast.serializer(), it.meta_json) }
     }
 
+    /** The subscribed shows that name their Nostr account (`podcast:txt purpose="nostr"`): its pubkey (hex) to
+     *  the show's `podcast:guid` — whose zaps and follows by Nostr contacts count (ADR 0024, 6). */
+    suspend fun nostrAccounts(): Map<String, String> = withContext(ioDispatcher) {
+        q.selectAll().awaitAsList().flatMap { row ->
+            val guid = row.podcast_guid?.takeIf { it.isNotBlank() } ?: return@flatMap emptyList()
+            val meta = runCatching { json.decodeFromString(Podcast.serializer(), row.meta_json) }.getOrNull() ?: return@flatMap emptyList()
+            meta.txt.filter { it.purpose.equals("nostr", ignoreCase = true) }
+                .mapNotNull { space.sovereigncast.hopp.nostr.pubkeyOf(it.value) }.map { it to guid }
+        }.toMap()
+    }
+
     /** Fetch, parse, store. The newest episode lands in "New"; the back
      *  catalogue does not flood it. */
     /** [autoDownload]: the show's setting from the start — a restore brings it along, and nothing

@@ -352,6 +352,46 @@ class ContactsTest {
         assertEquals(listOf(ben.publicKeyHex), read.listeners("Boosted-Show", "https://boosted.test/feed").map { it.pubkey })
     }
 
+    /** A zap to a show's npub weighs as a boost, a follow of it in a mutual contact's list as a shared subscription
+     *  (maintainer 2026-11-09). A receipt counts only with its request signed by the contact; a list that is not a
+     *  mutual contact's is not read. */
+    @Test
+    fun zapsAndFollowsOfAShowsNpubCount(): Unit = runBlocking {
+        val anna = KeyPair.generate(); val ben = KeyPair.generate(); val mallory = KeyPair.generate(); val lnurl = KeyPair.generate()
+        val zapped = KeyPair.generate(); val followed = KeyPair.generate()
+        follows(listener, anna.publicKeyHex, ben.publicKeyHex)
+        follows(anna, listener.publicKeyHex, followed.publicKeyHex)
+        // Ben does not follow back: his list is not read, his zap counts all the same.
+        follows(ben, followed.publicKeyHex)
+        fun zap(from: KeyPair, sender: String, to: KeyPair, at: Long) {
+            val request = Event.sign(from, 9734, "", listOf(listOf("p", to.publicKeyHex), listOf("relays", "wss://r")), at)
+            val description = kotlinx.serialization.json.Json.encodeToString(Event.serializer(), request)
+            relay.publish(Event.sign(lnurl, 9735, "", listOf(listOf("p", to.publicKeyHex), listOf("P", sender), listOf("description", description)), at))
+        }
+        zap(ben, ben.publicKeyHex, zapped, now - 500)
+        // Made up: a receipt naming Anna, with a request Mallory signed.
+        zap(mallory, anna.publicKeyHex, zapped, now - 400)
+        // Older than ninety days.
+        zap(anna, anna.publicKeyHex, zapped, now - 100 * 86_400)
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val graph = ContactGraph(me.identity, RelayPublisher(relay), showKeys = {
+            mapOf(zapped.publicKeyHex to "Zapped-Show", followed.publicKeyHex to "followed-show")
+        }) { now }
+        val looked = mapOf(
+            "zapped-show" to SharedShow("zapped-show", "https://zapped.test/feed", "Zapped", 0),
+            "followed-show" to SharedShow("followed-show", "https://followed.test/feed", "Followed", 0),
+        )
+        val contacts = ContactsRepository(me.identity, me.keys, graph, { now }, lookup = { looked[it] })
+        contacts.refresh(force = true)
+        val read = contacts.state.value.read!!
+        assertEquals(listOf(PublicSignal("zapped-show", boost = false, at = now - 500, zap = true)), read.contacts.getValue(ben.publicKeyHex).signals)
+        assertEquals(listOf(PublicSignal("followed-show", boost = false, at = 0, follow = true)), read.contacts.getValue(anna.publicKeyHex).signals)
+        val picks = read.listening()
+        assertEquals(listOf("https://zapped.test/feed" to ContactsRead.BOOST, "https://followed.test/feed" to ContactsRead.SHARED), picks.map { it.show.url to it.score })
+        assertEquals(listOf(anna.publicKeyHex), read.listeners("followed-show", "https://followed.test/feed").map { it.pubkey })
+    }
+
     // Stage 5: a mutual contact lost (ADR 0024, 4).
 
     /** Anna had the key; she unfollows. Lost in two reads in a row, the share key is renewed — her inbox

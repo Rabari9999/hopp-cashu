@@ -23,6 +23,8 @@ import space.sovereigncast.hopp.directory.feedKey
     @SerialName("image_url") val imageUrl: String? = null,
     val author: String? = null,
     val language: String? = null,
+    /** The show's Nostr account, where the list names it: its zaps and follows by Nostr contacts count (ADR 0024, 6). */
+    val npub: String? = null,
 )
 
 @Serializable private data class ScDirectoryFile(val version: Int = 1, val shows: List<ScDirectoryShow> = emptyList())

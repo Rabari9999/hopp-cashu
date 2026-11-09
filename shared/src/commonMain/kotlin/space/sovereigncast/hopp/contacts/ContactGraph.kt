@@ -37,7 +37,7 @@ data class Contact(
     /** Their profile (kind 0), for the rows that name them. */
     val name: String? = null,
     val picture: String? = null,
-    /** What they did in public about shows (ADR 0024, 6): boosts made public and comments. */
+    /** What they did in public about shows (ADR 0024, 6): boosts made public, comments, zaps and follows of a show's npub. */
     val signals: List<PublicSignal> = emptyList(),
     /** Their write relays (NIP-65), where their list is looked for again. */
     val relays: List<String> = emptyList(),
@@ -46,9 +46,15 @@ data class Contact(
     val locked: Boolean = false,
 )
 
-/** A contact's public act about a show: a boost made public or a comment, naming the show's `podcast:guid`. */
+/**
+ * A contact's public act about a show, by its `podcast:guid`: a boost made public or a comment naming it, a
+ * [zap] to the show's npub, or a [follow] of it (maintainer 2026-11-09) — [at] 0 for a follow, as a contact
+ * list does not say when one name went onto it.
+ */
 @Serializable
-data class PublicSignal(val show: String, val boost: Boolean, val at: Long)
+data class PublicSignal(val show: String, val boost: Boolean, val at: Long, val zap: Boolean = false, val follow: Boolean = false) {
+    val comment: Boolean get() = !boost && !zap && !follow
+}
 
 /** The listener's contacts read: [following] from their own list, what each one's relays told. */
 @Serializable
@@ -67,8 +73,8 @@ data class ContactsRead(
 
     /**
      * Shows the contacts share or did something about in public, each with who (ADR 0024, 7):
-     * a boost weighs [BOOST], a comment [COMMENT], a shared subscription [SHARED] — per contact
-     * the most of these — summed over the contacts; then the newest first.
+     * a boost or a zap weighs [BOOST], a comment [COMMENT], a shared subscription or a follow
+     * [SHARED] — per contact the most of these — summed over the contacts; then the newest first.
      */
     fun listening(): List<ContactPick> {
         val acts = mutableMapOf<String, MutableMap<String, Pair<Int, Long>>>()
@@ -80,7 +86,7 @@ data class ContactsRead(
         }
         for (c in contacts.values) {
             c.shows.forEach { s -> showKey(s).let { k -> shows.getOrPut(k) { s }; count(k, c.pubkey, SHARED, s.since) } }
-            c.signals.forEach { sig -> count(showKey(sig.show, ""), c.pubkey, if (sig.boost) BOOST else COMMENT, sig.at) }
+            c.signals.forEach { sig -> count(showKey(sig.show, ""), c.pubkey, sig.weight(), sig.at) }
         }
         looked.forEach { (guid, s) -> shows.getOrPut(showKey(guid, s.url)) { s } }
         return acts.mapNotNull { (key, byWho) ->
@@ -105,6 +111,12 @@ data class ContactsRead(
         return contacts.values.filter { c ->
             c.shows.any { showKey(it) == key || it.url == feedUrl } || (guid != null && c.signals.any { it.show.equals(guid, ignoreCase = true) })
         }
+    }
+
+    private fun PublicSignal.weight() = when {
+        boost || zap -> BOOST
+        follow -> SHARED
+        else -> COMMENT
     }
 
     companion object {
@@ -134,6 +146,8 @@ private fun showKey(guid: String?, url: String) = guid?.takeIf { it.isNotBlank()
 class ContactGraph(
     private val identity: IdentityRepository,
     private val publisher: RelayPublisher,
+    /** The shows whose npub Hopp knows — the listener's, and the Sovereigncast directory's: pubkey (hex) to `podcast:guid`. */
+    private val showKeys: suspend () -> Map<String, String> = { emptyMap() },
     private val nowSeconds: () -> Long,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -157,10 +171,12 @@ class ContactGraph(
         progress(ReadProgress(following.size))
 
         val outbox = mutableMapOf<String, List<String>>()
+        // Zaps and follows count only for shows whose npub is known: Nostr has no way from an npub back to a feed.
+        val npubs = if (inbox == null) emptyMap() else runCatching { showKeys() }.getOrDefault(emptyMap())
         val found = coroutineScope {
             // A contacts note goes to Hopp's relays for sync too: asked there for everyone at once, while
             // the relay lists are still looked up — not one step after the other (maintainer 2026-11-08).
-            val atHopps = async { ask(IdentityRepository.SYNC_RELAYS.associateWith { following }, me, inbox) }
+            val atHopps = async { ask(IdentityRepository.SYNC_RELAYS.associateWith { following }, me, inbox, npubs.keys) }
             // Where each contact writes: their relay list, from the indexes; Hopp's relays where they have none.
             following.chunked(BATCH).forEach { batch ->
                 publisher.query(listOf(filter(RELAY_LIST, batch)), IdentityRepository.INDEX_RELAYS + IdentityRepository.DEFAULT_RELAYS, LOOK_UP_SETTLE)
@@ -173,7 +189,7 @@ class ContactGraph(
                 (outbox[who].orEmpty().ifEmpty { IdentityRepository.DEFAULT_RELAYS } - IdentityRepository.SYNC_RELAYS.toSet())
                     .forEach { byRelay.getOrPut(it) { mutableSetOf() } += who }
             }
-            atHopps.await() + ask(byRelay, me, inbox)
+            atHopps.await() + ask(byRelay, me, inbox, npubs.keys)
         }
         val followsBack = found.filter { it.kind == CONTACT_LIST && it.pubkey in following && it.tags.any { t -> t.size >= 2 && t[0] == "p" && t[1] == me } }
             .map { it.pubkey }.toSet()
@@ -188,7 +204,7 @@ class ContactGraph(
         progress(ReadProgress(following.size, mutual.size, mutual.count { it.share != null || it.inbox != null }))
         val sharing = if (inbox == null) emptyList() else mutual.filter { it.share != null }
         // What the people the listener follows did in public about shows (ADR 0024, 6) — one way, as public is public.
-        val signals = if (inbox == null) emptyMap() else signals(found.filter { it.pubkey in following })
+        val signals = if (inbox == null) emptyMap() else signals(found, following, npubs)
         // What mutual contacts share with this inbox, and the names of who may show — at once, not one after the other.
         val (shelves, named) = coroutineScope {
             val shelves = async { if (inbox == null) emptyMap() else shelves(sharing, outbox, inbox) }
@@ -208,7 +224,7 @@ class ContactGraph(
      * serves — with [inbox], their notes and comments about shows too. A contact's own relay gets [THEIR_WAIT]:
      * many lists name relays long gone, and each cost the full timeout (maintainer 2026-11-08).
      */
-    private suspend fun ask(byRelay: Map<String, Collection<String>>, me: String, inbox: KeyPair?): List<Event> = coroutineScope {
+    private suspend fun ask(byRelay: Map<String, Collection<String>>, me: String, inbox: KeyPair?, shows: Set<String> = emptySet()): List<Event> = coroutineScope {
         val gate = Semaphore(PARALLEL)
         byRelay.flatMap { (url, people) -> people.toList().chunked(BATCH).map { batch -> url to batch } }.map { (url, batch) ->
             async {
@@ -216,7 +232,7 @@ class ContactGraph(
                     val filters = listOf(
                         filter(CONTACT_LIST, batch, "#p" to listOf(me)),
                         filter(Nip78.KIND, batch, "#d" to listOf(ContactKeys.DTAG)),
-                    ) + (if (inbox != null) signalFilters(batch) else emptyList())
+                    ) + (if (inbox != null) signalFilters(batch, shows) else emptyList())
                     val wait = if (url in HOPPS) null else THEIR_WAIT
                     runCatching {
                         if (wait == null) publisher.query(filters, listOf(url), SETTLE)
@@ -268,27 +284,67 @@ class ContactGraph(
         }.awaitAll().toMap()
     }
 
-    /** Notes and comments naming a show or episode (NIP-73), of the last [SIGNAL_DAYS] days. */
-    private fun signalFilters(authors: List<String>): List<JsonObject> {
+    /**
+     * Notes and comments naming a show or episode (NIP-73), of the last [SIGNAL_DAYS] days — and the zap
+     * receipts (NIP-57, kind 9735) of those days to one of [shows] from one of [authors]: the receipt names
+     * its sender in `P` (measured 2026-11-09: all 37 for Nodesignal on nos.lol did), so only theirs travel,
+     * some kilobytes. The contact lists of mutual contacts come anyway; their follows of [shows] cost nothing more.
+     */
+    private fun signalFilters(authors: List<String>, shows: Set<String> = emptySet()): List<JsonObject> {
         val since = nowSeconds() - SIGNAL_DAYS * 86_400
-        return listOf(
+        val notes = listOf(
             filter(1, authors, "#k" to listOf("podcast:guid", "podcast:item:guid"), since),
             filter(COMMENT, authors, "#K" to listOf("podcast:guid", "podcast:item:guid"), since),
         )
+        if (shows.isEmpty()) return notes
+        return notes + buildJsonObject {
+            putJsonArray("kinds") { add(JsonPrimitive(ZAP_RECEIPT)) }
+            putJsonArray("#p") { shows.take(MAX_SHOW_KEYS).forEach { add(JsonPrimitive(it)) } }
+            putJsonArray("#P") { authors.forEach { add(JsonPrimitive(it)) } }
+            put("since", since)
+        }
     }
 
-    /** Per author, the shows their notes and comments name by `podcast:guid` — a boost when the note ends
-     *  "⚡ N sats" as Hopp writes it, a comment otherwise; the newest [MAX_SIGNALS] each. */
-    private fun signals(events: List<Event>): Map<String, List<PublicSignal>> = events
-        .filter { it.kind == 1 || it.kind == COMMENT }.distinctBy { it.id }
-        .flatMap { e ->
+    /**
+     * Per contact of [following], what they did about shows in public, the newest [MAX_SIGNALS] each: the shows
+     * their notes and comments name by `podcast:guid` — a boost when the note ends "⚡ N sats" as Hopp writes it,
+     * a comment otherwise; their zaps to a show's npub of [npubs]; the shows of [npubs] their contact list follows.
+     */
+    private fun signals(events: List<Event>, following: Set<String>, npubs: Map<String, String>): Map<String, List<PublicSignal>> {
+        val unique = events.distinctBy { it.id }
+        val acts = unique.filter { (it.kind == 1 || it.kind == COMMENT) && it.pubkey in following }.flatMap { e ->
             val shows = e.tags.filter { it.size >= 2 && (it[0] == "i" || it[0] == "I") && it[1].startsWith(SHOW_PREFIX) }
                 .map { it[1].removePrefix(SHOW_PREFIX).trim().lowercase() }.filter { it.isNotEmpty() && it.length <= 64 }.distinct()
             val boost = e.kind == 1 && space.sovereigncast.hopp.comments.boostSats(e.content) != null
             shows.map { e.pubkey to PublicSignal(it, boost, e.created_at) }
         }
-        .groupBy({ it.first }, { it.second })
-        .mapValues { (_, list) -> list.sortedByDescending { it.at }.take(MAX_SIGNALS) }
+        val since = nowSeconds() - SIGNAL_DAYS * 86_400
+        val zaps = unique.filter { it.kind == ZAP_RECEIPT && it.created_at >= since }.mapNotNull { r -> zapOf(r, following, npubs) }
+        // A follow from the newest list of each — older ones a relay still had may name shows since dropped.
+        val follows = unique.filter { it.kind == CONTACT_LIST && it.pubkey in following }
+            .groupBy { it.pubkey }.values.map { lists -> lists.maxBy { it.created_at } }
+            .flatMap { list ->
+                list.tags.filter { it.size >= 2 && it[0] == "p" }.mapNotNull { npubs[it[1]] }.distinct()
+                    .map { list.pubkey to PublicSignal(it.lowercase(), boost = false, at = 0, follow = true) }
+            }
+        return (acts + zaps + follows)
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, list) -> list.sortedByDescending { it.at }.take(MAX_SIGNALS) }
+    }
+
+    /**
+     * The contact who zapped and the show, from a zap receipt: anyone may publish one naming anyone, so it
+     * counts only with the zap request inside it (`description`) signed by that contact, for that show's npub.
+     */
+    private fun zapOf(receipt: Event, following: Set<String>, npubs: Map<String, String>): Pair<String, PublicSignal>? {
+        val to = receipt.tag("p") ?: return null
+        val show = npubs[to] ?: return null
+        val description = receipt.tag("description") ?: return null
+        val request = runCatching { json.decodeFromString(Event.serializer(), description) }.getOrNull() ?: return null
+        if (request.kind != ZAP_REQUEST || request.pubkey !in following || request.pubkey != receipt.tag("P")) return null
+        if (request.tags.none { it.size >= 2 && it[0] == "p" && it[1] == to } || !request.isValid()) return null
+        return request.pubkey to PublicSignal(show.lowercase(), boost = false, at = receipt.created_at, zap = true)
+    }
 
     /** Name and picture (kind 0) of [people], from the indexes and Hopp's relays. */
     suspend fun profiles(people: Set<String>): Map<String, Pair<String?, String?>> {
@@ -332,6 +388,10 @@ class ContactGraph(
         const val SIGNAL_DAYS = 90L
         const val MAX_SIGNALS = 50
         const val SHOW_PREFIX = "podcast:guid:"
+        const val ZAP_REQUEST = 9734
+        const val ZAP_RECEIPT = 9735
+        /** Show npubs asked for at most, in one filter. */
+        const val MAX_SHOW_KEYS = 500
         val SETTLE = 3.seconds
         /** How long a contact's own relay gets: one that answers at all answers within a second or two (measured 2026-11-08). */
         val THEIR_WAIT = 4.seconds

@@ -117,7 +117,13 @@ fun sharedModule(platform: Platform) = module {
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     // What the listener's Nostr contacts listen to (ADR 0024).
     single { space.sovereigncast.hopp.contacts.ContactKeys(get(), get(), get()) { get<Clock>().now() } }
-    single { space.sovereigncast.hopp.contacts.ContactGraph(get(), get()) { get<Clock>().now() } }
+    single {
+        space.sovereigncast.hopp.contacts.ContactGraph(get(), get(), showKeys = {
+            val listed = get<space.sovereigncast.hopp.sovereigncast.ScDirectory>().shows()
+                .mapNotNull { s -> s.npub?.let { space.sovereigncast.hopp.nostr.pubkeyOf(it) }?.let { it to s.podcastGuid } }
+            listed.toMap() + get<PodcastRepository>().nostrAccounts()
+        }) { get<Clock>().now() }
+    }
     single {
         val podcasts = get<PodcastRepository>()
         val share = space.sovereigncast.hopp.contacts.ContactShare(get(), get(), get(), get(), {

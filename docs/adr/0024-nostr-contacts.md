@@ -192,6 +192,20 @@ sharing — read with the contact lists, under the same switch:
 - **following a show's npub**, where the show names one (ADR 0021, 3): in
   the contacts' lists Hopp reads anyway.
 
+*Amended 2026-11-09 (maintainer):* zaps and follows built, for the shows whose
+npub Hopp knows — the subscribed ones that name it (`podcast:txt
+purpose="nostr"`) and the Sovereigncast directory's (`npub`); Nostr has no way
+from an npub back to a feed. A zap weighs as a boost, a follow as a shared
+subscription. Zap receipts are asked with the contacts' other requests, of the
+last 90 days, by show (`#p`) and sender (`#P`), so only the contacts' travel —
+measured the same day, all 37 receipts for Nodesignal on nos.lol named their
+sender, 70 KB in all and a few KB for one sender; one counts only with the
+zap request inside it signed by that contact. Follows come from the lists of
+mutual contacts, the only ones read: asking every contact's list for its
+follows of the shows would bring whole lists — 347 of them for Nodesignal,
+8 MB, on one relay. Zaps to episode notes and comments naming an episode
+alone are not counted: they need a look-up per episode.
+
 ### 7. What the listener sees
 
 What comes back is kept on the device and shown:

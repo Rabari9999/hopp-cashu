@@ -37,6 +37,9 @@ fun nevent(ref: NoteRef, kind: Int = 1): String {
     return Bech32.encode("nevent", out.toByteArray())
 }
 
+/** A pubkey (hex) from an npub, an nprofile or the hex itself — as `podcast:txt purpose="nostr"` may give it. */
+fun pubkeyOf(text: String): String? = text.trim().lowercase().takeIf { Regex("^[0-9a-f]{64}$").matches(it) } ?: profileKey(text)
+
 /** The hex key of an `npub1…` or `nprofile1…`, with or without `nostr:`; null otherwise. */
 fun profileKey(text: String): String? = runCatching {
     val (hrp, data) = Bech32.decode(text.trim().removePrefix("nostr:"))

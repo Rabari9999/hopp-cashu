@@ -41,9 +41,11 @@ import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.contacts_listen
 import space.sovereigncast.hopp.resources.contacts_acted
 import space.sovereigncast.hopp.resources.contacts_title
-import space.sovereigncast.hopp.resources.contacts_did_share
 import space.sovereigncast.hopp.resources.contacts_did_boost
 import space.sovereigncast.hopp.resources.contacts_did_comment
+import space.sovereigncast.hopp.resources.contacts_did_follow
+import space.sovereigncast.hopp.resources.contacts_did_share
+import space.sovereigncast.hopp.resources.contacts_did_zap
 
 /**
  * Which of the listener's Nostr contacts listen to a show (ADR 0024, 7): their avatars and a count.
@@ -71,8 +73,8 @@ fun ContactListeners(guid: String?, feedUrl: String, modifier: Modifier = Modifi
                 who.take(MAX_FACES).forEachIndexed { i, c -> Face(c, Modifier.offset(x = (i * OVERLAP).dp)) }
             }
             Spacer(Modifier.width(8.dp))
-            // Boosted or commented on in public by one of them: said so (ADR 0024, 6).
-            val acted = guid != null && who.any { c -> c.signals.any { it.show.equals(guid, ignoreCase = true) } }
+            // Boosted, zapped or commented on in public by one of them: said so (ADR 0024, 6). A follow is listening.
+            val acted = guid != null && who.any { c -> c.signals.any { !it.follow && it.show.equals(guid, ignoreCase = true) } }
             Text(
                 pluralStringResource(if (acted) Res.plurals.contacts_acted else Res.plurals.contacts_listen, who.size, who.size),
                 Modifier.weight(1f),
@@ -97,8 +99,10 @@ private fun WhoSheet(who: List<Contact>, guid: String?, feedUrl: String, onDismi
                 val mine = c.signals.filter { guid != null && it.show.equals(guid, ignoreCase = true) }
                 val what = listOfNotNull(
                     stringResource(Res.string.contacts_did_share).takeIf { c.shows.any { s -> s.url == feedUrl || (guid != null && s.guid.equals(guid, ignoreCase = true)) } },
+                    stringResource(Res.string.contacts_did_follow).takeIf { mine.any { it.follow } },
                     stringResource(Res.string.contacts_did_boost).takeIf { mine.any { it.boost } },
-                    stringResource(Res.string.contacts_did_comment).takeIf { mine.any { !it.boost } },
+                    stringResource(Res.string.contacts_did_zap).takeIf { mine.any { it.zap } },
+                    stringResource(Res.string.contacts_did_comment).takeIf { mine.any { it.comment } },
                 ).joinToString(" · ")
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { actions.openNostr(space.sovereigncast.hopp.nostr.npub(c.pubkey)) }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
