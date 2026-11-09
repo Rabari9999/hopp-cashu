@@ -10,6 +10,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Settings:** A fourth design, Coldstorage: frosty blue like snow and ice.
 - **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
 - **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
+- **Player:** The player bar on wide screens also jumps to the previous and next chapter.
 - **Sync:** "Details" beside "Sync now" shows how the last sync went, relay by relay.
 
 ### 🐛 Fixes
@@ -18,6 +19,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **App:** On iOS, choose Hopp's language in Hopp itself: at once, without a second system language.
 - **Web:** Space plays and pauses whatever was clicked last, not the skip clicked before.
 - **Player:** The skip buttons of the player bar show their seconds, on wide screens and tablets.
+- **Player:** The chapter buttons also work on an episode shown paused after a restart.
+- **Player:** Larger text beside the boost button on wide screens.
 
 ## [0.4.1] - 2026-11-08
 

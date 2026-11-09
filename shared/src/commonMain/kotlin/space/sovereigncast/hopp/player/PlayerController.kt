@@ -584,15 +584,18 @@ class PlayerController(
     fun skipBy(deltaMs: Long) = seekTo(state.value.positionMs + deltaMs)
     fun skipBack() = skipBy(-_settings.value.skipBackSeconds * 1000L)
     fun skipForward() = skipBy(_settings.value.skipForwardSeconds * 1000L)
-    fun nextChapter() { _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
-    fun previousChapter() { _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it) } }
+    // From where the player shows it, paused or not loaded yet (maintainer 2026-11-09: the bar's chapter buttons did
+    // nothing on an episode shown after a reload): the engine knows no position before it has the episode.
+    fun nextChapter() { _current.value?.chapters?.nextStartMs(state.value.positionMs)?.let { toChapter(it) } }
+    fun previousChapter() { _current.value?.chapters?.previousStartMs(state.value.positionMs)?.let { toChapter(it) } }
 
     /** A transcript opened to read along — counted for the statistics. */
     fun transcriptOpened() { listening?.let { l -> scope.launch { l.counted(transcripts = 1) } } }
 
     /** A chapter's start, gone to by the listener — counted for the statistics. */
     fun toChapter(startMs: Long) {
-        engine.seekTo(startMs)
+        // As a seek: an episode shown but not loaded is loaded there, paused.
+        seekTo(startMs)
         listening?.let { l -> scope.launch { l.counted(chapters = 1) } }
     }
 
@@ -600,7 +603,7 @@ class PlayerController(
      *  last one the next episode in the queue. (A headset's or steering wheel's "next" skips
      *  forward instead, maintainer 2026-10-27.) */
     fun next() {
-        _current.value?.chapters?.nextStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
+        _current.value?.chapters?.nextStartMs(state.value.positionMs)?.let { toChapter(it); return }
         scope.launch {
             engine.state.value.itemId?.toLongOrNull()?.let { episodes.savePosition(it, engine.state.value.positionMs) }
             advance()
@@ -618,7 +621,7 @@ class PlayerController(
 
     /** "Previous": the previous chapter, else the start of the episode. */
     fun previous() {
-        _current.value?.chapters?.previousStartMs(engine.state.value.positionMs)?.let { toChapter(it); return }
+        _current.value?.chapters?.previousStartMs(state.value.positionMs)?.let { toChapter(it); return }
         engine.seekTo(0)
     }
 

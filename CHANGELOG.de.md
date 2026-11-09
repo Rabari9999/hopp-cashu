@@ -10,6 +10,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
+- **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.
 - **Sync:** „Details“ neben „Jetzt abgleichen“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
 
 ### 🐛 Fixes
@@ -18,6 +19,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **App:** Auf iOS Hopps Sprache in Hopp selbst wählen: sofort und ohne zweite Systemsprache.
 - **Web:** Die Leertaste spielt und pausiert, egal was zuletzt geklickt wurde, statt erneut zu springen.
 - **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden, auf breiten Bildschirmen und Tablets.
+- **Player:** Die Kapiteltasten funktionieren auch bei einer Folge, die nach einem Neustart pausiert angezeigt wird.
+- **Player:** Größere Schrift neben dem Boost-Knopf auf breiten Bildschirmen.
 
 ## [0.4.1] - 2026-11-08
 

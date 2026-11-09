@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.np_next_chapter
+import space.sovereigncast.hopp.resources.np_previous_chapter
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -198,6 +200,11 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
             Spacer(Modifier.width(20.dp))
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // The chapters' way, as on now playing's cover (maintainer 2026-11-09): on both sides, so play stays in the middle.
+                    val hasChapters = chapters.stops.size > 1
+                    if (hasChapters) IconButton(onClick = model::previousChapter) {
+                        Icon(HoppIcons.ChevronLeft, stringResource(Res.string.np_previous_chapter), tint = colors.onSurfaceVariant)
+                    }
                     IconButton(onClick = model::skipBack) {
                         SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                     }
@@ -209,6 +216,9 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                     }
                     IconButton(onClick = model::skipForward) {
                         SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
+                    }
+                    if (hasChapters) IconButton(onClick = model::nextChapter) {
+                        Icon(HoppIcons.ChevronRight, stringResource(Res.string.np_next_chapter), tint = colors.onSurfaceVariant)
                     }
                 }
                 var dragTo by remember { mutableStateOf<Float?>(null) }
