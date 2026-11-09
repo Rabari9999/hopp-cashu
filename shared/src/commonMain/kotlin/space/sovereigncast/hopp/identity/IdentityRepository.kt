@@ -225,11 +225,12 @@ class IdentityRepository(
     suspend fun refreshProfile(): NostrIdentity? {
         val me = _identity.value ?: return null
         val lookup = DEFAULT_RELAYS + INDEX_RELAYS
-        val list = relayEntries(publisher.latest(10002, me.pubkey, lookup))
+        // A relay that hangs is not waited for its timeout, twice (maintainer 2026-11-09): the others get a moment.
+        val list = relayEntries(publisher.latest(10002, me.pubkey, lookup, PROFILE_SETTLE))
         // Their own relays from now on — an imported key's too (device feedback 2026-10-19).
         if (list.isNotEmpty()) _identity.value?.takeIf { it.pubkey == me.pubkey }?.let { save(it.copy(relays = list)) }
         val theirs = list.filter { it.write }.map { it.url }.filter { it !in lookup }.take(MAX_THEIR_RELAYS)
-        val profile = publisher.latest(0, me.pubkey, lookup + theirs) ?: return null
+        val profile = publisher.latest(0, me.pubkey, lookup + theirs, PROFILE_SETTLE) ?: return null
         val obj = runCatching { json.parseToJsonElement(profile.content).jsonObject }.getOrNull() ?: return null
         fun text(vararg keys: String) = keys.firstNotNullOfOrNull { key -> (obj[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() } }
         val name = text("display_name", "displayName", "name")
@@ -486,6 +487,9 @@ class IdentityRepository(
         val CONNECT_RELAYS = listOf("wss://nos.lol", "wss://relay.primal.net")
 
         /** For a key made in Hopp, which has no relays of its own yet (ADR 0021, 2). */
+        /** Once the first relay answered a profile's read, the others get this long. */
+        private val PROFILE_SETTLE = 2000.milliseconds
+
         val DEFAULT_RELAYS = listOf("wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net")
 
         /** Hopp's relays for sync, besides the listener's: they take a new key's events, a round of them at

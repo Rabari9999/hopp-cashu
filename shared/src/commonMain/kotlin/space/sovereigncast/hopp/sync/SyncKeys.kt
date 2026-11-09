@@ -23,6 +23,7 @@ import space.sovereigncast.hopp.nostr.SignerUnavailable
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.SecretStore
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /** Too few relays ([answered] of [asked]) said whether a sync key exists — none is made in its place. */
 class SyncKeyringNotKnown(val answered: Int = 0, val asked: Int = 0) : Exception("$answered of $asked relays answered whether a sync key exists")
@@ -111,7 +112,11 @@ class SyncKeys(
         val now = nowMs()
         if (held != null && held.trusted && checkedAtMs?.let { now - it < CHECK_EVERY.inWholeMilliseconds } == true) return LocalSigner(KeyPair.fromHex(held.key))
         val urls = identity.syncRelays()
-        val found = publisher.queryChecked(listOf(filter(me.pubkey)), urls)
+        // With the key held, a newer keyring — out only once a majority took it — is among what a majority
+        // answers: a relay that hangs is no longer waited for its timeout, as it was in each start's first
+        // round (maintainer 2026-11-09: 12 s). Without one, every relay is heard out before one is made.
+        val found = if (held?.trusted == true) publisher.queryChecked(listOf(filter(me.pubkey)), urls, KEYRING_SETTLE, majorityFirst = true)
+            else publisher.queryChecked(listOf(filter(me.pubkey)), urls)
         val newest = found.events.filter { it.pubkey == me.pubkey && it.kind == Nip78.KIND && it.dTag() == DTAG }
             .sortedWith(compareByDescending<Event> { it.created_at }.thenBy { it.id }).firstOrNull()
         val key = when {
@@ -286,7 +291,7 @@ class SyncKeys(
      *  done only when a majority took it, tried again at the next check otherwise (delta audit 2026-10-22, MN-04). */
     private suspend fun resend(keyring: Event, urls: List<String>) {
         if (resent) return
-        val took = try { publisher.publish(keyring, urls) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { emptySet() }
+        val took = try { publisher.publish(keyring, urls, KEYRING_SETTLE) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { emptySet() }
         resent = took.size * 2 > urls.distinct().size
     }
 
@@ -339,5 +344,7 @@ class SyncKeys(
         private const val MOVED = "nostr_sync_moved"
         /** How often a device looks whether the keyring changed (another device's, made at the same moment). */
         val CHECK_EVERY = 1.minutes
+        /** Once more than half the relays answered the keyring's read, the others get this long. */
+        private val KEYRING_SETTLE = 2.seconds
     }
 }

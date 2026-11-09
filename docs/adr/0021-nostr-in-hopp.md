@@ -193,6 +193,14 @@ Hopp shows what Fountain's listeners say about the same episode.
   the feed was read before the entry was made (or failed), for entries of the last
   two days, and at most three feeds a round; a feed without the episode is not
   asked again for it.
+- *Amended 2026-11-09 (maintainer):* the keyring's read no longer waits for a
+  relay that hangs. A round reads it again when the last look is over a minute
+  old — each start's first round always — and a relay taking no connection held
+  that round for the request's whole time (10 s; a test measured 12 s for the
+  first round after a start). With the key held here, the others get two
+  seconds once more than half answered — a newer keyring goes out only to a
+  majority, so it is among what a majority answers. Without a key, every relay
+  is still heard out before one is made.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on

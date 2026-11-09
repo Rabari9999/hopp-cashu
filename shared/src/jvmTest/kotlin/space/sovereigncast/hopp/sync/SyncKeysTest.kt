@@ -17,6 +17,7 @@ import space.sovereigncast.hopp.nostr.Event
 import space.sovereigncast.hopp.nostr.KeyPair
 import space.sovereigncast.hopp.nostr.LocalSigner
 import space.sovereigncast.hopp.nostr.Nip78
+import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.nostr.RelayPublisher
 import space.sovereigncast.hopp.nostr.UnsignedEvent
 import space.sovereigncast.hopp.platform.MemorySecretStore
@@ -29,6 +30,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /** The sync key (ADR 0021, 5, amended 2026-10-21): the listener's signer opens it once per device, never again. */
 class SyncKeysTest {
@@ -59,12 +61,14 @@ class SyncKeysTest {
         val secrets: MemorySecretStore = MemorySecretStore(),
         val db: HoppDatabase = testDatabase(),
         signIn: Boolean = true,
+        /** The relays as this device reaches them. */
+        connector: RelayConnector = relay,
     ) {
         var ms = nowSeconds * 1000
-        val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, app, hoppSyncRelays = emptyList())
+        val identity = IdentityRepository(secrets, RelayPublisher(connector), { ms / 1000 }, app, hoppSyncRelays = emptyList())
         val store = SyncStore(db) { ms }
-        val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
-        val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
+        val keys = SyncKeys(identity, RelayPublisher(connector), secrets) { ms }
+        val engine = SyncEngine(store, SyncRelays(RelayPublisher(connector)) { ms / 1000 }, identity, keys) { ms }
         val doc = Doc()
         val journal = SyncJournal(store)
         val sync = SyncManager(engine, store, journal, space.sovereigncast.hopp.data.SettingsRepository(db, journal), scope, { listOf(doc) }, { ms }, publishDelay = kotlin.time.Duration.parse("1h"))
@@ -438,5 +442,25 @@ class SyncKeysTest {
         assertEquals(1, phone.sync.status.value.toSend)
         phone.sync.syncNow()
         assertEquals(0, phone.sync.status.value.toSend)
+    }
+
+    // ── a relay that hangs when Hopp starts (maintainer 2026-11-09) ─────────
+
+    /** The first round after a start reads the keyring again; with the key held here, it does not wait
+     *  for a relay that takes no connection once most of the others answered (the timeout is 10 s). */
+    @Test
+    fun aRestartedDeviceDoesNotWaitForARelayThatHangs() = runBlocking<Unit> {
+        val nsec = Bech32.encode("nsec", KeyPair.generate().secretKey)
+        val phone = Device(nsec = nsec)
+        phone.record("show-a", "A")
+        phone.sync.enable()
+        val hanging = RelayConnector { u -> if (u == "wss://relay.primal.net") kotlinx.coroutines.awaitCancellation() else relay.connect(u) }
+        val round = kotlin.time.measureTimedValue {
+            val restarted = Device(secrets = phone.secrets, db = phone.db, connector = hanging).also { it.ms = phone.ms + 2 * 60_000 }
+            assertEquals(phone.identity.identity.value?.pubkey, restarted.identity.identity.value?.pubkey)
+            restarted.sync.syncNow()
+        }
+        assertEquals(null, round.value.problem)
+        assertTrue(round.duration < 5.seconds, "the round waited ${round.duration} for the relay that hangs")
     }
 }
