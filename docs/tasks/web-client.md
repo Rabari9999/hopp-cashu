@@ -2,7 +2,7 @@
 
 - **Implements:** [ADR 0022](../adr/0022-web-client.md), stages W1 (done as
   spike 6) and W2; release 0.3.2 (maintainer, 2026-10-28).
-- **Status:** preparation done, W2 runs locally (2026-10-28, branch `0.3.2`); the start time passed on an iPhone 12 mini; WebKit in the browser checks since 2026-11-01; VoiceOver and the menu bug in Compose's web accessibility are left.
+- **Status:** live (2026-11-09) — W2 and W3 released with 0.4.0: signed release builds on `play.sovereigncast.space` (v0.4.1), stages in between on `play-dev.`; episodes kept in the browser for offline listening since 0.4.1. Left: the VoiceOver pass and the menu bug in Compose's web accessibility (both wait for Compose 1.13), a boost and a zap with a real Alby extension, the `web-verify` schedule; Umbrel (W4) and NWC in the web (W5) not started.
 - **Reference:** the spike, branch `spike/web-wasm` (local, based on
   147a7b7 before 0.3.0), report [docs/spikes/06-web.md](../spikes/06-web.md)
   once ported. Its steps are rebuilt on the current code, not rebased.

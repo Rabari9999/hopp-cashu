@@ -44,6 +44,11 @@
   public on Zapstore and F-Droid; Google Play later (ADR 0011, amended
   2026-10-10).
 
+*Released:* 0.1.0 to the community on 2026-10-14, public on Zapstore from
+0.1.1 (2026-10-15); every release since goes to the F-Droid inclusion request
+too, open since 2026-10-15 (`docs/tasks/fdroid-submission.md`). Google Play
+not started.
+
 ### Phase 2
 
 - The full Sovereigncast layer: submit and boost suggestions, unlocked clips
@@ -52,10 +57,12 @@
 - Optional Nostr identity with comments and sync (ADR 0006; how, in five
   stages: ADR 0021). *All five built by 2026-10-20; sync was taken before
   push (maintainer, 2026-10-20).*
-- WebPush and UnifiedPush (ADR 0007).
+- WebPush and UnifiedPush (ADR 0007). *Not built.*
 - Person search, trending, categories (ADR 0008); video via
-  `alternateEnclosure`; `valueTimeSplit` with `remoteItem`. *Person search
-  built 2026-10-27 (0.3.1); video put back (maintainer, same day).*
+  `alternateEnclosure`; `valueTimeSplit` with `remoteItem`. *Trending and
+  categories built in 0.2.2, `valueTimeSplit` with `remoteItem` with the
+  value splits; person search built 2026-10-27 (0.3.1); video put back
+  (maintainer, same day).*
 - Sovereigncast show directory as a curated list (ADR 0008). *Built in
   phase 1 (2026-10-10): `sovereigncast.space/directory.json`.*
 - `podcast:trailer` on the show page. *Built 2026-10-15.*
@@ -71,11 +78,28 @@ builds (ADR 0009), TestFlight, Apple developer account, the push gateway for
 APNs (ADR 0007). The shared core and the phase-0 spike keep this a port of the
 platform layer, not a second app.
 
+*Where it stands (2026-11-09):* the app runs on iPhone and iPad from the
+shared code, checked on simulated ones by `scripts/device-check.sh`; the
+AltStore PAL release is prepared and waits for the Apple steps of a
+developer's account (`docs/tasks/altstore-pal-release.md`). No App Store
+build, no push gateway. Meanwhile the web client (ADR 0022) reaches the
+iPhone through Safari: signed release builds on `play.sovereigncast.space`
+since 0.4.0.
+
 ### Phase 3
 
 Built-in Spark and Cashu wallets with Spilman and NUT-18 streaming (ADR 0014),
 Nostr-based show directory, gPodder sync, live items, CarPlay, Chromecast,
 widgets, a Tor/proxy setting.
+
+*Where it stands (2026-11-09):* the home-screen widget is built (Android,
+0.3.1); nothing else of phase 3 is started.
+
+### Beyond the plan
+
+Built since, each with its own ADR: large screens (ADR 0020), the web client
+(ADR 0022), listening statistics (ADR 0023), what Nostr contacts listen to
+(ADR 0024), and the designs Glut, Relay and Coldstorage (ADR 0019).
 
 ## Consequences
 

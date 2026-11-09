@@ -1,6 +1,6 @@
 # Hopp in F-Droid
 
-- **Status:** in progress — 0.1.1 released and checked 2026-10-15; merge request 52675 open since 2026-10-15
+- **Status:** in progress — merge request 52675 open since 2026-10-15; a build for every release up to 0.4.1 added to it (2026-11-09); no reviewer note since the first round (2026-10-15)
 - **ADR:** 0011 (distribution, one key everywhere), 0017 (release checklist)
 - **How:** docs/fdroid.md
 
