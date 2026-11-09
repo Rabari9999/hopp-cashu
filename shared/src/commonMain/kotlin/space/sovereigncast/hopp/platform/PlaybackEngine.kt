@@ -45,6 +45,12 @@ interface PlaybackEngine {
     /** Louder than the file (maintainer 2026-10-21): Android's LoudnessEnhancer; AVPlayer
      *  stops at the file's own volume — hidden on iOS, like skipping silence. */
     val supportsVolumeBoost: Boolean get() = false
+    /** Both, as the settings say — where the engine applies them itself (the browser); the Android
+     *  app's service reads the settings on its own. */
+    fun setAudioEffects(volumeBoost: Boolean, skipSilence: Boolean) = Unit
+    /** True while the episode loaded plays without them though they are on: its server does not let
+     *  the page process its audio (the browser, CORS); null where that never happens. */
+    val effectsRefused: StateFlow<Boolean>? get() = null
     /** The listener's skip intervals, for skip buttons outside the app (the
      *  lock screen, headphones) — Android's session reads them itself. */
     fun setSkipIntervals(backSeconds: Int, forwardSeconds: Int) = Unit

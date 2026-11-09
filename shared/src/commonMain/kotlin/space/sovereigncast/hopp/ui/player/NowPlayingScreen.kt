@@ -118,6 +118,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.np_effects_refused
 import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.np_back15
 import space.sovereigncast.hopp.resources.np_chapter_of
@@ -579,6 +580,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     if (model.engine.supportsSkipSilence) SwitchLine(stringResource(Res.string.skip_silence), settings.skipSilence) { on -> settingsVm.update { it.copy(skipSilence = on) } }
                     // Quiet shows louder (maintainer 2026-10-21), beside skipping silence.
                     if (model.engine.supportsVolumeBoost) SwitchLine(stringResource(Res.string.volume_boost), settings.volumeBoost) { on -> settingsVm.update { it.copy(volumeBoost = on) } }
+                    // The browser: on, and this show's server does not let the page work with its audio.
+                    val refused by (model.engine.effectsRefused ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
+                    if (refused && (settings.skipSilence || settings.volumeBoost)) Text(
+                        stringResource(Res.string.np_effects_refused), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
             }

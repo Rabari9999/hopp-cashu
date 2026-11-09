@@ -227,6 +227,26 @@ const toE71 = async () => {
   await a.page.keyboard.type('Preppersignal', { delay: 25 }); await a.page.keyboard.press('Enter'); await a.page.waitForTimeout(3000);
   await a.pick('Kommentar und Anmerkungen', 4000);
 };
+// Raise volume in the browser (maintainer 2026-11-09): the audio goes through the browser's processing where its
+// server allows the page to read it — this one's does, as a download into the browser needs it too — and it plays.
+const audioContexts = () => a.page.evaluate(() => (window.__contexts ?? []).map(c => c.state));
+const counting = () => a.page.evaluate(() => {
+  if (window.__contexts) return;
+  const C = window.AudioContext; window.__contexts = [];
+  window.AudioContext = class extends C { constructor(...x) { super(...x); window.__contexts.push(this); } };
+});
+await a.press('Home', 2000); await a.press('Settings', 2000); await a.press('Playback', 2000);
+await a.press('Raise volume', 2000);
+await a.reload(); await counting();
+await toE71();
+await a.press('Play', 8000);
+{
+  const states = await audioContexts();
+  const playing = await a.page.evaluate(() => navigator.mediaSession?.playbackState === 'playing');
+  check(states.length === 1 && states[0] === 'running' && playing, `raised, it plays through the browser's processing (${JSON.stringify(states)}, playing: ${playing})`);
+}
+await a.press('Pause', 1000);
+await a.reload();
 // WebKit fails blob: loads while Playwright intercepts anything (see device()): the refusal in Chromium only.
 if (!inWebKit) {
   await a.page.route(E71_AUDIO, r => r.abort('failed'));
@@ -249,9 +269,11 @@ await a.pick('Download', 10_000);
 await a.reload();
 await toE71();
 check((await a.mirrored('*')).some(t => t.includes('Downloaded')), 'an episode downloaded into the browser');
+await counting();
 await a.ctx.setOffline(true);
 await a.press('Play', 5000);
 check(await a.page.evaluate(() => navigator.mediaSession?.playbackState === 'playing'), 'it plays with the network gone');
+check((await audioContexts()).join() === 'running', 'raised there too: kept in the browser, it is the page\'s to process');
 await a.press('Pause', 1000);
 await a.ctx.setOffline(false);
 await a.reload();

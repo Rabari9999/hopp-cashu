@@ -14,6 +14,7 @@ import space.sovereigncast.hopp.resources.about_build_event
 import space.sovereigncast.hopp.resources.about_build_note
 import space.sovereigncast.hopp.resources.settings_language_browser
 import space.sovereigncast.hopp.resources.settings_language_device
+import space.sovereigncast.hopp.resources.settings_effects_web_note
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
 import space.sovereigncast.hopp.resources.stats_title
@@ -108,6 +109,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import space.sovereigncast.hopp.resources.settings_design
@@ -294,6 +296,8 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
                 if (engine.supportsVolumeBoost) Toggle(stringResource(Res.string.volume_boost), stringResource(Res.string.settings_volume_boost_note), s.volumeBoost) { on ->
                     vm.update { it.copy(volumeBoost = on) }
                 }
+                // The browser does both only with the audio of a server that allows it (maintainer 2026-11-09).
+                if (engine.effectsRefused != null) Note(stringResource(Res.string.settings_effects_web_note))
             }
             SettingsPage.Downloads -> {
               if (actions.canDownload) {
@@ -535,12 +539,16 @@ private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modif
 
 @Composable
 private fun Toggle(title: String, note: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // The whole line switches, as in now playing's sheet: a bigger target, and a screen reader hears its name.
+    Row(
+        Modifier.fillMaxWidth().toggleable(checked, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title)
             Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onChange, modifier = Modifier.padding(start = 16.dp))
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.padding(start = 16.dp))
     }
 }
 

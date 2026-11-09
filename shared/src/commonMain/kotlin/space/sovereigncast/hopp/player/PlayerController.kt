@@ -147,6 +147,7 @@ class PlayerController(
                 val before = _settings.value.defaultSpeed
                 _settings.value = it
                 engine.setSkipIntervals(it.skipBackSeconds, it.skipForwardSeconds)
+                engine.setAudioEffects(it.volumeBoost, it.skipSilence)
                 // A new default speed counts at once for the show playing, unless it has its own.
                 val podcastId = _current.value?.item?.podcastId
                 if (it.defaultSpeed != before && podcastId != null && podcasts.show(podcastId).first()?.playbackSpeed == null) {

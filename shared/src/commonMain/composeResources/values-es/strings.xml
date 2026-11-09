@@ -493,6 +493,8 @@
     <string name="settings_about_note">Versión, novedades, recorrido, código fuente</string>
     <string name="settings_skip_silence_note">Acorta las pausas en el audio</string>
     <string name="settings_volume_boost_note">Sube el volumen de podcasts y episodios bajos</string>
+    <string name="settings_effects_web_note">En el navegador solo con programas cuyo servidor lo permite y con episodios descargados en el navegador.</string>
+    <string name="np_effects_refused">El servidor de este programa no lo permite en el navegador: se reproduce tal cual.</string>
     <string name="settings_boost_feedback">Tras un boost en la app</string>
     <string name="settings_quick_boost_feedback">Tras un boost rápido (pantalla de bloqueo)</string>
     <string name="settings_zap_feedback">Tras un zap</string>

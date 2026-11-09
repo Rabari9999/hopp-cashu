@@ -493,6 +493,8 @@
     <string name="settings_about_note">Version, what’s new, tour, source code</string>
     <string name="settings_skip_silence_note">Shortens pauses in the audio</string>
     <string name="settings_volume_boost_note">Makes quiet shows and episodes louder</string>
+    <string name="settings_effects_web_note">In the browser only with shows whose server allows it, and with episodes downloaded into the browser.</string>
+    <string name="np_effects_refused">This show’s server does not allow it in the browser: it plays as it is.</string>
     <string name="settings_boost_feedback">After a boost in the app</string>
     <string name="settings_quick_boost_feedback">After a quick boost (lock screen)</string>
     <string name="settings_zap_feedback">After a zap</string>

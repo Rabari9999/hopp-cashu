@@ -46,6 +46,7 @@ What is different from the apps, and drives this ADR:
 | | Web | Note |
 |---|---|---|
 | Listening (streaming), chapters, speed, skip | ✅ | `<audio>` plays other hosts without CORS |
+| Skip silence, volume boost | ✅ where the host allows CORS, since 2026-11-09 | the browser's audio processing; see the amendment below |
 | Library, progress, favourites, "Up next", habits | ✅ through sync | without an identity: local only, see §2 |
 | Search, discovery (ADR 0008) | ✅ | through the proxy (§6) |
 | Comments, likes, mutes, reports (ADR 0021) | ✅ | decided 2026-10-21 |
@@ -482,3 +483,19 @@ instead, and stays only for what cannot be kept.
 - **Not yet:** resuming a download the tab left half done (it starts again);
   on iOS the first play of a kept episode may need a second tap, as Safari
   wants a gesture and the stored file is found a moment later.
+
+### Amendment 2026-11-09: skip silence and the volume boost
+
+Maintainer: both as in the apps. They need the browser's audio processing (Web
+Audio), which gets only silence from audio of another host that does not allow
+the page to read it (CORS). So an episode goes through it only where a `HEAD`
+request to its host, once per host, came back in `cors` mode, or where it is kept
+in the browser; elsewhere it plays as before and the speed sheet says that this
+show's server does not allow it. A spot check found Buzzsprout, Transistor,
+Simplecast, Blubrry, Megaphone/PRX and Omny allowing it. The boost is a
+compressor whose make-up gain lifts quiet speech and keeps the peaks below full
+scale; skipping silence plays three times as fast (4× at most) while the sound
+has been quiet for a third of a second, as the browser cannot look ahead. An
+element given to the processing stays with it, so the engine keeps two kinds of
+`<audio>` and takes the one an episode needs. Not on iOS, where Safari stops
+processed audio when the screen locks.

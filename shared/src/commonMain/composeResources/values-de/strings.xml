@@ -493,6 +493,8 @@
     <string name="settings_about_note">Version, Neuigkeiten, Tour, Quellcode</string>
     <string name="settings_skip_silence_note">Kürzt Pausen im Ton</string>
     <string name="settings_volume_boost_note">Macht leise Shows und Folgen lauter</string>
+    <string name="settings_effects_web_note">Im Browser nur bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.</string>
+    <string name="np_effects_refused">Der Server dieser Show lässt das im Browser nicht zu: Sie läuft unverändert.</string>
     <string name="settings_boost_feedback">Nach einem Boost in der App</string>
     <string name="settings_quick_boost_feedback">Nach einem Schnell-Boost (Sperrbildschirm)</string>
     <string name="settings_zap_feedback">Nach einem Zap</string>

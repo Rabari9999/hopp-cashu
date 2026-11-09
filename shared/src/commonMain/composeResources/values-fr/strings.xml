@@ -493,6 +493,8 @@
     <string name="settings_about_note">Version, nouveautés, visite guidée, code source</string>
     <string name="settings_skip_silence_note">Raccourcit les pauses dans l’audio</string>
     <string name="settings_volume_boost_note">Rend plus fortes les émissions et épisodes discrets</string>
+    <string name="settings_effects_web_note">Dans le navigateur, seulement pour les émissions dont le serveur l’autorise, et pour les épisodes téléchargés dans le navigateur.</string>
+    <string name="np_effects_refused">Le serveur de cette émission ne le permet pas dans le navigateur : elle est lue telle quelle.</string>
     <string name="settings_boost_feedback">Après un boost dans l’appli</string>
     <string name="settings_quick_boost_feedback">Après un boost rapide (écran de verrouillage)</string>
     <string name="settings_zap_feedback">Après un zap</string>
