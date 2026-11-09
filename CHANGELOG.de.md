@@ -6,7 +6,12 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
+- **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
+
 ### 🐛 Fixes
+- **Sync:** Was auf einem anderen Gerät läuft, erscheint hier sofort, auch wenn die Folge erst nach der letzten Suche nach neuen Folgen erschienen ist.
 - **App:** Auf iOS Hopps Sprache in Hopp selbst wählen: sofort und ohne zweite Systemsprache.
 - **Web:** Die Leertaste spielt und pausiert, egal was zuletzt geklickt wurde, statt erneut zu springen.
 - **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden, auf breiten Bildschirmen und Tablets.

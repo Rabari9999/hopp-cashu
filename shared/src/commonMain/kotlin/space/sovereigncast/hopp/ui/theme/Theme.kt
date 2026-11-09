@@ -29,7 +29,7 @@ private val HoppShapes = Shapes(
 )
 
 /** Brand colours only — no dynamic colour (ADR 0019). Light/dark follows the
- *  system unless the caller overrides it from the settings; [design]: Hopp's own, Glut or Relay. */
+ *  system unless the caller overrides it from the settings; [design]: Hopp's own, Glut, Relay or Coldstorage. */
 @Composable
 fun HoppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -39,12 +39,14 @@ fun HoppTheme(
     CompositionLocalProvider(LocalHoppColors provides when (design) {
         Settings.DESIGN_GLUT -> if (darkTheme) GlutDarkColors else GlutLightColors
         Settings.DESIGN_RELAY -> if (darkTheme) RelayDarkColors else RelayLightColors
+        Settings.DESIGN_COLDSTORAGE -> if (darkTheme) ColdstorageDarkColors else ColdstorageLightColors
         else -> if (darkTheme) DarkHoppColors else LightHoppColors
     }) {
         MaterialTheme(
             colorScheme = when (design) {
                 Settings.DESIGN_GLUT -> if (darkTheme) GlutDarkScheme else GlutLightScheme
                 Settings.DESIGN_RELAY -> if (darkTheme) RelayDarkScheme else RelayLightScheme
+                Settings.DESIGN_COLDSTORAGE -> if (darkTheme) ColdstorageDarkScheme else ColdstorageLightScheme
                 else -> if (darkTheme) DarkScheme else LightScheme
             },
             typography = hoppTypography(),

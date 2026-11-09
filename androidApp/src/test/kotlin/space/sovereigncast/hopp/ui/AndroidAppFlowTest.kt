@@ -2037,6 +2037,10 @@ class AndroidAppFlowTest {
         rule.onNode(hasText("Relay", substring = true) and hasClickAction()).performClick()
         until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_RELAY }
         waitFor("Light or dark")
+        // The fourth, frosty (maintainer 2026-11-09).
+        rule.onNode(hasText("Coldstorage", substring = true) and hasClickAction()).performClick()
+        until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_COLDSTORAGE }
+        waitFor("Light or dark")
         rule.onNode(hasText("Calm, in black and white", substring = true) and hasClickAction()).performClick()
         until { kotlinx.coroutines.runBlocking { settings.current() }.design == space.sovereigncast.hopp.data.Settings.DESIGN_HOPP }
     }

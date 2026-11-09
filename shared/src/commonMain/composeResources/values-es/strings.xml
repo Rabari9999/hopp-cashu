@@ -475,6 +475,7 @@
     <string name="settings_design_hopp">Tranquilo, en blanco y negro</string>
     <string name="settings_design_glut">Cálido, como las brasas</string>
     <string name="settings_design_relay">La noche sobre la red Nostr</string>
+    <string name="settings_design_coldstorage">Helado, como la nieve y el hielo</string>
     <string name="settings_theme">Claro u oscuro</string>
     <string name="settings_theme_system">Como el sistema</string>
     <string name="settings_theme_light">Claro</string>

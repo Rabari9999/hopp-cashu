@@ -12,12 +12,16 @@ import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
 import space.sovereigncast.hopp.ui.theme.GlutLightColors
 import space.sovereigncast.hopp.ui.theme.GlutLightScheme
 import space.sovereigncast.hopp.ui.theme.HoppColors
+import space.sovereigncast.hopp.ui.theme.ColdstorageDarkColors
+import space.sovereigncast.hopp.ui.theme.ColdstorageDarkScheme
+import space.sovereigncast.hopp.ui.theme.ColdstorageLightColors
+import space.sovereigncast.hopp.ui.theme.ColdstorageLightScheme
 import space.sovereigncast.hopp.ui.theme.RelayDarkColors
 import space.sovereigncast.hopp.ui.theme.RelayDarkScheme
 import space.sovereigncast.hopp.ui.theme.RelayLightColors
 import space.sovereigncast.hopp.ui.theme.RelayLightScheme
 
-/** Glut and Relay hold to what ADR 0019 asks of Hopp's own colours: text 4.5:1, a control's edge and the progress bar 3:1. */
+/** Glut, Relay and Coldstorage hold to what ADR 0019 asks of Hopp's own colours: text 4.5:1, a control's edge and the progress bar 3:1. */
 class DesignColorsTest {
     private fun contrast(a: Color, b: Color): Float {
         val (x, y) = a.luminance() to b.luminance()
@@ -53,4 +57,6 @@ class DesignColorsTest {
     @Test fun glutByNight() = holds(GlutDarkScheme, GlutDarkColors, "Glut, dark")
     @Test fun relayByDay() = holds(RelayLightScheme, RelayLightColors, "Relay, light")
     @Test fun relayByNight() = holds(RelayDarkScheme, RelayDarkColors, "Relay, dark")
+    @Test fun coldstorageByDay() = holds(ColdstorageLightScheme, ColdstorageLightColors, "Coldstorage, light")
+    @Test fun coldstorageByNight() = holds(ColdstorageDarkScheme, ColdstorageDarkColors, "Coldstorage, dark")
 }

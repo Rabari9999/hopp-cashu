@@ -280,3 +280,14 @@ Nostr comes on a tint or a button, never as a coloured word alone.
 
 `DesignColorsTest` holds it to the same rules. The same design exists as a
 Sovereigncast theme package, not in that repository yet.
+
+### Amendment 2026-11-09: a fourth design, Coldstorage
+
+Snow, ice and frost (maintainer 2026-11-09, from the canvas
+https://claude.ai/artifact/1pPt34Gcu7dN6ks9PPfsve): "Raureif" by day, a
+snow-white ground under a pale light of ice and glacier blue for the main
+action; "Polarnacht" by night, deep ice with glacier light above and a breath
+of turquoise below — no aurora green. Built as Glut and Relay are; blue leads
+the heard part of the progress bars. Orange stays money's and stands out on the
+ice; no Nostr colour of its own. Four designs sit two by two on a phone, side by
+side from a tablet's width. `DesignColorsTest` holds it to the same rules.

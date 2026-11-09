@@ -250,4 +250,75 @@ internal val RelayDarkColors = HoppColors(
     progressFill = Color(0xFFC2A8F5),
 )
 
+/** Coldstorage by day, "Raureif" (maintainer 2026-11-09): snow under a pale light of ice, glacier blue for the main action. */
+internal val ColdstorageLightScheme: ColorScheme = lightColorScheme(
+    primary = Color(0xFF0B4F80),
+    onPrimary = Color(0xFFF8FBFE),
+    secondary = Color(0xFF0B4F80),
+    onSecondary = Color(0xFFF8FBFE),
+    background = Color(0xFFEAF2F9),
+    onBackground = Color(0xFF0D2133),
+    surface = Color(0xFFF8FBFE),
+    onSurface = Color(0xFF0D2133),
+    surfaceVariant = Color(0xFFD9E6F2),
+    onSurfaceVariant = Color(0xFF46607A),
+    outline = Color(0xFF6A8299),
+    outlineVariant = Color(0xFFC6D6E6),
+    surfaceContainerLowest = Color(0xFFF8FBFE),
+    surfaceContainerLow = Color(0xFFF8FBFE),
+    surfaceContainer = Color(0xFFF1F6FB),
+    surfaceContainerHigh = Color(0xFFE3EDF6),
+    surfaceContainerHighest = Color(0xFFD9E6F2),
+    secondaryContainer = Color(0xFFCDE1F2),
+    onSecondaryContainer = Color(0xFF0D2133),
+    error = Color(0xFFA3304A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFBE5E9),
+    onErrorContainer = Color(0xFF86283D),
+)
+
+/** Coldstorage by night, "Polarnacht": a ground of deep ice, glacier light above, a breath of turquoise below — no aurora green, it stays frost. */
+internal val ColdstorageDarkScheme: ColorScheme = darkColorScheme(
+    primary = Color(0xFFA6D6F4),
+    onPrimary = Color(0xFF05213A),
+    secondary = Color(0xFFA6D6F4),
+    onSecondary = Color(0xFF05213A),
+    background = Color(0xFF06101B),
+    onBackground = Color(0xFFE4F0FA),
+    surface = Color(0xFF0D1A29),
+    onSurface = Color(0xFFE4F0FA),
+    surfaceVariant = Color(0xFF152639),
+    onSurfaceVariant = Color(0xFF98B1C7),
+    outline = Color(0xFF6C88A2),
+    outlineVariant = Color(0xFF21374E),
+    surfaceContainerLowest = Color(0xFF06101B),
+    surfaceContainerLow = Color(0xFF0D1A29),
+    surfaceContainer = Color(0xFF11202F),
+    surfaceContainerHigh = Color(0xFF152639),
+    surfaceContainerHighest = Color(0xFF1E3249),
+    secondaryContainer = Color(0xFF163955),
+    onSecondaryContainer = Color(0xFFE4F0FA),
+    error = Color(0xFFF09DAB),
+    onError = Color(0xFF5E1422),
+    errorContainer = Color(0xFF3A1E24),
+    onErrorContainer = Color(0xFFF3B5BF),
+)
+
+// Orange stays money's: on the ice it stands out the more.
+internal val ColdstorageLightColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF0D2133), valueText = Color(0xFF8F4700), progressTrack = Color(0xFF6A8299), ok = Color(0xFF2A7048),
+    page = Color.Transparent,
+    glow = listOf(Glow(Color(0xFFBFE3F7), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+    progressFill = Color(0xFF0B4F80),
+)
+internal val ColdstorageDarkColors = HoppColors(
+    value = BitcoinOrange, onValue = Color(0xFF06101B), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF6C88A2), ok = Color(0xFF86C9A1),
+    page = Color.Transparent,
+    glow = listOf(
+        Glow(Color(0x217FD3E0), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
+        Glow(Color(0x612E8FC4), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+    progressFill = Color(0xFFA6D6F4),
+)
+
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }

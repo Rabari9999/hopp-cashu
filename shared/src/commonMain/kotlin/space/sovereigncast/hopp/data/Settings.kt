@@ -160,7 +160,8 @@ data class Settings(
         const val DESIGN_HOPP = "hopp"
         const val DESIGN_GLUT = "glut"
         const val DESIGN_RELAY = "relay"
-        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT, DESIGN_RELAY)
+        const val DESIGN_COLDSTORAGE = "coldstorage"
+        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT, DESIGN_RELAY, DESIGN_COLDSTORAGE)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"

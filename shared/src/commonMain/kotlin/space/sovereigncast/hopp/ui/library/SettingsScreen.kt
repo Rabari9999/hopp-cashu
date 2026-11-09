@@ -118,6 +118,7 @@ import space.sovereigncast.hopp.resources.settings_design_hopp
 import space.sovereigncast.hopp.ui.theme.HoppTheme
 import space.sovereigncast.hopp.ui.theme.pageGround
 import space.sovereigncast.hopp.resources.settings_design_relay
+import space.sovereigncast.hopp.resources.settings_design_coldstorage
 import androidx.compose.foundation.layout.fillMaxHeight
 import space.sovereigncast.hopp.ui.theme.Hopp
 
@@ -384,10 +385,17 @@ fun SettingsPageScreen(page: SettingsPage, onTour: () -> Unit = {}, onPage: (Set
             SettingsPage.Appearance -> {
                 Section(stringResource(Res.string.settings_design))
                 val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                // As tall as the longest text, in every language.
-                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Settings.designChoices.forEach { d ->
-                        DesignChoice(d, s.design == d, dark, Modifier.weight(1f).fillMaxHeight()) { vm.update { it.copy(design = d) } }
+                // As tall as the longest text, in every language; four side by side from a tablet's width, two by two on a phone.
+                androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val perRow = if (maxWidth < 560.dp) 2 else Settings.designChoices.size
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Settings.designChoices.chunked(perRow).forEach { row ->
+                            Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { d ->
+                                    DesignChoice(d, s.design == d, dark, Modifier.weight(1f).fillMaxHeight()) { vm.update { it.copy(design = d) } }
+                                }
+                            }
+                        }
                     }
                 }
                 Section(stringResource(Res.string.settings_theme))
@@ -522,13 +530,14 @@ private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modif
         Column(Modifier.padding(10.dp)) {
             // The designs' names, in every language.
             Text(
-                when (design) { Settings.DESIGN_GLUT -> "Glut"; Settings.DESIGN_RELAY -> "Relay"; else -> "Hopp" },
+                when (design) { Settings.DESIGN_GLUT -> "Glut"; Settings.DESIGN_RELAY -> "Relay"; Settings.DESIGN_COLDSTORAGE -> "Coldstorage"; else -> "Hopp" },
                 style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
             )
             Text(
                 stringResource(when (design) {
                     Settings.DESIGN_GLUT -> Res.string.settings_design_glut
                     Settings.DESIGN_RELAY -> Res.string.settings_design_relay
+                    Settings.DESIGN_COLDSTORAGE -> Res.string.settings_design_coldstorage
                     else -> Res.string.settings_design_hopp
                 }),
                 style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,

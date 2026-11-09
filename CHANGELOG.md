@@ -6,7 +6,12 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🆕 New Features
+- **Settings:** A fourth design, Coldstorage: frosty blue like snow and ice.
+- **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
+
 ### 🐛 Fixes
+- **Sync:** What plays on another device shows here at once, even if the episode came out after this device last looked for new ones.
 - **App:** On iOS, choose Hopp's language in Hopp itself: at once, without a second system language.
 - **Web:** Space plays and pauses whatever was clicked last, not the skip clicked before.
 - **Player:** The skip buttons of the player bar show their seconds, on wide screens and tablets.

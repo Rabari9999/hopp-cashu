@@ -475,6 +475,7 @@
     <string name="settings_design_hopp">Calme, en noir et blanc</string>
     <string name="settings_design_glut">Chaleureux, comme des braises</string>
     <string name="settings_design_relay">La nuit sur le réseau Nostr</string>
+    <string name="settings_design_coldstorage">Givré, comme la neige et la glace</string>
     <string name="settings_theme">Clair ou sombre</string>
     <string name="settings_theme_system">Comme le système</string>
     <string name="settings_theme_light">Clair</string>
