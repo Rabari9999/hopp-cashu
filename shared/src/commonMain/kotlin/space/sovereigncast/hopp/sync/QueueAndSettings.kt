@@ -17,10 +17,12 @@ import space.sovereigncast.hopp.sync.SyncDocs.text
  * the place it was given where it was given, so a reorder on one device and an
  * addition on the other both survive. One the feed has not brought yet waits.
  * With it, what plays now ([SyncDocs.NOW_KEY]): [adoptNow] gets the episode and when it was started.
+ * An episode not here yet has its show's feed read at once ([catchUp]).
  */
 class QueueDocument(
     private val db: HoppDatabase,
     private val queue: QueueRepository,
+    private val catchUp: FeedCatchUp? = null,
     private val adoptNow: suspend (episodeId: Long, atSeconds: Long) -> Unit = { _, _ -> },
 ) : SyncedDocument {
     override val name = SyncDocs.QUEUE
@@ -40,6 +42,11 @@ class QueueDocument(
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
+        catchUp?.fetchFor(entries.mapNotNull { (key, e) ->
+            if (e.del) return@mapNotNull null
+            val show = e.d.text(if (key == SyncDocs.NOW_KEY) "nowShow" else "show") ?: return@mapNotNull null
+            FeedCatchUp.Wanted(show, e.d.text(if (key == SyncDocs.NOW_KEY) "nowGuid" else "guid") ?: return@mapNotNull null, e.t)
+        })
         val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
         fun episodeOf(show: String, guid: String) = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }

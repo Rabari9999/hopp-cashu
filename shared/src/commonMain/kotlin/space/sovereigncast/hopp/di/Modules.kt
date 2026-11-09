@@ -146,14 +146,17 @@ fun sharedModule(platform: Platform) = module {
         val koin = getKoin()
         space.sovereigncast.hopp.sync.SyncManager(get(), get(), get(), get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), {
             val player = koin.get<PlayerController>()
+            val catchUp = space.sovereigncast.hopp.sync.FeedCatchUp(koin.get(), { kotlin.time.Clock.System.now().toEpochMilliseconds() }) { id ->
+                koin.get<PodcastRepository>().refresh(id)
+            }
             listOf(
                 // Settings first: shows that follow download only as they say (device feedback 2026-10-24).
                 space.sovereigncast.hopp.sync.SettingsDocument(koin.get()) { koin.get<DownloadRepository>().dropAutomatic() },
                 space.sovereigncast.hopp.sync.SubscriptionsDocument(koin.get(), koin.get()),
-                space.sovereigncast.hopp.sync.ProgressDocument(koin.get(), koin.get(), koin.get<Clock>()::now, player::isPlaying) { id, pos, played ->
+                space.sovereigncast.hopp.sync.ProgressDocument(koin.get(), koin.get(), koin.get<Clock>()::now, player::isPlaying, { id, pos, played ->
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptProgress(id, pos, played) }
-                },
-                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get()) { id, at ->
+                }, catchUp),
+                space.sovereigncast.hopp.sync.QueueDocument(koin.get(), koin.get(), catchUp) { id, at ->
                     kotlinx.coroutines.withContext(Dispatchers.Main) { player.adoptNow(id, at) }
                 },
                 space.sovereigncast.hopp.sync.StatsDocument(koin.get(), koin.get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() },

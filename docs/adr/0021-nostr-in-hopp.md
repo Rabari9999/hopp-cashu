@@ -186,6 +186,13 @@ Hopp shows what Fountain's listeners say about the same episode.
   A relay that lets a request's time run out without a connection is not asked
   again in that round (`RelayPool`); the next round tries it again. A document taken by more than half the relays gives the
   rest two seconds; what they miss, a later version brings them.
+- *Amended 2026-11-09 (maintainer):* an entry about an episode this device has
+  not got yet — what plays now, a place in "Up next", a position — has its show's
+  feed read at once (`FeedCatchUp`), not at the next look at the feeds, hours away:
+  an episode out since the device last read the feed was nowhere there. Only where
+  the feed was read before the entry was made (or failed), for entries of the last
+  two days, and at most three feeds a round; a feed without the episode is not
+  asked again for it.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on

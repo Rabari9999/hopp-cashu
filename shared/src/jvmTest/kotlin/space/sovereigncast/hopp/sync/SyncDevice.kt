@@ -45,10 +45,15 @@ internal class SyncDevice(
     var autoDownloadsDropped = 0
     /** Settings this device does not sync yet — as a build from before they were added. */
     var notSyncedYet: Set<String> = emptySet()
+    /** What the feeds say here: each feed's text through it — an episode not out yet, say. */
+    var feedText: (String) -> String = { it }
+    /** The feeds read, in order. */
+    val feedReads = mutableListOf<String>()
     val http = HttpClient(MockEngine { req ->
         val file = testFeeds[req.url.toString()]
+        feedReads += req.url.toString()
         if (offline || file == null) respondError(HttpStatusCode.ServiceUnavailable)
-        else respond(javaClass.getResourceAsStream(file)!!.readBytes())
+        else respond(feedText(javaClass.getResourceAsStream(file)!!.readBytes().decodeToString()).encodeToByteArray())
     })
     val store = SyncStore(db) { ms }
     val journal = SyncJournal(store)
@@ -59,6 +64,7 @@ internal class SyncDevice(
     val listening = space.sovereigncast.hopp.data.ListeningRepository(db, secrets, { ms / 1000 }, journal) { kotlinx.datetime.TimeZone.UTC }
     val identity = IdentityRepository(secrets, RelayPublisher(relay), { ms / 1000 }, hoppSyncRelays = emptyList()).also { runBlocking { if (it.identity.value == null) it.importKey(nsec) } }
     val keys = SyncKeys(identity, RelayPublisher(relay), secrets) { ms }
+    val catchUp = FeedCatchUp(db, { ms }) { podcasts.refresh(it) }
     val engine = SyncEngine(store, SyncRelays(RelayPublisher(relay)) { ms / 1000 }, identity, keys) { ms }
     val sync = SyncManager(engine, store, journal, settings, scope, {
         listOf(
@@ -66,8 +72,8 @@ internal class SyncDevice(
                 object : SyncedDocument by doc { override suspend fun snapshot() = doc.snapshot().filterKeys { it !in notSyncedYet } }
             },
             SubscriptionsDocument(db, podcasts),
-            ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }) { id, pos, played -> adopted += Triple(id, pos, played) },
-            QueueDocument(db, queue) { id, _ -> nowAdopted += id },
+            ProgressDocument(db, episodes, { ms / 1000 }, { it == playingId }, { id, pos, played -> adopted += Triple(id, pos, played) }, catchUp),
+            QueueDocument(db, queue, catchUp) { id, _ -> nowAdopted += id },
             StatsDocument(db, listening) { ms },
         )
     }, { ms }, publishDelay = publishDelay)
