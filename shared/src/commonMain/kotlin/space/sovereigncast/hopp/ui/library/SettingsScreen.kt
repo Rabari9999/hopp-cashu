@@ -13,6 +13,7 @@ import space.sovereigncast.hopp.resources.about_build_unknown
 import space.sovereigncast.hopp.resources.about_build_event
 import space.sovereigncast.hopp.resources.about_build_note
 import space.sovereigncast.hopp.resources.settings_language_browser
+import space.sovereigncast.hopp.resources.settings_language_device
 import space.sovereigncast.hopp.ui.player.formatSpeed
 import space.sovereigncast.hopp.resources.stats_entry_note
 import space.sovereigncast.hopp.resources.stats_title
@@ -175,10 +176,11 @@ fun SettingsScreen(
         if (!actions.canPay) stats()
         // Hopp's own language, apart from the phone's (device feedback 2026-10-11) — the system's page, Android 13+.
         if (actions.canPickLanguage) Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), stringResource(Res.string.settings_language_current)) { actions.openLanguageSettings() }
-        // In the browser, which has no such page, Hopp's own choice (maintainer 2026-10-28).
+        // In the browser, which has no such page, Hopp's own choice (maintainer 2026-10-28); on iOS too, whose
+        // page shows the languages only to whom the iPhone has two system languages (maintainer 2026-11-09).
         actions.appLanguages?.let { languages ->
             var choose by remember { mutableStateOf(false) }
-            val browser = stringResource(Res.string.settings_language_browser)
+            val browser = stringResource(if (actions.languageFromBrowser) Res.string.settings_language_browser else Res.string.settings_language_device)
             Entry(HoppIcons.Globe, stringResource(Res.string.settings_language), actions.appLanguage?.let { languages[it] } ?: browser) { choose = true }
             if (choose) AlertDialog(
                 onDismissRequest = { choose = false },

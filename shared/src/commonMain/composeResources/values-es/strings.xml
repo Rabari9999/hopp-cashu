@@ -484,6 +484,7 @@
     <string name="settings_language">Idioma</string>
     <string name="settings_language_current">Español</string>
     <string name="settings_language_browser">El idioma del navegador</string>
+    <string name="settings_language_device">El idioma del dispositivo</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Importar y exportar OPML</string>
     <string name="settings_privacy_note">Quién ve qué</string>

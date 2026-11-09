@@ -95,6 +95,7 @@ class WebPlatformActions(override val tabOnly: TabOnly? = null) : PlatformAction
     override val appLanguages: Map<String, String>? get() = LANGUAGES.takeUnless { tabOnly?.active?.value == true }
     override val appLanguage: String? get() = storedLanguage()?.takeIf { it in LANGUAGES }
     override fun setAppLanguage(code: String?) = storeLanguage(code)
+    override val languageFromBrowser: Boolean get() = true
     override fun pickOpml(onText: (String) -> Unit) = pickTextFile(".opml,.xml,text/xml,text/x-opml,application/xml", onText)
     override fun exportOpml(text: String) = saveText("hopp-subscriptions.opml", "text/x-opml", text)
     override val canPickImage: Boolean get() = true
