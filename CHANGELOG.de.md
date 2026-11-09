@@ -6,6 +6,11 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **App:** Auf iOS Hopps Sprache in Hopp selbst wählen: sofort und ohne zweite Systemsprache.
+- **Web:** Die Leertaste spielt und pausiert, egal was zuletzt geklickt wurde, statt erneut zu springen.
+- **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden, auf breiten Bildschirmen und Tablets.
+
 ## [0.4.1] - 2026-11-08
 
 ### 🆕 New Features

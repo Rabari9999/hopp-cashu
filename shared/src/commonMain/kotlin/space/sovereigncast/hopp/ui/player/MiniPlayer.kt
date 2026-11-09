@@ -50,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Slider
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.sp
 import space.sovereigncast.hopp.resources.np_open
 import space.sovereigncast.hopp.resources.np_progress
 import space.sovereigncast.hopp.resources.np_speed
@@ -145,7 +147,7 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
                 }
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = model::skipBack) {
-                    Icon(HoppIcons.Replay, stringResource(Res.string.np_back15, settings.skipBackSeconds), Modifier.size(28.dp))
+                    SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                 }
                 Box(
                     Modifier.padding(horizontal = 8.dp).size(52.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
@@ -154,7 +156,7 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
                     PlayPause(state, colors.onPrimary, 26.dp)
                 }
                 IconButton(onClick = model::skipForward) {
-                    Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(28.dp))
+                    SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
                 }
             }
         }
@@ -197,7 +199,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = model::skipBack) {
-                        Icon(HoppIcons.Replay, stringResource(Res.string.np_back15, settings.skipBackSeconds), Modifier.size(24.dp))
+                        SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                     }
                     Box(
                         Modifier.padding(horizontal = 12.dp).size(44.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
@@ -206,7 +208,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                         PlayPause(state, colors.onPrimary, 22.dp)
                     }
                     IconButton(onClick = model::skipForward) {
-                        Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(24.dp))
+                        SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
                     }
                 }
                 var dragTo by remember { mutableStateOf<Float?>(null) }
@@ -309,6 +311,19 @@ private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip, foot: Modi
  * pause shows, and a tap stops it rather than asking again. Inside the
  * button's box, which the ring fills.
  */
+/**
+ * A skip's arrow with its seconds inside, as in now playing (maintainer 2026-11-09: the bar of the
+ * web on a desktop showed bare arrows, and nobody knew how far they went). The number is the
+ * label's, which a screen reader reads already.
+ */
+@Composable
+private fun SkipIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, seconds: Int, label: String, size: Dp) {
+    Box(contentAlignment = Alignment.Center) {
+        Icon(icon, label, Modifier.size(size))
+        Text("$seconds", Modifier.clearAndSetSemantics {}, fontSize = (size.value * 0.3f).sp, fontWeight = FontWeight.Bold)
+    }
+}
+
 @Composable
 internal fun BoxScope.PlayPause(state: PlaybackState, tint: Color, iconSize: Dp) {
     if (state.isBuffering) {

@@ -148,6 +148,22 @@ check((await a.buttons()).some(b => b.trim() === 'Boost'), 'a boost is offered i
 await a.shot('playing');
 await a.press('Pause', 2000);
 
+// 1a. A desktop's window (maintainer 2026-11-09): the player bar names how far its skips go (see the screenshot),
+// and space plays and pauses although the skip clicked last keeps the focus.
+await a.page.setViewportSize({ width: 1280, height: 800 }); await a.page.waitForTimeout(2000);
+{
+  const forward = a.page.getByRole('button', { name: /^Forward \d+ seconds/ }).last();
+  const box = await forward.boundingBox().catch(() => null);
+  if (box) { await a.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await a.page.waitForTimeout(1500); }
+  check(!!box, "the bar's skip clicked with the mouse");
+  await a.shot('desktop-bar');
+  await a.page.keyboard.press('Space'); await a.page.waitForTimeout(3000);
+  check(await a.has('Pause'), 'space plays, not the skip clicked last');
+  await a.page.keyboard.press('Space'); await a.page.waitForTimeout(2000);
+  check(!(await a.has('Pause')), 'space pauses again');
+}
+await a.page.setViewportSize({ width: 390, height: 844 }); await a.page.waitForTimeout(2000);
+
 // 1b. The episode menu downloads into the browser (maintainer 2026-11-08); saving the audio file is for where
 // that is refused (1f).
 await a.press('More', 1500);

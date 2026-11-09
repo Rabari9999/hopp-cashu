@@ -6,6 +6,11 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **App:** On iOS, choose Hopp's language in Hopp itself: at once, without a second system language.
+- **Web:** Space plays and pauses whatever was clicked last, not the skip clicked before.
+- **Player:** The skip buttons of the player bar show their seconds, on wide screens and tablets.
+
 ## [0.4.1] - 2026-11-08
 
 ### 🆕 New Features

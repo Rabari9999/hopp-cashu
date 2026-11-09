@@ -18,6 +18,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -60,6 +61,12 @@ class KeyShortcuts(
 )
 
 /**
+ * Whether a text field holds the keyboard now; null where the platform cannot tell. In the
+ * browser the page's own input element has the focus then.
+ */
+internal expect fun textFieldFocused(): Boolean?
+
+/**
  * Space plays and pauses, ← and → skip, Escape closes now playing — wherever
  * the listener is, as in every desktop player.
  *
@@ -68,6 +75,11 @@ class KeyShortcuts(
  * takes it back whenever it is left with nobody holding it — after a search
  * field is done, say. A focus target, not `focusable()`: it adds nothing a
  * screen reader would stop at.
+ *
+ * Where the platform tells when a text field has the keyboard (the browser), space
+ * and the arrows play and skip whatever else holds the focus (maintainer 2026-11-09:
+ * a button clicked last kept it in Hopp Web, and space skipped 10 seconds again).
+ * Enter still presses a focused button.
  */
 @Composable
 fun Modifier.keyShortcuts(shortcuts: KeyShortcuts): Modifier {
@@ -79,6 +91,18 @@ fun Modifier.keyShortcuts(shortcuts: KeyShortcuts): Modifier {
         .onFocusChanged { state ->
             mine = state.isFocused
             if (!state.hasFocus) runCatching { requester.requestFocus() }
+        }
+        .onPreviewKeyEvent { e ->
+            if (mine || textFieldFocused() != false || e.isCtrlPressed || e.isMetaPressed || e.isAltPressed) return@onPreviewKeyEvent false
+            val action = when (e.key) {
+                Key.Spacebar -> shortcuts.playPause
+                Key.DirectionLeft -> shortcuts.back
+                Key.DirectionRight -> shortcuts.forward
+                else -> return@onPreviewKeyEvent false
+            }
+            // Its key-up too: a button never pressed by the key-down is not clicked by it.
+            if (e.type == KeyEventType.KeyDown) action()
+            true
         }
         .onKeyEvent { e ->
             if (!mine || e.type != KeyEventType.KeyDown || e.isCtrlPressed || e.isMetaPressed || e.isAltPressed) return@onKeyEvent false
