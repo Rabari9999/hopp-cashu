@@ -11,6 +11,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
 import org.junit.Test
@@ -42,5 +44,27 @@ class TabbedPageTest {
         val after = tabRow()
         // The header went up by the drag, and the row with it.
         check(after < before - 100f) { "the header stayed: tab row at $before → $after" }
+    }
+
+    /** Maintainer 2026-11-10 (Brave): a mouse wheel moved the header away with the list, but once the list was at its
+     *  top — scrolled back, or another tab's — the wheel no longer brought it back: no list took the scroll. */
+    @Test
+    fun theWheelBringsTheHeaderBackWhenTheListIsAtItsTop() {
+        val tabs = listOf("Show notes", "Chapters")
+        rule.setContent {
+            TabbedPage(tabs, rememberPagerState { tabs.size }, header = { Box(Modifier.fillMaxWidth().height(400.dp)) { BasicText("The header") } }) {
+                LazyColumn { items(100) { i -> BasicText("Line $i", Modifier.height(80.dp)) } }
+            }
+        }
+        fun tabRow() = rule.onNode(hasText("Chapters")).fetchSemanticsNode().boundsInRoot.top
+        val start = tabRow()
+        // Down: the header goes, then the list scrolls.
+        rule.onNode(hasText("Line 2")).performMouseInput { repeat(12) { scroll(1f) } }
+        rule.waitForIdle()
+        check(tabRow() < start - 300f) { "the header stayed: ${tabRow()}" }
+        // Up: the list to its top, then the header back.
+        rule.onRoot().performMouseInput { moveTo(center); repeat(60) { scroll(-1f) } }
+        rule.waitForIdle()
+        check(tabRow() >= start - 1f) { "the header did not come back: ${tabRow()} of $start" }
     }
 }

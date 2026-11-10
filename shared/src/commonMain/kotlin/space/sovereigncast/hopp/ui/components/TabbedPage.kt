@@ -29,10 +29,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -87,6 +92,7 @@ fun TabbedPage(
         }
     }
     val drag = rememberDraggableState { move(it) }
+    val wheelStep = scrollUnitPx(LocalDensity.current)
 
     Layout(
         contents = listOf(
@@ -114,7 +120,22 @@ fun TabbedPage(
                 tabs.getOrNull(i)?.takeIf { label -> label.isNotEmpty() && tabs.count { it == label } == 1 } ?: "#$i"
             }) { page(it) } },
         ),
-        modifier = modifier.fillMaxSize().clipToBounds().nestedScroll(connection),
+        modifier = modifier.fillMaxSize().clipToBounds().nestedScroll(connection)
+            // A mouse wheel or touchpad (the browser, a desktop): a scroll the tab's list cannot take — at its top, or too
+            // short to scroll — reaches no nested scroll, and the header stayed half away for good (maintainer 2026-11-10,
+            // in Brave). What no list took moves the header itself.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Final)
+                        if (event.type != PointerEventType.Scroll) continue
+                        val change = event.changes.firstOrNull()?.takeUnless { it.isConsumed } ?: continue
+                        val delta = change.scrollDelta
+                        if (delta.y == 0f || abs(delta.x) > abs(delta.y)) continue
+                        if (move(-delta.y * wheelStep) != 0f) change.consume()
+                    }
+                }
+            },
     ) { (h, t, p), constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
         val hp = h.first().measure(loose)

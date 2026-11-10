@@ -22,6 +22,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** The skip buttons of the player bar show their seconds, on wide screens and tablets.
 - **Player:** The chapter buttons also work on an episode shown paused after a restart.
 - **Player:** Larger text beside the boost button on wide screens.
+- **Pages:** With a mouse or touchpad, scrolling up brings a show's or an episode's header back, also once its list is at the top.
 
 ## [0.4.1] - 2026-11-08
 

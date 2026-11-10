@@ -66,6 +66,9 @@ class KeyShortcuts(
  */
 internal expect fun textFieldFocused(): Boolean?
 
+/** How far one unit of a scroll event's delta goes, in pixels: the browser gives pixels, the apps a wheel's notches. */
+internal expect fun scrollUnitPx(density: androidx.compose.ui.unit.Density): Float
+
 /**
  * Space plays and pauses, ← and → skip, Escape closes now playing — wherever
  * the listener is, as in every desktop player.
