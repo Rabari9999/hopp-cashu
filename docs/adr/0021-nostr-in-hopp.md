@@ -212,6 +212,15 @@ Hopp shows what Fountain's listeners say about the same episode.
   away; the sync's own state and its mark at the profile picture stay the
   sync's. A first design that listed every activity, with a history per relay,
   was set aside as too much for something that mostly just works.
+- *Amended 2026-11-10 (maintainer):* who the listener muted in the comments, and
+  the comments they hid or reported, travel in `hopp/settings` — one entry each
+  (`muted:<key>`, `hidden:<id>`), so what two devices added meanwhile adds up;
+  nothing takes one back. A bot muted on the phone commented again in the
+  browser: the mute had only reached the public mute list (NIP-51), and that
+  had not gone out (no list found, and not every relay answered — then Hopp
+  writes none, so as not to replace one it could not read). The public list
+  stays as it was, for other clients; Hopp's own devices no longer depend on it.
+  Tests: `QueueAndSettingsSyncTest.mutedPeopleAndHiddenCommentsGoAlong`.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on

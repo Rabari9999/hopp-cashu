@@ -30,7 +30,8 @@ class LibrarySearchTest {
             else -> respond(feed("Other Show", "Something else", "o1", "Nothing about books here."))
         }
     })
-    private val search = LibrarySearch(db)
+    private val settings = SettingsRepository(db)
+    private val search = LibrarySearch(db, settings = settings)
     private val podcasts = PodcastRepository(db, FeedFetcher(http), clock, search = search)
 
     private fun feed(title: String, episode: String, guid: String, description: String) = """<?xml version="1.0"?>
@@ -114,6 +115,10 @@ class LibrarySearchTest {
         assertEquals("E300 – Die dreihundertste", hits.comments.single().item.title)
         assertEquals(1L, hits.commentCount)
         assertEquals(3L, hits.total, "an episode, a chapter, a comment, and no show")
+
+        // Muted here (or on another device, by sync) — not only on the public list: not found either.
+        settings.update { it.copy(mutedLocally = it.mutedLocally + alice.publicKeyHex) }
+        assertEquals(0L to emptyList<String>(), search.find("bibliothek").let { it.commentCount to it.comments.map { c -> c.id } })
     }
 
     @Test

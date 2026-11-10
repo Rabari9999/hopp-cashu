@@ -306,6 +306,38 @@ class QueueAndSettingsSyncTest {
         assertEquals(listOf(a, b), browser.queueGuids())
     }
 
+    /** Maintainer 2026-11-10: a bot muted in the comments on the phone commented again in the browser. Who is muted and
+     *  what is hidden go along, and what two devices added meanwhile adds up. */
+    @Test
+    fun mutedPeopleAndHiddenCommentsGoAlong() = runBlocking<Unit> {
+        val (bot, troll, spam) = listOf("a", "b", "c").map { it.repeat(64) }
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.sync.enable()
+        val browser = SyncDevice(relay, scope, nsec).also { it.ms = phone.ms + 60_000 }
+        browser.sync.enable()
+
+        phone.ms = browser.ms + 60_000
+        phone.settings.update { it.copy(mutedLocally = it.mutedLocally + bot, hiddenComments = it.hiddenComments + spam) }
+        browser.settings.update { it.copy(mutedLocally = it.mutedLocally + troll) }
+        phone.sync.syncNow()
+        browser.ms = phone.ms + 60_000
+        browser.sync.syncNow()
+        phone.ms = browser.ms + 60_000
+        phone.sync.syncNow()
+        assertEquals(setOf(bot, troll), browser.settings.current().mutedLocally)
+        assertEquals(setOf(bot, troll), phone.settings.current().mutedLocally)
+        assertEquals(setOf(spam), browser.settings.current().hiddenComments)
+
+        // A new device gets them with the rest.
+        val tablet = SyncDevice(relay, scope, nsec).also { it.ms = phone.ms + 60_000 }
+        tablet.sync.enable()
+        assertEquals(setOf(bot, troll), tablet.settings.current().mutedLocally)
+
+        // Only a key or an event's id.
+        SettingsDocument(tablet.settings).apply(mapOf(Settings.MUTED + "nope" to SyncEntry(1, d = SyncDocs.setting("1"))))
+        assertEquals(setOf(bot, troll), tablet.settings.current().mutedLocally)
+    }
+
     @Test
     fun listeningHabitsFollowTheWalletAndBudgetStay() = runBlocking<Unit> {
         val phone = SyncDevice(relay, scope, nsec)

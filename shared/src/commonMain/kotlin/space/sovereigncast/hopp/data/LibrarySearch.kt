@@ -134,7 +134,12 @@ data class LibraryHits(
  * episode's feed chapters, once the chapter files and comments kept before the search was there —
  * in the background, after a subscription or a refresh too ([later]).
  */
-class LibrarySearch(private val db: HoppDatabase, private val scope: CoroutineScope? = null) {
+class LibrarySearch(
+    private val db: HoppDatabase,
+    private val scope: CoroutineScope? = null,
+    /** Who the listener muted and which comments they hid, on this device (Settings) — their comments are not found. */
+    private val settings: SettingsRepository? = null,
+) {
     private val sq = db.searchQueries
     private val gate = Mutex()
 
@@ -156,7 +161,10 @@ class LibrarySearch(private val db: HoppDatabase, private val scope: CoroutineSc
                 r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length),
                 r.start_ms, r.chapter_title)
         }
-        val comments = sq.searchComments(a, b, c, d, direction, limit).awaitAsList().map { r ->
+        val here = settings?.current()
+        val muted = here?.mutedLocally.orEmpty()
+        val hidden = here?.hiddenComments.orEmpty()
+        val comments = sq.searchComments(a, b, c, d, direction, limit).awaitAsList().filter { it.pubkey !in muted && it.comment_id !in hidden }.map { r ->
             val text = r.content.replace(SPACES, " ").trim()
             CommentHit(episodeItem(r.id, r.podcast_id, r.guid, r.title, r.published_at, r.duration_seconds, r.image_url, r.enclosure_url, r.chapters_url,
                 r.position_ms, r.played, r.in_inbox, r.download_state, r.download_path, r.podcast_title, r.podcast_image_url, r.favorite_at, r.enclosure_length),
@@ -164,7 +172,8 @@ class LibrarySearch(private val db: HoppDatabase, private val scope: CoroutineSc
         }
         LibraryHits(
             words, shows, episodes, chapters, comments,
-            sq.countEpisodes(a, b, c, d).awaitAsOne(), sq.countChapters(a, b, c, d).awaitAsOne(), sq.countComments(a, b, c, d).awaitAsOne(),
+            sq.countEpisodes(a, b, c, d).awaitAsOne(), sq.countChapters(a, b, c, d).awaitAsOne(),
+            sq.commentKeys(a, b, c, d).awaitAsList().count { it.pubkey !in muted && it.id !in hidden }.toLong(),
         )
     }
 

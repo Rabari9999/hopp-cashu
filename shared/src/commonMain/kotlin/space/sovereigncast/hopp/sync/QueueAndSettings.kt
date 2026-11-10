@@ -111,6 +111,7 @@ class SettingsDocument(
     private companion object {
         const val NAME = "sender_name"
         val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
+        val HEX_ID = Regex("[0-9a-f]{64}")
 
         /** Only a value this Hopp could have set itself is taken (security audit 2026-10-22, M-04). */
         fun valid(key: String, v: String): Boolean = when (key) {
@@ -126,7 +127,8 @@ class SettingsDocument(
             "library_sort" -> v in Settings.sortChoices
             "home_order", "home_hidden", "home_collapsed" -> v.length <= 2_000
             "take_part_hidden" -> v.length <= 40_000
-            else -> false
+            // A key or an event's id, in hex (Settings.MUTED, Settings.HIDDEN).
+            else -> v == "1" && (key.startsWith(Settings.MUTED) || key.startsWith(Settings.HIDDEN)) && HEX_ID.matches(key.substringAfter(':'))
         }
     }
 }

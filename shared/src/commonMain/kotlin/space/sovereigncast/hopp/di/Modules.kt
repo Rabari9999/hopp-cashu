@@ -185,7 +185,7 @@ fun sharedModule(platform: Platform) = module {
         )
     }
     // The library search (maintainer 2026-11-10): what it does not hold yet, written in the background from the start.
-    single { space.sovereigncast.hopp.data.LibrarySearch(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)).also { it.later() } }
+    single { space.sovereigncast.hopp.data.LibrarySearch(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default), get()).also { it.later() } }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single {
         val koin = getKoin()

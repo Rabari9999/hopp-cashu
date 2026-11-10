@@ -26,6 +26,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Größere Schrift neben dem Boost-Knopf auf breiten Bildschirmen.
 - **Seiten:** Mit Maus oder Touchpad holt Hochscrollen den Kopf einer Show oder Folge zurück, auch wenn die Liste schon oben ist.
 - **Web:** Emojis in Farbe, und ₿ und andere Währungszeichen statt leerer Kästchen.
+- **Kommentare:** Wen du stummschaltest und welche Kommentare du ausblendest, bleibt es auch auf deinen anderen Geräten.
 
 ## [0.4.1] - 2026-11-08
 

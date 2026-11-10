@@ -66,8 +66,9 @@ WHERE s.folded LIKE :a ESCAPE '\' AND s.folded LIKE :b ESCAPE '\' AND s.folded L
 ORDER BY s.created_at * :direction DESC
 LIMIT :limit;
 
-countComments:
-SELECT count(*) FROM search_comment s JOIN episode e ON s.item_tag = 'podcast:item:guid:' || e.guid
+-- Each found comment's id and author: the ones muted or hidden here are not counted.
+commentKeys:
+SELECT s.id, s.pubkey FROM search_comment s JOIN episode e ON s.item_tag = 'podcast:item:guid:' || e.guid
 WHERE s.folded LIKE :a ESCAPE '\' AND s.folded LIKE :b ESCAPE '\' AND s.folded LIKE :c ESCAPE '\' AND s.folded LIKE :d ESCAPE '\';
 
 -- ── Keeping it ─────────────────────────────────────────────────────────────

@@ -26,6 +26,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** Larger text beside the boost button on wide screens.
 - **Pages:** With a mouse or touchpad, scrolling up brings a show's or an episode's header back, also once its list is at the top.
 - **Web:** Emoji in colour, and ₿ and other currency signs instead of empty boxes.
+- **Comments:** Whom you mute and the comments you hide stay so on your other devices too.
 
 ## [0.4.1] - 2026-11-08
 
