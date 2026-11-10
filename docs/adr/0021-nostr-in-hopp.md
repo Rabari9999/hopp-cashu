@@ -201,6 +201,17 @@ Hopp shows what Fountain's listeners say about the same episode.
   seconds once more than half answered — a newer keyring goes out only to a
   majority, so it is among what a majority answers. Without a key, every relay
   is still heard out before one is made.
+- *Amended 2026-11-10 (maintainer):* what Hopp does with the relays besides
+  sync — reading the profile and the Nostr contacts, sending the shared list
+  and a comment — is noted the way a sync round is (`NostrActivity`): the last
+  go of each, with every relay's answer, kept until Hopp ends and never stored.
+  It shows only where it went wrong: fewer than half the relays it stands on
+  answered (for the contacts the listener's, Hopp's and the indexes; the
+  contacts' own relays, many long gone, are counted beside them). Then one line
+  in the sync sheet and one at its place on the Nostr page, its relays a tap
+  away; the sync's own state and its mark at the profile picture stay the
+  sync's. A first design that listed every activity, with a history per relay,
+  was set aside as too much for something that mostly just works.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on

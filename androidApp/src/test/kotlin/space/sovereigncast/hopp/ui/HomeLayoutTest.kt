@@ -33,7 +33,7 @@ import space.sovereigncast.hopp.ui.library.HomeSections
 class HomeLayoutTest {
     @get:Rule val rule = createComposeRule()
 
-    private fun has(text: String) = rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    private fun has(text: String, substring: Boolean = false) = rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(text: String) = rule.waitUntil(10_000) { has(text) }
     private fun tap(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
     private val settings get() = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.data.SettingsRepository>()
@@ -161,6 +161,8 @@ class HomeLayoutTest {
         waitFor("In sync")
         // Each relay listed, one short line each (maintainer 2026-10-29).
         check(has("nos.lol") && has("Still to send") && has("nothing")) { screen().toString() }
+        // Nothing else went wrong: nothing else shown (maintainer 2026-11-10).
+        check(!has("only partly read", substring = true)) { screen().toString() }
         tap("Settings")
         waitFor("Sync across devices")
         // And back from there: the same sheet, without the way to where it was opened (maintainer 2026-11-09).
@@ -168,6 +170,47 @@ class HomeLayoutTest {
         tap("Details")
         waitFor("Still to send")
         check(rule.onAllNodes(hasText("Settings") and hasClickAction()).fetchSemanticsNodes().isEmpty()) { "the sheet leads to where it is: ${screen()}" }
+    }
+
+    /** Maintainer 2026-11-10: what else went wrong with the relays is one line in the sync sheet and at its place on the
+     *  Nostr page, its relays a tap away — and nothing while it works. */
+    @Test
+    fun aContactsReadThatMostRelaysMissedIsOneLine() {
+        val koin = org.koin.mp.KoinPlatform.getKoin()
+        runBlocking {
+            koin.get<space.sovereigncast.hopp.identity.IdentityRepository>().create("Nakamoto")
+            koin.get<space.sovereigncast.hopp.sync.SyncManager>().enableAndWait()
+        }
+        home()
+        // Two of three relays the contacts' read stands on do not answer.
+        val down = setOf("wss://b.test", "wss://c.test")
+        val publisher = space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.RelayConnector { u ->
+            if (u in down) error("down") else OkRelays.connect(u)
+        })
+        runBlocking {
+            koin.get<space.sovereigncast.hopp.nostr.NostrActivity>().track(space.sovereigncast.hopp.nostr.NostrActivity.Area.Contacts, core = listOf("wss://a.test") + down) {
+                publisher.query(listOf(kotlinx.serialization.json.Json.parseToJsonElement("{\"kinds\":[3]}") as kotlinx.serialization.json.JsonObject), listOf("wss://a.test") + down)
+            }
+        }
+        openProfileMenu()
+        rule.onNode(hasTestTag("sync-row")).performClick()
+        waitFor("Nostr contacts only partly read")
+        check(has("1 of 3 relays", substring = true)) { screen().toString() }
+        tap("Nostr contacts only partly read")
+        waitFor("c.test")
+        check(has("Hopp shows what the relays that answered sent", substring = true) && has("a.test")) { screen().toString() }
+        // On the Nostr page, at its place: a profile no relay gave.
+        runBlocking {
+            koin.get<space.sovereigncast.hopp.nostr.NostrActivity>().track(space.sovereigncast.hopp.nostr.NostrActivity.Area.Profile) {
+                publisher.query(listOf(kotlinx.serialization.json.Json.parseToJsonElement("{\"kinds\":[0]}") as kotlinx.serialization.json.JsonObject), down.toList())
+            }
+        }
+        rule.onNode(hasContentDescription("Back")).performClick()
+        tap("Settings")
+        waitFor("Sync across devices")
+        rule.waitUntil(10_000) { has("Only 0 of 2 relays answered") }
+        tap("Only 0 of 2 relays answered")
+        rule.waitUntil(10_000) { has("Hopp shows what the relays that answered sent", substring = true) && has("b.test") }
     }
 
     /** Maintainer 2026-11-08: the menu one entry shorter, the profile opened from its head (picture and name). */

@@ -12,6 +12,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
 - **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.
 - **Sync:** „Details“ neben „Jetzt abgleichen“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
+- **Nostr:** Antworten zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar, sagt eine Zeile im Sync-Fenster und auf der Nostr-Seite, welche.
 
 ### 🐛 Fixes
 - **Sync:** Der erste Abgleich nach dem Start von Hopp wartet nicht mehr auf ein Relay, das nicht antwortet.

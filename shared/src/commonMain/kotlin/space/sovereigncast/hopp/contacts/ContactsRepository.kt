@@ -57,6 +57,8 @@ class ContactsRepository(
     /** A show by its `podcast:guid`, from the directory — for shows contacts only boosted or commented on. */
     private val lookup: (suspend (String) -> SharedShow?)? = null,
     private val readEvery: Long = 3600,
+    /** Where reading the contacts or sending the list goes wrong is shown (maintainer 2026-11-10); null: nowhere. */
+    private val activity: space.sovereigncast.hopp.nostr.NostrActivity? = null,
 ) {
     private val _state = MutableStateFlow(ContactsState())
     val state: StateFlow<ContactsState> = _state.asStateFlow()
@@ -158,8 +160,10 @@ class ContactsRepository(
         val note = _state.value.note
         val before = _state.value.read
         try {
-            val read = graph.read(if (note?.seeing == true) keys.inboxKey() else null) { found -> _state.update { it.copy(reading = found) } }
-                ?.let { lookedUp(it, before) }?.keepingNames(before)
+            val inbox = if (note?.seeing == true) keys.inboxKey() else null
+            val read = tracked(space.sovereigncast.hopp.nostr.NostrActivity.Area.Contacts, core = coreRelays()) {
+                graph.read(inbox) { found -> _state.update { it.copy(reading = found) } }
+            }?.let { lookedUp(it, before) }?.keepingNames(before)
             _state.update { it.copy(read = read, reading = null) }
             runCatching { cache?.save(read) }
         } finally {
@@ -247,8 +251,16 @@ class ContactsRepository(
         val note = _state.value.note ?: return
         if (!note.sharing || !note.opened) return
         val inboxes = _state.value.read?.withHopp.orEmpty().mapNotNull { it.inbox }.toSet()
-        share?.publish(inboxes)
+        val share = share ?: return
+        tracked(space.sovereigncast.hopp.nostr.NostrActivity.Area.Share, send = true) { share.publish(inboxes) }
     }
+
+    /** The relays a read of the contacts stands on — the listener's, Hopp's and the indexes; the contacts' own count beside them. */
+    private suspend fun coreRelays(): Set<String> =
+        (identity.writeRelays() + IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS + IdentityRepository.SYNC_RELAYS).toSet()
+
+    private suspend fun <T> tracked(area: space.sovereigncast.hopp.nostr.NostrActivity.Area, send: Boolean = false, core: Collection<String>? = null, block: suspend () -> T): T =
+        activity.let { if (it == null) block() else it.track(area, send, core, block) }
 
     /** Sharing with mutual contacts on or off; the listener's signer is asked. */
     suspend fun setSharing(on: Boolean) = change(share = on, see = _state.value.note?.seeing == true)

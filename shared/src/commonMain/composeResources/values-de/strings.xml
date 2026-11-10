@@ -974,6 +974,17 @@
     <string name="sync_renew_failed">Nicht erneuert – ein Abgleich vorher kam nicht durch, etwas wartet noch auf das Senden, oder dein Signer hat abgelehnt. Nichts hat sich geändert.</string>
     <string name="sync_now">Jetzt abgleichen</string>
     <string name="sync_details">Details</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Profil</string>
+    <string name="activity_comment">Dein Kommentar</string>
+    <string name="activity_relays">%1$d von %2$d Relays · %3$s</string>
+    <string name="activity_read_partly">%1$s nur teilweise gelesen</string>
+    <string name="activity_sent_partly">Zu wenige Relays erreicht: %1$s</string>
+    <string name="activity_read_text">Hopp zeigt, was die antwortenden Relays geliefert haben. Was bei den anderen liegt, kommt beim nächsten Lesen dazu.</string>
+    <string name="activity_send_text">Die Relays, die es nicht angenommen haben, bekommen es beim nächsten Versuch.</string>
+    <string name="activity_comment_text">Nur die Relays, die ihn angenommen haben, zeigen deinen Kommentar anderen.</string>
+    <string name="activity_others">Dazu %1$d Relays aus den Listen deiner Kontakte, %2$d davon haben geantwortet</string>
+    <string name="activity_line">Nur %1$d von %2$d Relays haben geantwortet</string>
     <string name="onboarding_nostr_sync">deine Bibliothek und dein Hörstand auf jedem Gerät – verschlüsselt, ohne Hopp-Server</string>
     <string name="onboarding_returning">Ich nutze Hopp schon</string>
     <string name="nostr_restore_hint">Melde dich mit dem Nostr-Schlüssel deines anderen Geräts an – danach holt Hopp deine Bibliothek zurück.</string>

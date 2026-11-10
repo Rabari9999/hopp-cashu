@@ -37,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
 import space.sovereigncast.hopp.resources.*
+import space.sovereigncast.hopp.nostr.NostrActivity
 import space.sovereigncast.hopp.nostr.RelayAnswer
 import space.sovereigncast.hopp.nostr.Refusal
 import space.sovereigncast.hopp.sync.RelayRound
@@ -168,6 +170,11 @@ internal fun look(status: SyncStatus): Look = when {
 @Composable
 /** [onSettings]: the way to sync's settings; null where the sheet opened from them (the Nostr page). */
 internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, onSettings: (() -> Unit)?, onRewrite: (String) -> Unit = {}, onDismiss: () -> Unit) {
+    // What else went wrong with the relays (maintainer 2026-11-10): a line each, only then.
+    val activity = org.koin.compose.koinInject<NostrActivity>()
+    val last by activity.last.collectAsState()
+    val troubles = NostrActivity.problems(last)
+    var area by remember { mutableStateOf<NostrActivity.Area?>(null) }
     val colors = MaterialTheme.colorScheme
     val problem = status.problem
     // Each relay after every round (maintainer 2026-10-29: two of three went through and the third's reason was
@@ -183,6 +190,10 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
             val open = rounds.firstOrNull { it.url == detail }
             if (open != null) {
                 RelayDetail(open, status.relayHistory[open.url].orEmpty()) { detail = null }
+                return@Column
+            }
+            last[area]?.let { o ->
+                ActivityDetail(o, nowMs) { area = null }
                 return@Column
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -229,6 +240,7 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                     }
                 }
             }
+            troubles.forEach { o -> TroubleRow(o, nowMs) { area = o.area } }
             // One line each, smaller where it must: on 320 dp "Jetzt abgleichen" took two lines and "Einstellungen"
             // broke in the word (delta audit 4 2026-10-23).
             val label = MaterialTheme.typography.labelLarge
@@ -261,8 +273,8 @@ internal fun SyncSheet(status: SyncStatus, nowMs: Long, onSyncNow: () -> Unit, o
                     FittingLine(stringResource(Res.string.sync_rewrite, name), label, min = 11.sp)
                 }
             }
-            if (rounds.isNotEmpty()) {
-                val report = report(status, nowMs)
+            if (rounds.isNotEmpty() || troubles.isNotEmpty()) {
+                val report = report(status, nowMs, last.values)
                 TextButton(onClick = { actions.copyText(report, "Hopp sync") }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Text(stringResource(Res.string.sync_copy_report))
                 }
@@ -439,7 +451,7 @@ private fun host(url: String) = url.removePrefix("wss://").removePrefix("ws://")
 private fun duration(ms: Long) = if (ms < 1000) "$ms ms" else "${space.sovereigncast.hopp.ui.components.formatTenths(ms / 100)} s"
 
 /** The round in plain text, to pass on when asking for help: technical, not translated. */
-private fun report(status: SyncStatus, nowMs: Long): String = buildString {
+private fun report(status: SyncStatus, nowMs: Long, activity: Collection<NostrActivity.Outcome> = emptyList()): String = buildString {
     appendLine("Hopp sync, ${(nowMs - (status.lastSyncedMs ?: nowMs)) / 60_000} min since the last full round")
     // Names of its own: a release build shortens class names ("w77", maintainer 2026-10-30).
     status.problem?.let { p ->
@@ -464,6 +476,93 @@ private fun report(status: SyncStatus, nowMs: Long): String = buildString {
     }
     if (status.toSend > 0) appendLine("Waiting to send: ${status.toSend}")
     status.documents.forEach { (doc, what) -> appendLine("$doc: $what") }
+    // The rest of what Hopp asked the relays, gone well or not: all of it belongs in a report.
+    activity.sortedByDescending { it.atMs }.forEach { o ->
+        appendLine("${o.area}: ${if (o.send) "sent" else "read"} ${(nowMs - o.atMs) / 60_000} min ago, ${o.answered} of ${o.asked} relays" +
+            (if (o.others.isNotEmpty()) " (and ${o.others.count { it.ok }} of ${o.others.size} of the contacts' own)" else ""))
+        o.counted.filter { !it.ok }.forEach { r -> appendLine("  ${host(r.url)}: ${text(r.worst)}") }
+    }
+}
+
+/** Something besides sync that went wrong with the relays: one line, its relays a tap away. */
+@Composable
+private fun TroubleRow(o: NostrActivity.Outcome, nowMs: Long, onOpen: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainer).border(1.dp, colors.outline, RoundedCornerShape(16.dp))
+            .clickable(onClick = onOpen).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Rounded.Warning, null, Modifier.size(20.dp), tint = colors.error)
+        Column(Modifier.weight(1f)) {
+            Text(troubleTitle(o), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.activity_relays, o.answered, o.asked, ago((nowMs - o.atMs) / 1000)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        Text(stringResource(Res.string.sync_details) + " ›", style = MaterialTheme.typography.labelLarge, color = colors.primary)
+    }
+}
+
+@Composable
+private fun troubleTitle(o: NostrActivity.Outcome): String {
+    val name = activityName(o.area)
+    return if (o.send) stringResource(Res.string.activity_sent_partly, name) else stringResource(Res.string.activity_read_partly, name)
+}
+
+@Composable
+internal fun activityName(area: NostrActivity.Area): String = stringResource(when (area) {
+    NostrActivity.Area.Profile -> Res.string.activity_profile
+    NostrActivity.Area.Contacts -> Res.string.contacts_title
+    NostrActivity.Area.Share -> Res.string.contacts_shared_title
+    NostrActivity.Area.Comment -> Res.string.activity_comment
+})
+
+/** One kind of activity: what it means, then each relay that decides it and what it answered. */
+@Composable
+internal fun ActivityDetail(o: NostrActivity.Outcome, nowMs: Long, onBack: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) IconButton(onClick = onBack) { Icon(space.sovereigncast.hopp.ui.components.HoppIcons.ChevronLeft, stringResource(Res.string.back)) }
+        Column {
+            Text(activityName(o.area), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.activity_relays, o.answered, o.asked, ago((nowMs - o.atMs) / 1000)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+    }
+    if (o.problem) Text(stringResource(when {
+        o.area == NostrActivity.Area.Comment -> Res.string.activity_comment_text
+        o.send -> Res.string.activity_send_text
+        else -> Res.string.activity_read_text
+    }), style = MaterialTheme.typography.bodyMedium)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainer).border(1.dp, colors.surfaceVariant, RoundedCornerShape(16.dp))) {
+        o.counted.sortedByDescending { it.worst.weight }.forEachIndexed { i, r ->
+            if (i > 0) HorizontalDivider(color = colors.surfaceVariant)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StateDot(r.worst)
+                Column(Modifier.weight(1f)) {
+                    Text(host(r.url), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOfNotNull(answerLine(r.worst), r.ms?.takeIf { r.ok }?.let(::duration)).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall, color = if (r.ok) colors.onSurfaceVariant else tint(r.worst))
+                    hint(r.worst)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
+                }
+            }
+        }
+    }
+    // The contacts' own relays: many are long gone, so only how many answered.
+    if (o.others.isNotEmpty()) Text(stringResource(Res.string.activity_others, o.others.size, o.others.count { it.ok }),
+        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+}
+
+/** One activity's relays as a sheet of its own — from the line where it went wrong on the Nostr page. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ActivitySheet(o: NostrActivity.Outcome, onDismiss: () -> Unit) {
+    val now by androidx.compose.runtime.produceState(kotlin.time.Clock.System.now().toEpochMilliseconds()) {
+        while (true) { kotlinx.coroutines.delay(30_000); value = kotlin.time.Clock.System.now().toEpochMilliseconds() }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            ActivityDetail(o, now, onBack = null)
+        }
+    }
 }
 
 private fun text(a: RelayAnswer) = when (a) {

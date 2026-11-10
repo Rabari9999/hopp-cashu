@@ -392,6 +392,22 @@ class ContactsTest {
         assertEquals(listOf(anna.publicKeyHex), read.listeners("followed-show", "https://followed.test/feed").map { it.pubkey })
     }
 
+    /** A read of the contacts most of whose relays did not answer is kept for the sync sheet (maintainer 2026-11-10). */
+    @Test
+    fun aContactsReadMostRelaysMissedIsShown(): Unit = runBlocking {
+        val anna = KeyPair.generate()
+        follows(listener, anna.publicKeyHex)
+        val me = Device()
+        me.keys.set(share = false, see = true)
+        val down = (IdentityRepository.DEFAULT_RELAYS + IdentityRepository.INDEX_RELAYS).toSet()
+        val graph = ContactGraph(me.identity, RelayPublisher(space.sovereigncast.hopp.nostr.RelayConnector { u -> if (u in down) error("down") else relay.connect(u) }), nowSeconds = { now })
+        val activity = space.sovereigncast.hopp.nostr.NostrActivity { now * 1000 }
+        ContactsRepository(me.identity, me.keys, graph, { now }, activity = activity).refresh(force = true)
+        val o = activity.last.value.getValue(space.sovereigncast.hopp.nostr.NostrActivity.Area.Contacts)
+        assertTrue(o.problem, "${o.answered} of ${o.asked}")
+        assertTrue(o.counted.any { it.url == "wss://nos.lol" && !it.ok })
+    }
+
     // Stage 5: a mutual contact lost (ADR 0024, 4).
 
     /** Anna had the key; she unfollows. Lost in two reads in a row, the share key is renewed — her inbox

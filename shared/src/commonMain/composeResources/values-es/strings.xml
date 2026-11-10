@@ -969,6 +969,17 @@
     <string name="sync_pending">%1$d esperando su feed</string>
     <string name="sync_now">Sincronizar ahora</string>
     <string name="sync_details">Detalles</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Perfil</string>
+    <string name="activity_comment">Tu comentario</string>
+    <string name="activity_relays">%1$d de %2$d relays · %3$s</string>
+    <string name="activity_read_partly">Leído solo en parte: %1$s</string>
+    <string name="activity_sent_partly">Muy pocos relays alcanzados: %1$s</string>
+    <string name="activity_read_text">Hopp muestra lo que enviaron los relays que respondieron. Lo que tienen los demás llega con la próxima lectura.</string>
+    <string name="activity_send_text">Los relays que no lo aceptaron lo recibirán en el próximo intento.</string>
+    <string name="activity_comment_text">Solo los relays que lo aceptaron muestran tu comentario a otros.</string>
+    <string name="activity_others">%1$d relays más de las listas de tus contactos, %2$d de ellos respondieron</string>
+    <string name="activity_line">Solo %1$d de %2$d relays respondieron</string>
     <string name="sync_renew">Renovar clave de sincronización</string>
     <string name="sync_renew_text">Para un dispositivo perdido o un navegador que ya no usas: tu biblioteca recibe una clave nueva, y la antigua no abre nada de lo que venga después. Tus otros dispositivos le preguntan una vez a tu firmante y luego siguen. Cierra también la sesión antigua en tu app firmante.</string>
     <string name="sync_renew_confirm">Renovar</string>

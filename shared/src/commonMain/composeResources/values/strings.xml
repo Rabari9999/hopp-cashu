@@ -969,6 +969,17 @@
     <string name="sync_pending">%1$d waiting for their feed</string>
     <string name="sync_now">Sync now</string>
     <string name="sync_details">Details</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Profile</string>
+    <string name="activity_comment">Your comment</string>
+    <string name="activity_relays">%1$d of %2$d relays · %3$s</string>
+    <string name="activity_read_partly">%1$s only partly read</string>
+    <string name="activity_sent_partly">%1$s reached too few relays</string>
+    <string name="activity_read_text">Hopp shows what the relays that answered sent. What the others hold comes with the next read.</string>
+    <string name="activity_send_text">The relays that did not take it get it with the next try.</string>
+    <string name="activity_comment_text">Only the relays that took it show your comment to others.</string>
+    <string name="activity_others">%1$d more relays from your contacts’ lists, %2$d of them answered</string>
+    <string name="activity_line">Only %1$d of %2$d relays answered</string>
     <string name="sync_renew">Renew sync key</string>
     <string name="sync_renew_text">For a lost device or a browser you no longer use: your library gets a new key, and the old one opens nothing that comes after. Your other devices ask your signer once, then go on. End the old session in your signer app too.</string>
     <string name="sync_renew_confirm">Renew</string>

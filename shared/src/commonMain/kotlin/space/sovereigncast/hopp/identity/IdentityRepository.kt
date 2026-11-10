@@ -105,6 +105,8 @@ class IdentityRepository(
     private val afterSignOut: suspend () -> Unit = {},
     /** Hopp's relays for sync, besides the listener's ([SYNC_RELAYS]); tests of the listener's relays alone leave them out. */
     private val hoppSyncRelays: List<String> = SYNC_RELAYS,
+    /** Where reading the profile goes wrong is shown (maintainer 2026-11-10); null: nowhere. */
+    private val activity: space.sovereigncast.hopp.nostr.NostrActivity? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val _unreadable = MutableStateFlow(false)
@@ -222,7 +224,10 @@ class IdentityRepository(
      * two indexes first, which also hold the person's relay list (NIP-65), then
      * the relays that list names as theirs.
      */
-    suspend fun refreshProfile(): NostrIdentity? {
+    suspend fun refreshProfile(): NostrIdentity? =
+        if (activity == null) refreshProfileNow() else activity.track(space.sovereigncast.hopp.nostr.NostrActivity.Area.Profile) { refreshProfileNow() }
+
+    private suspend fun refreshProfileNow(): NostrIdentity? {
         val me = _identity.value ?: return null
         val lookup = DEFAULT_RELAYS + INDEX_RELAYS
         // A relay that hangs is not waited for its timeout, twice (maintainer 2026-11-09): the others get a moment.

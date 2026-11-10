@@ -969,6 +969,17 @@
     <string name="sync_pending">%1$d aguardando o feed</string>
     <string name="sync_now">Sincronizar agora</string>
     <string name="sync_details">Detalhes</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Perfil</string>
+    <string name="activity_comment">Seu comentário</string>
+    <string name="activity_relays">%1$d de %2$d relays · %3$s</string>
+    <string name="activity_read_partly">Lido só em parte: %1$s</string>
+    <string name="activity_sent_partly">Poucos relays alcançados: %1$s</string>
+    <string name="activity_read_text">O Hopp mostra o que os relays que responderam enviaram. O que os outros têm chega na próxima leitura.</string>
+    <string name="activity_send_text">Os relays que não o aceitaram vão recebê-lo na próxima tentativa.</string>
+    <string name="activity_comment_text">Só os relays que o aceitaram mostram seu comentário a outras pessoas.</string>
+    <string name="activity_others">Mais %1$d relays das listas dos seus contatos, %2$d deles responderam</string>
+    <string name="activity_line">Só %1$d de %2$d relays responderam</string>
     <string name="sync_renew">Renovar chave de sincronização</string>
     <string name="sync_renew_text">Para um dispositivo perdido ou um navegador que você não usa mais: sua biblioteca recebe uma nova chave, e a antiga não abre nada do que vier depois. Seus outros dispositivos pedem uma vez ao seu assinador e depois continuam. Encerre também a sessão antiga no seu app assinador.</string>
     <string name="sync_renew_confirm">Renovar</string>

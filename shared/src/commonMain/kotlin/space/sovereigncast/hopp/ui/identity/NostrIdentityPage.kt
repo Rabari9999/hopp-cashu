@@ -3,6 +3,9 @@ package space.sovereigncast.hopp.ui.identity
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.rounded.Close
+import space.sovereigncast.hopp.resources.activity_line
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
 
@@ -915,6 +918,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         val active by tabOnly.active.collectAsState()
         if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
     }
+    ActivityTrouble(space.sovereigncast.hopp.nostr.NostrActivity.Area.Profile)
     // Only when something is wrong: the profile reached no relay.
     if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1079,6 +1083,7 @@ private fun ContactsReadLine(read: space.sovereigncast.hopp.contacts.ContactsRea
         else -> stringResource(Res.string.contacts_counts, read.following.size, read.mutual.size, read.withHopp.size)
     }
     counts?.let { Text(it, color = muted, style = MaterialTheme.typography.bodySmall) }
+    ActivityTrouble(space.sovereigncast.hopp.nostr.NostrActivity.Area.Contacts, space.sovereigncast.hopp.nostr.NostrActivity.Area.Share)
     if (reading != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(
@@ -1164,6 +1169,27 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
         Text(stringResource(Res.string.nostr_bunker_auth), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         OutlinedButton(onClick = { runCatching { uri.openUri(url) } }) { Text(stringResource(Res.string.nostr_bunker_auth_open)) }
     }
+}
+
+/**
+ * Where reading or sending [areas] went wrong with the relays (maintainer 2026-11-10): one short line at that
+ * place, its relays a tap away — nothing at all while it works.
+ */
+@Composable
+private fun ActivityTrouble(vararg areas: space.sovereigncast.hopp.nostr.NostrActivity.Area, activity: space.sovereigncast.hopp.nostr.NostrActivity = org.koin.compose.koinInject()) {
+    val last by activity.last.collectAsState()
+    val o = areas.mapNotNull { last[it] }.filter { it.problem }.maxByOrNull { it.atMs } ?: return
+    var open by remember { mutableStateOf(false) }
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button) { open = true }
+            .heightIn(min = 44.dp).padding(horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(androidx.compose.material.icons.Icons.Rounded.Warning, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+        Text(stringResource(Res.string.activity_line, o.answered, o.asked), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.sync_details) + " ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+    if (open) space.sovereigncast.hopp.ui.library.ActivitySheet(o) { open = false }
 }
 
 /** Too few relays answered: none at all, or how many of how many. */

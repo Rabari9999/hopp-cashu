@@ -969,6 +969,17 @@
     <string name="sync_pending">%1$d en attente de leur flux</string>
     <string name="sync_now">Synchroniser maintenant</string>
     <string name="sync_details">Détails</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Profil</string>
+    <string name="activity_comment">Ton commentaire</string>
+    <string name="activity_relays">%1$d relais sur %2$d · %3$s</string>
+    <string name="activity_read_partly">Lu en partie seulement : %1$s</string>
+    <string name="activity_sent_partly">Trop peu de relais atteints : %1$s</string>
+    <string name="activity_read_text">Hopp montre ce qu’ont envoyé les relais qui ont répondu. Ce que détiennent les autres arrive à la prochaine lecture.</string>
+    <string name="activity_send_text">Les relais qui ne l’ont pas accepté le recevront au prochain essai.</string>
+    <string name="activity_comment_text">Seuls les relais qui l’ont accepté montrent ton commentaire aux autres.</string>
+    <string name="activity_others">%1$d relais de plus venant des listes de tes contacts, dont %2$d ont répondu</string>
+    <string name="activity_line">Seulement %1$d relais sur %2$d ont répondu</string>
     <string name="sync_renew">Renouveler la clé de sync</string>
     <string name="sync_renew_text">Pour un appareil perdu ou un navigateur que tu n’utilises plus : ta bibliothèque reçoit une nouvelle clé, et l’ancienne n’ouvre rien de ce qui suit. Tes autres appareils demandent une fois à ton signeur, puis continuent. Termine aussi l’ancienne session dans ton appli de signature.</string>
     <string name="sync_renew_confirm">Renouveler</string>

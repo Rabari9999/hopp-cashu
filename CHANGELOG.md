@@ -12,6 +12,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
 - **Player:** The player bar on wide screens also jumps to the previous and next chapter.
 - **Sync:** "Details" beside "Sync now" shows how the last sync went, relay by relay.
+- **Nostr:** If too few relays answer for your profile, your Nostr contacts or a comment, one line in the sync window and on the Nostr page says which.
 
 ### 🐛 Fixes
 - **Sync:** The first sync after starting Hopp no longer waits for a relay that does not answer.

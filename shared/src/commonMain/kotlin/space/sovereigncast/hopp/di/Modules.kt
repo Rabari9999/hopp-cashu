@@ -111,7 +111,9 @@ fun sharedModule(platform: Platform) = module {
     }
     single { space.sovereigncast.hopp.nostr.RelayPublisher(space.sovereigncast.hopp.nostr.KtorRelayConnector(get())) }
     single { space.sovereigncast.hopp.web.BuildCheck(get(), space.sovereigncast.hopp.identity.IdentityRepository.DEFAULT_RELAYS, build = { platform.webBuild() }) }
-    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp, platform::signedOut) }
+    // What Hopp did with the relays besides sync, shown where it went wrong (maintainer 2026-11-10).
+    single { space.sovereigncast.hopp.nostr.NostrActivity { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
+    single { space.sovereigncast.hopp.identity.IdentityRepository(get(), get(), get(), platform.externalSigner(), platform.keysInApp, platform::signedOut, activity = get()) }
     single { space.sovereigncast.hopp.sync.SyncStore(get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
     single { space.sovereigncast.hopp.sync.SyncRelays(get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.sync.SyncKeys(get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
@@ -143,7 +145,7 @@ fun sharedModule(platform: Platform) = module {
         val lookup: suspend (String) -> space.sovereigncast.hopp.contacts.SharedShow? = { guid ->
             directory.showForGuid(guid)?.let { space.sovereigncast.hopp.contacts.SharedShow(it.podcastGuid ?: guid, it.feedUrl, it.title, 0, it.imageUrl) }
         }
-        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache, lookup)
+        space.sovereigncast.hopp.contacts.ContactsRepository(get(), get(), get(), { get<Clock>().now() }, share, cache, lookup, activity = get())
             .also { it.start(scope, podcasts.shows); scope.launch { it.loadKept() } }
     }
     single { space.sovereigncast.hopp.sync.SyncEngine(get(), get(), get(), get()) { kotlin.time.Clock.System.now().toEpochMilliseconds() } }
@@ -216,7 +218,7 @@ fun sharedModule(platform: Platform) = module {
             { get<space.sovereigncast.hopp.identity.IdentityRepository>().identity.value?.pubkey }, get<space.sovereigncast.hopp.nostr.Nip05>()::siteKey,
             { get<space.sovereigncast.hopp.identity.IdentityRepository>().readRelays() })
     }
-    single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now) { get<space.sovereigncast.hopp.data.ListeningRepository>().counted(comments = 1) } }
+    single { space.sovereigncast.hopp.comments.CommentWriter(get(), get(), get(), get<Clock>()::now, get()) { get<space.sovereigncast.hopp.data.ListeningRepository>().counted(comments = 1) } }
     single { space.sovereigncast.hopp.data.ListeningRepository(get(), get(), get(), get()) }
     single { val identity = get<IdentityRepository>(); space.sovereigncast.hopp.comments.CommentZapper(get(), identity::signer, get(), get(), get<Clock>()::now) }
     single { space.sovereigncast.hopp.comments.CommentsRepository(get(), get(), get(), get()) }

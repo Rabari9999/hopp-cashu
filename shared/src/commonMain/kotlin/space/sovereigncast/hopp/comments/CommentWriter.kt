@@ -47,6 +47,8 @@ class CommentWriter(
     private val identity: IdentityRepository,
     private val store: CommentStore,
     private val now: () -> Long,
+    /** Where sending goes wrong is shown (maintainer 2026-11-10); null: nowhere. */
+    private val activity: space.sovereigncast.hopp.nostr.NostrActivity? = null,
     /** A comment (or a boost as one) went out — the listening statistics count it. */
     private val posted: suspend () -> Unit = {},
 ) {
@@ -150,7 +152,9 @@ class CommentWriter(
     private suspend fun publish(unsigned: UnsignedEvent, extra: List<String>): Event {
         val signer: NostrSigner = identity.signer() ?: throw NoIdentity()
         val event = signer.sign(unsigned)
-        val took = publisher.publish(event, (mine() + extra).distinct().take(MAX_PUBLISH))
+        val to = (mine() + extra).distinct().take(MAX_PUBLISH)
+        val took = if (activity == null) publisher.publish(event, to)
+            else activity.track(space.sovereigncast.hopp.nostr.NostrActivity.Area.Comment, send = true) { publisher.publish(event, to) }
         if (took.isEmpty()) throw NotPublished()
         return event
     }
