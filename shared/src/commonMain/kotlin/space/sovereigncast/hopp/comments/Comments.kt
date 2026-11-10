@@ -1,6 +1,7 @@
 package space.sovereigncast.hopp.comments
 
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -236,8 +237,12 @@ class CommentReader(
      * meanwhile and its notes asked for beside it — and kept as a root where
      * one gives the episode's title or page. Answers to it and its zaps with a
      * message come with the second request, as the comments' answers do.
+     *
+     * [progress]: the thread so far, each time a relay answered (maintainer 2026-11-10: the comments showed only once
+     * every step was done) — put together as the last one is, and never with someone muted: until the mute lists are
+     * in, only with the ones known from before.
      */
-    suspend fun load(anchor: CommentAnchor): CommentThread = coroutineScope {
+    suspend fun load(anchor: CommentAnchor, progress: (CommentThread) -> Unit = {}): CommentThread = coroutineScope {
         val before = store.seen(anchor.itemTag)
         val startedAt = now()
         val base = ((anchor.notes.flatMap { it.relays }.take(2) + IdentityRepository.DEFAULT_RELAYS).distinct().take(MAX_RELAYS) + listenerRelays() + FOUNTAIN).distinct()
@@ -264,13 +269,33 @@ class CommentReader(
             val key = anchor.site?.takeIf { anchor.showKeys.isEmpty() && anchor.publishedAt != null }?.let { siteKey(it) }
             key?.let { k -> announcements(anchor, setOf(k))?.let { f -> publisher.query(listOf(f), base, SETTLE) } }.orEmpty()
         }
-        val fromBase = async { publisher.query(filters, base, SETTLE) }
-        val extra = showRelays.await().filter { it !in base }.take((MAX_RELAYS + 1 - base.size).coerceAtLeast(0))
-        val found = (fromBase.await() + (if (extra.isEmpty()) emptyList() else publisher.query(filters, extra, SETTLE)) + siteNotes.await()).distinctBy { it.id }
         // Of the show's notes from around the release, the one about this episode is a root; the others go.
+        fun announced(found: List<Event>, authors: Set<String>) =
+            found.filter { it.kind == 1 && it.pubkey in authors && parentOf(it) == null && !quotes(it) && announces(it, anchor) }.map { it.id }.toSet()
+        fun first(found: List<Event>, authors: Set<String>, announced: Set<String>) =
+            found.filter { e -> e.id in announced || e.id == anchor.answerTo?.id || !(e.kind == 1 && e.pubkey in authors && parentOf(e) == null && !names(e, anchor)) }
+        // What came so far, shown: the steps below each add to it.
+        val sofar = mutableListOf<Event>()
+        var shownCount = -1
+        fun show() {
+            val mutedNow = (if (muted.isCompleted) runCatching { muted.getCompleted() }.getOrNull() else null) ?: before?.muted ?: return
+            val found = sofar.distinctBy { it.id }
+            if (found.size == shownCount) return
+            shownCount = found.size
+            val authors = anchor.showKeys + (if (siteNotes.isCompleted) runCatching { siteNotes.getCompleted() }.getOrDefault(emptyList()).map { it.pubkey } else emptyList())
+            val announcedNow = announced(found, authors)
+            val roots = before?.roots.orEmpty() + announcedNow
+            val events = (before?.events.orEmpty() + first(found, authors, announcedNow)).distinctBy { it.id }
+            progress(CommentThread(thread(events, anchor, mutedNow, roots), base, pinned(events, anchor, mutedNow, roots)))
+        }
+        val fromBase = async { publisher.query(filters, base, SETTLE) { sofar += it; show() } }
+        // The mute lists in: what came meanwhile shown now.
+        launch { runCatching { muted.await() }; show() }
+        val extra = showRelays.await().filter { it !in base }.take((MAX_RELAYS + 1 - base.size).coerceAtLeast(0))
+        val found = (fromBase.await() + (if (extra.isEmpty()) emptyList() else publisher.query(filters, extra, SETTLE) { sofar += it; show() }) + siteNotes.await()).distinctBy { it.id }
         val authors = anchor.showKeys + siteNotes.await().map { it.pubkey }
-        val announced = found.filter { it.kind == 1 && it.pubkey in authors && parentOf(it) == null && !quotes(it) && announces(it, anchor) }.map { it.id }.toSet()
-        val first = found.filter { e -> e.id in announced || e.id == anchor.answerTo?.id || !(e.kind == 1 && e.pubkey in authors && parentOf(e) == null && !names(e, anchor)) }
+        val announced = announced(found, authors)
+        val first = first(found, authors, announced)
         val relays = base + extra
         val allRoots = roots.toSet() + announced + before?.roots.orEmpty()
         // Replies to the comments found: a Fountain listener answering another names only that comment.
@@ -279,7 +304,7 @@ class CommentReader(
         // Their likes (NIP-25) and zaps (NIP-57) in the same request, and the likes and zaps of the show's notes.
         val secondFilters = more.chunked(CHUNK).map { ids -> filter(KINDS + REACTION + ZAP_RECEIPT) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } } +
             listOfNotNull(allRoots.takeIf { it.isNotEmpty() }?.let { ids -> filter(listOf(REACTION, ZAP_RECEIPT)) { putJsonArray("#e") { ids.forEach { add(JsonPrimitive(it)) } } } })
-        val second = if (secondFilters.isEmpty()) emptyList() else publisher.query(secondFilters, relays, SETTLE)
+        val second = if (secondFilters.isEmpty()) emptyList() else publisher.query(secondFilters, relays, SETTLE) { sofar += it; show() }
         val events = (before?.events.orEmpty() + first + second).distinctBy { it.id }
         val mutedNow = muted.await()
         store.save(anchor.itemTag, CommentStore.Seen(first + second, (before?.relays.orEmpty() + relays).distinct(), mutedNow, startedAt, before?.roots.orEmpty() + announced))

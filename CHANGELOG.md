@@ -13,6 +13,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** The player bar on wide screens also jumps to the previous and next chapter.
 - **Sync:** "Details" beside "Sync now" shows how the last sync went, relay by relay.
 - **Nostr:** If too few relays answer for your profile, your Nostr contacts or a comment, one line in the sync window and on the Nostr page says which.
+- **Comments:** Comments appear as each relay answers, not only once all have.
 
 ### 🐛 Fixes
 - **Sync:** The first sync after starting Hopp no longer waits for a relay that does not answer.

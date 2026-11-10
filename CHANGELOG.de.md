@@ -13,6 +13,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.
 - **Sync:** „Details“ neben „Jetzt abgleichen“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
 - **Nostr:** Antworten zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar, sagt eine Zeile im Sync-Fenster und auf der Nostr-Seite, welche.
+- **Kommentare:** Kommentare erscheinen, sobald ein Relay antwortet, nicht erst, wenn alle fertig sind.
 
 ### 🐛 Fixes
 - **Sync:** Der erste Abgleich nach dem Start von Hopp wartet nicht mehr auf ein Relay, das nicht antwortet.

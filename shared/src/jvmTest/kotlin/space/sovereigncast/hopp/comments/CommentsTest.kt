@@ -199,6 +199,28 @@ class CommentsTest {
         assertTrue(seconds < 8, "took $seconds s; the relay timeout is 10 s per step")
     }
 
+    /** Maintainer 2026-11-10: the comments show as relays answer, not once all are done — the first ones while a
+     *  relay that answers late is still out; nobody muted in any of them. */
+    @Test
+    fun theCommentsShowAsTheRelaysAnswer() = test {
+        relay.publish(feedNote)
+        val c = post(alice, 1, "Quick", listOf(listOf("i", item)), now - 10)
+        val m = post(troll, 1, "Muted", listOf(listOf("i", item)), now - 5)
+        post(show, 10000, "", listOf(listOf("p", troll.publicKeyHex)), now - 200)
+        val late = space.sovereigncast.hopp.nostr.RelayConnector { url ->
+            if (url == "wss://relay.damus.io") { kotlinx.coroutines.delay(1500); relay.connect(url) } else relay.connect(url)
+        }
+        val streaming = CommentReader(RelayPublisher(late), { now })
+        val shown = java.util.concurrent.CopyOnWriteArrayList<Pair<Long, List<String>>>()
+        val started = System.nanoTime()
+        val thread = streaming.load(comments.anchor(episode())!!) { partial -> shown += (System.nanoTime() - started) / 1_000_000 to partial.comments.map { it.id } }
+        val done = (System.nanoTime() - started) / 1_000_000
+        assertEquals(listOf(c.id), thread.comments.map { it.id })
+        val firstWithIt = shown.firstOrNull { (_, ids) -> c.id in ids }
+        assertTrue(firstWithIt != null && firstWithIt.first < done - 500, "shown at ${firstWithIt?.first} ms, all done at $done ms")
+        assertTrue(shown.none { (_, ids) -> m.id in ids }, "someone muted showed: $shown")
+    }
+
     /**
      * Device feedback 2026-10-17 (Einundzwanzig): no note names the episode and the feed no key —
      * the website's NIP-05 key, its note giving the title is the announcement; answers to it and

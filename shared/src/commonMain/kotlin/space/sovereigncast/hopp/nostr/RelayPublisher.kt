@@ -86,9 +86,11 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
      * that long once the first relay has answered — one that hangs costs the
      * timeout otherwise (device feedback 2026-10-16: 30–40 s for comments).
      */
-    suspend fun query(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null): List<Event> =
+    suspend fun query(filters: List<JsonObject>, relays: List<String>, settle: Duration? = null, each: ((List<Event>) -> Unit)? = null): List<Event> =
         // Checked before made unique: a forged copy from a fast relay must not hide the real event.
-        gather(relays, settle) { url -> queryOn(filters, url) }.results.flatten().filter { it.isValid() }.distinctBy { it.id }
+        // [each]: what one relay answered, valid events only, as it comes — to show before the others are in.
+        gather(relays, settle, each = each?.let { e -> { found: List<Event> -> e(found.filter { it.isValid() }) } }) { url -> queryOn(filters, url) }
+            .results.flatten().filter { it.isValid() }.distinctBy { it.id }
 
     /**
      * What [query] finds, and how many of [relays] answered it to its end
@@ -114,7 +116,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
     /** [one] on every relay at once; what each answered — null from one that could not be reached.
      *  An answer of nothing is an answer too: it starts the settle time — with [majorityFirst], the answer
      *  that makes more than half. */
-    private suspend fun <T : Any> gather(relays: List<String>, settle: Duration?, majorityFirst: Boolean = false, one: suspend (String) -> T?): Gathered<T> = coroutineScope {
+    private suspend fun <T : Any> gather(relays: List<String>, settle: Duration?, majorityFirst: Boolean = false, each: ((T) -> Unit)? = null, one: suspend (String) -> T?): Gathered<T> = coroutineScope {
         val urls = relays.distinct()
         // A box per relay: null inside is a relay without an answer, null outside the settle time running out.
         val results = Channel<Answer<T>>(Channel.UNLIMITED)
@@ -130,6 +132,7 @@ class RelayPublisher(val connector: RelayConnector, private val timeout: Duratio
             val r = box.value ?: continue
             answered++
             out += r
+            each?.invoke(r)
             if (settle != null && until == null && (!majorityFirst || answered * 2 > urls.size)) until = TimeSource.Monotonic.markNow() + settle
         }
         jobs.forEach { it.cancel() }
