@@ -32,6 +32,7 @@ import space.sovereigncast.hopp.ui.components.ChapterRow
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import org.koin.compose.koinInject
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.flow.map
 import space.sovereigncast.hopp.ui.value.ValueBar
@@ -217,12 +218,26 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     // As a column beside the content (ADR 0020) back belongs to the content.
     BackHandler(enabled = !inPane) { model.minimize() }
     val dragY = remember { Animatable(0f) }
+    // A boost that was paid, from the sheet or the lock screen: once from 0 to 1, for the ground's flare.
+    val boostReports: space.sovereigncast.hopp.value.BoostReports = koinInject()
+    val boosted = remember { Animatable(0f) }
+    LaunchedEffect(boostReports) {
+        boostReports.paid.collectLatest {
+            boosted.snapTo(0f)
+            boosted.animateTo(1f, androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.LinearEasing))
+            boosted.snapTo(0f)
+        }
+    }
     val dismissPx = with(LocalDensity.current) { 120.dp.toPx() }
     Box(
         Modifier.fillMaxSize()
             .offset { IntOffset(0, dragY.value.roundToInt()) }
-            // Over the window, the ground of its own; as a column beside the library, on the window's.
-            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion))
+            // Over the window, the ground of its own; as a column beside the library, on the window's —
+            // unless the design lights now playing itself: then the column has that light too.
+            .then(
+                if (inPane && Hopp.colors.player == null) Modifier.background(Hopp.colors.page)
+                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }),
+            )
             .safeDrawingPadding()
             .pointerInput(inPane) {
                 if (inPane) return@pointerInput
@@ -381,7 +396,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
 
             // Value bar (ADR 0019): boost and streaming — where Hopp pays at all.
             val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
-            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
+            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) }, container = Hopp.colors.player?.panel)
 
             // One line that scrolls sideways: wrapped onto a second, the chips pushed
             // the latest boosts off a phone held upright (2026-10-16, with Show notes).
@@ -639,7 +654,7 @@ private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, se
 private fun SheetChip(label: String, overNostr: Boolean = false, onClick: () -> Unit) {
     val nostr = Hopp.colors.nostr?.takeIf { overNostr }
     Surface(
-        color = nostr?.tint ?: MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
+        color = nostr?.tint ?: Hopp.colors.player?.chip ?: MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
         modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
     ) {
         Text(

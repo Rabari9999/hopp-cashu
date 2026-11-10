@@ -317,3 +317,33 @@ down and brightens with playback, without sparks, halo or shimmer.
   were. Left out of the trial: a grain on the ground, and a flare when a boost
   went through. Whether Relay and Coldstorage get a hand of their own waits for
   the verdict on this one.
+
+### Amendment 2026-11-10: Glut's hand on now playing, whole
+
+The trial held on the beta ("gefällt mir sehr", maintainer 2026-11-10), so Glut gets
+the rest of it, on Android, iOS and the web alike:
+
+- **The column beside the content** (wide windows, most of the web) has the fire too.
+  It paints its own ground there instead of standing on the window's: the window's
+  glow under the column and the fire together would be brighter than what is tested.
+  Designs without a `PlayerLook` stand on the window's ground as before.
+- **One picture in every window.** The glows are set in dp from the middle of the
+  window's foot, no longer in shares of its size: a small phone, a phone on its side
+  and the column all show a cut of the same fire. The first form drew the three glows
+  closer together the smaller the window was, and on 320 × 568 dp a control's edge
+  fell to 2.6:1. `DesignColorsTest` now samples a window that shows the whole fire,
+  which stands for every smaller one.
+- **Grain** lies over the ground. It goes towards the ground's own end — dark specks
+  by night, light ones by day — so a speck only ever takes from the glow and nothing
+  read on it loses contrast; the test asserts that.
+- **A boost fans the fire.** When a boost reached someone (`BoostReports.paid` — the
+  sheet's and the lock screen's alike, whatever feedback the listener chose), the
+  glow comes up to its whole, leaps 48 dp and settles within 2.4 s, and by night a
+  burst of sparks rises. It never gets brighter than the tested glow; the test looks
+  the leap's height below the window's foot. Not under "reduce motion".
+- **The value bar and the chips let the glow through** (`PlayerLook.panel`, `chip`);
+  text, secondary text and orange text are tested on them over the glow.
+
+Still as they were: the mini player, the bar along a wide window's foot, Home and the
+lists. Relay and Coldstorage have no hand of their own yet; that is a decision of its
+own, not a follow-up of this one.

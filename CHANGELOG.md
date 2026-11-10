@@ -8,7 +8,7 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ### 🆕 New Features
 - **Settings:** A fourth design, Coldstorage: frosty blue like snow and ice.
-- **Player:** In the Glut design the fire now burns below the controls and comes alive while an episode plays.
+- **Player:** In the Glut design the fire now burns below the controls, comes alive while an episode plays and flares up when a boost goes through.
 - **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
 - **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
 - **Player:** The player bar on wide screens also jumps to the previous and next chapter.

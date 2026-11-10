@@ -9,6 +9,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.ui.theme.FLARE_LIFT
 import space.sovereigncast.hopp.ui.theme.Glow
 import space.sovereigncast.hopp.ui.theme.GlutDarkColors
 import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
@@ -56,25 +57,49 @@ class DesignColorsTest {
         }
     }
 
-    /** [ground] under the design's now playing glow at its fullest, at a point of a phone's window (in dp). */
-    private fun lit(ground: Color, glows: List<Glow>, x: Float, y: Float, w: Float = 411f, h: Float = 891f): Color =
+    /** [ground] under the design's now playing glow at its fullest, at a point of a window of [w] × [h] dp. */
+    private fun lit(ground: Color, glows: List<Glow>, x: Float, y: Float, w: Float, h: Float): Color =
         glows.fold(ground) { under, glow ->
-            val far = hypot((x - w * glow.x) / glow.radiusX.value, (y - h * glow.y - glow.dy.value) / glow.radiusY.value)
+            val far = hypot((x - w * glow.x - glow.dx.value) / glow.radiusX.value, (y - h * glow.y - glow.dy.value) / glow.radiusY.value)
             glow.color.copy(alpha = glow.color.alpha * (1f - far / glow.reach).coerceAtLeast(0f)).compositeOver(under)
         }
 
-    /** Now playing's own light (PlayerLook) lies under text and controls: they hold on its brightest spot too. */
+    /**
+     * Now playing's own light (PlayerLook) lies under text and controls: they hold on its brightest spot too.
+     * The glow is set in dp from the window's foot, so a window that shows all of it stands for every smaller
+     * one — and a boost's flare only lifts it, which the rows below the foot stand for.
+     */
     private fun holdsLit(scheme: ColorScheme, hopp: HoppColors, name: String) {
         val look = hopp.player ?: error("$name has no player look")
-        for (x in 0..411 step 8) for (y in 0..891 step 8) {
-            val on = lit(scheme.background, look.glow, x.toFloat(), y.toFloat())
-            fun at(least: Float, what: String, a: Color) =
-                assertTrue(contrast(a, on) >= least, "$name, now playing at $x/$y: $what is ${contrast(a, on)}:1, at least $least:1 asked")
+        val w = 1600
+        val h = 900
+        for (glow in look.glow) {
+            assertTrue(glow.x == 0.5f && glow.y == 1f, "$name: now playing's glow is set from the middle of the window's foot")
+            assertTrue(glow.radiusX.value * glow.reach + kotlin.math.abs(glow.dx.value) < w / 2 && glow.radiusY.value * glow.reach - glow.dy.value < h, "$name: the test's window shows all of the glow")
+        }
+        for (x in 0..w step 8) for (y in 0..h + FLARE_LIFT.value.toInt() step 4) {
+            val on = lit(scheme.background, look.glow, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat())
+            fun at(least: Float, what: String, a: Color, ground: Color = on) =
+                assertTrue(contrast(a, ground) >= least, "$name, now playing at $x/$y: $what is ${contrast(a, ground)}:1, at least $least:1 asked")
             at(4.5f, "text", scheme.onSurface)
             at(4.5f, "secondary text", scheme.onSurfaceVariant)
             at(4.5f, "orange text", hopp.valueText)
             at(3f, "a control's edge", scheme.outline)
             at(3f, "the progress bar", hopp.progressTrack)
+            // What lets the glow through: the value bar and the chips.
+            look.panel?.let { panel ->
+                val bar = panel.compositeOver(on)
+                at(4.5f, "text on the value bar", scheme.onSurface, bar)
+                at(4.5f, "secondary text on the value bar", scheme.onSurfaceVariant, bar)
+                at(4.5f, "orange text on the value bar", hopp.valueText, bar)
+            }
+            look.chip?.let { at(4.5f, "a chip's label", scheme.onSurface, it.compositeOver(on)) }
+            // The grain only ever takes from the glow: nothing read on it loses by a speck.
+            look.grain?.let { grain ->
+                val speck = grain.compositeOver(on)
+                for (a in listOf(scheme.onSurface, scheme.onSurfaceVariant, hopp.valueText, scheme.outline, hopp.progressTrack))
+                    assertTrue(contrast(a, speck) >= contrast(a, on), "$name, now playing at $x/$y: a speck of grain takes contrast")
+            }
         }
     }
 

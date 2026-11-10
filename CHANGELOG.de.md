@@ -8,7 +8,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ### 🆕 New Features
 - **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
-- **Player:** Im Design Glut brennt das Feuer jetzt unter den Bedienelementen und lebt auf, solange eine Folge läuft.
+- **Player:** Im Design Glut brennt das Feuer jetzt unter den Bedienelementen, lebt auf, solange eine Folge läuft, und flammt auf, wenn ein Boost ankommt.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
 - **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.

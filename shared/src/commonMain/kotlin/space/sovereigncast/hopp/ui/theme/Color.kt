@@ -98,12 +98,14 @@ data class HoppColors(
 )
 
 /**
- * A design's own hand on now playing — a trial with Glut (maintainer 2026-11-10): the light sits
+ * A design's own hand on now playing — Glut's, after a trial (maintainer 2026-11-10): the light sits
  * where the controls are, not behind the top bar, and lives while something plays.
  */
 @Immutable
 data class PlayerLook(
-    /** Now playing's ground in place of [HoppColors.glow]: whole while it plays, [rest] of it paused. */
+    /** Now playing's ground in place of [HoppColors.glow]: whole while it plays, [rest] of it paused. Set in dp
+     *  from the middle of the window's foot, so it is one picture in every window — a phone, a phone on its
+     *  side, the column beside the content — and what holds on it in one holds in all. */
     val glow: List<Glow>,
     val rest: Float,
     /** The light the cover throws below itself. */
@@ -116,6 +118,13 @@ data class PlayerLook(
     val heat: Color? = null,
     /** Sparks rising from the window's foot while it plays. */
     val sparks: Color? = null,
+    /** A fine grain over the ground. Towards the ground's own end — dark by night, light by day — so it
+     *  only ever takes from the glow and what is read on it loses nothing. */
+    val grain: Color? = null,
+    /** The value bar's ground, letting the glow through. */
+    val panel: Color? = null,
+    /** The ground of the chips below the controls. */
+    val chip: Color? = null,
 )
 
 /** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
@@ -127,7 +136,7 @@ data class NostrColors(val fill: Color, val onFill: Color, val text: Color, val 
  * at [reach] of its radii — a CSS radial gradient, as Sovereigncast's `background` token writes it.
  */
 @Immutable
-data class Glow(val color: Color, val x: Float, val y: Float, val dy: Dp, val radiusX: Dp, val radiusY: Dp, val reach: Float)
+data class Glow(val color: Color, val x: Float, val y: Float, val dy: Dp, val radiusX: Dp, val radiusY: Dp, val reach: Float, val dx: Dp = 0.dp)
 
 internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32), page = Paper)
 internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784), page = Ink)
@@ -194,10 +203,11 @@ internal val GlutLightColors = HoppColors(
     // Half as strong as the window's glow: the show notes' orange time marks can lie on this one.
     player = PlayerLook(
         glow = listOf(
-            Glow(Color(0x80F9D3A1), x = 0.5f, y = 0.86f, dy = 0.dp, radiusX = 490.dp, radiusY = 380.dp, reach = 0.72f),
-            Glow(Color(0x80F9D3A1), x = 1.05f, y = 1.08f, dy = 0.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
+            Glow(Color(0x80F9D3A1), x = 0.5f, y = 1f, dy = (-125).dp, radiusX = 490.dp, radiusY = 380.dp, reach = 0.72f),
+            Glow(Color(0x80F9D3A1), x = 0.5f, dx = 226.dp, y = 1f, dy = 71.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
         ),
         rest = 0.6f, coverLight = Color(0x59965014),
+        grain = Color(0x38FFFFFF), panel = Color(0xB3FFFCF7), chip = Color(0xB3FFFCF7),
     ),
 )
 internal val GlutDarkColors = HoppColors(
@@ -207,15 +217,16 @@ internal val GlutDarkColors = HoppColors(
         Glow(Color(0x29D65A14), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
         Glow(Color(0x61F7931A), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
     ),
-    // The fire burns below. No stronger than this: secondary text lies on it (DesignColorsTest).
+    // The fire burns below. No stronger than this: a control's edge lies on it (DesignColorsTest).
     player = PlayerLook(
         glow = listOf(
-            Glow(Color(0x3BF7931A), x = 0.5f, y = 0.86f, dy = 0.dp, radiusX = 450.dp, radiusY = 340.dp, reach = 0.72f),
-            Glow(Color(0x66D63C14), x = 1.05f, y = 1.08f, dy = 0.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
-            Glow(Color(0x4DA0280A), x = -0.1f, y = 1.04f, dy = 0.dp, radiusX = 520.dp, radiusY = 330.dp, reach = 0.7f),
+            Glow(Color(0x3BF7931A), x = 0.5f, y = 1f, dy = (-125).dp, radiusX = 450.dp, radiusY = 340.dp, reach = 0.72f),
+            Glow(Color(0x66D63C14), x = 0.5f, dx = 226.dp, y = 1f, dy = 71.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
+            Glow(Color(0x4DA0280A), x = 0.5f, dx = (-247).dp, y = 1f, dy = 36.dp, radiusX = 520.dp, radiusY = 330.dp, reach = 0.7f),
         ),
         rest = 0.55f, coverLight = Color(0x73E66E1E), playHalo = Color(0x99FFB464),
         fillFrom = Color(0xFFFFC98A), heat = Color(0xFFFFB464), sparks = Color(0xFFFFC98A),
+        grain = Color(0x2E000000), panel = Color(0xCC1D1510), chip = Color(0x17FFE1BA),
     ),
 )
 

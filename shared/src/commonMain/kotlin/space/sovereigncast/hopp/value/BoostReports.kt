@@ -1,6 +1,9 @@
 package space.sovereigncast.hopp.value
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import space.sovereigncast.hopp.data.SettingsRepository
 
 /** Shows a boost's or a zap's result outside Hopp's screens — on Android a notification. */
@@ -33,8 +36,13 @@ data class ZapResult(val sats: Long, val recipient: String?, val failure: String
  * finished, logged and reported even when its screen closes.
  */
 class BoostReports(private val settings: SettingsRepository, private val notifier: BoostNotifier, val scope: CoroutineScope) {
+    private val _paid = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** A boost that reached someone, whatever the listener chose to be told: now playing answers it with a flare. */
+    val paid: SharedFlow<Unit> = _paid.asSharedFlow()
+
     suspend fun report(result: QuickBoost, quick: Boolean = false) {
         if (result == QuickBoost.Off) return
+        if (result is QuickBoost.Sent && result.paidSats > 0) _paid.tryEmit(Unit)
         if (settings.current().reportsBoost(result.ok, quick)) notifier.show(result)
     }
 

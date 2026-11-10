@@ -126,7 +126,7 @@ import space.sovereigncast.hopp.value.SkipReason
  * costs (ADR 0005).
  */
 @Composable
-fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}) {
+fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}, container: Color? = null) {
     val settings by vm.current.collectAsState()
     val wallet by vm.connected.collectAsState()
     val rate by vm.rate.collectAsState()
@@ -171,7 +171,7 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
         val wide = maxWidth >= WIDE_BAR
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(container ?: colors.surface)
                 .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
