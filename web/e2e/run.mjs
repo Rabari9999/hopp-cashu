@@ -218,6 +218,25 @@ await a.page.keyboard.type('Nodesignal-Talk', { delay: 30 }); await a.page.waitF
 check((await a.buttons()).some(b => /^All \d+/.test(b.trim())), 'the library search finds the subscribed show’s episodes');
 await a.shot('library-search');
 await a.page.keyboard.press('ControlOrMeta+A'); await a.page.keyboard.press('Backspace'); await a.page.waitForTimeout(1000);
+// In a desktop's window the first hits stand beside the directories': the field keeps its focus and what is
+// typed after them, and a word is taken out again with select-all (maintainer 2026-11-10).
+await a.page.setViewportSize({ width: 1280, height: 800 }); await a.page.waitForTimeout(2000);
+{
+  // What the focused element holds: Compose's input exists only while the field has the focus — gone, this reads null.
+  const value = () => a.page.evaluate(() => {
+    let e = document.activeElement;
+    while (e?.shadowRoot?.activeElement) e = e.shadowRoot.activeElement;
+    return e && 'value' in e ? e.value : null;
+  });
+  const box = await a.page.getByRole('textbox').first().boundingBox();
+  await a.page.mouse.click(box.x + 40, box.y + box.height / 2); await a.page.waitForTimeout(500);
+  await a.page.keyboard.type('Nodes', { delay: 60 }); await a.page.waitForTimeout(2500);
+  await a.page.keyboard.type('ignal-Talk', { delay: 60 }); await a.page.waitForTimeout(2500);
+  check(await value() === 'Nodesignal-Talk', `the field keeps typing once the first hits are there (${await value()})`);
+  await a.page.keyboard.press('ControlOrMeta+A'); await a.page.keyboard.press('Backspace'); await a.page.waitForTimeout(2000);
+  check(await value() === '', `select-all and backspace empty the field (${await value()})`);
+}
+await a.page.setViewportSize({ width: 390, height: 844 }); await a.page.waitForTimeout(2000);
 
 // 1c. The browser's wallet (WebLN): taken on the wallet page, a boost sent through it with its boostagram.
 await a.press('Home', 2000); await a.press('Settings', 2000);

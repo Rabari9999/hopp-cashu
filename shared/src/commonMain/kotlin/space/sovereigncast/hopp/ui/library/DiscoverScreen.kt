@@ -188,9 +188,10 @@ fun DiscoverScreen(
     BoxWithConstraints(Modifier.fillMaxWidth()) {
       if (allCategories) CategorySheet(myCategories, onSelect = { vm.selectCategory(it); allCategories = false }, onDismiss = { allCategories = false })
       // What the library holds for the term (maintainer 2026-11-10): above the directories' answers; on a wide
-      // screen beside them.
+      // screen beside them. There the field stands above both, with hits or without: moved when the first hits
+      // came, it lost the focus and the letters typed after (maintainer 2026-11-10).
       val found = library?.takeIf { searchable(q) && it.total > 0 }
-      val beside = found != null && maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH
+      val wide = maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH
       val section: androidx.compose.foundation.lazy.LazyListScope.(space.sovereigncast.hopp.data.LibraryHits) -> Unit = { hits ->
           librarySection(
               hits, onAll = { vm.remember(q); onAllHits(q) },
@@ -358,10 +359,10 @@ fun DiscoverScreen(
                 }
             }
         }
-        if (beside) Column(Modifier.fillMaxSize()) {
+        if (wide) Column(Modifier.fillMaxSize()) {
             field()
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                LazyColumn(Modifier.weight(1f)) { section(found!!) }
+                if (found != null) LazyColumn(Modifier.weight(1f)) { section(found) }
                 LazyColumn(Modifier.weight(1f)) { rest() }
             }
         } else LazyColumn(Modifier.fillMaxWidth()) {
