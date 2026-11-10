@@ -116,9 +116,10 @@ async function fieldPixels(d, text) {
   await d.page.mouse.click(195, 110); await d.page.waitForTimeout(300);
   await d.page.keyboard.press('ControlOrMeta+A');
   await d.page.keyboard.insertText(text); await d.page.waitForTimeout(800);
-  const png = (await d.page.screenshot({ clip: { x: 20, y: 85, width: 120, height: 50 } })).toString('base64');
-  return d.page.evaluate(async (b64) => {
-    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+  // As bytes into a Blob: a data: address is a fetch the server's CSP refuses.
+  const png = [...await d.page.screenshot({ clip: { x: 20, y: 85, width: 120, height: 50 } })];
+  return d.page.evaluate(async (bytes) => {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const g = canvas.getContext('2d'); g.drawImage(bitmap, 0, 0);
     return [...g.getImageData(0, 0, bitmap.width, bitmap.height).data];
