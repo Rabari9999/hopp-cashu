@@ -1396,4 +1396,20 @@
     <string name="playlist_undo">Rückgängig</string>
     <string name="playlist_skip">Überspringen</string>
     <string name="playlist_open">Zur Folge</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">In deiner Bibliothek</string>
+    <string name="search_all">Alle %1$d</string>
+    <string name="search_title">„%1$s“ in deiner Bibliothek</string>
+    <string name="search_kind_show">Show</string>
+    <string name="search_kind_episode">Folge</string>
+    <string name="search_kind_chapter">Kapitel</string>
+    <string name="search_kind_comment">Kommentar</string>
+    <string name="search_newest">Neueste zuerst</string>
+    <string name="search_oldest">Älteste zuerst</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d Treffer</item>
+        <item quantity="other">%1$d Treffer</item>
+    </plurals>
+    <string name="search_scope">Durchsucht Titel, Shownotes, Kapitel, Personen und gelesene Kommentare deiner abonnierten Shows – auf diesem Gerät, ohne Netz. Transkripte nicht.</string>
+    <string name="search_play_from">Ab %1$s abspielen</string>
 </resources>

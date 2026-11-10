@@ -1396,4 +1396,20 @@
     <string name="playlist_undo">Annulla</string>
     <string name="playlist_skip">Salta</string>
     <string name="playlist_open">Vai alla puntata</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">Nella tua libreria</string>
+    <string name="search_all">Tutti %1$d</string>
+    <string name="search_title">«%1$s» nella tua libreria</string>
+    <string name="search_kind_show">Podcast</string>
+    <string name="search_kind_episode">Puntata</string>
+    <string name="search_kind_chapter">Capitolo</string>
+    <string name="search_kind_comment">Commento</string>
+    <string name="search_newest">Prima i più recenti</string>
+    <string name="search_oldest">Prima i più vecchi</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d risultato</item>
+        <item quantity="other">%1$d risultati</item>
+    </plurals>
+    <string name="search_scope">Cerca nei titoli, nelle note delle puntate, nei capitoli, nelle persone e nei commenti letti dei podcast a cui sei iscritto, su questo dispositivo e senza rete. Non nelle trascrizioni.</string>
+    <string name="search_play_from">Riproduci da %1$s</string>
 </resources>

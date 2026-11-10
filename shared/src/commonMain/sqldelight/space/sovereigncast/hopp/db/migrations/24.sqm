@@ -1,0 +1,27 @@
+-- Version 24 → 25 (maintainer 2026-11-10): the library search — shows, episodes, chapters and the
+-- comments read, as data/LibrarySearch.kt compares them. The rows of before are filled once,
+-- in the background (LibrarySearch.catchUp).
+ALTER TABLE podcast ADD COLUMN search_text TEXT;
+ALTER TABLE episode ADD COLUMN search_text TEXT;
+ALTER TABLE episode ADD COLUMN chapter_sig INTEGER;
+
+CREATE TABLE search_chapter (
+    episode_id INTEGER NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    start_ms INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    folded TEXT NOT NULL,
+    from_file INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX search_chapter_episode_idx ON search_chapter(episode_id);
+
+CREATE TABLE search_comment (
+    item_tag TEXT NOT NULL,
+    id TEXT NOT NULL,
+    pubkey TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    folded TEXT NOT NULL,
+    PRIMARY KEY (item_tag, id)
+);

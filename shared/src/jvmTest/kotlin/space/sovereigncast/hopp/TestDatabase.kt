@@ -17,6 +17,12 @@ import space.sovereigncast.hopp.db.HoppDatabase
  */
 fun testDatabase(): HoppDatabase = HoppDatabase(AsyncOnlyDriver(schemaDriver()))
 
+/** The current schema taken back to before version 25: no library search (maintainer 2026-11-10). */
+fun withoutLibrarySearch(driver: SqlDriver) {
+    listOf("ALTER TABLE podcast DROP COLUMN search_text", "ALTER TABLE episode DROP COLUMN search_text", "ALTER TABLE episode DROP COLUMN chapter_sig",
+        "DROP TABLE search_chapter", "DROP TABLE search_comment").forEach { driver.execute(null, it, 0) }
+}
+
 /** An in-memory JDBC driver with the current schema — for tests that change it by hand. */
 fun schemaDriver(): JdbcSqliteDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { HoppDatabase.Schema.synchronous().create(it) }
 

@@ -20,6 +20,7 @@ class SyncMigrationTest {
 
     /** Version 21: no show left out of what is shared with Nostr contacts (ADR 0024). */
     private fun version21(driver: JdbcSqliteDriver) {
+        space.sovereigncast.hopp.withoutLibrarySearch(driver)
         // Nor the relays' version of a waiting entry (version 24).
         listOf("relay_json", "relay_updated_at", "relay_deleted", "relay_kept_from").forEach { driver.execute(null, "ALTER TABLE sync_entry DROP COLUMN $it", 0) }
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)

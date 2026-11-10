@@ -1396,4 +1396,20 @@
     <string name="playlist_undo">Deshacer</string>
     <string name="playlist_skip">Saltar</string>
     <string name="playlist_open">Ir al episodio</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">En tu biblioteca</string>
+    <string name="search_all">Todos %1$d</string>
+    <string name="search_title">«%1$s» en tu biblioteca</string>
+    <string name="search_kind_show">Podcast</string>
+    <string name="search_kind_episode">Episodio</string>
+    <string name="search_kind_chapter">Capítulo</string>
+    <string name="search_kind_comment">Comentario</string>
+    <string name="search_newest">Más recientes primero</string>
+    <string name="search_oldest">Más antiguos primero</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d resultado</item>
+        <item quantity="other">%1$d resultados</item>
+    </plurals>
+    <string name="search_scope">Busca en los títulos, notas de los episodios, capítulos, personas y comentarios leídos de tus podcasts suscritos, en este dispositivo y sin red. En las transcripciones no.</string>
+    <string name="search_play_from">Reproducir desde %1$s</string>
 </resources>

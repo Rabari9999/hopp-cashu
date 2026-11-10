@@ -206,6 +206,19 @@ await a.press('More', 1500);
 }
 await a.reload();
 
+// 1b2. The library search (maintainer 2026-11-10): Discover finds the subscribed show's episodes on the device,
+// in the browser's database in its worker.
+await a.press('Discover', 2000);
+for (let i = 0; i < 5 && !(await a.mirrored('*')).some(t => t.includes('Search or feed address')); i++) {
+  await a.page.mouse.click(28, 32); await a.page.waitForTimeout(1500);
+}
+await a.page.mouse.click(195, 110); await a.page.waitForTimeout(300);
+await a.page.keyboard.press('ControlOrMeta+A');
+await a.page.keyboard.type('Nodesignal-Talk', { delay: 30 }); await a.page.waitForTimeout(4000);
+check((await a.buttons()).some(b => /^All \d+/.test(b.trim())), 'the library search finds the subscribed show’s episodes');
+await a.shot('library-search');
+await a.page.keyboard.press('ControlOrMeta+A'); await a.page.keyboard.press('Backspace'); await a.page.waitForTimeout(1000);
+
 // 1c. The browser's wallet (WebLN): taken on the wallet page, a boost sent through it with its boostagram.
 await a.press('Home', 2000); await a.press('Settings', 2000);
 await a.press('Wallet & payments', 3000);

@@ -1,0 +1,132 @@
+-- The library search (maintainer 2026-11-10, data/LibrarySearch.kt): what it looks through besides
+-- the shows' and episodes' own search_text. Every text is folded — lower case, "ä" as "ae" — and each
+-- of up to four words is one LIKE; a word not given is '%'. SQLite's LIKE folds only ASCII, so the
+-- folding is done before, on both sides.
+
+-- An episode's chapters: from its feed (its Podlove chapters or a list in its notes), or from its chapter
+-- file once that was loaded — then those only, as the player shows them.
+CREATE TABLE search_chapter (
+    episode_id INTEGER NOT NULL,
+    podcast_id INTEGER NOT NULL,
+    start_ms INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    folded TEXT NOT NULL,
+    from_file INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX search_chapter_episode_idx ON search_chapter(episode_id);
+
+-- The comments read on an episode, as the thread showed them: without the muted, without the show's own notes.
+CREATE TABLE search_comment (
+    item_tag TEXT NOT NULL,
+    id TEXT NOT NULL,
+    pubkey TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    folded TEXT NOT NULL,
+    PRIMARY KEY (item_tag, id)
+);
+
+searchShows:
+SELECT p.id, p.feed_url, p.title, p.author, p.image_url, (SELECT count(*) FROM episode e WHERE e.podcast_id = p.id) AS episodes
+FROM podcast p
+WHERE p.search_text LIKE :a ESCAPE '\' AND p.search_text LIKE :b ESCAPE '\' AND p.search_text LIKE :c ESCAPE '\' AND p.search_text LIKE :d ESCAPE '\'
+ORDER BY p.title COLLATE NOCASE;
+
+-- [direction] 1: newest first, -1: oldest first.
+searchEpisodes:
+SELECT e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+FROM episode e JOIN podcast p ON p.id = e.podcast_id
+WHERE e.search_text LIKE :a ESCAPE '\' AND e.search_text LIKE :b ESCAPE '\' AND e.search_text LIKE :c ESCAPE '\' AND e.search_text LIKE :d ESCAPE '\'
+ORDER BY e.published_at * :direction DESC, e.id DESC
+LIMIT :limit;
+
+countEpisodes:
+SELECT count(*) FROM episode
+WHERE search_text LIKE :a ESCAPE '\' AND search_text LIKE :b ESCAPE '\' AND search_text LIKE :c ESCAPE '\' AND search_text LIKE :d ESCAPE '\';
+
+searchChapters:
+SELECT c.start_ms, c.title AS chapter_title, e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+FROM search_chapter c JOIN episode e ON e.id = c.episode_id JOIN podcast p ON p.id = e.podcast_id
+WHERE c.folded LIKE :a ESCAPE '\' AND c.folded LIKE :b ESCAPE '\' AND c.folded LIKE :c ESCAPE '\' AND c.folded LIKE :d ESCAPE '\'
+ORDER BY e.published_at * :direction DESC, e.id DESC, c.start_ms
+LIMIT :limit;
+
+countChapters:
+SELECT count(*) FROM search_chapter
+WHERE folded LIKE :a ESCAPE '\' AND folded LIKE :b ESCAPE '\' AND folded LIKE :c ESCAPE '\' AND folded LIKE :d ESCAPE '\';
+
+-- An episode's comments are tagged with its GUID (NIP-73); a GUID two shows share finds both.
+searchComments:
+SELECT s.id AS comment_id, s.pubkey, s.created_at AS comment_at, s.content, a.name AS author_name,
+    e.*, p.title AS podcast_title, p.image_url AS podcast_image_url
+FROM search_comment s JOIN episode e ON s.item_tag = 'podcast:item:guid:' || e.guid JOIN podcast p ON p.id = e.podcast_id
+LEFT JOIN comment_author a ON a.pubkey = s.pubkey
+WHERE s.folded LIKE :a ESCAPE '\' AND s.folded LIKE :b ESCAPE '\' AND s.folded LIKE :c ESCAPE '\' AND s.folded LIKE :d ESCAPE '\'
+ORDER BY s.created_at * :direction DESC
+LIMIT :limit;
+
+countComments:
+SELECT count(*) FROM search_comment s JOIN episode e ON s.item_tag = 'podcast:item:guid:' || e.guid
+WHERE s.folded LIKE :a ESCAPE '\' AND s.folded LIKE :b ESCAPE '\' AND s.folded LIKE :c ESCAPE '\' AND s.folded LIKE :d ESCAPE '\';
+
+-- ── Keeping it ─────────────────────────────────────────────────────────────
+
+showsWithoutText:
+SELECT id, meta_json FROM podcast WHERE search_text IS NULL;
+
+setShowText:
+UPDATE podcast SET search_text = ? WHERE id = ?;
+
+episodesWithoutText:
+SELECT id, title, meta_json FROM episode WHERE search_text IS NULL LIMIT ?;
+
+setEpisodeText:
+UPDATE episode SET search_text = ? WHERE id = ?;
+
+-- Episodes whose feed chapters are still to be written.
+episodesWithoutChapters:
+SELECT id, podcast_id, duration_seconds, meta_json FROM episode WHERE chapter_sig IS NULL LIMIT ?;
+
+setChapterSig:
+UPDATE episode SET chapter_sig = ? WHERE id = ?;
+
+hasFileChapters:
+SELECT count(*) FROM search_chapter WHERE episode_id = ? AND from_file = 1;
+
+deleteChapters:
+DELETE FROM search_chapter WHERE episode_id = ?;
+
+deleteFeedChapters:
+DELETE FROM search_chapter WHERE episode_id = ? AND from_file = 0;
+
+insertChapter:
+INSERT INTO search_chapter (episode_id, podcast_id, start_ms, title, folded, from_file) VALUES (?, ?, ?, ?, ?, ?);
+
+podcastOfEpisode:
+SELECT podcast_id FROM episode WHERE id = ?;
+
+deleteChaptersByPodcast:
+DELETE FROM search_chapter WHERE podcast_id = ?;
+
+deleteComments:
+DELETE FROM search_comment WHERE item_tag = ?;
+
+insertComment:
+INSERT OR REPLACE INTO search_comment (item_tag, id, pubkey, created_at, content, folded) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteCommentsByPodcast:
+DELETE FROM search_comment WHERE item_tag IN (SELECT 'podcast:item:guid:' || guid FROM episode WHERE podcast_id = ?);
+
+-- What was kept before the search was there: each chapter file and each episode's comments, once.
+cachedChapterFiles:
+SELECT episode_id, json FROM chapter_cache;
+
+commentItems:
+SELECT item_tag, muted_json, roots_json FROM comment_fetch;
+
+done:
+SELECT value FROM setting WHERE key = 'search.catch_up';
+
+setDone:
+INSERT OR REPLACE INTO setting (key, value) VALUES ('search.catch_up', ?);

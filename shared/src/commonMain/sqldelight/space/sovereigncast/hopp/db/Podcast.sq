@@ -36,14 +36,17 @@ CREATE TABLE podcast (
     -- Version 22 (migrations/21.sqm): left out of what is shared with mutual Nostr contacts (ADR 0024, 4a).
     contacts_hidden INTEGER NOT NULL DEFAULT 0,
     -- Version 23 (migrations/22.sqm): the listener's own tags, one per line (maintainer 2026-11-03).
-    tags TEXT NOT NULL DEFAULT ''
+    tags TEXT NOT NULL DEFAULT '',
+    -- Version 25 (migrations/24.sqm): title, author, description, categories and persons as the
+    -- library search compares them (data/LibrarySearch.kt); null until written.
+    search_text TEXT
 );
 
 CREATE INDEX podcast_guid_idx ON podcast(podcast_guid);
 
 insert:
-INSERT INTO podcast (feed_url, podcast_guid, title, author, image_url, meta_json, etag, last_modified, last_checked_at, subscribed_at, categories)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO podcast (feed_url, podcast_guid, title, author, image_url, meta_json, etag, last_modified, last_checked_at, subscribed_at, categories, search_text)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 lastInsertId:
 SELECT last_insert_rowid();
@@ -66,7 +69,7 @@ SELECT * FROM podcast WHERE feed_url = ?;
 
 updateFromFeed:
 UPDATE podcast SET podcast_guid = ?, title = ?, author = ?, image_url = ?, meta_json = ?,
-    etag = ?, last_modified = ?, last_checked_at = ?, last_error = NULL, categories = ?
+    etag = ?, last_modified = ?, last_checked_at = ?, last_error = NULL, categories = ?, search_text = ?
 WHERE id = ?;
 
 markChecked:

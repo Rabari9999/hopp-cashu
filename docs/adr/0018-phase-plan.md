@@ -99,7 +99,8 @@ widgets, a Tor/proxy setting.
 
 Built since, each with its own ADR: large screens (ADR 0020), the web client
 (ADR 0022), listening statistics (ADR 0023), what Nostr contacts listen to
-(ADR 0024), and the designs Glut, Relay and Coldstorage (ADR 0019).
+(ADR 0024), the designs Glut, Relay and Coldstorage (ADR 0019), and the
+search through the library (ADR 0025).
 
 ## Consequences
 

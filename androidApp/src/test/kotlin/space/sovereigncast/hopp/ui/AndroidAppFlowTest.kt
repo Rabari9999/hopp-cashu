@@ -2021,6 +2021,27 @@ class AndroidAppFlowTest {
         until { player.current.value?.chapters?.stops?.size == 3 }
     }
 
+    /** The library search (maintainer 2026-11-10): Discover finds a chapter in a subscribed show's notes, the page of
+     *  all hits a kind at a time, and the chapter plays from where it starts. */
+    @Test
+    fun theLibrarySearchFindsAChapterAndPlaysFromIt() {
+        rule.setContent { App() }
+        tap("Discover"); subscribe("https://pod.test/listed.xml")
+        tap("Discover"); waitFor("Search or feed address")
+        rule.onNode(hasSetTextAction()).performTextReplacement("hauptteil")
+        waitFor("In your library")
+        waitFor("10:00")
+        check(has("CHAPTERS") && has("EPISODES")) { "the kinds found: ${screen()}" }
+        tap("All 2 ›")
+        waitFor("“hauptteil” in your library")
+        check(has("Episodes 1") && has("Chapters 1")) { "the kinds to choose: ${screen()}" }
+        tap("Chapters 1"); waitFor("1 hit")
+        check(!has("EPISODE")) { "one kind, without its label: ${screen()}" }
+        rule.onNode(hasContentDescription("Play from 10:00")).performClick()
+        val player = koin.get<space.sovereigncast.hopp.player.PlayerController>()
+        until { player.current.value?.item?.title == "Listed" && engine().state.value.positionMs == 600_000L }
+    }
+
     /** Hopp's own look or Glut (maintainer 2026-11-07): chosen in the settings, kept, and the whole app goes with it. */
     @Test
     fun theDesignIsChosenInTheSettings() {

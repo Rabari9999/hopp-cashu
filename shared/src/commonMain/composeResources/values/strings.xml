@@ -1396,4 +1396,20 @@
     <string name="playlist_undo">Undo</string>
     <string name="playlist_skip">Skip</string>
     <string name="playlist_open">Go to the episode</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">In your library</string>
+    <string name="search_all">All %1$d</string>
+    <string name="search_title">“%1$s” in your library</string>
+    <string name="search_kind_show">Show</string>
+    <string name="search_kind_episode">Episode</string>
+    <string name="search_kind_chapter">Chapter</string>
+    <string name="search_kind_comment">Comment</string>
+    <string name="search_newest">Newest first</string>
+    <string name="search_oldest">Oldest first</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d hit</item>
+        <item quantity="other">%1$d hits</item>
+    </plurals>
+    <string name="search_scope">Searches the titles, show notes, chapters, people and the comments you have read of your subscribed shows – on this device, without the network. Not transcripts.</string>
+    <string name="search_play_from">Play from %1$s</string>
 </resources>

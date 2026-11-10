@@ -170,6 +170,7 @@ class DownloadsAndQueueTest {
     @Test
     fun thePaymentLogOfAnEarlyInstallIsReadRightAfterTheUpdate() = test {
         val driver = schemaDriver()
+        space.sovereigncast.hopp.withoutLibrarySearch(driver)
         // Version 20 had no show left out of sharing with Nostr contacts yet (version 22).
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN contacts_hidden", 0)
         driver.execute(null, "ALTER TABLE podcast DROP COLUMN tags", 0)
@@ -234,6 +235,10 @@ class DownloadsAndQueueTest {
         assertNull(migrated.episodeQueries.selectById(1).executeAsOne().enclosure_length)
         EpisodeRepository(migrated, http, clock).fillEnclosureLengths()
         assertEquals(0L, migrated.episodeQueries.selectById(1).executeAsOne().enclosure_length, "the old row states no size")
+        // Version 25: the library search, its rows written once from what is stored (maintainer 2026-11-10).
+        assertNull(migrated.episodeQueries.selectById(1).executeAsOne().search_text)
+        LibrarySearch(migrated).catchUp()
+        assertEquals(listOf("Kept"), LibrarySearch(migrated).find("kept").episodes.map { it.item.title })
     }
 
     @Test

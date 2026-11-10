@@ -181,8 +181,11 @@ fun sharedModule(platform: Platform) = module {
         PodcastRepository(get(), get(), get(), get(), get(), get(),
             autoDownloads = { platform.autoDownloads && get<SettingsRepository>().current().autoDownloads },
             onNewEpisodes = { new -> if (get<SettingsRepository>().current().newToQueue) get<QueueRepository>().addNew(new) },
+            search = get(),
         )
     }
+    // The library search (maintainer 2026-11-10): what it does not hold yet, written in the background from the start.
+    single { space.sovereigncast.hopp.data.LibrarySearch(get(), CoroutineScope(SupervisorJob() + Dispatchers.Default)).also { it.later() } }
     single { EpisodeRepository(get(), get(), get(), get()) }
     single {
         val koin = getKoin()
@@ -236,7 +239,8 @@ fun sharedModule(platform: Platform) = module {
     single { FyydClient(get()) }
     single { AppleClient(get()) }
     single { DirectoryRepository(get(), get(), get(), get(), get()) }
-    viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { DiscoverViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { params -> space.sovereigncast.hopp.ui.library.LibrarySearchViewModel(params.get(), get()) }
     viewModel { params -> space.sovereigncast.hopp.ui.library.PersonViewModel(params.get(), get(), get(), get()) }
     viewModel { params -> ShowPreviewViewModel(params.get(), get(), get(), get()) }
     viewModel { QueueViewModel(get(), get()) }

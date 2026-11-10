@@ -1396,4 +1396,20 @@
     <string name="playlist_undo">Annuler</string>
     <string name="playlist_skip">Passer</string>
     <string name="playlist_open">Aller à l’épisode</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">Dans ta bibliothèque</string>
+    <string name="search_all">Tous %1$d</string>
+    <string name="search_title">« %1$s » dans ta bibliothèque</string>
+    <string name="search_kind_show">Émission</string>
+    <string name="search_kind_episode">Épisode</string>
+    <string name="search_kind_chapter">Chapitre</string>
+    <string name="search_kind_comment">Commentaire</string>
+    <string name="search_newest">Les plus récents d’abord</string>
+    <string name="search_oldest">Les plus anciens d’abord</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d résultat</item>
+        <item quantity="other">%1$d résultats</item>
+    </plurals>
+    <string name="search_scope">Cherche dans les titres, notes d’épisode, chapitres, personnes et commentaires lus de tes émissions abonnées – sur cet appareil, sans réseau. Pas dans les transcriptions.</string>
+    <string name="search_play_from">Lire à partir de %1$s</string>
 </resources>
