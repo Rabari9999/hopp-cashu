@@ -24,6 +24,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Die Kapiteltasten funktionieren auch bei einer Folge, die nach einem Neustart pausiert angezeigt wird.
 - **Player:** Größere Schrift neben dem Boost-Knopf auf breiten Bildschirmen.
 - **Seiten:** Mit Maus oder Touchpad holt Hochscrollen den Kopf einer Show oder Folge zurück, auch wenn die Liste schon oben ist.
+- **Web:** Emojis in Farbe, und ₿ und andere Währungszeichen statt leerer Kästchen.
 
 ## [0.4.1] - 2026-11-08
 

@@ -108,6 +108,37 @@ async function device(name, ext = {}) {
   return { ctx, page, extension, writes, errors, refused, mirrored, buttons, has, press, pick, shot, reload };
 }
 
+/**
+ * The pixels of what [text] looks like in Discover's search field. Read in the page from a screenshot:
+ * Compose's canvas is WebGL and keeps no picture to read back.
+ */
+async function fieldPixels(d, text) {
+  await d.page.mouse.click(195, 110); await d.page.waitForTimeout(300);
+  await d.page.keyboard.press('ControlOrMeta+A');
+  await d.page.keyboard.insertText(text); await d.page.waitForTimeout(800);
+  const png = (await d.page.screenshot({ clip: { x: 20, y: 85, width: 120, height: 50 } })).toString('base64');
+  return d.page.evaluate(async (b64) => {
+    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const g = canvas.getContext('2d'); g.drawImage(bitmap, 0, 0);
+    return [...g.getImageData(0, 0, bitmap.width, bitmap.height).data];
+  }, png);
+}
+
+/** Emoji in colour and ₿ drawn, not an empty box — the fonts of resources/fonts, loaded after the first frame. */
+async function checkFonts(d) {
+  await d.press('Discover', 3000);
+  // Orange enough to be 🧡's, not the grey of a monochrome heart or of the text.
+  const coloured = (px) => { for (let i = 0; i < px.length; i += 4) if (px[i] - px[i + 2] > 120 && px[i + 1] > 60) return true; return false; };
+  let colour = false;
+  for (let i = 0; i < 10 && !colour; i++) { colour = coloured(await fieldPixels(d, '🧡')); if (!colour) await d.page.waitForTimeout(1500); }
+  check(colour, 'an emoji is drawn in colour');
+  // U+E000 is in no font: what an empty box looks like there.
+  const bitcoin = await fieldPixels(d, '₿'), box = await fieldPixels(d, '\uE000');
+  check(bitcoin.some((v, i) => v !== box[i]), '₿ is drawn, not an empty box');
+  await d.page.keyboard.press('ControlOrMeta+A'); await d.page.keyboard.press('Backspace');
+}
+
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
 async function openShow(d, show) {
   await d.press('Discover', 3000);
@@ -133,6 +164,7 @@ const a = await device('a', { webln: true });
 for (let i = 0; i < 30 && !(await a.has('Skip')); i++) await a.page.waitForTimeout(500);
 check(await a.has('Skip'), 'the tour opens');
 await a.press('Skip', 4000);
+await checkFonts(a);
 await openShow(a, 'Nodesignal');
 await a.press('Subscribe', 8000);
 check(await a.has('Subscribed'), 'a show found and subscribed (feed through the proxy)');
