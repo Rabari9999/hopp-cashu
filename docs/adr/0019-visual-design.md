@@ -291,3 +291,29 @@ of turquoise below — no aurora green. Built as Glut and Relay are; blue leads
 the heard part of the progress bars. Orange stays money's and stands out on the
 ice; no Nostr colour of its own. Four designs sit two by two on a phone, side by
 side from a tablet's width. `DesignColorsTest` holds it to the same rules.
+
+### Amendment 2026-11-10: a design's own hand on now playing — a trial with Glut
+
+The three coloured designs were one recipe in three hues: the same light behind
+the top bar, nothing that moves, only colour told them apart. On trial with Glut
+(maintainer 2026-11-10, to be judged on the beta): a design may bring a
+`PlayerLook` for now playing. Glut's fire burns below — the glow sits under the
+controls instead of above the cover, rests low while paused, comes up and
+breathes while it plays, and by night throws a few sparks; the cover casts a
+warm light at its foot, the play button has a halo, and the heard part of the
+progress bar runs from pale to bright under a shimmer. By day the light moves
+down and brightens with playback, without sparks, halo or shimmer.
+
+- Orange stays money's: the fire is ground, never a control or a label; the
+  progress bar's colours are cream, not orange.
+- `DesignColorsTest` samples the glow at its fullest across a phone's window:
+  text 4.5:1 and controls 3:1 hold on its brightest spot too. That bounds how
+  strong the fire can be.
+- Under "reduce motion" (ADR 0016) nothing breathes or rises:
+  `PlatformActions.reduceMotion` asks the system (Android's animator scale,
+  iOS's setting, the browser's media query); the glow still follows play and
+  pause.
+- The pane on wide screens, the mini player, Home and the lists stay as they
+  were. Left out of the trial: a grain on the ground, and a flare when a boost
+  went through. Whether Relay and Coldstorage get a hand of their own waits for
+  the verdict on this one.

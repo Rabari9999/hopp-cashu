@@ -103,6 +103,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -145,7 +149,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.semantics.onClick
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
-import space.sovereigncast.hopp.ui.theme.pageGround
+import space.sovereigncast.hopp.ui.theme.playerGround
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
@@ -218,7 +222,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
         Modifier.fillMaxSize()
             .offset { IntOffset(0, dragY.value.roundToInt()) }
             // Over the window, the ground of its own; as a column beside the library, on the window's.
-            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.pageGround())
+            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion))
             .safeDrawingPadding()
             .pointerInput(inPane) {
                 if (inPane) return@pointerInput
@@ -244,8 +248,13 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             val picture = chapters.imageAt(position) ?: playing.artworkUrl
             var viewing by remember { mutableStateOf(false) }
             val fullLabel = stringResource(Res.string.image_full)
+            // Where the design lights now playing: an oval of light at the cover's foot, half of it behind the cover.
+            val light = Hopp.colors.player?.coverLight
             Box(
-                m.clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
+                m.then(if (light == null) Modifier else Modifier.drawBehind {
+                    val foot = Offset(size.width / 2, size.height - 4.dp.toPx())
+                    scale(1f, 0.16f, foot) { drawCircle(Brush.radialGradient(listOf(light, Color.Transparent), foot, size.width * 0.52f), size.width * 0.52f, foot) }
+                }).clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
                     .pointerInput(chapters) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -327,6 +336,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     listOfNotNull(formatTime(at), chapters.current(at)?.title?.takeIf { it.isNotBlank() }).joinToString(" · ")
                 },
                 onPreview = { dragTo = it },
+                fillFrom = Hopp.colors.player?.fillFrom, heat = Hopp.colors.player?.heat,
             )
             val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
             val timeStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = if (dragTo != null) FontWeight.Bold else null)
@@ -352,8 +362,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 val back = settings.skipBackSeconds
                 val forward = settings.skipForwardSeconds
                 SkipButton(HoppIcons.Replay, "$back", stringResource(Res.string.np_back15, back), model::skipBack, model::previousChapter)
+                val halo = Hopp.colors.player?.playHalo
                 Box(
-                    Modifier.size(72.dp).clip(CircleShape).background(colors.primary).clickable {
+                    Modifier.size(72.dp).then(if (halo == null) Modifier else Modifier.drawBehind {
+                        // From the button's edge outwards, half its width again.
+                        drawCircle(Brush.radialGradient(0.5f to halo, 1f to Color.Transparent, radius = size.minDimension), size.minDimension)
+                    }).clip(CircleShape).background(colors.primary).clickable {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay()
                     },
                     contentAlignment = Alignment.Center,

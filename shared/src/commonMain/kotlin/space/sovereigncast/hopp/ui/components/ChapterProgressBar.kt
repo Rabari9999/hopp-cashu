@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
@@ -37,7 +38,9 @@ import androidx.compose.ui.unit.dp
  * place in a bubble over the knob, and [onPreview] tells the screen, whose
  * times below follow too (device feedback 2026-10-21: as YouTube does). A mouse
  * resting over the bar gets the same bubble, and nothing else moves (maintainer
- * 2026-11-07: which chapter is this, before jumping there).
+ * 2026-11-07: which chapter is this, before jumping there). [fillFrom] and [heat]
+ * are a design's own hand on it (PlayerLook): the heard part runs from one colour
+ * to [fillColor] under a shimmer, and the knob glows.
  */
 @Composable
 fun ChapterProgressBar(
@@ -51,6 +54,8 @@ fun ChapterProgressBar(
     modifier: Modifier = Modifier,
     preview: ((Float) -> String)? = null,
     onPreview: (Float?) -> Unit = {},
+    fillFrom: Color? = null,
+    heat: Color? = null,
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     var hoverFraction by remember { mutableStateOf<Float?>(null) }
@@ -83,11 +88,22 @@ fun ChapterProgressBar(
         val h = 6.dp.toPx()
         val y = size.height / 2 - h / 2
         val r = CornerRadius(h / 2, h / 2)
+        val heard = size.width * shown
+        val knob = Offset(heard, size.height / 2)
         drawRoundRect(trackColor, Offset(0f, y), Size(size.width, h), r)
-        drawRoundRect(fillColor, Offset(0f, y), Size(size.width * shown, h), r)
+        if (heat != null && heard > 0f) {
+            val reach = 9.dp.toPx()
+            drawRect(
+                Brush.verticalGradient(0f to Color.Transparent, 0.5f to heat.copy(alpha = 0.3f), 1f to Color.Transparent, startY = knob.y - reach, endY = knob.y + reach),
+                Offset(0f, knob.y - reach), Size(heard, reach * 2),
+            )
+        }
+        if (fillFrom != null && heard > 0f) drawRoundRect(Brush.horizontalGradient(listOf(fillFrom, fillColor), 0f, heard), Offset(0f, y), Size(heard, h), r)
+        else drawRoundRect(fillColor, Offset(0f, y), Size(heard, h), r)
         val gap = 3.dp.toPx()
         for (b in boundaries) drawRect(gapColor, Offset(size.width * b - gap / 2, y), Size(gap, h))
-        drawCircle(fillColor, radius = 7.5.dp.toPx(), center = Offset(size.width * shown, size.height / 2))
+        if (heat != null) drawCircle(Brush.radialGradient(listOf(heat.copy(alpha = 0.8f), Color.Transparent), knob, 14.dp.toPx()), 14.dp.toPx(), knob)
+        drawCircle(fillColor, radius = 7.5.dp.toPx(), center = knob)
     }
     val f = dragFraction ?: hoverFraction
     if (f != null && preview != null) Text(

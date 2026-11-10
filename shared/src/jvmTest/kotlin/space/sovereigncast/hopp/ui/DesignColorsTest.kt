@@ -2,11 +2,14 @@ package space.sovereigncast.hopp.ui
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import space.sovereigncast.hopp.ui.theme.Glow
 import space.sovereigncast.hopp.ui.theme.GlutDarkColors
 import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
 import space.sovereigncast.hopp.ui.theme.GlutLightColors
@@ -52,6 +55,31 @@ class DesignColorsTest {
             at(4.5f, "Nostr's text on its tint", nostr.text, nostr.tint)
         }
     }
+
+    /** [ground] under the design's now playing glow at its fullest, at a point of a phone's window (in dp). */
+    private fun lit(ground: Color, glows: List<Glow>, x: Float, y: Float, w: Float = 411f, h: Float = 891f): Color =
+        glows.fold(ground) { under, glow ->
+            val far = hypot((x - w * glow.x) / glow.radiusX.value, (y - h * glow.y - glow.dy.value) / glow.radiusY.value)
+            glow.color.copy(alpha = glow.color.alpha * (1f - far / glow.reach).coerceAtLeast(0f)).compositeOver(under)
+        }
+
+    /** Now playing's own light (PlayerLook) lies under text and controls: they hold on its brightest spot too. */
+    private fun holdsLit(scheme: ColorScheme, hopp: HoppColors, name: String) {
+        val look = hopp.player ?: error("$name has no player look")
+        for (x in 0..411 step 8) for (y in 0..891 step 8) {
+            val on = lit(scheme.background, look.glow, x.toFloat(), y.toFloat())
+            fun at(least: Float, what: String, a: Color) =
+                assertTrue(contrast(a, on) >= least, "$name, now playing at $x/$y: $what is ${contrast(a, on)}:1, at least $least:1 asked")
+            at(4.5f, "text", scheme.onSurface)
+            at(4.5f, "secondary text", scheme.onSurfaceVariant)
+            at(4.5f, "orange text", hopp.valueText)
+            at(3f, "a control's edge", scheme.outline)
+            at(3f, "the progress bar", hopp.progressTrack)
+        }
+    }
+
+    @Test fun glutsNowPlayingByDay() = holdsLit(GlutLightScheme, GlutLightColors, "Glut, light")
+    @Test fun glutsNowPlayingByNight() = holdsLit(GlutDarkScheme, GlutDarkColors, "Glut, dark")
 
     @Test fun glutByDay() = holds(GlutLightScheme, GlutLightColors, "Glut, light")
     @Test fun glutByNight() = holds(GlutDarkScheme, GlutDarkColors, "Glut, dark")

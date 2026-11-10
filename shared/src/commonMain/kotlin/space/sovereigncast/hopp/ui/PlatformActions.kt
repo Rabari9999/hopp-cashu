@@ -21,6 +21,8 @@ interface PlatformActions {
     val canAutoDownload: Boolean get() = canDownload
     /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments. */
     val canPay: Boolean get() = true
+    /** Whether the listener asked the system for less movement (ADR 0016): what only decorates stands still then. */
+    val reduceMotion: Boolean get() = false
     /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
     val paysWithBrowser: Boolean get() = false
     /** A new build of Hopp Web waiting to take over (its version) — the service worker's (ADR 0022, 14); null in the apps. */

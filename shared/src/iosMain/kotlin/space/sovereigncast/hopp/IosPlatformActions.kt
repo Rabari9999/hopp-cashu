@@ -45,6 +45,7 @@ class IosPlatformActions : PlatformActions {
     override val appLanguages: Map<String, String> get() = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
     override val appLanguage: String? get() = IosLanguage.chosen.value
     override fun setAppLanguage(code: String?) = IosLanguage.choose(code)
+    override val reduceMotion: Boolean get() = platform.UIKit.UIAccessibilityIsReduceMotionEnabled()
 
     /** The picker holds its delegate weakly: kept here while it is open. */
     private var pickerDelegate: NSObject? = null

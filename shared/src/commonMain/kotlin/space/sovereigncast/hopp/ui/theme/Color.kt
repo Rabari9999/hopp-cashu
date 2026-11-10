@@ -93,6 +93,29 @@ data class HoppColors(
     val nostr: NostrColors? = null,
     /** The heard part of a progress bar, where the design gives it a colour; else the text's. */
     val progressFill: Color? = null,
+    /** What the design does to now playing beyond its colours; nothing in most. */
+    val player: PlayerLook? = null,
+)
+
+/**
+ * A design's own hand on now playing — a trial with Glut (maintainer 2026-11-10): the light sits
+ * where the controls are, not behind the top bar, and lives while something plays.
+ */
+@Immutable
+data class PlayerLook(
+    /** Now playing's ground in place of [HoppColors.glow]: whole while it plays, [rest] of it paused. */
+    val glow: List<Glow>,
+    val rest: Float,
+    /** The light the cover throws below itself. */
+    val coverLight: Color,
+    /** A halo round the play button; none where the ground is too bright to show one. */
+    val playHalo: Color? = null,
+    /** The heard part of the progress bar runs from this to its own colour. Never orange: that is money's. */
+    val fillFrom: Color? = null,
+    /** A shimmer along the heard part and round its knob. */
+    val heat: Color? = null,
+    /** Sparks rising from the window's foot while it plays. */
+    val sparks: Color? = null,
 )
 
 /** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
@@ -168,6 +191,14 @@ internal val GlutLightColors = HoppColors(
     value = BitcoinOrange, onValue = Color(0xFF1C120A), valueText = Color(0xFFA05000), progressTrack = Color(0xFF8C7561), ok = Color(0xFF2A7048),
     page = Color.Transparent,
     glow = listOf(Glow(Color(0xFFF9D3A1), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
+    // Half as strong as the window's glow: the show notes' orange time marks can lie on this one.
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x80F9D3A1), x = 0.5f, y = 0.86f, dy = 0.dp, radiusX = 490.dp, radiusY = 380.dp, reach = 0.72f),
+            Glow(Color(0x80F9D3A1), x = 1.05f, y = 1.08f, dy = 0.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
+        ),
+        rest = 0.6f, coverLight = Color(0x59965014),
+    ),
 )
 internal val GlutDarkColors = HoppColors(
     value = BitcoinOrange, onValue = Color(0xFF1A1410), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF8A7663), ok = Color(0xFF86C9A1),
@@ -175,6 +206,16 @@ internal val GlutDarkColors = HoppColors(
     glow = listOf(
         Glow(Color(0x29D65A14), x = 1f, y = 1.1f, dy = 0.dp, radiusX = 900.dp, radiusY = 600.dp, reach = 0.7f),
         Glow(Color(0x61F7931A), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
+    ),
+    // The fire burns below. No stronger than this: secondary text lies on it (DesignColorsTest).
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x3BF7931A), x = 0.5f, y = 0.86f, dy = 0.dp, radiusX = 450.dp, radiusY = 340.dp, reach = 0.72f),
+            Glow(Color(0x66D63C14), x = 1.05f, y = 1.08f, dy = 0.dp, radiusX = 575.dp, radiusY = 410.dp, reach = 0.7f),
+            Glow(Color(0x4DA0280A), x = -0.1f, y = 1.04f, dy = 0.dp, radiusX = 520.dp, radiusY = 330.dp, reach = 0.7f),
+        ),
+        rest = 0.55f, coverLight = Color(0x73E66E1E), playHalo = Color(0x99FFB464),
+        fillFrom = Color(0xFFFFC98A), heat = Color(0xFFFFB464), sparks = Color(0xFFFFC98A),
     ),
 )
 

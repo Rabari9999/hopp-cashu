@@ -181,6 +181,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override val canPickLanguage: Boolean get() = Build.VERSION.SDK_INT >= 33
 
+    // "Remove animations" in the accessibility settings sets the scale to nought.
+    override val reduceMotion: Boolean get() = android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+
     override fun openLanguageSettings() {
         if (Build.VERSION.SDK_INT < 33) return
         runCatching { startActivity(Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, android.net.Uri.fromParts("package", packageName, null))) }
