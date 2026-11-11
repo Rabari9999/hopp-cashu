@@ -46,6 +46,7 @@ description: |
 
   - ✅ Podcast Index: search, categories, your shows' recommendations, new shows that take sats, popular right now
   - ✅ Optionally fyyd and Apple, a feed address, OPML import and export – moving over from another app is easy
+  - ✅ Search your library: shows, episodes, chapters and the comments you have read
 
   **Sovereigncast shows**
 
@@ -55,6 +56,7 @@ description: |
 
   - ✅ A privacy page: who sees what when you listen, and what you can do about it
   - ✅ Notifications for boosts and zaps, set for each on its own
+  - ✅ Four designs – Hopp, Glut, Relay and Coldstorage – each with its own now playing screen
   - ✅ Phones and tablets, upright and sideways, light and dark, English and German; Spanish, French, Italian and Portuguese as a preview
 
   Hopp is open source (MIT).

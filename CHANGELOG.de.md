@@ -6,12 +6,14 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-11
+
 ### 🆕 New Features
 - **Designs:** Neues Design Coldstorage: frostiges Blau wie Schnee und Eis.
 - **Designs:** Jedes Design hat eine eigene Wiedergabe – Feuer bei Glut, Eis bei Coldstorage, ein Netz bei Relay, Ringe bei Hopp –, die auf Boosts reagiert.
 - **Entdecken:** Die Suche findet auch Shows, Folgen, Kapitel und Kommentare in deiner Bibliothek.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, wo der Server der Show es zulässt.
-- **Nostr:** Auch Zaps deiner Nostr-Kontakte und die Shows, denen sie auf Nostr folgen, zählen mit.
+- **Nostr:** Bei einer Show siehst du auch, welche deiner Nostr-Kontakte sie gezappt haben oder ihr auf Nostr folgen.
 - **Player:** Kapiteltasten in der Player-Leiste auf breiten Bildschirmen.
 - **Sync:** „Details“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
 - **Nostr:** Ein Hinweis, wenn zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar antworten.

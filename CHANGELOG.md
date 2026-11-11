@@ -6,12 +6,14 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-11
+
 ### 🆕 New Features
 - **Designs:** New design Coldstorage: frosty blue like snow and ice.
 - **Designs:** Every design has its own now playing screen – Glut's fire, Coldstorage's ice, Relay's network, Hopp's rings – that reacts to boosts.
 - **Discover:** The search also finds shows, episodes, chapters and comments in your library.
 - **Web:** Skip silence and volume boost in Hopp Web too, where the show's server allows it.
-- **Nostr:** Your Nostr contacts' zaps and the shows they follow on Nostr count too.
+- **Nostr:** For a show, you also see which of your Nostr contacts zapped it or follow it on Nostr.
 - **Player:** Chapter buttons in the player bar on wide screens.
 - **Sync:** "Details" shows how the last sync went, relay by relay.
 - **Nostr:** A note when too few relays answer for your profile, your Nostr contacts or a comment.

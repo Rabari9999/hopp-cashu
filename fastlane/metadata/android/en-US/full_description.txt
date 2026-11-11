@@ -35,6 +35,7 @@
 <ul>
 <li>✅ Podcast Index: search, categories, your shows' recommendations, new shows that take sats, popular right now</li>
 <li>✅ Optionally fyyd and Apple, a feed address, OPML import and export – moving over from another app is easy</li>
+<li>✅ Search your library: shows, episodes, chapters and the comments you have read</li>
 </ul>
 
 <p><b>Sovereigncast shows</b></p>
@@ -46,6 +47,7 @@
 <ul>
 <li>✅ A privacy page: who sees what when you listen, and what you can do about it</li>
 <li>✅ Notifications for boosts and zaps, set for each on its own</li>
+<li>✅ Four designs – Hopp, Glut, Relay and Coldstorage – each with its own now playing screen</li>
 <li>✅ Phones and tablets, upright and sideways, light and dark, English and German; Spanish, French, Italian and Portuguese as a preview</li>
 </ul>
 
