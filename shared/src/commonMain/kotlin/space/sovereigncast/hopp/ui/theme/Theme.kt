@@ -45,7 +45,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.unit.toSize
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalDensity
@@ -110,7 +109,7 @@ fun Modifier.pageGround(material: Boolean = true): Modifier {
     val made = look?.material?.takeIf { it !is Material.Waves }
     if (glows.isEmpty() && grain == null && made == null) return background(ground)
     val place = remember { Place() }
-    return onGloballyPositioned(place::at).drawWithCache {
+    return onGloballyPositioned { place.at(it) }.drawWithCache {
         val window = place.window
         val facets = (made as? Material.Facets)?.let { facets(it, window) }
         val mesh = (made as? Material.Mesh)?.let { mesh(it, window) }
@@ -134,11 +133,16 @@ internal const val PAGE_SHARE = 0.5f
 
 /** Where a ground lies in the window, and how large that is: a material is one sheet over the whole window, and each ground shows its cut of it. */
 private class Place {
-    var origin by mutableStateOf(Offset.Zero)
-    var window by mutableStateOf(Size.Zero)
+    // Plain states read by .value, and called from a lambda: a delegated property of a file's own class, or a
+    // reference to a function of it (place::at), puts this file's path on the build machine into the web
+    // build as the name of what is referred to (web/deploy/build.sh refuses such a build).
+    private val origins = mutableStateOf(Offset.Zero)
+    private val windows = mutableStateOf(Size.Zero)
+    val origin: Offset get() = origins.value
+    val window: Size get() = windows.value
     fun at(where: LayoutCoordinates) {
-        origin = where.positionInRoot()
-        window = where.findRootCoordinates().size.toSize()
+        origins.value = where.positionInRoot()
+        windows.value = where.findRootCoordinates().size.toSize()
     }
 }
 
@@ -184,7 +188,7 @@ fun Modifier.playerGround(
     val waves = look.material as? Material.Waves
     val swell = if (alive && waves != null) rememberInfiniteTransition().animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing))) else null
     val place = remember { Place() }
-    return onGloballyPositioned(place::at).drawWithCache {
+    return onGloballyPositioned { place.at(it) }.drawWithCache {
         val grown = if (look.spread) maxOf(1f, size.minDimension / SPREAD_WINDOW.toPx()) else 1f
         val window = place.window
         val facets = (look.material as? Material.Facets)?.let { facets(it, window) }
