@@ -9,7 +9,6 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🆕 New Features
 - **Designs:** Neues Design Coldstorage: frostiges Blau wie Schnee und Eis.
 - **Designs:** Jedes Design hat eine eigene Wiedergabe – Feuer bei Glut, Eis bei Coldstorage, ein Netz bei Relay, Ringe bei Hopp –, die auf Boosts reagiert.
-- **Designs:** Der Look des Designs liegt jetzt unter jeder Seite, dem Mini-Player und der Player-Leiste.
 - **Entdecken:** Die Suche findet auch Shows, Folgen, Kapitel und Kommentare in deiner Bibliothek.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, wo der Server der Show es zulässt.
 - **Nostr:** Auch Zaps deiner Nostr-Kontakte und die Shows, denen sie auf Nostr folgen, zählen mit.

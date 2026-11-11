@@ -9,7 +9,6 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ### 🆕 New Features
 - **Designs:** New design Coldstorage: frosty blue like snow and ice.
 - **Designs:** Every design has its own now playing screen – Glut's fire, Coldstorage's ice, Relay's network, Hopp's rings – that reacts to boosts.
-- **Designs:** The design's look now runs under every page, the mini player and the player bar.
 - **Discover:** The search also finds shows, episodes, chapters and comments in your library.
 - **Web:** Skip silence and volume boost in Hopp Web too, where the show's server allows it.
 - **Nostr:** Your Nostr contacts' zaps and the shows they follow on Nostr count too.
