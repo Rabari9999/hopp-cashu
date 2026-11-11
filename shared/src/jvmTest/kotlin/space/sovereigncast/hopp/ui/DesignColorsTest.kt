@@ -21,6 +21,7 @@ import space.sovereigncast.hopp.ui.theme.DarkScheme
 import space.sovereigncast.hopp.ui.theme.LightHoppColors
 import space.sovereigncast.hopp.ui.theme.DarkHoppColors
 import space.sovereigncast.hopp.ui.theme.PAGE_SHARE
+import space.sovereigncast.hopp.ui.theme.BAR_LIGHT
 import space.sovereigncast.hopp.ui.theme.Material
 import space.sovereigncast.hopp.ui.theme.SPREAD_WINDOW
 import space.sovereigncast.hopp.ui.theme.ColdstorageDarkColors
@@ -135,6 +136,12 @@ class DesignColorsTest {
             at(4.5f, "secondary text on the bar's light", scheme.onSurfaceVariant, on)
             at(3f, "the progress bar on the bar's light", hopp.progressTrack, on)
             at(3f, "the heard part on the bar's light", hopp.progressFill ?: scheme.onSurface, on)
+        }
+        (look.material as? Material.Waves)?.let { waves ->
+            val on = waves.light.copy(alpha = waves.light.alpha * BAR_LIGHT).compositeOver(scheme.surface)
+            at(4.5f, "text on the bar's light", scheme.onSurface, on)
+            at(4.5f, "secondary text on the bar's light", scheme.onSurfaceVariant, on)
+            at(3f, "the progress bar on the bar's light", hopp.progressTrack, on)
         }
         look.playFill?.forEach { at(3f, "the sign on the play button", scheme.onPrimary, it) }
         assertTrue(worst.isEmpty(), "$name, now playing:\n" + worst.values.joinToString("\n") { it.second })

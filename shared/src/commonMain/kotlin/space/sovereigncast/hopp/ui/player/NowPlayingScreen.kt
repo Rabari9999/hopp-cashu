@@ -259,7 +259,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             // unless the design lights now playing itself: then the column has that light too.
             .then(
                 if (inPane && Hopp.colors.player == null) Modifier.background(Hopp.colors.page)
-                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }, sent = { sent.value }, play = { playAt }),
+                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }, sent = { sent.value }, play = { playAt }, beside = inPane),
             )
             .safeDrawingPadding()
             .pointerInput(inPane) {

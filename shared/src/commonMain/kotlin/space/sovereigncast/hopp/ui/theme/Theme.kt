@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -175,6 +177,12 @@ fun Modifier.playerGround(
     playing: Boolean, moving: Boolean, boost: () -> Float = { 0f }, sent: () -> Float = { 0f },
     /** The middle of the play button in the window, once it is known: where [Material.Waves] come from. */
     play: () -> Offset? = { null },
+    /**
+     * As a column beside the content: it comes out of the page's ground over [SEAM] from its edge towards the
+     * content, so the two meet without a step in light (maintainer 2026-11-11: the window's glow ended at the
+     * column's edge). Between the two grounds lies a mix of them, never brighter than the brighter one.
+     */
+    beside: Boolean = false,
 ): Modifier {
     val look = Hopp.colors.player ?: return pageGround()
     val ground = MaterialTheme.colorScheme.background
@@ -193,7 +201,13 @@ fun Modifier.playerGround(
         val window = place.window
         val facets = (look.material as? Material.Facets)?.let { facets(it, window) }
         val mesh = (look.material as? Material.Mesh)?.let { mesh(it, window) }
+        val seam = if (beside) Brush.horizontalGradient(
+            listOf(Color.Transparent, Color.Black),
+            startX = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width, endX = if (layoutDirection == LayoutDirection.Ltr) SEAM.toPx() else size.width - SEAM.toPx(),
+        ) else null
         onDrawBehind {
+            val canvas = drawContext.canvas
+            if (seam != null) canvas.saveLayer(Rect(Offset.Zero, size), Paint())
             drawRect(ground)
             clipRect {
                 val boosted = if (moving) boost() else 0f
@@ -212,9 +226,16 @@ fun Modifier.playerGround(
                 if (drift != null && look.sparks != null) sparks(look.sparks, drift.value, lit)
                 if (boosted > 0f && look.sparks != null) burst(look.sparks, boosted)
             }
+            if (seam != null) {
+                drawRect(seam, blendMode = BlendMode.DstIn)
+                canvas.restore()
+            }
         }
     }
 }
+
+/** How far into the column beside the content the page's ground reaches before it is all now playing's. */
+private val SEAM = 200.dp
 
 /** Seconds of a round of what lives on a material. */
 private const val ROUND = 60
@@ -343,8 +364,7 @@ private fun CacheDrawScope.mesh(material: Material.Mesh, size: Size): Net {
  * of it; fine rings that fade with their distance; and, while it plays ([swell], a round from 0 to 1, else null),
  * two waves going out one after the other.
  */
-private fun DrawScope.waves(material: Material.Waves, at: Offset, strength: Float, swell: Float?) {
-    val reach = WAVE_REACH.toPx()
+private fun DrawScope.waves(material: Material.Waves, at: Offset, strength: Float, swell: Float?, reach: Float = WAVE_REACH.toPx()) {
     drawCircle(Brush.radialGradient(listOf(material.light.copy(alpha = material.light.alpha * strength), Color.Transparent), at, reach * 0.8f), reach * 0.8f, at)
     val hair = Stroke(1.dp.toPx())
     val step = WAVE_STEP.toPx()
@@ -370,23 +390,35 @@ private val NODE_GROUND = 96.dp
  * the look's rest of it paused. It does not move: it is in view on every page.
  */
 @Composable
-fun Modifier.barGround(playing: Boolean): Modifier {
+fun Modifier.barGround(playing: Boolean, play: () -> Offset? = { null }): Modifier {
     val ground = MaterialTheme.colorScheme.surface
     val look = Hopp.colors.player
-    val light = look?.bar ?: return background(ground)
+    val light = look?.bar
+    // Hopp's rings lie round the play button here too, where the bar says where that is ([play], within the bar).
+    val waves = look?.material as? Material.Waves
+    if (look == null || light == null && waves == null) return background(ground)
     val lit by animateFloatAsState(if (playing) 1f else 0f, tween(1200))
     return drawBehind {
         drawRect(ground)
         clipRect {
-            val foot = Offset(size.width / 2, size.height)
-            val radius = size.height * 1.6f
-            val color = light.copy(alpha = light.alpha * (look.rest + (1f - look.rest) * lit))
-            scale(size.width * 0.6f / radius, 1f, foot) {
-                drawCircle(Brush.radialGradient(listOf(color, color.copy(alpha = 0f)), foot, radius), radius, foot)
+            val strength = look.rest + (1f - look.rest) * lit
+            if (light != null) {
+                val foot = Offset(size.width / 2, size.height)
+                val radius = size.height * 1.6f
+                val color = light.copy(alpha = light.alpha * strength)
+                scale(size.width * 0.6f / radius, 1f, foot) {
+                    drawCircle(Brush.radialGradient(listOf(color, color.copy(alpha = 0f)), foot, radius), radius, foot)
+                }
             }
+            if (waves != null) play()?.let { waves(waves, it, strength * BAR_LIGHT, null, BAR_WAVE_REACH.toPx()) }
         }
     }
 }
+
+private val BAR_WAVE_REACH = 240.dp
+
+/** How much of [Material.Waves]' light the bar has: the card it lies on is lighter than the page. */
+internal const val BAR_LIGHT = 0.5f
 
 /** How far the glow leaps at the height of a flare; `DesignColorsTest` looks that far below the window's foot too. */
 internal val FLARE_LIFT = 48.dp

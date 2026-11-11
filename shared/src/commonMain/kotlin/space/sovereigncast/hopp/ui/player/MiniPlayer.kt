@@ -80,6 +80,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.BoxScope
@@ -189,7 +191,10 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
     val position = state.positionMs
     val look = Hopp.colors.player
     val times = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = if (look?.mono == true) "tnum" else null)
-    Column(Modifier.fillMaxWidth().barGround(state.isPlaying).then(foot)) {
+    // Where the play button is within the bar: what the bar's ground draws round it. Read while drawing only.
+    var barAt by remember { mutableStateOf(Offset.Zero) }
+    var playAt by remember { mutableStateOf<Offset?>(null) }
+    Column(Modifier.fillMaxWidth().onGloballyPositioned { barAt = it.positionInRoot() }.barGround(state.isPlaying) { playAt?.minus(barAt) }.then(foot)) {
         HorizontalDivider(color = colors.outlineVariant)
         Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
@@ -218,7 +223,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                     IconButton(onClick = model::skipBack) {
                         SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                     }
-                    PlayButton(state, 44.dp, 22.dp, Modifier.padding(horizontal = 12.dp)) { model.togglePlay() }
+                    PlayButton(state, 44.dp, 22.dp, Modifier.padding(horizontal = 12.dp).onGloballyPositioned { playAt = it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f) }) { model.togglePlay() }
                     IconButton(onClick = model::skipForward) {
                         SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
                     }

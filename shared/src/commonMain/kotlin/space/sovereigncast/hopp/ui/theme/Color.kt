@@ -508,7 +508,7 @@ internal val ColdstorageLightColors = HoppColors(
             Glow(Color(0x80CFE9F6), x = -0.05f, y = 1f, dy = 0.dp, radiusX = 420.dp, radiusY = 300.dp, reach = 0.7f),
         ),
         spread = true, rest = 0.75f, coverLight = Color(0x400B4F80), coverEdge = Color(0xB3FFFFFF), playHalo = Color(0x400B4F80),
-        material = Material.Facets(fill = Color(0x59FFFFFF), edge = Color(0xB3FFFFFF)),
+        material = Material.Facets(fill = Color(0x8CFFFFFF), edge = Color(0x472E7FB0)),
         shapes = IceShapes, progress = ProgressStyle.Notches, playFill = listOf(Color(0xFF1C79B4), Color(0xFF0B4F80)),
         panel = Color(0x8CFFFFFF), panelEdge = SolidColor(Color(0xE6FFFFFF)), chip = Color(0x8CFFFFFF), chipEdge = SolidColor(Color(0xE6FFFFFF)),
         boostGlow = Color(0x66F7931A), frost = Color(0xE6FFFFFF),

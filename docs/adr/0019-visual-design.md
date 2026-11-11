@@ -420,3 +420,17 @@ Coldstorage — the switch is Material's everywhere, and one weight less to keep
   that a facet over the window's glow takes nothing from text, secondary and orange
   text and a control's edge that the glow alone leaves them (`pagesHold`).
 
+Three things from the first look at it (maintainer 2026-11-11):
+
+- **The bar along a wide window's foot has Hopp's rings too**, round its play button
+  and still, with half the light (`BAR_LIGHT`): the card the bar lies on is lighter
+  than the page, and the progress bar has to hold on it.
+- **The column of now playing comes out of the page's ground.** The window's glow
+  ended at the column's edge, a step in light down the whole window. The column's
+  ground now fades in over 200 dp from that edge (`playerGround(beside = true)`):
+  at the edge it is the page's ground, further in now playing's. In between lies a
+  mix of two tested grounds, never brighter than the brighter one.
+- **Coldstorage's facets by day have edges of glacier blue** instead of white ones:
+  on snow the white ones were hardly seen. The fill stays white — a blue one that
+  shows would take the progress bar below 3:1.
+
