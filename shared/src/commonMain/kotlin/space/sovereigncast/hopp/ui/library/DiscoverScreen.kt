@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items
@@ -148,8 +149,13 @@ import space.sovereigncast.hopp.ui.LocalPlatformActions
 fun DiscoverScreen(
     onPreview: (String, DirectoryShow?) -> Unit,
     onPerson: (PersonRef) -> Unit = {},
+    /** An episode of the library search's, and all its hits for a term (maintainer 2026-11-10). */
+    onEpisode: (Long) -> Unit = {},
+    onAllHits: (String) -> Unit = {},
     vm: DiscoverViewModel = koinViewModel(), settingsVm: SettingsViewModel = koinViewModel(),
 ) {
+    val library by vm.library.collectAsState()
+    val player: space.sovereigncast.hopp.player.PlayerController = org.koin.compose.koinInject()
     val persons by vm.persons.collectAsState()
     val query by vm.query.collectAsState()
     val valueOnly by vm.valueOnly.collectAsState()
@@ -181,9 +187,22 @@ fun DiscoverScreen(
     // Larger rows from a tablet's width (device feedback 2026-10-13, ADR 0020).
     BoxWithConstraints(Modifier.fillMaxWidth()) {
       if (allCategories) CategorySheet(myCategories, onSelect = { vm.selectCategory(it); allCategories = false }, onDismiss = { allCategories = false })
+      // What the library holds for the term (maintainer 2026-11-10): above the directories' answers; on a wide
+      // screen beside them. There the field stands above both, with hits or without: moved when the first hits
+      // came, it lost the focus and the letters typed after (maintainer 2026-11-10).
+      val found = library?.takeIf { searchable(q) && it.total > 0 }
+      val wide = maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH
+      val section: androidx.compose.foundation.lazy.LazyListScope.(space.sovereigncast.hopp.data.LibraryHits) -> Unit = { hits ->
+          librarySection(
+              hits, onAll = { vm.remember(q); onAllHits(q) },
+              onShow = { s -> vm.remember(q); onPreview(s.feedUrl, DirectoryShow(s.title, s.feedUrl, s.author, s.imageUrl)) },
+              onEpisode = { e -> vm.remember(q); onEpisode(e.id) },
+              onPlay = { e -> player.play(e, expand = false) },
+              onPlayAt = { e, ms -> player.playAt(e, ms) },
+          )
+      }
       CompositionLocalProvider(LocalLargeRows provides (maxWidth >= MEDIUM_WIDTH)) {
-        LazyColumn(Modifier.fillMaxWidth()) {
-            item {
+        val field: @Composable () -> Unit = {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = query, onValueChange = vm::setQuery, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -210,8 +229,8 @@ fun DiscoverScreen(
                         Text(stringResource(Res.string.discover_privacy, sources.joinToString(", ")), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     }
                 }
-            }
-
+        }
+        val rest: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
             // What Hopp knows that starts to match, at once (device feedback 2026-10-14).
             val suggested = if (searchable(q)) suggestions else emptyList()
             if (suggested.isNotEmpty()) {
@@ -223,7 +242,7 @@ fun DiscoverScreen(
                     }
                 }
             }
-            val shownAbove = suggested.map { feedKey(it.feedUrl) }.toSet()
+            val shownAbove = (suggested.map { feedKey(it.feedUrl) } + found?.shows.orEmpty().map { feedKey(it.feedUrl) }).toSet()
             when (val s = search) {
                 SearchUi.Searching -> item {
                     Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
@@ -339,6 +358,17 @@ fun DiscoverScreen(
                     }
                 }
             }
+        }
+        if (wide) Column(Modifier.fillMaxSize()) {
+            field()
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                if (found != null) LazyColumn(Modifier.weight(1f)) { section(found) }
+                LazyColumn(Modifier.weight(1f)) { rest() }
+            }
+        } else LazyColumn(Modifier.fillMaxWidth()) {
+            item { field() }
+            found?.let { section(it) }
+            rest()
         }
       }
     }

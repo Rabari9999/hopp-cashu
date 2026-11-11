@@ -35,6 +35,7 @@
 <ul>
 <li>✅ Podcast Index: Suche, Kategorien, Empfehlungen deiner Shows, neue Shows, die Sats annehmen, gerade beliebt</li>
 <li>✅ Wahlweise fyyd und Apple, Feed-Adresse, OPML-Import und -Export – der Umzug aus einer anderen App ist leicht</li>
+<li>✅ Deine Bibliothek durchsuchen: Shows, Folgen, Kapitel und die Kommentare, die du gelesen hast</li>
 </ul>
 
 <p><b>Sovereigncast-Shows</b></p>
@@ -46,6 +47,7 @@
 <ul>
 <li>✅ Eine Seite zur Privatsphäre: wer beim Hören was sieht – und was du dagegen tun kannst</li>
 <li>✅ Benachrichtigungen für Boosts und Zaps, für jeden Fall einzeln einstellbar</li>
+<li>✅ Vier Designs – Hopp, Glut, Relay und Coldstorage – jedes mit eigener Wiedergabe</li>
 <li>✅ Handy und Tablet, hochkant und quer, hell und dunkel, Deutsch und Englisch; Spanisch, Französisch, Italienisch und Portugiesisch als Vorschau</li>
 </ul>
 

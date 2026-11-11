@@ -22,9 +22,9 @@ class WebDatabaseTest {
             shows.map { feed ->
                 async {
                     db.transactionWithResult {
-                        db.podcastQueries.insert(feed, null, feed, null, null, "{}", null, null, 0, 0, "")
+                        db.podcastQueries.insert(feed, null, feed, null, null, "{}", null, null, 0, 0, "", null)
                         val id = db.podcastQueries.lastInsertId().awaitAsOne()
-                        for (n in 1..5) db.episodeQueries.insertIfNew(id, "$feed#$n", "$feed #$n", n.toLong(), null, null, null, null, null, "{}", 0, 0, 0)
+                        for (n in 1..5) db.episodeQueries.insertIfNew(id, "$feed#$n", "$feed #$n", n.toLong(), null, null, null, null, null, "{}", 0, 0, 0, null)
                         feed to id
                     }
                 }

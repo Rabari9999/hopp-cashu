@@ -108,6 +108,38 @@ async function device(name, ext = {}) {
   return { ctx, page, extension, writes, errors, refused, mirrored, buttons, has, press, pick, shot, reload };
 }
 
+/**
+ * The pixels of what [text] looks like in Discover's search field. Read in the page from a screenshot:
+ * Compose's canvas is WebGL and keeps no picture to read back.
+ */
+async function fieldPixels(d, text) {
+  await d.page.mouse.click(195, 110); await d.page.waitForTimeout(300);
+  await d.page.keyboard.press('ControlOrMeta+A');
+  await d.page.keyboard.insertText(text); await d.page.waitForTimeout(800);
+  // As bytes into a Blob: a data: address is a fetch the server's CSP refuses.
+  const png = [...await d.page.screenshot({ clip: { x: 20, y: 85, width: 120, height: 50 } })];
+  return d.page.evaluate(async (bytes) => {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const g = canvas.getContext('2d'); g.drawImage(bitmap, 0, 0);
+    return [...g.getImageData(0, 0, bitmap.width, bitmap.height).data];
+  }, png);
+}
+
+/** Emoji in colour and ₿ drawn, not an empty box — the fonts of resources/fonts, loaded after the first frame. */
+async function checkFonts(d) {
+  await d.press('Discover', 3000);
+  // Orange enough to be 🧡's, not the grey of a monochrome heart or of the text.
+  const coloured = (px) => { for (let i = 0; i < px.length; i += 4) if (px[i] - px[i + 2] > 120 && px[i + 1] > 60) return true; return false; };
+  let colour = false;
+  for (let i = 0; i < 10 && !colour; i++) { colour = coloured(await fieldPixels(d, '🧡')); if (!colour) await d.page.waitForTimeout(1500); }
+  check(colour, 'an emoji is drawn in colour');
+  // U+E000 is in no font: what an empty box looks like there.
+  const bitcoin = await fieldPixels(d, '₿'), box = await fieldPixels(d, '\uE000');
+  check(bitcoin.some((v, i) => v !== box[i]), '₿ is drawn, not an empty box');
+  await d.page.keyboard.press('ControlOrMeta+A'); await d.page.keyboard.press('Backspace');
+}
+
 /** A show found in Discover and opened — its preview, or its page when subscribed. */
 async function openShow(d, show) {
   await d.press('Discover', 3000);
@@ -133,6 +165,7 @@ const a = await device('a', { webln: true });
 for (let i = 0; i < 30 && !(await a.has('Skip')); i++) await a.page.waitForTimeout(500);
 check(await a.has('Skip'), 'the tour opens');
 await a.press('Skip', 4000);
+await checkFonts(a);
 await openShow(a, 'Nodesignal');
 await a.press('Subscribe', 8000);
 check(await a.has('Subscribed'), 'a show found and subscribed (feed through the proxy)');
@@ -148,6 +181,22 @@ check((await a.buttons()).some(b => b.trim() === 'Boost'), 'a boost is offered i
 await a.shot('playing');
 await a.press('Pause', 2000);
 
+// 1a. A desktop's window (maintainer 2026-11-09): the player bar names how far its skips go (see the screenshot),
+// and space plays and pauses although the skip clicked last keeps the focus.
+await a.page.setViewportSize({ width: 1280, height: 800 }); await a.page.waitForTimeout(2000);
+{
+  const forward = a.page.getByRole('button', { name: /^Forward \d+ seconds/ }).last();
+  const box = await forward.boundingBox().catch(() => null);
+  if (box) { await a.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await a.page.waitForTimeout(1500); }
+  check(!!box, "the bar's skip clicked with the mouse");
+  await a.shot('desktop-bar');
+  await a.page.keyboard.press('Space'); await a.page.waitForTimeout(3000);
+  check(await a.has('Pause'), 'space plays, not the skip clicked last');
+  await a.page.keyboard.press('Space'); await a.page.waitForTimeout(2000);
+  check(!(await a.has('Pause')), 'space pauses again');
+}
+await a.page.setViewportSize({ width: 390, height: 844 }); await a.page.waitForTimeout(2000);
+
 // 1b. The episode menu downloads into the browser (maintainer 2026-11-08); saving the audio file is for where
 // that is refused (1f).
 await a.press('More', 1500);
@@ -156,6 +205,38 @@ await a.press('More', 1500);
   check(menu.includes('Download') && !menu.includes('Save audio file'), 'the episode menu offers a download, not the file');
 }
 await a.reload();
+
+// 1b2. The library search (maintainer 2026-11-10): Discover finds the subscribed show's episodes on the device,
+// in the browser's database in its worker.
+await a.press('Discover', 2000);
+for (let i = 0; i < 5 && !(await a.mirrored('*')).some(t => t.includes('Search or feed address')); i++) {
+  await a.page.mouse.click(28, 32); await a.page.waitForTimeout(1500);
+}
+await a.page.mouse.click(195, 110); await a.page.waitForTimeout(300);
+await a.page.keyboard.press('ControlOrMeta+A');
+await a.page.keyboard.type('Nodesignal-Talk', { delay: 30 }); await a.page.waitForTimeout(4000);
+check((await a.buttons()).some(b => /^All \d+/.test(b.trim())), 'the library search finds the subscribed show’s episodes');
+await a.shot('library-search');
+await a.page.keyboard.press('ControlOrMeta+A'); await a.page.keyboard.press('Backspace'); await a.page.waitForTimeout(1000);
+// In a desktop's window the first hits stand beside the directories': the field keeps its focus and what is
+// typed after them, and a word is taken out again with select-all (maintainer 2026-11-10).
+await a.page.setViewportSize({ width: 1280, height: 800 }); await a.page.waitForTimeout(2000);
+{
+  // What the focused element holds: Compose's input exists only while the field has the focus — gone, this reads null.
+  const value = () => a.page.evaluate(() => {
+    let e = document.activeElement;
+    while (e?.shadowRoot?.activeElement) e = e.shadowRoot.activeElement;
+    return e && 'value' in e ? e.value : null;
+  });
+  const box = await a.page.getByRole('textbox').first().boundingBox();
+  await a.page.mouse.click(box.x + 40, box.y + box.height / 2); await a.page.waitForTimeout(500);
+  await a.page.keyboard.type('Nodes', { delay: 60 }); await a.page.waitForTimeout(2500);
+  await a.page.keyboard.type('ignal-Talk', { delay: 60 }); await a.page.waitForTimeout(2500);
+  check(await value() === 'Nodesignal-Talk', `the field keeps typing once the first hits are there (${await value()})`);
+  await a.page.keyboard.press('ControlOrMeta+A'); await a.page.keyboard.press('Backspace'); await a.page.waitForTimeout(2000);
+  check(await value() === '', `select-all and backspace empty the field (${await value()})`);
+}
+await a.page.setViewportSize({ width: 390, height: 844 }); await a.page.waitForTimeout(2000);
 
 // 1c. The browser's wallet (WebLN): taken on the wallet page, a boost sent through it with its boostagram.
 await a.press('Home', 2000); await a.press('Settings', 2000);
@@ -211,6 +292,26 @@ const toE71 = async () => {
   await a.page.keyboard.type('Preppersignal', { delay: 25 }); await a.page.keyboard.press('Enter'); await a.page.waitForTimeout(3000);
   await a.pick('Kommentar und Anmerkungen', 4000);
 };
+// Raise volume in the browser (maintainer 2026-11-09): the audio goes through the browser's processing where its
+// server allows the page to read it — this one's does, as a download into the browser needs it too — and it plays.
+const audioContexts = () => a.page.evaluate(() => (window.__contexts ?? []).map(c => c.state));
+const counting = () => a.page.evaluate(() => {
+  if (window.__contexts) return;
+  const C = window.AudioContext; window.__contexts = [];
+  window.AudioContext = class extends C { constructor(...x) { super(...x); window.__contexts.push(this); } };
+});
+await a.press('Home', 2000); await a.press('Settings', 2000); await a.press('Playback', 2000);
+await a.press('Raise volume', 2000);
+await a.reload(); await counting();
+await toE71();
+await a.press('Play', 8000);
+{
+  const states = await audioContexts();
+  const playing = await a.page.evaluate(() => navigator.mediaSession?.playbackState === 'playing');
+  check(states.length === 1 && states[0] === 'running' && playing, `raised, it plays through the browser's processing (${JSON.stringify(states)}, playing: ${playing})`);
+}
+await a.press('Pause', 1000);
+await a.reload();
 // WebKit fails blob: loads while Playwright intercepts anything (see device()): the refusal in Chromium only.
 if (!inWebKit) {
   await a.page.route(E71_AUDIO, r => r.abort('failed'));
@@ -233,9 +334,11 @@ await a.pick('Download', 10_000);
 await a.reload();
 await toE71();
 check((await a.mirrored('*')).some(t => t.includes('Downloaded')), 'an episode downloaded into the browser');
+await counting();
 await a.ctx.setOffline(true);
 await a.press('Play', 5000);
 check(await a.page.evaluate(() => navigator.mediaSession?.playbackState === 'playing'), 'it plays with the network gone');
+check((await audioContexts()).join() === 'running', 'raised there too: kept in the browser, it is the page\'s to process');
 await a.press('Pause', 1000);
 await a.ctx.setOffline(false);
 await a.reload();

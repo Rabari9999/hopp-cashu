@@ -14,7 +14,9 @@ private fun fetchLatin1(url: String): Promise<JsString> = js("""fetch(url)
   .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error('' + r.status)))
   .then(b => { const a = new Uint8Array(b); let s = ''; for (let i = 0; i < a.length; i += 32768) s += String.fromCharCode.apply(null, a.subarray(i, i + 32768)); return s; })""")
 
-private val FONTS = listOf("hopp_fallback_symbols", "hopp_fallback_math", "hopp_fallback_cjk", "hopp_fallback_emoji")
+// The symbols before the emoji: Hopp's own ⚡ and ✓ stay text, drawn in the text's colour; an emoji
+// asked for as one (✌️, ❤️ with U+FE0F) still comes in colour.
+private val FONTS = listOf("hopp_fallback_symbols", "hopp_fallback_math", "hopp_fallback_cjk", "hopp_fallback_currency", "hopp_fallback_emoji")
 
 /**
  * Symbols, emoji and the few other scripts Figtree lacks (resources/fonts), handed to

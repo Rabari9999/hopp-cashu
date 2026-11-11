@@ -84,6 +84,67 @@ class QueueAndSettingsSyncTest {
         assertEquals(setOf(SyncDocs.NOW_KEY), doc.beyondReach(mapOf(SyncDocs.NOW_KEY to entry)))
     }
 
+    /**
+     * Maintainer 2026-11-09: an episode out since the tablet last read its feed was nowhere there — what
+     * plays now and where waited for the next look at the feed, hours away. Its feed is read at once.
+     */
+    @Test
+    fun anEpisodeNotHereYetIsFetchedFromItsFeedAtOnce() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val newest = guids(phone).first()
+        phone.sync.enable()
+        // The tablet read the feed before the episode was out.
+        val tablet = SyncDevice(relay, scope, nsec)
+        tablet.feedText = { it.replace(Regex("<item>(?:(?!</item>).)*?${Regex.escape(newest)}.*?</item>", RegexOption.DOT_MATCHES_ALL), "") }
+        tablet.ms += 1_000
+        tablet.sync.enable()
+        assertTrue(newest !in guids(tablet), "not out yet when the tablet read it")
+        tablet.feedText = { it }
+
+        // Started on the phone, twelve minutes in.
+        phone.ms += 60_000
+        phone.episodes.savePosition(phone.id(newest), 720_000, paused = true)
+        phone.queue.noteNow(phone.id(newest))
+        phone.sync.syncNow()
+        val reads = tablet.feedReads.size
+        tablet.ms += 61_000
+        tablet.sync.syncNow()
+        assertEquals(1, tablet.feedReads.size - reads, "its feed, once")
+        assertEquals(listOf(tablet.id(newest)), tablet.nowAdopted)
+        assertEquals(720_000, tablet.episode(feed, newest).position_ms, "where the phone left it")
+
+        // Read now: not asked again each round.
+        tablet.ms += 60_000
+        tablet.sync.syncNow()
+        assertEquals(1, tablet.feedReads.size - reads)
+    }
+
+    /** A feed that no longer carries the episode is read once for it, not each round. */
+    @Test
+    fun aFeedWithoutTheEpisodeIsReadOnceForIt() = runBlocking<Unit> {
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.podcasts.subscribe(feed)
+        val oldest = guids(phone).last()
+        phone.sync.enable()
+        val tablet = SyncDevice(relay, scope, nsec)
+        val without: (String) -> String = { it.replace(Regex("<item>(?:(?!</item>).)*?${Regex.escape(oldest)}.*?</item>", RegexOption.DOT_MATCHES_ALL), "") }
+        tablet.feedText = without
+        tablet.ms += 1_000
+        tablet.sync.enable()
+
+        phone.ms += 60_000
+        phone.queue.noteNow(phone.id(oldest))
+        phone.sync.syncNow()
+        val reads = tablet.feedReads.size
+        tablet.ms += 61_000
+        tablet.sync.syncNow()
+        tablet.ms += 60_000
+        tablet.sync.syncNow()
+        assertEquals(1, tablet.feedReads.size - reads, "once, then it is known the feed has it not")
+        assertTrue(tablet.nowAdopted.isEmpty())
+    }
+
     /** Coming back to the app within the quarter of an hour: only what plays now and where, at most every two minutes. */
     @Test
     fun comingBackReadsWhatPlaysNowAndNotEverything() = runBlocking<Unit> {
@@ -243,6 +304,38 @@ class QueueAndSettingsSyncTest {
         browser.ms += 1_200_000
         browser.sync.syncNow()
         assertEquals(listOf(a, b), browser.queueGuids())
+    }
+
+    /** Maintainer 2026-11-10: a bot muted in the comments on the phone commented again in the browser. Who is muted and
+     *  what is hidden go along, and what two devices added meanwhile adds up. */
+    @Test
+    fun mutedPeopleAndHiddenCommentsGoAlong() = runBlocking<Unit> {
+        val (bot, troll, spam) = listOf("a", "b", "c").map { it.repeat(64) }
+        val phone = SyncDevice(relay, scope, nsec)
+        phone.sync.enable()
+        val browser = SyncDevice(relay, scope, nsec).also { it.ms = phone.ms + 60_000 }
+        browser.sync.enable()
+
+        phone.ms = browser.ms + 60_000
+        phone.settings.update { it.copy(mutedLocally = it.mutedLocally + bot, hiddenComments = it.hiddenComments + spam) }
+        browser.settings.update { it.copy(mutedLocally = it.mutedLocally + troll) }
+        phone.sync.syncNow()
+        browser.ms = phone.ms + 60_000
+        browser.sync.syncNow()
+        phone.ms = browser.ms + 60_000
+        phone.sync.syncNow()
+        assertEquals(setOf(bot, troll), browser.settings.current().mutedLocally)
+        assertEquals(setOf(bot, troll), phone.settings.current().mutedLocally)
+        assertEquals(setOf(spam), browser.settings.current().hiddenComments)
+
+        // A new device gets them with the rest.
+        val tablet = SyncDevice(relay, scope, nsec).also { it.ms = phone.ms + 60_000 }
+        tablet.sync.enable()
+        assertEquals(setOf(bot, troll), tablet.settings.current().mutedLocally)
+
+        // Only a key or an event's id.
+        SettingsDocument(tablet.settings).apply(mapOf(Settings.MUTED + "nope" to SyncEntry(1, d = SyncDocs.setting("1"))))
+        assertEquals(setOf(bot, troll), tablet.settings.current().mutedLocally)
     }
 
     @Test

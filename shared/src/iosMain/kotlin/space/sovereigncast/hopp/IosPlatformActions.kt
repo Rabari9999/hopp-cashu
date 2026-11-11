@@ -38,16 +38,14 @@ import platform.darwin.NSObject
  * any of these, so copying and sharing did nothing either).
  *
  * Not here, because iOS has no public way: VPN and network settings (the
- * privacy page shows no button for them on iOS). The per-app language is set
- * in Hopp's own page of the Settings app: the language entry opens that page.
+ * privacy page shows no button for them on iOS). The per-app language is
+ * chosen in Hopp itself ([IosLanguage]).
  */
 class IosPlatformActions : PlatformActions {
-    /** Hopp's own page of the Settings app, where iOS lists its languages (CFBundleLocalizations; maintainer 2026-11-03). */
-    override val canPickLanguage: Boolean get() = true
-    override fun openLanguageSettings() {
-        val url = NSURL.URLWithString(UIApplicationOpenSettingsURLString) ?: return
-        UIApplication.sharedApplication.openURL(url, emptyMap<Any?, Any?>(), null)
-    }
+    override val appLanguages: Map<String, String> get() = space.sovereigncast.hopp.ui.components.Languages.all.associate { it.code to it.name }
+    override val appLanguage: String? get() = IosLanguage.chosen.value
+    override fun setAppLanguage(code: String?) = IosLanguage.choose(code)
+    override val reduceMotion: Boolean get() = platform.UIKit.UIAccessibilityIsReduceMotionEnabled()
 
     /** The picker holds its delegate weakly: kept here while it is open. */
     private var pickerDelegate: NSObject? = null

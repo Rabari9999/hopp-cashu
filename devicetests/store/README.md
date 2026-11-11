@@ -17,11 +17,13 @@ build, English and German.
    adb -s emulator-5554 shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
    adb -s emulator-5554 shell settings put secure stylus_handwriting_enabled 0
    ```
-2. `setup.yaml` — Nodesignal and the shows its podroll recommends, and
-   Nodesignal's own playback (1.3×, intro 30 s) (English UI):
+2. `setup.yaml` — Nodesignal and the shows its podroll recommends, each by
+   its feed address (`subscribe.yaml`: since 0.4.2 Discover's search shows
+   the library's hits above the directories, and the shows' notes name each
+   other), and Nodesignal's own playback (1.3×, intro 30 s) (English UI):
    `maestro --device emulator-5554 test -e APP_ID=space.sovereigncast.hopp.beta devicetests/store/setup.yaml`
    Then `listen.yaml` plays an episode of three shows in turn — each show opened through
-   Discover's search and the episode through the show's own (since 0.4.0 the library's playlist and
+   Discover's search (its row "In your library") and the episode through the show's own (since 0.4.0 the library's playlist and
    downloads name the shows above them), for the
    stats and the playlist — Nodesignal's E298 last, the player's
    picture; each left playing a few minutes, then paused with

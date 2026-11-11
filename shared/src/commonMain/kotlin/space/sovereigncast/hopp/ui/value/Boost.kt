@@ -46,6 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -126,7 +131,13 @@ import space.sovereigncast.hopp.value.SkipReason
  * costs (ADR 0005).
  */
 @Composable
-fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}) {
+fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}, boost: () -> Float = { 0f }) {
+    // On now playing, where the design has a hand of its own (PlayerLook): its panel, its forms, and what a paid boost does to it.
+    val look = Hopp.colors.player
+    val shapes = Hopp.colors.shapes
+    val still = space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion
+    val value = Hopp.colors.value
+    var boostWidth by remember { mutableStateOf(0) }
     val settings by vm.current.collectAsState()
     val wallet by vm.connected.collectAsState()
     val rate by vm.rate.collectAsState()
@@ -144,69 +155,104 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     // No value block in the feed: nothing to boost or stream to (device feedback 2026-10-16).
     // A greyed bar that says so, in the same place and height — no jump, and no button that cannot work.
     if (hasValue == false) {
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp))
-                .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val wide = maxWidth >= WIDE_BAR
             Row(
-                Modifier.clip(RoundedCornerShape(50)).background(colors.surfaceVariant).padding(horizontal = 15.dp, vertical = 9.dp),
+                Modifier.fillMaxWidth().clip(shapes.panel).border(1.dp, colors.outlineVariant, shapes.panel)
+                    .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(HoppIcons.Hop, null, tint = colors.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(6.dp))
-                Text(stringResource(Res.string.np_boost), color = colors.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                Row(
+                    Modifier.clip(shapes.boost).background(colors.surfaceVariant).padding(horizontal = 15.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(HoppIcons.Hop, null, tint = colors.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(stringResource(Res.string.np_boost), color = colors.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                }
+                Text(stringResource(Res.string.np_no_value), Modifier.weight(1f).padding(horizontal = 12.dp),
+                    style = if (wide) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
             }
-            Text(stringResource(Res.string.np_no_value), Modifier.weight(1f).padding(horizontal = 12.dp), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
         }
         return
     }
 
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surface)
-            .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    // Wide, as in the browser on a desktop, the lines beside the boost button grow with the bar (maintainer 2026-11-09:
+    // a large bar, small text) — two of them still fit the button's height, so turning streaming on moves nothing.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val wide = maxWidth >= WIDE_BAR
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onBoost).padding(horizontal = 15.dp, vertical = 9.dp),
+            Modifier.fillMaxWidth().then(if (look?.hop == true && !still) Modifier.drawWithContent {
+                drawContent()
+                // A paid boost: money's dot hops once from the boost button over an arc, as in Hopp's mark.
+                val t = boost() / HOP_TIME
+                if (t > 0f && t < 1f) {
+                    val way = t * t * (3f - 2f * t)
+                    val from = Offset(8.dp.toPx() + boostWidth / 2f, 4.dp.toPx())
+                    val far = HOP_FAR.toPx()
+                    val at = Offset(from.x + far * way, from.y - HOP_HIGH.toPx() * 4f * way * (1f - way))
+                    drawCircle(value.copy(alpha = minOf(1f, (1f - t) / 0.2f)), 5.dp.toPx(), at)
+                }
+            } else Modifier).clip(shapes.panel).background(look?.panel ?: colors.surface)
+                .then(look?.panelEdge?.let { Modifier.border(1.dp, it, shapes.panel) } ?: Modifier.border(1.dp, colors.outlineVariant, shapes.panel))
+                .then(look?.frost?.takeIf { !still }?.let { frost ->
+                    Modifier.drawWithContent {
+                        drawContent()
+                        // A paid boost: frost goes over the bar once, from the boost button to the far end.
+                        val t = boost()
+                        if (t > 0f && t < FROST_TIME) {
+                            val band = size.width * 0.45f
+                            val at = -band + (size.width + 2 * band) * (t / FROST_TIME)
+                            drawRect(Brush.linearGradient(listOf(Color.Transparent, frost, Color.Transparent), Offset(at - band, 0f), Offset(at + band, size.height)))
+                        }
+                    }
+                } ?: Modifier)
+                .padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.size(6.dp))
-            Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
-        }
-        // Sent and set aside, and a tap says when and why (device feedback 2026-10-11).
-        Column(
-            Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                .then(if (streaming) Modifier.clickable(onClickLabel = stringResource(Res.string.stream_sheet_title)) { details = true } else Modifier)
-                .padding(horizontal = 12.dp, vertical = 2.dp),
-        ) {
-            Text(stringResource(Res.string.np_streaming, rate ?: 0), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            // Why nothing goes, where it would (device feedback 2026-10-26): a wallet that cannot
-            // reach anyone here, or one that does not answer.
-            if (streaming) Text(
-                when {
-                    reach?.percent == 0 -> stringResource(Res.string.np_not_possible) + " ›"
-                    over -> stringResource(Res.string.np_over_budget)
-                    silent -> stringResource(Res.string.np_wallet_silent) + " ›"
-                    else -> stringResource(Res.string.np_streamed_pending, formatSats(today / 1000), pendingSats(pending)) + " ›"
+            Row(
+                Modifier.then(look?.boostGlow?.let { glow ->
+                    // Orange is the one warm thing here: it glows a little way out of the button.
+                    Modifier.drawBehind { drawCircle(Brush.radialGradient(0.5f to glow, 1f to Color.Transparent, radius = size.width * 0.62f), size.width * 0.62f) }
+                } ?: Modifier).onSizeChanged { boostWidth = it.width }.clip(shapes.boost).background(Hopp.colors.value).clickable(onClick = onBoost).padding(horizontal = 15.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(6.dp))
+                Text(stringResource(Res.string.np_boost), color = Hopp.colors.onValue, fontWeight = FontWeight.Bold)
+            }
+            // Sent and set aside, and a tap says when and why (device feedback 2026-10-11).
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                    .then(if (streaming) Modifier.clickable(onClickLabel = stringResource(Res.string.stream_sheet_title)) { details = true } else Modifier)
+                    .padding(horizontal = 12.dp, vertical = 2.dp),
+            ) {
+                Text(stringResource(Res.string.np_streaming, rate ?: 0), style = if (wide) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                // Why nothing goes, where it would (device feedback 2026-10-26): a wallet that cannot
+                // reach anyone here, or one that does not answer.
+                if (streaming) Text(
+                    when {
+                        reach?.percent == 0 -> stringResource(Res.string.np_not_possible) + " ›"
+                        over -> stringResource(Res.string.np_over_budget)
+                        silent -> stringResource(Res.string.np_wallet_silent) + " ›"
+                        else -> stringResource(Res.string.np_streamed_pending, formatSats(today / 1000), pendingSats(pending)) + " ›"
+                    },
+                    style = if (wide) MaterialTheme.typography.bodySmall else MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText,
+                )
+            }
+            Switch(
+                checked = streaming,
+                onCheckedChange = { on ->
+                    when {
+                        !on -> vm.setStreaming(false)
+                        wallet == null -> onOpenWallet()
+                        else -> invite = true
+                    }
                 },
-                style = MaterialTheme.typography.labelSmall, color = Hopp.colors.valueText,
+                colors = SwitchDefaults.colors(checkedTrackColor = Hopp.colors.value, checkedThumbColor = Hopp.colors.onValue),
             )
         }
-        Switch(
-            checked = streaming,
-            onCheckedChange = { on ->
-                when {
-                    !on -> vm.setStreaming(false)
-                    wallet == null -> onOpenWallet()
-                    else -> invite = true
-                }
-            },
-            colors = SwitchDefaults.colors(checkedTrackColor = Hopp.colors.value, checkedThumbColor = Hopp.colors.onValue),
-        )
     }
-
     if (details) StreamSheet(vm, item, today, pending, rate ?: 0, onOpenEpisode = { details = false; onOpenEpisode(it) },
         onOpenWallet = { details = false; onOpenWallet() }) { details = false }
 
@@ -218,6 +264,14 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         dismissButton = { TextButton(onClick = { invite = false }) { Text(stringResource(Res.string.cancel)) } },
     )
 }
+
+/** The part of a boost's time (0…1, as now playing counts it) the frost takes to cross the value bar. */
+private const val FROST_TIME = 0.45f
+
+/** The part of a boost's time the hop takes, how far it goes and how high. */
+private const val HOP_TIME = 0.4f
+private val HOP_FAR = 130.dp
+private val HOP_HIGH = 56.dp
 
 /** Whole sats, and "<1" for a part of one — the bar has no room for decimals. */
 @Composable
@@ -355,6 +409,9 @@ private fun StreamFigure(label: String, value: String) = Row(Modifier.fillMaxWid
 
 /** 210 sats, the community’s symbolic amount, instead of 500 (device feedback 2026-10-19). */
 private val PRESETS = listOf(100L, 210L, 1_000L, 2_100L)
+
+/** From this width the value bar's lines grow with it. */
+private val WIDE_BAR = 480.dp
 
 /**
  * The boost dialog (ADR 0019): where in the episode, amount presets, message

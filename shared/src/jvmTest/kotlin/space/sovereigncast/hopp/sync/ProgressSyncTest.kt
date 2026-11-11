@@ -403,15 +403,17 @@ class ProgressSyncTest {
         phone.episodes.savePosition(phone.episode(feed, old).id, 500_000, paused = true)
         phone.sync.syncNow()
 
-        // The tablet read its feed before the phone listened: the episode may yet come.
+        // The tablet read its feed before the phone listened, and cannot read it now: the episode may yet come.
+        tablet.offline = true
         tablet.ms = phone.ms + 1_000
         assertEquals(1, tablet.sync.syncNow().pending)
-        // Read again since, and not in it: nothing to wait for.
+        // Read at once for the entry (maintainer 2026-11-09), and not in it: nothing to wait for.
+        tablet.offline = false
+        tablet.feedText = { it.replace(Regex("<item>(?:(?!</item>).)*?${Regex.escape(old)}.*?</item>", RegexOption.DOT_MATCHES_ALL), "") }
         tablet.ms += 1_000
-        tablet.podcasts.refresh(tablet.row(feed).id)
-        dropped()
         assertEquals(0, tablet.sync.syncNow().pending)
         // Back in the feed after all: taken.
+        tablet.feedText = { it }
         tablet.ms += 1_000
         tablet.podcasts.refresh(tablet.row(feed).id)
         tablet.sync.syncNow()

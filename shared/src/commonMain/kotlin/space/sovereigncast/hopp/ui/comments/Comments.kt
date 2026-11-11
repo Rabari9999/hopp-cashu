@@ -193,7 +193,16 @@ class CommentsViewModel(
         asked = true
         _state.value = (shown as? State.Loaded)?.copy(refreshing = true) ?: State.Loading
         viewModelScope.launch {
-            val thread = runCatching { repo.anchor(episodeId)?.let { repo.reader.load(it) } }.getOrNull()
+            // Each relay's answer shown as it comes (maintainer 2026-11-10); names and sats once for the first of them.
+            var detailed = false
+            val thread = runCatching {
+                repo.anchor(episodeId)?.let { anchor ->
+                    repo.reader.load(anchor) { partial ->
+                        _state.value = State.Loaded(partial, refreshing = true)
+                        if (!detailed && partial.comments.isNotEmpty()) { detailed = true; details(partial) }
+                    }
+                }
+            }.getOrNull()
             if (thread == null) { _state.value = (shown as? State.Loaded)?.copy(refreshing = false) ?: State.Failed; return@launch }
             // The relays' receipts count now, not twice.
             zappedHere.value = emptyMap()

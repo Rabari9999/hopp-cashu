@@ -31,6 +31,9 @@ class DbCommentStore(private val db: HoppDatabase) : CommentStore {
         db.transaction {
             seen.events.forEach { q.insertEvent(itemTag, it.id, json.encodeToString(Event.serializer(), it)) }
             q.upsertFetch(itemTag, seen.at, json.encodeToString(strings, seen.relays), json.encodeToString(strings, seen.muted.toList()), json.encodeToString(strings, seen.roots.toList()))
+            // What the library search finds of them (maintainer 2026-11-10): all kept so far, without who is muted now.
+            val kept = q.events(itemTag).awaitAsList().mapNotNull { runCatching { json.decodeFromString(Event.serializer(), it) }.getOrNull() }
+            space.sovereigncast.hopp.data.indexComments(db, itemTag, kept, seen.muted, seen.roots)
         }
     }
 

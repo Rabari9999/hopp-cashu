@@ -46,7 +46,7 @@ class SerialDriverTest {
     private fun bounded(block: suspend CoroutineScope.() -> Unit) = runBlocking { withTimeout(20.seconds, block) }
 
     private suspend fun HoppDatabase.addShow(feed: String) =
-        podcastQueries.insert(feed, null, feed, null, null, "{}", null, null, 0, 0, "")
+        podcastQueries.insert(feed, null, feed, null, null, "{}", null, null, 0, 0, "", null)
 
     private suspend fun HoppDatabase.feeds() = podcastQueries.selectAll().awaitAsList().map { it.feed_url }.toSet()
 
@@ -60,7 +60,7 @@ class SerialDriverTest {
                     db.transactionWithResult {
                         db.addShow(feed)
                         val id = db.podcastQueries.lastInsertId().awaitAsOne()
-                        for (n in 1..5) db.episodeQueries.insertIfNew(id, "$feed#$n", "$feed #$n", n.toLong(), null, null, null, null, null, "{}", 0, 0, 0)
+                        for (n in 1..5) db.episodeQueries.insertIfNew(id, "$feed#$n", "$feed #$n", n.toLong(), null, null, null, null, null, "{}", 0, 0, 0, null)
                         feed to id
                     }
                 }

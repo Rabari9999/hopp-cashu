@@ -529,7 +529,11 @@ class DiscoverViewModel(
     private val scDirectory: space.sovereigncast.hopp.sovereigncast.ScDirectory,
     private val people: space.sovereigncast.hopp.data.PeopleRepository,
     private val contacts: space.sovereigncast.hopp.contacts.ContactsRepository? = null,
+    private val librarySearch: space.sovereigncast.hopp.data.LibrarySearch? = null,
 ) : ViewModel() {
+    private val _library = MutableStateFlow<space.sovereigncast.hopp.data.LibraryHits?>(null)
+    /** What the subscribed shows hold for the term (maintainer 2026-11-10) — read on the device, before the directories answer. */
+    val library: StateFlow<space.sovereigncast.hopp.data.LibraryHits?> = _library.asStateFlow()
     private val _people = MutableStateFlow<List<space.sovereigncast.hopp.data.PersonMatch>>(emptyList())
     /** People in the subscribed shows whose name holds the term (0.3.1) — found here, on the device. */
     val persons: StateFlow<List<space.sovereigncast.hopp.data.PersonMatch>> = _people.asStateFlow()
@@ -666,6 +670,11 @@ class DiscoverViewModel(
     val subscribed: StateFlow<Set<String>> = state(podcasts.shows.map { list -> list.map { feedKey(it.feedUrl) }.toSet() }, emptySet())
 
     init {
+        if (librarySearch != null) viewModelScope.launch {
+            _query.map { it.trim() }.debounce(250).distinctUntilChanged().collectLatest { q ->
+                _library.value = if (searchable(q)) runCatching { librarySearch.find(q) }.getOrNull() else null
+            }
+        }
         // A category tapped on a show's page opens here.
         viewModelScope.launch { directory.requested.collect { c -> if (c != null) { _category.value = c; _query.value = ""; directory.requested.value = null } } }
         viewModelScope.launch {
@@ -730,9 +739,11 @@ class DiscoverViewModel(
         combine(_query, _scShows, podcasts.shows, podroll, seen) { q, sc, subscribed, rolled, found ->
             val term = q.trim()
             if (!searchable(term)) return@combine emptyList()
-            val known = sc.orEmpty().map { it.asDirectoryShow() } + subscribed.map { DirectoryShow(it.title, it.feedUrl, it.author, it.imageUrl, it.podcastGuid) } +
+            // The subscribed ones are the library search's (maintainer 2026-11-10).
+            val mine = if (librarySearch != null) subscribed.map { feedKey(it.feedUrl) }.toSet() else emptySet()
+            val known = sc.orEmpty().map { it.asDirectoryShow() } + (if (librarySearch != null) emptyList() else subscribed.map { DirectoryShow(it.title, it.feedUrl, it.author, it.imageUrl, it.podcastGuid) }) +
                 rolled.map { it.show } + found
-            known.filter { titleMatches(it.title, term) }.distinctBy { feedKey(it.feedUrl) }.take(SUGGESTIONS)
+            known.filter { titleMatches(it.title, term) && feedKey(it.feedUrl) !in mine }.distinctBy { feedKey(it.feedUrl) }.take(SUGGESTIONS)
         },
         emptyList(),
     )

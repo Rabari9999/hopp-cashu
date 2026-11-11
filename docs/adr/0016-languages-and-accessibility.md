@@ -52,6 +52,17 @@ and without Weblate. Spanish and French stop being drafts waiting for a reader;
 Italian and Portuguese join them. What someone reports is corrected in the file.
 Replaces the plan for Weblate above and below.
 
+### Amendment 2026-11-09: Hopp's language chosen in Hopp on iOS
+
+Maintainer report 2026-11-08: the Settings app shows its per-app language row
+only to whom the iPhone has two system languages or more, and Hopp's language
+entry led to a page without it. iOS now has Hopp's own choice, as the browser
+does (`IosLanguage.kt`): it writes `AppleLanguages` into Hopp's own defaults,
+which is what the Settings app's row writes, so either way shows in the other.
+Hopp is drawn again in the language at once, starting on Home; notifications
+and the share sheet take it at the next start. Android keeps the system's page
+(Android 13 and later).
+
 ### Accessibility: best effort
 
 Accessibility is designed in but **does not block a release**. What applies

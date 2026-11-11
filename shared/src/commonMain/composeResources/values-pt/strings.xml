@@ -475,6 +475,7 @@
     <string name="settings_design_hopp">Calmo, a preto e branco</string>
     <string name="settings_design_glut">Quente, como brasas</string>
     <string name="settings_design_relay">A noite sobre a rede Nostr</string>
+    <string name="settings_design_coldstorage">Gelado, como neve e gelo</string>
     <string name="settings_theme">Claro ou escuro</string>
     <string name="settings_theme_system">Como o sistema</string>
     <string name="settings_theme_light">Claro</string>
@@ -484,6 +485,7 @@
     <string name="settings_language">Idioma</string>
     <string name="settings_language_current">Português</string>
     <string name="settings_language_browser">O idioma do navegador</string>
+    <string name="settings_language_device">O idioma do dispositivo</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Importar e exportar OPML</string>
     <string name="settings_privacy_note">Quem vê o quê</string>
@@ -492,6 +494,8 @@
     <string name="settings_about_note">Versão, novidades, tour, código-fonte</string>
     <string name="settings_skip_silence_note">Encurta as pausas no áudio</string>
     <string name="settings_volume_boost_note">Deixa mais altos os podcasts e episódios com som baixo</string>
+    <string name="settings_effects_web_note">No navegador, só com programas cujo servidor permite e com episódios baixados no navegador.</string>
+    <string name="np_effects_refused">O servidor deste programa não permite isso no navegador: ele toca como está.</string>
     <string name="settings_boost_feedback">Depois de um boost no app</string>
     <string name="settings_quick_boost_feedback">Depois de um boost rápido (tela de bloqueio)</string>
     <string name="settings_zap_feedback">Depois de um zap</string>
@@ -964,6 +968,18 @@
     <string name="sync_too_large">Dados demais para sincronizar: um documento é maior do que o Hopp envia. Nada foi cortado.</string>
     <string name="sync_pending">%1$d aguardando o feed</string>
     <string name="sync_now">Sincronizar agora</string>
+    <string name="sync_details">Detalhes</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Perfil</string>
+    <string name="activity_comment">Seu comentário</string>
+    <string name="activity_relays">%1$d de %2$d relays · %3$s</string>
+    <string name="activity_read_partly">Lido só em parte: %1$s</string>
+    <string name="activity_sent_partly">Poucos relays alcançados: %1$s</string>
+    <string name="activity_read_text">O Hopp mostra o que os relays que responderam enviaram. O que os outros têm chega na próxima leitura.</string>
+    <string name="activity_send_text">Os relays que não o aceitaram vão recebê-lo na próxima tentativa.</string>
+    <string name="activity_comment_text">Só os relays que o aceitaram mostram seu comentário a outras pessoas.</string>
+    <string name="activity_others">Mais %1$d relays das listas dos seus contatos, %2$d deles responderam</string>
+    <string name="activity_line">Só %1$d de %2$d relays responderam</string>
     <string name="sync_renew">Renovar chave de sincronização</string>
     <string name="sync_renew_text">Para um dispositivo perdido ou um navegador que você não usa mais: sua biblioteca recebe uma nova chave, e a antiga não abre nada do que vier depois. Seus outros dispositivos pedem uma vez ao seu assinador e depois continuam. Encerre também a sessão antiga no seu app assinador.</string>
     <string name="sync_renew_confirm">Renovar</string>
@@ -1233,14 +1249,16 @@
         <item quantity="other">%1$d dos seus contatos do Nostr ouvem isto</item>
     </plurals>
     <plurals name="contacts_acted">
-        <item quantity="one">%1$d dos seus contatos do Nostr ouve isto, deu boost ou comentou</item>
-        <item quantity="other">%1$d dos seus contatos do Nostr ouvem isto, deram boost ou comentaram</item>
+        <item quantity="one">%1$d dos seus contatos do Nostr ouve isto, deu boost, zap ou comentou</item>
+        <item quantity="other">%1$d dos seus contatos do Nostr ouvem isto, deram boost, zap ou comentaram</item>
     </plurals>
     <string name="contacts_renew_text">Um contato não segue mais você nos dois sentidos. Uma nova chave o mantém de fora.</string>
     <string name="contacts_renew">Renovar chave</string>
     <string name="contacts_did_share">compartilha a inscrição</string>
     <string name="contacts_did_boost">deu boost</string>
     <string name="contacts_did_comment">comentou</string>
+    <string name="contacts_did_zap">deu zap</string>
+    <string name="contacts_did_follow">segue o podcast no Nostr</string>
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Podcasts compartilhados</string>
     <string name="contacts_shared_summary">%1$d de %2$d compartilhados</string>
@@ -1378,4 +1396,20 @@
     <string name="playlist_undo">Desfazer</string>
     <string name="playlist_skip">Pular</string>
     <string name="playlist_open">Ir para o episódio</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">Na sua biblioteca</string>
+    <string name="search_all">Todos %1$d</string>
+    <string name="search_title">“%1$s” na sua biblioteca</string>
+    <string name="search_kind_show">Podcast</string>
+    <string name="search_kind_episode">Episódio</string>
+    <string name="search_kind_chapter">Capítulo</string>
+    <string name="search_kind_comment">Comentário</string>
+    <string name="search_newest">Mais recentes primeiro</string>
+    <string name="search_oldest">Mais antigos primeiro</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d resultado</item>
+        <item quantity="other">%1$d resultados</item>
+    </plurals>
+    <string name="search_scope">Pesquisa os títulos, notas dos episódios, capítulos, pessoas e comentários lidos dos seus podcasts assinados, neste dispositivo e sem rede. Transcrições não.</string>
+    <string name="search_play_from">Reproduzir a partir de %1$s</string>
 </resources>

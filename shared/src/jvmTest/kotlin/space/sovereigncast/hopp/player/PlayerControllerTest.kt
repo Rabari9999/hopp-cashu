@@ -480,6 +480,29 @@ class PlayerControllerTest {
         assertEquals(0L, engine.seeks.last(), "no chapters: back to the start")
     }
 
+    /** Maintainer 2026-11-09: the chapters' buttons work paused too — also on an episode shown after a restart
+     *  and not loaded yet, which takes the chapter's start from where it was left, and stays paused. */
+    @Test
+    fun aChapterIsReachedWhilePausedAndAfterARestart() = test {
+        val e3 = episodes().last()
+        start(e3)
+        until("chapters loaded") { player.current.value!!.chapters.stops.size == 3 }
+        at(10_000, playing = false)
+        player.nextChapter()
+        assertEquals(60_000L, engine.seeks.last(), "paused")
+        at(90_000)
+        step { pause() }
+        until("position saved") { episodes.item(e3.id)!!.positionMs == 90_000L }
+        val fresh = RecordingEngine()
+        val again = PlayerController(fresh, episodes, podcasts, queue, settings, scope) { clockMs }
+        until("shown again with its chapters") { again.current.value?.item?.id == e3.id && again.current.value!!.chapters.stops.size == 3 }
+        again.nextChapter()
+        until("loaded at the next chapter") { fresh.loaded.lastOrNull()?.let { it.id == e3.id.toString() && it.startPositionMs == 300_000L } == true }
+        assertTrue(!fresh.state.value.isPlaying, "it started playing")
+        again.previousChapter()
+        until("back a chapter") { fresh.seeks.lastOrNull() == 60_000L }
+    }
+
     /** Maintainer 2026-10-26: a show skips the first and the last seconds of its episodes — from
      *  the beginning and listened up to the end only, never where the listener went themselves. */
     @Test

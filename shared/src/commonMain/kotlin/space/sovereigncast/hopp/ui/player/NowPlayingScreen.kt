@@ -32,6 +32,8 @@ import space.sovereigncast.hopp.ui.components.ChapterRow
 import space.sovereigncast.hopp.data.EpisodeRepository
 import space.sovereigncast.hopp.sovereigncast.SovereigncastRepository
 import org.koin.compose.koinInject
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.flow.map
 import space.sovereigncast.hopp.ui.value.ValueBar
@@ -103,6 +105,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -118,6 +126,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.np_effects_refused
 import space.sovereigncast.hopp.resources.share_title
 import space.sovereigncast.hopp.resources.np_back15
 import space.sovereigncast.hopp.resources.np_chapter_of
@@ -144,7 +153,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.semantics.onClick
 import space.sovereigncast.hopp.ui.components.formatTime
 import space.sovereigncast.hopp.ui.theme.Hopp
-import space.sovereigncast.hopp.ui.theme.pageGround
+import space.sovereigncast.hopp.ui.theme.playerGround
 
 /** Now playing, laid out as in ADR 0019: cover with the chapter control,
  *  title, progress with chapter gaps, controls, value bar, sheets. */
@@ -212,12 +221,46 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     // As a column beside the content (ADR 0020) back belongs to the content.
     BackHandler(enabled = !inPane) { model.minimize() }
     val dragY = remember { Animatable(0f) }
+    // A boost that was paid, from the sheet or the lock screen: once from 0 to 1, for the ground's flare.
+    val boostReports: space.sovereigncast.hopp.value.BoostReports = koinInject()
+    val boosted = remember { Animatable(0f) }
+    LaunchedEffect(boostReports) {
+        boostReports.paid.collectLatest {
+            // The sheet that sent it says so first, over the ground: the flare waits until the sheet is gone
+            // and is seen whole (device feedback 2026-11-10).
+            if (showBoost) { androidx.compose.runtime.snapshotFlow { showBoost }.first { !it }; kotlinx.coroutines.delay(SHEET_GONE) }
+            boosted.snapTo(0f)
+            boosted.animateTo(1f, androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.LinearEasing))
+            boosted.snapTo(0f)
+        }
+    }
+    // A comment of the listener's own that went out: once from 0 to 1, for what the ground makes of it.
+    val writer: space.sovereigncast.hopp.comments.CommentWriter = koinInject()
+    val sent = remember { Animatable(0f) }
+    LaunchedEffect(writer) {
+        writer.sent.collectLatest {
+            if (showComments) { androidx.compose.runtime.snapshotFlow { showComments }.first { !it }; kotlinx.coroutines.delay(SHEET_GONE) }
+            sent.snapTo(0f)
+            sent.animateTo(1f, androidx.compose.animation.core.tween(1800, easing = androidx.compose.animation.core.LinearEasing))
+            sent.snapTo(0f)
+        }
+    }
+    val look = Hopp.colors.player
+    val shapes = Hopp.colors.shapes
+    // Where the play button is in the window: what the ground draws round it. Read while drawing only.
+    var playAt by remember { mutableStateOf<Offset?>(null) }
+    // Figures of one width, where the design asks for them: the app's own font has them (no second font to load).
+    val figures = if (look?.mono == true) "tnum" else null
     val dismissPx = with(LocalDensity.current) { 120.dp.toPx() }
     Box(
         Modifier.fillMaxSize()
             .offset { IntOffset(0, dragY.value.roundToInt()) }
-            // Over the window, the ground of its own; as a column beside the library, on the window's.
-            .then(if (inPane) Modifier.background(Hopp.colors.page) else Modifier.pageGround())
+            // Over the window, the ground of its own; as a column beside the library, on the window's —
+            // unless the design lights now playing itself: then the column has that light too.
+            .then(
+                if (inPane && Hopp.colors.player == null) Modifier.background(Hopp.colors.page)
+                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }, sent = { sent.value }, play = { playAt }, beside = inPane),
+            )
             .safeDrawingPadding()
             .pointerInput(inPane) {
                 if (inPane) return@pointerInput
@@ -243,8 +286,14 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             val picture = chapters.imageAt(position) ?: playing.artworkUrl
             var viewing by remember { mutableStateOf(false) }
             val fullLabel = stringResource(Res.string.image_full)
+            // Where the design lights now playing: an oval of light at the cover's foot, half of it behind the cover.
+            val light = Hopp.colors.player?.coverLight
             Box(
-                m.clip(RoundedCornerShape(24.dp)).background(colors.surfaceVariant)
+                m.then(if (light == null) Modifier else Modifier.drawBehind {
+                    val foot = Offset(size.width / 2, size.height - 4.dp.toPx())
+                    scale(1f, 0.16f, foot) { drawCircle(Brush.radialGradient(listOf(light, Color.Transparent), foot, size.width * 0.52f), size.width * 0.52f, foot) }
+                }).clip(shapes.cover).background(colors.surfaceVariant)
+                    .then(look?.coverEdge?.let { Modifier.border(1.dp, it, shapes.cover) } ?: Modifier)
                     .pointerInput(chapters) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -264,7 +313,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     val compact = maxWidth < 280.dp
                     Row(
                         Modifier.padding(if (compact) 6.dp else 10.dp).fillMaxWidth()
-                            .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.72f)).padding(4.dp),
+                            .clip(shapes.label).background(Color.Black.copy(alpha = 0.72f)).padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ChapterButton(HoppIcons.ChevronLeft, stringResource(Res.string.np_previous_chapter), model::previousChapter)
@@ -319,16 +368,18 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 fraction = if (duration > 0) position.toFloat() / duration else 0f,
                 boundaries = chapters.boundaryFractions(duration),
                 onSeek = { f -> model.seekTo((f * duration).toLong()) },
-                trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, gapColor = colors.background,
+                trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, onFillColor = colors.background,
                 label = stringResource(Res.string.np_progress),
                 preview = { f ->
                     val at = (f * duration).toLong()
                     listOfNotNull(formatTime(at), chapters.current(at)?.title?.takeIf { it.isNotBlank() }).joinToString(" · ")
                 },
                 onPreview = { dragTo = it },
+                fillFrom = look?.fillFrom, heat = look?.heat, style = look?.progress ?: space.sovereigncast.hopp.ui.theme.ProgressStyle.Gaps,
+                knobColor = look?.knob, notchColor = colors.onSurfaceVariant,
             )
             val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
-            val timeStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = if (dragTo != null) FontWeight.Bold else null)
+            val timeStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = if (dragTo != null) FontWeight.Bold else null, fontFeatureSettings = figures)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatTime(shownAt), style = timeStyle, color = colors.onSurfaceVariant)
                 Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = timeStyle, color = colors.onSurfaceVariant)
@@ -346,19 +397,12 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         .onSecondaryClick { showSpeed = true }
                         .combinedClickable(onClick = { model.cycleSpeed() }, onLongClick = { showSpeed = true })
                         .padding(12.dp).semantics { contentDescription = speedLabel; stateDescription = speedText },
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Bold, style = androidx.compose.material3.LocalTextStyle.current.copy(fontFeatureSettings = figures),
                 )
                 val back = settings.skipBackSeconds
                 val forward = settings.skipForwardSeconds
                 SkipButton(HoppIcons.Replay, "$back", stringResource(Res.string.np_back15, back), model::skipBack, model::previousChapter)
-                Box(
-                    Modifier.size(72.dp).clip(CircleShape).background(colors.primary).clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay()
-                    },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PlayPause(state, colors.onPrimary, 32.dp)
-                }
+                PlayButton(state, 72.dp, 32.dp, Modifier.onGloballyPositioned { playAt = it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f) }) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay() }
                 SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
                 SleepButton(sleep) { showSleep = true }
             }
@@ -366,7 +410,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
 
             // Value bar (ADR 0019): boost and streaming — where Hopp pays at all.
             val episodeNav = space.sovereigncast.hopp.ui.library.LocalEpisodeNav.current
-            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) })
+            if (space.sovereigncast.hopp.ui.LocalPlatformActions.current.canPay) ValueBar(valueVm, episode, onBoost = { showBoost = true }, onOpenWallet = onOpenWallet, onOpenEpisode = { model.minimize(); episodeNav.open(it) }, boost = { boosted.value })
 
             // One line that scrolls sideways: wrapped onto a second, the chips pushed
             // the latest boosts off a phone held upright (2026-10-16, with Show notes).
@@ -397,7 +441,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                         FilterChip(
                             selected = s == section, onClick = { pickedSection = s.name }, label = { Text(stringResource(s.label), maxLines = 1) },
                             colors = nostr?.let { androidx.compose.material3.FilterChipDefaults.filterChipColors(containerColor = it.tint, labelColor = it.text, selectedContainerColor = it.fill, selectedLabelColor = it.onFill) }
+                                ?: look?.chip?.let { androidx.compose.material3.FilterChipDefaults.filterChipColors(containerColor = it) }
                                 ?: androidx.compose.material3.FilterChipDefaults.filterChipColors(),
+                            shape = shapes.chip,
+                            border = look?.chipEdge?.takeIf { nostr == null && s != section }?.let { androidx.compose.foundation.BorderStroke(1.dp, it) }
+                                ?: androidx.compose.material3.FilterChipDefaults.filterChipBorder(enabled = true, selected = s == section),
                         )
                     }
                 }
@@ -579,6 +627,11 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                     if (model.engine.supportsSkipSilence) SwitchLine(stringResource(Res.string.skip_silence), settings.skipSilence) { on -> settingsVm.update { it.copy(skipSilence = on) } }
                     // Quiet shows louder (maintainer 2026-10-21), beside skipping silence.
                     if (model.engine.supportsVolumeBoost) SwitchLine(stringResource(Res.string.volume_boost), settings.volumeBoost) { on -> settingsVm.update { it.copy(volumeBoost = on) } }
+                    // The browser: on, and this show's server does not let the page work with its audio.
+                    val refused by (model.engine.effectsRefused ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
+                    if (refused && (settings.skipSilence || settings.volumeBoost)) Text(
+                        stringResource(Res.string.np_effects_refused), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 Spacer(Modifier.height(24.dp))
             }
@@ -598,7 +651,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
 
 @Composable
 private fun ChapterButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(40.dp).clip(Hopp.colors.shapes.button).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, label, tint = Color.White)
     }
 }
@@ -619,8 +672,9 @@ private fun SkipButton(icon: androidx.compose.ui.graphics.vector.ImageVector, se
 private fun SheetChip(label: String, overNostr: Boolean = false, onClick: () -> Unit) {
     val nostr = Hopp.colors.nostr?.takeIf { overNostr }
     Surface(
-        color = nostr?.tint ?: MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(50),
-        modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
+        color = nostr?.tint ?: Hopp.colors.player?.chip ?: MaterialTheme.colorScheme.surfaceVariant, shape = Hopp.colors.shapes.chip,
+        border = Hopp.colors.player?.chipEdge?.takeIf { nostr == null }?.let { androidx.compose.foundation.BorderStroke(1.dp, it) },
+        modifier = Modifier.clip(Hopp.colors.shapes.chip).clickable(onClick = onClick),
     ) {
         Text(
             label, Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -629,6 +683,9 @@ private fun SheetChip(label: String, overNostr: Boolean = false, onClick: () -> 
         )
     }
 }
+
+/** How long a closing sheet takes to be out of the way, before what it hid is shown. */
+private const val SHEET_GONE = 250L
 
 /** 1.5f → "1,5" — the speed as the listener reads it. */
 /** 1.1 → "1.1", in German "1,1" (device check 2026-10-20: an English phone showed "1,1×"). */

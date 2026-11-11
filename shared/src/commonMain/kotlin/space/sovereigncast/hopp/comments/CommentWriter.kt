@@ -47,11 +47,17 @@ class CommentWriter(
     private val identity: IdentityRepository,
     private val store: CommentStore,
     private val now: () -> Long,
+    /** Where sending goes wrong is shown (maintainer 2026-11-10); null: nowhere. */
+    private val activity: space.sovereigncast.hopp.nostr.NostrActivity? = null,
     /** A comment (or a boost as one) went out — the listening statistics count it. */
     private val posted: suspend () -> Unit = {},
 ) {
     /** One mute at a time: each reads the list the one before it wrote. */
     private val muting = Mutex()
+
+    private val _sent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** A comment of the listener's own went out to the relays — now playing may show it going (ADR 0019). */
+    val sent: kotlinx.coroutines.flow.SharedFlow<Unit> = _sent
 
     /** A comment on the episode, or an answer to [to]; kept at once, so it shows without asking again. */
     suspend fun comment(anchor: CommentAnchor, text: String, relays: List<String>, to: Comment? = null): Event {
@@ -85,6 +91,7 @@ class CommentWriter(
         val event = publish(unsigned, listOf(FOUNTAIN) + relays + anchor.notes.flatMap { it.relays })
         keep(anchor, event, relays)
         runCatching { posted() }
+        _sent.tryEmit(Unit)
         return event
     }
 
@@ -150,7 +157,9 @@ class CommentWriter(
     private suspend fun publish(unsigned: UnsignedEvent, extra: List<String>): Event {
         val signer: NostrSigner = identity.signer() ?: throw NoIdentity()
         val event = signer.sign(unsigned)
-        val took = publisher.publish(event, (mine() + extra).distinct().take(MAX_PUBLISH))
+        val to = (mine() + extra).distinct().take(MAX_PUBLISH)
+        val took = if (activity == null) publisher.publish(event, to)
+            else activity.track(space.sovereigncast.hopp.nostr.NostrActivity.Area.Comment, send = true) { publisher.publish(event, to) }
         if (took.isEmpty()) throw NotPublished()
         return event
     }

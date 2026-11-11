@@ -26,10 +26,10 @@ Phase column is a **proposal**, still open for discussion
 | `podcast:funding` | ✅ | ✅ | P1 | |
 | `podcast:updateFrequency` | ✅ derived from the publishing gaps | ✅ | P1 | Read and shown; not used for refresh scheduling (the listener sets the interval, ADR 0013). |
 | `podcast:trailer` | ✅ | ✅ | P2 | **Built 2026-10-15:** the newest trailer plays from the show page, before subscribing too, as a clip. |
-| `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. |
+| `podcast:alternateEnclosure` | ❌ | ✅ (video/mp4) | P2 | Video episodes. Put back (maintainer, 2026-10-27). |
 | `podcast:podroll` / `remoteItem` | ❌ | ✅ | P1 | Podroll recommendations in Discover (ADR 0008); `remoteItem` resolved via Podcast Index. |
 | `podcast:medium` | ✅ (always `podcast`) | ✅ | P2 | Music medium → V4V music use case. |
-| `podcast:socialInteract` | ✅ (Nostr) | ✅ (read) | P2 | Comments via Nostr: read since 2026-10-16 (ADR 0021, stage 2); writing is stage 3. |
+| `podcast:socialInteract` | ✅ (Nostr) | ✅ (read) | P2 | Comments via Nostr: read since 2026-10-16 (ADR 0021, stage 2), written since stage 3 (by 2026-10-20). |
 | `podcast:txt` | ✅ | ✅ (`purpose="nostr"`) | P2 | `purpose="sovereigncast"` = discovery marker (ADR 0002). |
 | `podcast:locked` | ✅ | ✅ | — | Relevant for hosts, not players. |
 | `<language>` | ✅ per show | ✅ | P1 | Was hardcoded `en` on the self-hosted path until 2026-10-07. |

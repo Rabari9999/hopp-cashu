@@ -17,10 +17,12 @@ import space.sovereigncast.hopp.sync.SyncDocs.text
  * the place it was given where it was given, so a reorder on one device and an
  * addition on the other both survive. One the feed has not brought yet waits.
  * With it, what plays now ([SyncDocs.NOW_KEY]): [adoptNow] gets the episode and when it was started.
+ * An episode not here yet has its show's feed read at once ([catchUp]).
  */
 class QueueDocument(
     private val db: HoppDatabase,
     private val queue: QueueRepository,
+    private val catchUp: FeedCatchUp? = null,
     private val adoptNow: suspend (episodeId: Long, atSeconds: Long) -> Unit = { _, _ -> },
 ) : SyncedDocument {
     override val name = SyncDocs.QUEUE
@@ -40,6 +42,11 @@ class QueueDocument(
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
+        catchUp?.fetchFor(entries.mapNotNull { (key, e) ->
+            if (e.del) return@mapNotNull null
+            val show = e.d.text(if (key == SyncDocs.NOW_KEY) "nowShow" else "show") ?: return@mapNotNull null
+            FeedCatchUp.Wanted(show, e.d.text(if (key == SyncDocs.NOW_KEY) "nowGuid" else "guid") ?: return@mapNotNull null, e.t)
+        })
         val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
         fun episodeOf(show: String, guid: String) = shows.firstOrNull { SyncDocs.showKey(it.podcast_guid, it.feed_url) == show }
@@ -104,6 +111,7 @@ class SettingsDocument(
     private companion object {
         const val NAME = "sender_name"
         val SPEEDS = space.sovereigncast.hopp.player.PlayerController.SPEED_CHOICES.let { it.min()..it.max() }
+        val HEX_ID = Regex("[0-9a-f]{64}")
 
         /** Only a value this Hopp could have set itself is taken (security audit 2026-10-22, M-04). */
         fun valid(key: String, v: String): Boolean = when (key) {
@@ -119,7 +127,8 @@ class SettingsDocument(
             "library_sort" -> v in Settings.sortChoices
             "home_order", "home_hidden", "home_collapsed" -> v.length <= 2_000
             "take_part_hidden" -> v.length <= 40_000
-            else -> false
+            // A key or an event's id, in hex (Settings.MUTED, Settings.HIDDEN).
+            else -> v == "1" && (key.startsWith(Settings.MUTED) || key.startsWith(Settings.HIDDEN)) && HEX_ID.matches(key.substringAfter(':'))
         }
     }
 }

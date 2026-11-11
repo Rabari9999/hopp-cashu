@@ -1,5 +1,8 @@
 package space.sovereigncast.hopp
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.window.ComposeUIViewController
 import org.koin.core.context.startKoin
 import space.sovereigncast.hopp.di.sharedModule
@@ -9,7 +12,12 @@ private val koin by lazy { startKoin { modules(sharedModule(IosPlatform())) } }
 
 // Background refresh (BGAppRefreshTask) comes with the iOS work after phase 2 (ADR 0018).
 @Suppress("FunctionName", "unused") // called from Swift
-fun MainViewController() = ComposeUIViewController { koin; App(platformActions) }
+fun MainViewController() = ComposeUIViewController {
+    koin
+    // A language chosen in Hopp: everything drawn again, its strings read anew (IosLanguage).
+    val language by IosLanguage.chosen.collectAsState()
+    key(language) { App(platformActions) }
+}
 
 private val platformActions = IosPlatformActions()
 

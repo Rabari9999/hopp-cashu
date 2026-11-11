@@ -2,6 +2,7 @@
 
 - **Status:** open — the repository is ready for a release from another
   developer's account (2026-10-16); the Apple and AltStore steps are left
+  (still so on 2026-11-09)
 - **ADR:** 0009 (two iOS builds, amended: first release through a befriended
   developer's account), 0004 (`.pal` bundle ID), 0011 (distribution)
 - **How:** docs/ios-release.md
@@ -41,9 +42,10 @@ Not in the app yet (no blocker for a first test release):
   `nostr+walletconnect://` do not open Hopp; "Open in Hopp" links need
   Associated Domains and an `apple-app-site-association` with the releasing
   team's ID on sovereigncast.space.
-- No QR scan (`canScanQr` is false), OPML import and export are no-ops,
-  downloads run only while the app is open, no external Nostr signer, no boost
-  notifications.
+- No QR scan (`canScanQr` is false), downloads run only while the app is
+  open, no external Nostr signer, no boost notifications. (OPML import and
+  export work since 0.3.0, the feed refresh while the app is open since
+  0.3.2, the language chosen in Hopp itself since 0.4.2.)
 - Hardly checked on a real iPhone (the checklist in docs/spikes/05-ios.md).
 - No iPhone screenshots for the source.
 

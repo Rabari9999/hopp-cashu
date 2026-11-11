@@ -18,13 +18,13 @@ class PeopleTest {
 
     private suspend fun show(title: String, vararg persons: Person): Long {
         db.podcastQueries.insert("https://pod.test/$title.xml", null, title, null, null,
-            json.encodeToString(Podcast.serializer(), Podcast(title = title, persons = persons.toList())), null, null, 0, 0, "")
+            json.encodeToString(Podcast.serializer(), Podcast(title = title, persons = persons.toList())), null, null, 0, 0, "", null)
         return db.podcastQueries.lastInsertId().awaitAsOne()
     }
 
     private suspend fun episode(show: Long, guid: String, published: Long, vararg persons: Person) {
         db.episodeQueries.insertIfNew(show, guid, guid, published, 600, null, "https://cdn.test/$guid.mp3", 0, null,
-            json.encodeToString(Episode.serializer(), Episode(guid, guid, publishedAt = published, persons = persons.toList())), 0, 0, 0)
+            json.encodeToString(Episode.serializer(), Episode(guid, guid, publishedAt = published, persons = persons.toList())), 0, 0, 0, null)
     }
 
     private fun host(name: String, href: String? = null) = Person(name, "Host", "Cast", null, href)

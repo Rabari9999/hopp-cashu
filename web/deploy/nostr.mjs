@@ -1,7 +1,9 @@
 // What sign.mjs and verify.mjs share (ADR 0022, 14): who signs Hopp Web's builds, where the
 // signatures are, and how one is found.
+import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
 import { SimplePool } from 'nostr-tools/pool';
-import { verifyEvent } from 'nostr-tools/pure';
+import { generateSecretKey, verifyEvent } from 'nostr-tools/pure';
+import { BunkerSigner, parseBunkerInput } from 'nostr-tools/nip46';
 import * as nip19 from 'nostr-tools/nip19';
 
 /** Nodesignal's key — the one that signs Hopp's releases on Zapstore too (zapstore.yaml). */
@@ -36,3 +38,31 @@ export async function signedBuilds(urls) {
 }
 
 export const tag = (e, name) => e.tags.find(t => t[0] === name)?.[1];
+
+/**
+ * [template] signed by the bunker in SIGN_WITH (Amber asks first). The scripts keep their own key for
+ * the bunker (~/.config/hopp-web-sign/client.key): Amber knows it after the first time, and a
+ * bunker:// address's secret is good for one connection only.
+ */
+export async function signWithBunker(template) {
+  const pointer = await parseBunkerInput(process.env.SIGN_WITH ?? '');
+  if (!pointer) throw new Error('SIGN_WITH is no bunker:// address');
+  const keyFile = path.join(os.homedir(), '.config', 'hopp-web-sign', 'client.key');
+  let clientKey;
+  try { clientKey = new Uint8Array(Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'hex'));
+    if (clientKey.length !== 32) throw new Error('no key'); } catch {
+    clientKey = generateSecretKey();
+    fs.mkdirSync(path.dirname(keyFile), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(keyFile, Buffer.from(clientKey).toString('hex'), { mode: 0o600 });
+  }
+  const bunker = BunkerSigner.fromBunker(clientKey, pointer, { onauth: (url) => console.log(`the bunker asks to be opened: ${url}`) });
+  // Connected before, with this key: Amber says so, and signs all the same.
+  await bunker.connect().catch((e) => { if (!/already connected/i.test(String(e?.message ?? e))) throw e; });
+  console.log('asking the bunker to sign — confirm in Amber');
+  try {
+    return await Promise.race([
+      bunker.signEvent(template),
+      new Promise((_, no) => setTimeout(() => no(new Error('no signature from the bunker within 2 minutes: is Amber open? Its secret may belong to another app — make a new bunker connection in Amber for this script')), 120_000)),
+    ]);
+  } finally { await bunker.close(); }
+}

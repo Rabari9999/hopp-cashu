@@ -6,6 +6,31 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-11
+
+### 🆕 New Features
+- **Designs:** Neues Design Coldstorage: frostiges Blau wie Schnee und Eis.
+- **Designs:** Jedes Design hat eine eigene Wiedergabe – Feuer bei Glut, Eis bei Coldstorage, ein Netz bei Relay, Ringe bei Hopp –, die auf Boosts reagiert.
+- **Entdecken:** Die Suche findet auch Shows, Folgen, Kapitel und Kommentare in deiner Bibliothek.
+- **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, wo der Server der Show es zulässt.
+- **Nostr:** Bei einer Show siehst du auch, welche deiner Nostr-Kontakte sie gezappt haben oder ihr auf Nostr folgen.
+- **Player:** Kapiteltasten in der Player-Leiste auf breiten Bildschirmen.
+- **Sync:** „Details“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
+- **Nostr:** Ein Hinweis, wenn zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar antworten.
+- **Kommentare:** Kommentare erscheinen, sobald das erste Relay antwortet.
+
+### 🐛 Fixes
+- **Sync:** Der erste Abgleich nach dem Start wartet nicht mehr auf ein Relay, das nicht antwortet.
+- **Sync:** Was auf einem anderen Gerät läuft, erscheint sofort, auch bei einer ganz neuen Folge.
+- **Sync:** Stummgeschaltete Personen und ausgeblendete Kommentare bleiben auf allen Geräten ausgeblendet.
+- **App:** Auf iOS Hopps Sprache in Hopp selbst wählen.
+- **Player:** Kapitelsprünge klappen auch bei einer Folge, die nach einem Neustart pausiert ist.
+- **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden.
+- **Player:** Größere Schrift neben dem Boost-Knopf auf breiten Bildschirmen.
+- **Seiten:** Hochscrollen mit Maus oder Touchpad holt den Kopf einer Show oder Folge zurück.
+- **Web:** Die Leertaste spielt und pausiert, auch direkt nach einem Klick auf eine Sprungtaste.
+- **Web:** Emojis in Farbe, und ₿ statt eines leeren Kästchens.
+
 ## [0.4.1] - 2026-11-08
 
 ### 🆕 New Features

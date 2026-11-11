@@ -44,12 +44,16 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.jetbrains.compose.resources.stringResource
 import space.sovereigncast.hopp.resources.Res
+import space.sovereigncast.hopp.resources.np_next_chapter
+import space.sovereigncast.hopp.resources.np_previous_chapter
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Slider
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.sp
 import space.sovereigncast.hopp.resources.np_open
 import space.sovereigncast.hopp.resources.np_progress
 import space.sovereigncast.hopp.resources.np_speed
@@ -68,6 +72,18 @@ import space.sovereigncast.hopp.resources.sc_clip_now
 import space.sovereigncast.hopp.resources.trailer_now
 import space.sovereigncast.hopp.player.RemoteClip
 import space.sovereigncast.hopp.ui.theme.Hopp
+import space.sovereigncast.hopp.ui.theme.ProgressStyle
+import space.sovereigncast.hopp.ui.theme.barGround
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
@@ -93,11 +109,13 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
     val duration = state.durationMs.takeIf { it > 0 } ?: ((episode.durationSeconds ?: 0) * 1000)
     val track = Hopp.colors.progressTrack
     val fill = Hopp.colors.progressFill ?: colors.onSurface
+    val fillFrom = Hopp.colors.player?.fillFrom
+    val shapes = Hopp.colors.shapes
     // A large window: a player bar instead — seek, speed and, in a browser, volume at hand (UX review 2026-10-30).
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (maxWidth >= space.sovereigncast.hopp.ui.components.EXPANDED_WIDTH) { PlayerBar(model, playing, state, duration, foot); return@BoxWithConstraints }
     Column(
-        Modifier.fillMaxWidth().background(colors.surface).then(foot)
+        Modifier.fillMaxWidth().barGround(state.isPlaying).then(foot)
             .clickable { model.expand() }
             .pointerInput(Unit) { detectVerticalDragGestures { change, dy -> if (dy < -10) { change.consume(); model.expand() } } },
     ) {
@@ -105,7 +123,8 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
         Canvas(Modifier.fillMaxWidth().height(3.dp)) {
             drawRect(track, Offset.Zero, size)
             val f = if (duration > 0) (state.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-            drawRect(fill, Offset.Zero, Size(size.width * f, size.height))
+            if (fillFrom != null) drawRect(Brush.horizontalGradient(listOf(fillFrom, fill), 0f, size.width * f), Offset.Zero, Size(size.width * f, size.height))
+            else drawRect(fill, Offset.Zero, Size(size.width * f, size.height))
         }
         // Taller from a tablet's width (device feedback 2026-10-13, ADR 0020): a
         // bigger cover, the show's name, and the skips around a bigger play button.
@@ -113,7 +132,7 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
             if (maxWidth < MEDIUM_WIDTH) Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(
                     model = playing.artworkUrl, contentDescription = null,
-                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(44.dp).clip(shapes.thumb), contentScale = ContentScale.Crop,
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -133,7 +152,7 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
                 val settings by model.settings.collectAsState()
                 AsyncImage(
                     model = playing.artworkUrl, contentDescription = null,
-                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(64.dp).clip(shapes.thumb), contentScale = ContentScale.Crop,
                 )
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
@@ -145,16 +164,11 @@ fun MiniPlayer(model: PlayerController, last: Boolean = false) {
                 }
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = model::skipBack) {
-                    Icon(HoppIcons.Replay, stringResource(Res.string.np_back15, settings.skipBackSeconds), Modifier.size(28.dp))
+                    SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                 }
-                Box(
-                    Modifier.padding(horizontal = 8.dp).size(52.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    PlayPause(state, colors.onPrimary, 26.dp)
-                }
+                PlayButton(state, 52.dp, 26.dp, Modifier.padding(horizontal = 8.dp)) { model.togglePlay() }
                 IconButton(onClick = model::skipForward) {
-                    Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(28.dp))
+                    SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
                 }
             }
         }
@@ -175,7 +189,12 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
     val settings by model.settings.collectAsState()
     val chapters = playing.chapters
     val position = state.positionMs
-    Column(Modifier.fillMaxWidth().background(colors.surface).then(foot)) {
+    val look = Hopp.colors.player
+    val times = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = if (look?.mono == true) "tnum" else null)
+    // Where the play button is within the bar: what the bar's ground draws round it. Read while drawing only.
+    var barAt by remember { mutableStateOf(Offset.Zero) }
+    var playAt by remember { mutableStateOf<Offset?>(null) }
+    Column(Modifier.fillMaxWidth().onGloballyPositioned { barAt = it.positionInRoot() }.barGround(state.isPlaying) { playAt?.minus(barAt) }.then(foot)) {
         HorizontalDivider(color = colors.outlineVariant)
         Row(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
@@ -184,7 +203,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
             ) {
                 AsyncImage(
                     model = chapters.imageAt(position) ?: playing.artworkUrl, contentDescription = null,
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(56.dp).clip(Hopp.colors.shapes.thumb), contentScale = ContentScale.Crop,
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -196,29 +215,32 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
             Spacer(Modifier.width(20.dp))
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // The chapters' way, as on now playing's cover (maintainer 2026-11-09): on both sides, so play stays in the middle.
+                    val hasChapters = chapters.stops.size > 1
+                    if (hasChapters) IconButton(onClick = model::previousChapter) {
+                        Icon(HoppIcons.ChevronLeft, stringResource(Res.string.np_previous_chapter), tint = colors.onSurfaceVariant)
+                    }
                     IconButton(onClick = model::skipBack) {
-                        Icon(HoppIcons.Replay, stringResource(Res.string.np_back15, settings.skipBackSeconds), Modifier.size(24.dp))
+                        SkipIcon(HoppIcons.Replay, settings.skipBackSeconds, stringResource(Res.string.np_back15, settings.skipBackSeconds), 30.dp)
                     }
-                    Box(
-                        Modifier.padding(horizontal = 12.dp).size(44.dp).clip(CircleShape).background(colors.primary).clickable { model.togglePlay() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        PlayPause(state, colors.onPrimary, 22.dp)
-                    }
+                    PlayButton(state, 44.dp, 22.dp, Modifier.padding(horizontal = 12.dp).onGloballyPositioned { playAt = it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f) }) { model.togglePlay() }
                     IconButton(onClick = model::skipForward) {
-                        Icon(HoppIcons.Forward, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), Modifier.size(24.dp))
+                        SkipIcon(HoppIcons.Forward, settings.skipForwardSeconds, stringResource(Res.string.np_forward30, settings.skipForwardSeconds), 30.dp)
+                    }
+                    if (hasChapters) IconButton(onClick = model::nextChapter) {
+                        Icon(HoppIcons.ChevronRight, stringResource(Res.string.np_next_chapter), tint = colors.onSurfaceVariant)
                     }
                 }
                 var dragTo by remember { mutableStateOf<Float?>(null) }
                 val shownAt = dragTo?.let { (it * duration).toLong() } ?: position
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(formatTime(shownAt), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Text(formatTime(shownAt), style = times, color = colors.onSurfaceVariant)
                     Spacer(Modifier.width(10.dp))
                     space.sovereigncast.hopp.ui.components.ChapterProgressBar(
                         fraction = if (duration > 0) position.toFloat() / duration else 0f,
                         boundaries = chapters.boundaryFractions(duration),
                         onSeek = { f -> model.seekTo((f * duration).toLong()) },
-                        trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, gapColor = colors.surface,
+                        trackColor = Hopp.colors.progressTrack, fillColor = Hopp.colors.progressFill ?: colors.onSurface, onFillColor = colors.surface,
                         label = stringResource(Res.string.np_progress),
                         preview = { f ->
                             val at = (f * duration).toLong()
@@ -226,9 +248,11 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                         },
                         onPreview = { dragTo = it },
                         modifier = Modifier.weight(1f),
+                        fillFrom = look?.fillFrom, heat = look?.heat, style = look?.progress ?: ProgressStyle.Gaps,
+                        knobColor = look?.knob, notchColor = colors.onSurfaceVariant,
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Text("−" + formatTime((duration - shownAt).coerceAtLeast(0)), style = times, color = colors.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.width(20.dp))
@@ -238,7 +262,7 @@ private fun PlayerBar(model: PlayerController, playing: space.sovereigncast.hopp
                 speedText,
                 Modifier.clip(RoundedCornerShape(50)).clickable { model.cycleSpeed() }.padding(10.dp)
                     .semantics { contentDescription = speedLabel; stateDescription = speedText },
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Bold, style = androidx.compose.material3.LocalTextStyle.current.copy(fontFeatureSettings = times.fontFeatureSettings),
             )
             VolumeControl(model, Modifier.width(110.dp))
             IconButton(onClick = model::expand) { Icon(HoppIcons.ChevronUp, stringResource(Res.string.np_open)) }
@@ -266,7 +290,7 @@ internal fun VolumeControl(model: PlayerController, sliderModifier: Modifier) {
 private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip, foot: Modifier) {
     val state by model.state.collectAsState()
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().background(colors.surface).then(foot)) {
+    Column(Modifier.fillMaxWidth().barGround(state.isPlaying).then(foot)) {
         HorizontalDivider(color = colors.outlineVariant)
         val track = Hopp.colors.progressTrack
         val fill = Hopp.colors.value
@@ -278,7 +302,7 @@ private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip, foot: Modi
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = clip.artworkUrl, contentDescription = null,
-                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop,
+                modifier = Modifier.size(44.dp).clip(Hopp.colors.shapes.thumb), contentScale = ContentScale.Crop,
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -309,6 +333,49 @@ private fun ClipMiniPlayer(model: PlayerController, clip: RemoteClip, foot: Modi
  * pause shows, and a tap stops it rather than asking again. Inside the
  * button's box, which the ring fills.
  */
+/**
+ * A skip's arrow with its seconds inside, as in now playing (maintainer 2026-11-09: the bar of the
+ * web on a desktop showed bare arrows, and nobody knew how far they went). The number is the
+ * label's, which a screen reader reads already.
+ */
+@Composable
+private fun SkipIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, seconds: Int, label: String, size: Dp) {
+    Box(contentAlignment = Alignment.Center) {
+        Icon(icon, label, Modifier.size(size))
+        Text("$seconds", Modifier.clearAndSetSemantics {}, fontSize = (size.value * 0.3f).sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/**
+ * The play button on the main action's colour — or as the design's own hand has it (PlayerLook): its
+ * form, its ground, a halo round it, and rings going out from it while it plays and things may move.
+ */
+@Composable
+internal fun PlayButton(state: PlaybackState, size: Dp, icon: Dp, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val look = Hopp.colors.player
+    val halo = look?.playHalo
+    val rings = look?.rings?.takeIf { state.isPlaying && !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion }
+    val round = if (rings != null) rememberInfiniteTransition().animateFloat(0f, 1f, infiniteRepeatable(tween(3000, easing = LinearEasing))) else null
+    Box(
+        modifier.size(size).drawBehind {
+            val side = this.size.minDimension
+            // From the button's edge outwards, half its width again.
+            if (halo != null) drawCircle(Brush.radialGradient(0.5f to halo, 1f to Color.Transparent, radius = side), side)
+            if (rings != null && round != null) for (ring in 0..1) {
+                // Two, half a round apart: fast at first, fading as they widen.
+                val way = ((round.value + ring * 0.5f) % 1f).let { 1f - (1f - it) * (1f - it) }
+                drawCircle(rings.copy(alpha = 0.7f * (1f - way)), side / 2 * (1f + 0.75f * way), style = Stroke(1.5.dp.toPx()))
+            }
+        }.clip(Hopp.colors.shapes.play)
+            .then(look?.playFill?.let { Modifier.background(Brush.linearGradient(it)) } ?: Modifier.background(colors.primary))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        PlayPause(state, colors.onPrimary, icon)
+    }
+}
+
 @Composable
 internal fun BoxScope.PlayPause(state: PlaybackState, tint: Color, iconSize: Dp) {
     if (state.isBuffering) {

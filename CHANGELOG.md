@@ -6,6 +6,31 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-11
+
+### 🆕 New Features
+- **Designs:** New design Coldstorage: frosty blue like snow and ice.
+- **Designs:** Every design has its own now playing screen – Glut's fire, Coldstorage's ice, Relay's network, Hopp's rings – that reacts to boosts.
+- **Discover:** The search also finds shows, episodes, chapters and comments in your library.
+- **Web:** Skip silence and volume boost in Hopp Web too, where the show's server allows it.
+- **Nostr:** For a show, you also see which of your Nostr contacts zapped it or follow it on Nostr.
+- **Player:** Chapter buttons in the player bar on wide screens.
+- **Sync:** "Details" shows how the last sync went, relay by relay.
+- **Nostr:** A note when too few relays answer for your profile, your Nostr contacts or a comment.
+- **Comments:** Comments appear as soon as the first relay answers.
+
+### 🐛 Fixes
+- **Sync:** The first sync after starting no longer waits for a relay that does not answer.
+- **Sync:** What plays on another device shows up at once, even for a brand-new episode.
+- **Sync:** Muted people and hidden comments stay hidden on your other devices.
+- **App:** On iOS, choose Hopp's language in Hopp itself.
+- **Player:** Skipping chapters also works on an episode paused after a restart.
+- **Player:** The skip buttons in the player bar show their seconds.
+- **Player:** Larger text beside the boost button on wide screens.
+- **Pages:** Scrolling up with a mouse or touchpad brings back the header of a show or episode.
+- **Web:** Space plays and pauses, even right after a skip button was clicked.
+- **Web:** Emoji in colour, and ₿ instead of an empty box.
+
 ## [0.4.1] - 2026-11-08
 
 ### 🆕 New Features

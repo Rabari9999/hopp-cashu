@@ -83,7 +83,7 @@ To be decided before the F-Droid submission — **now on the critical path**:
 since 2026-10-10 F-Droid and Zapstore are the first release channels (ADR 0011).
 
 
-## 18. A web client — proposed 2026-10-21
+## 18. A web client — proposed 2026-10-21, live since 0.4.0
 
 Concept → [ADR 0022](adr/0022-web-client.md) (proposed): a web client as a
 way onto the iPhone while the App Store is out of reach. Decided so far:
@@ -93,6 +93,12 @@ key (ADR 0021, 5), the full Sovereigncast feature set, the address
 who runs the feed proxy and on which domain; the spike (stage W1) decides
 whether Compose on the web carries it.
 
+*Since decided and built (ADR 0022 and its amendments):* the spike carried
+it; Nodesignal runs the feed proxy on its own small server, which serves
+`play.sovereigncast.space` (signed release builds, since 0.4.0) and
+`play-dev.sovereigncast.space` (stages in between). Task:
+`docs/tasks/web-client.md`.
+
 ## 19. What your Nostr contacts listen to — decided 2026-11-01, revised 2026-11-02
 
 Decided → [ADR 0024](adr/0024-nostr-contacts.md): mutual Nostr contacts
@@ -100,7 +106,7 @@ who use Hopp see each other's subscriptions, sealed so that only they open
 them; public boosts, comments, zaps and follows of the people one follows
 count too. Sharing and seeing are separate switches, both off; single shows
 can be left out; subscriptions only for now. Called Nostr contacts, never
-friends. Not built yet.
+friends. Released in 0.4.0 (task: `docs/tasks/nostr-contacts.md`).
 
 ## 20. Public recommendation lists — an idea, 2026-11-02
 

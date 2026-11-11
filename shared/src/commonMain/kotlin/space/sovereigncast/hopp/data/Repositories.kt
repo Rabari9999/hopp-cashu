@@ -140,6 +140,8 @@ class PodcastRepository(
     private val autoDownloads: suspend () -> Boolean = { true },
     /** New episodes a refresh found — id and when each came out, oldest first ("Up next", Settings.newToQueue). */
     private val onNewEpisodes: suspend (List<Pair<Long, Long?>>) -> Unit = {},
+    /** The library search: what a subscription or a refresh brought, made searchable after. */
+    private val search: LibrarySearch? = null,
 ) {
     private val q = db.podcastQueries
     private val eq = db.episodeQueries
@@ -171,6 +173,17 @@ class PodcastRepository(
 
     suspend fun podcastMeta(id: Long): Podcast? = withContext(ioDispatcher) {
         q.selectById(id).awaitAsOneOrNull()?.let { json.decodeFromString(Podcast.serializer(), it.meta_json) }
+    }
+
+    /** The subscribed shows that name their Nostr account (`podcast:txt purpose="nostr"`): its pubkey (hex) to
+     *  the show's `podcast:guid` — whose zaps and follows by Nostr contacts count (ADR 0024, 6). */
+    suspend fun nostrAccounts(): Map<String, String> = withContext(ioDispatcher) {
+        q.selectAll().awaitAsList().flatMap { row ->
+            val guid = row.podcast_guid?.takeIf { it.isNotBlank() } ?: return@flatMap emptyList()
+            val meta = runCatching { json.decodeFromString(Podcast.serializer(), row.meta_json) }.getOrNull() ?: return@flatMap emptyList()
+            meta.txt.filter { it.purpose.equals("nostr", ignoreCase = true) }
+                .mapNotNull { space.sovereigncast.hopp.nostr.pubkeyOf(it.value) }.map { it to guid }
+        }.toMap()
     }
 
     /** Fetch, parse, store. The newest episode lands in "New"; the back
@@ -212,7 +225,7 @@ class PodcastRepository(
                 if (q.selectByFeedUrl(feedUrl).awaitAsOneOrNull() != null) return@transactionWithResult null
                 val p = feed.podcast
                 q.insert(feedUrl, p.podcastGuid, p.title ?: feedUrl, p.author, p.imageUrl,
-                    json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"))
+                    json.encodeToString(Podcast.serializer(), p), etag, lastModified, now, now, p.categories.joinToString("\n"), searchText(p, feedUrl))
                 val id = q.lastInsertId().awaitAsOne()
                 val newest = feed.episodes.maxByOrNull { it.publishedAt ?: 0 }?.guid
                 if (!autoDownload) q.setAutoDownload(0, id)
@@ -223,6 +236,7 @@ class PodcastRepository(
         // Subscribed by sync: held until its round is through ([releaseHeldDownloads]) — by then the
         // progress from the other devices is in, and a newest episode heard there is not fetched.
         if (fetch) { if (sync) downloads.schedule(manual = false) else downloadsHeld = true }
+        search?.later()
         return SubscribeResult.Subscribed(id, feed.podcast.title ?: feedUrl)
     }
 
@@ -258,13 +272,13 @@ class PodcastRepository(
                 result.movedTo?.let { moved -> if (q.selectByFeedUrl(moved).awaitAsOneOrNull() == null) q.updateFeedUrl(moved, id) }
                 val p = feed.podcast
                 q.updateFromFeed(p.podcastGuid, p.title ?: row.title, p.author, p.imageUrl,
-                    json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, p.categories.joinToString("\n"), id)
+                    json.encodeToString(Podcast.serializer(), p), result.etag, result.lastModified, now, p.categories.joinToString("\n"), searchText(p, row.title), id)
                 val known = eq.guidsOfPodcast(id).awaitAsList().toSet()
                 val added = mutableListOf<Episode>()
                 for (e in feed.episodes) {
                     if (e.guid in known) {
                         eq.updateFromFeed(e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
-                            e.chaptersUrl, json.encodeToString(Episode.serializer(), e), id, e.guid)
+                            e.chaptersUrl, json.encodeToString(Episode.serializer(), e), searchText(e), chapterSig(feedChapters(e, e.durationSeconds)), id, e.guid)
                     } else {
                         insertEpisode(id, e, inInbox = true, now, autoDownload = fetch); added += e
                     }
@@ -273,6 +287,7 @@ class PodcastRepository(
             }
         }
         if (added.isNotEmpty() && fetch) downloads.schedule(manual = false)
+        search?.later()
         // Out in the last days only: a feed that brings back its old episodes fills nobody's "Up next".
         val fresh = added.filter { (it.publishedAt ?: now) >= now - NEW_TO_QUEUE_DAYS * 86_400 }.sortedBy { it.publishedAt ?: now }
         if (fresh.isNotEmpty()) runCatching {
@@ -311,6 +326,8 @@ class PodcastRepository(
             }
             val paths = eq.downloadPathsOfPodcast(id).awaitAsList().filterNotNull()
             db.chapterCacheQueries.deleteByPodcast(id)
+            db.searchQueries.deleteChaptersByPodcast(id)
+            db.searchQueries.deleteCommentsByPodcast(id)
             db.commentQueries.deleteEventsByPodcast(id)
             db.commentQueries.deleteFetchesByPodcast(id)
             db.queueQueries.deleteByPodcast(id)
@@ -387,7 +404,7 @@ class PodcastRepository(
         val queued = inInbox && autoDownload && e.enclosure?.url != null
         eq.insertIfNew(podcastId, e.guid, e.title, e.publishedAt, e.durationSeconds, e.imageUrl, e.enclosure?.url, e.enclosure.lengthOrZero(),
             e.chaptersUrl, json.encodeToString(Episode.serializer(), e), if (inInbox) 1 else 0, now,
-            if (queued) DownloadState.QUEUED.toLong() else DownloadState.NONE.toLong())
+            if (queued) DownloadState.QUEUED.toLong() else DownloadState.NONE.toLong(), searchText(e))
     }
 }
 
@@ -747,7 +764,10 @@ class EpisodeRepository(
         if (!response.status.isSuccess()) throw IllegalStateException("chapters: HTTP ${response.status.value}")
         val text = response.text()
         val chapters = withContext(Dispatchers.Default) { ChaptersParser.parse(text) }
-        withContext(ioDispatcher) { db.chapterCacheQueries.upsert(item.id, text, clock.now()) }
+        withContext(ioDispatcher) {
+            db.chapterCacheQueries.upsert(item.id, text, clock.now())
+            indexChapterFile(db, item.id, chapters)
+        }
         return chapters
     }
 

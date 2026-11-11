@@ -260,9 +260,9 @@ fun OnboardingScreen(
 }
 
 /**
- * The tour's language, on its first page (maintainer 2026-11-03): in a browser Hopp's own choice — a menu of the
- * languages, and Hopp starts again in the one picked, the tour from its beginning; in the apps the system's page
- * for Hopp's language (Android 13 and later, iOS). Nothing where neither is there.
+ * The tour's language, on its first page (maintainer 2026-11-03): in a browser and on iOS Hopp's own choice — a
+ * menu of the languages, and Hopp starts again in the one picked, the tour from its beginning; on Android 13 and
+ * later the system's page for Hopp's language. Nothing where neither is there.
  */
 @Composable
 private fun TourLanguage() {

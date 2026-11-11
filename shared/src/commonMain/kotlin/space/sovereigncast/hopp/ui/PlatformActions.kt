@@ -21,6 +21,8 @@ interface PlatformActions {
     val canAutoDownload: Boolean get() = canDownload
     /** Whether Hopp pays here — boosts, streaming sats, zaps, Sovereigncast's payments. */
     val canPay: Boolean get() = true
+    /** Whether the listener asked the system for less movement (ADR 0016): what only decorates stands still then. */
+    val reduceMotion: Boolean get() = false
     /** Whether it pays with the browser's own wallet (WebLN, ADR 0022, 4) instead of one connected over NWC. */
     val paysWithBrowser: Boolean get() = false
     /** A new build of Hopp Web waiting to take over (its version) — the service worker's (ADR 0022, 14); null in the apps. */
@@ -51,13 +53,15 @@ interface PlatformActions {
     val canPickLanguage: Boolean get() = false
     /** Opens the system's language choice for Hopp. */
     fun openLanguageSettings() = Unit
-    /** Where the system offers no language choice for Hopp (the browser): the languages Hopp
-     *  offers itself, by code, each in its own name; null where the system's page is the way. */
+    /** Where the system offers no language choice for Hopp that always works (the browser, iOS): the
+     *  languages Hopp offers itself, by code, each in its own name; null where the system's page is the way. */
     val appLanguages: Map<String, String>? get() = null
     /** The language chosen in [appLanguages]; null: the system's (the browser's). */
     val appLanguage: String? get() = null
     /** Chooses [code] from [appLanguages], null for the system's; Hopp starts again in it. */
     fun setAppLanguage(code: String?) = Unit
+    /** Whether the system's language, in [appLanguages], is the browser's rather than the device's. */
+    val languageFromBrowser: Boolean get() = false
     /** Whether the lists' refresh gets a button in the top bar: a mouse cannot pull a list down
      *  (the browser on a desktop; maintainer 2026-11-01). */
     val refreshButton: Boolean get() = false

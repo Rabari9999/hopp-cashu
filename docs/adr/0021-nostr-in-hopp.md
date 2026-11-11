@@ -186,6 +186,41 @@ Hopp shows what Fountain's listeners say about the same episode.
   A relay that lets a request's time run out without a connection is not asked
   again in that round (`RelayPool`); the next round tries it again. A document taken by more than half the relays gives the
   rest two seconds; what they miss, a later version brings them.
+- *Amended 2026-11-09 (maintainer):* an entry about an episode this device has
+  not got yet — what plays now, a place in "Up next", a position — has its show's
+  feed read at once (`FeedCatchUp`), not at the next look at the feeds, hours away:
+  an episode out since the device last read the feed was nowhere there. Only where
+  the feed was read before the entry was made (or failed), for entries of the last
+  two days, and at most three feeds a round; a feed without the episode is not
+  asked again for it.
+- *Amended 2026-11-09 (maintainer):* the keyring's read no longer waits for a
+  relay that hangs. A round reads it again when the last look is over a minute
+  old — each start's first round always — and a relay taking no connection held
+  that round for the request's whole time (10 s; a test measured 12 s for the
+  first round after a start). With the key held here, the others get two
+  seconds once more than half answered — a newer keyring goes out only to a
+  majority, so it is among what a majority answers. Without a key, every relay
+  is still heard out before one is made.
+- *Amended 2026-11-10 (maintainer):* what Hopp does with the relays besides
+  sync — reading the profile and the Nostr contacts, sending the shared list
+  and a comment — is noted the way a sync round is (`NostrActivity`): the last
+  go of each, with every relay's answer, kept until Hopp ends and never stored.
+  It shows only where it went wrong: fewer than half the relays it stands on
+  answered (for the contacts the listener's, Hopp's and the indexes; the
+  contacts' own relays, many long gone, are counted beside them). Then one line
+  in the sync sheet and one at its place on the Nostr page, its relays a tap
+  away; the sync's own state and its mark at the profile picture stay the
+  sync's. A first design that listed every activity, with a history per relay,
+  was set aside as too much for something that mostly just works.
+- *Amended 2026-11-10 (maintainer):* who the listener muted in the comments, and
+  the comments they hid or reported, travel in `hopp/settings` — one entry each
+  (`muted:<key>`, `hidden:<id>`), so what two devices added meanwhile adds up;
+  nothing takes one back. A bot muted on the phone commented again in the
+  browser: the mute had only reached the public mute list (NIP-51), and that
+  had not gone out (no list found, and not every relay answered — then Hopp
+  writes none, so as not to replace one it could not read). The public list
+  stays as it was, for other clients; Hopp's own devices no longer depend on it.
+  Tests: `QueueAndSettingsSyncTest.mutedPeopleAndHiddenCommentsGoAlong`.
 - *Amended 2026-11-06 (maintainer):* what plays now travels too, as one entry
   of `hopp/queue` (`now`): the newest start on any device. Each device had kept
   its own, and an episode started on one left "Up next" and was shown nowhere on

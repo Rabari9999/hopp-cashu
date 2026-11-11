@@ -26,6 +26,8 @@ class ProgressDocument(
     private val playing: (Long) -> Boolean = { false },
     /** The episode loaded in the player, paused, follows a position from elsewhere. */
     private val adopt: suspend (id: Long, positionMs: Long, played: Boolean) -> Unit = { _, _, _ -> },
+    /** The feed of a show whose episode an entry is about, read at once where it is not here yet. */
+    private val catchUp: FeedCatchUp? = null,
 ) : SyncedDocument {
     override val name = SyncDocs.PROGRESS
 
@@ -122,6 +124,10 @@ class ProgressDocument(
     }
 
     override suspend fun apply(entries: Map<String, SyncEntry>): Set<String> {
+        catchUp?.fetchFor(entries.mapNotNull { (key, e) ->
+            if (!key.startsWith("pos\n") || e.del) return@mapNotNull null
+            FeedCatchUp.Wanted(e.d.text("show") ?: return@mapNotNull null, e.d.text("guid") ?: return@mapNotNull null, e.t)
+        })
         val shows = withContext(ioDispatcher) { db.podcastQueries.selectAll().awaitAsList() }
         val done = mutableSetOf<String>()
         // "Heard up to" first: an episode's own entry, newer, wins after it — "unheard" on one after "all" elsewhere.

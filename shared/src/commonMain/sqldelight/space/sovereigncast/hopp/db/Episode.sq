@@ -35,6 +35,11 @@ CREATE TABLE episode (
     -- bytes — to choose between download, stream or wait for Wi-Fi (user
     -- request 2026-10-18). 0 = the feed states none; null = not read yet.
     enclosure_length INTEGER,
+    -- Version 25 (migrations/24.sqm): title, show notes and the persons named, as the library
+    -- search compares them (data/LibrarySearch.kt); null until written. And the chapters the feed
+    -- gives it, as a number: null when they still have to go into search_chapter (maintainer 2026-11-10).
+    search_text TEXT,
+    chapter_sig INTEGER,
     UNIQUE (podcast_id, guid)
 );
 
@@ -43,12 +48,15 @@ CREATE INDEX episode_inbox_idx ON episode(in_inbox, published_at);
 
 -- Only what the feed knows; a known episode keeps the listener's state.
 insertIfNew:
-INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, enclosure_length, chapters_url, meta_json, in_inbox, first_seen_at, download_state)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR IGNORE INTO episode (podcast_id, guid, title, published_at, duration_seconds, image_url, enclosure_url, enclosure_length, chapters_url, meta_json, in_inbox, first_seen_at, download_state, search_text)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+-- Chapters that changed go into search_chapter again: chapter_sig null marks them.
 updateFromFeed:
-UPDATE episode SET title = ?, published_at = ?, duration_seconds = ?, image_url = ?, enclosure_url = ?, enclosure_length = ?, chapters_url = ?, meta_json = ?
-WHERE podcast_id = ? AND guid = ?;
+UPDATE episode SET title = :title, published_at = :published_at, duration_seconds = :duration_seconds, image_url = :image_url, enclosure_url = :enclosure_url,
+    enclosure_length = :enclosure_length, chapters_url = :chapters_url, meta_json = :meta_json, search_text = :search_text,
+    chapter_sig = CASE WHEN chapter_sig = :chapter_sig THEN chapter_sig ELSE NULL END
+WHERE podcast_id = :podcast_id AND guid = :guid;
 
 -- Episodes from before version 10, whose size is still in meta_json only.
 withoutLength:

@@ -280,3 +280,157 @@ Nostr comes on a tint or a button, never as a coloured word alone.
 
 `DesignColorsTest` holds it to the same rules. The same design exists as a
 Sovereigncast theme package, not in that repository yet.
+
+### Amendment 2026-11-09: a fourth design, Coldstorage
+
+Snow, ice and frost (maintainer 2026-11-09, from the canvas
+https://claude.ai/artifact/1pPt34Gcu7dN6ks9PPfsve): "Raureif" by day, a
+snow-white ground under a pale light of ice and glacier blue for the main
+action; "Polarnacht" by night, deep ice with glacier light above and a breath
+of turquoise below — no aurora green. Built as Glut and Relay are; blue leads
+the heard part of the progress bars. Orange stays money's and stands out on the
+ice; no Nostr colour of its own. Four designs sit two by two on a phone, side by
+side from a tablet's width. `DesignColorsTest` holds it to the same rules.
+
+### Amendment 2026-11-10: a design's own hand on now playing — a trial with Glut
+
+The three coloured designs were one recipe in three hues: the same light behind
+the top bar, nothing that moves, only colour told them apart. On trial with Glut
+(maintainer 2026-11-10, to be judged on the beta): a design may bring a
+`PlayerLook` for now playing. Glut's fire burns below — the glow sits under the
+controls instead of above the cover, rests low while paused, comes up and
+breathes while it plays, and by night throws a few sparks; the cover casts a
+warm light at its foot, the play button has a halo, and the heard part of the
+progress bar runs from pale to bright under a shimmer. By day the light moves
+down and brightens with playback, without sparks, halo or shimmer.
+
+- Orange stays money's: the fire is ground, never a control or a label; the
+  progress bar's colours are cream, not orange.
+- `DesignColorsTest` samples the glow at its fullest across a phone's window:
+  text 4.5:1 and controls 3:1 hold on its brightest spot too. That bounds how
+  strong the fire can be.
+- Under "reduce motion" (ADR 0016) nothing breathes or rises:
+  `PlatformActions.reduceMotion` asks the system (Android's animator scale,
+  iOS's setting, the browser's media query); the glow still follows play and
+  pause.
+- The pane on wide screens, the mini player, Home and the lists stay as they
+  were. Left out of the trial: a grain on the ground, and a flare when a boost
+  went through. Whether Relay and Coldstorage get a hand of their own waits for
+  the verdict on this one.
+
+### Amendment 2026-11-10: Glut's hand on now playing, whole
+
+The trial held on the beta ("gefällt mir sehr", maintainer 2026-11-10), so Glut gets
+the rest of it, on Android, iOS and the web alike:
+
+- **The column beside the content** (wide windows, most of the web) has the fire too.
+  It paints its own ground there instead of standing on the window's: the window's
+  glow under the column and the fire together would be brighter than what is tested.
+  Designs without a `PlayerLook` stand on the window's ground as before.
+- **One picture in every window.** The glows are set in dp from the middle of the
+  window's foot, no longer in shares of its size: a small phone, a phone on its side
+  and the column all show a cut of the same fire. The first form drew the three glows
+  closer together the smaller the window was, and on 320 × 568 dp a control's edge
+  fell to 2.6:1. `DesignColorsTest` now samples a window that shows the whole fire,
+  which stands for every smaller one.
+- **Grain** lies over the ground. It goes towards the ground's own end — dark specks
+  by night, light ones by day — so a speck only ever takes from the glow and nothing
+  read on it loses contrast; the test asserts that.
+- **A boost fans the fire.** When a boost reached someone (`BoostReports.paid` — the
+  sheet's and the lock screen's alike, whatever feedback the listener chose), the
+  glow comes up to its whole, leaps 48 dp and settles within 2.4 s, and by night a
+  burst of sparks rises. It never gets brighter than the tested glow; the test looks
+  the leap's height below the window's foot. Not under "reduce motion".
+- **The value bar and the chips let the glow through** (`PlayerLook.panel`, `chip`);
+  text, secondary text and orange text are tested on them over the glow.
+
+Still as they were: the mini player, the bar along a wide window's foot, Home and the
+lists. Relay and Coldstorage have no hand of their own yet; that is a decision of its
+own, not a follow-up of this one.
+
+### Amendment 2026-11-10: the bars, and Coldstorage's and Relay's own hands
+
+Asked for by the maintainer on seeing Glut whole ("Passe das gerne an … danach
+Coldstorage und Relay"). This takes back the last paragraph above.
+
+- **The mini player and the bar along a wide window's foot** carry the design's light
+  too (`PlayerLook.bar`, `Modifier.barGround`): one oval from the middle of the bar's
+  foot over the card's colour, fuller while it plays, without motion — a bar is looked
+  at all day. The play button there is now playing's (`PlayButton`: form, ground,
+  halo), and the bar's progress has the design's style.
+- **A boost's flare waits for the sheet.** The boost sheet stays open to say what was
+  paid and covered the flare; closed quickly, only its end was seen (device feedback
+  2026-11-10). The flare — and Relay's wave, with the comments sheet — starts once
+  the sheet is gone.
+- **"Round and calm" may be left on now playing.** A `PlayerLook` brings its forms
+  (`PlayerShapes`), a material for the ground and a style for the progress bar.
+  Everywhere else the forms stay as they are.
+- **Coldstorage: cut ice.** Light from two corners of the window; a sheet of facets
+  over it, a few of which glint in turn while it plays; squared forms (cover, play
+  button, value bar, chips); the progress bar a hairline with a notch per chapter and
+  a diamond for a knob; the value bar as glass with a light edge. Orange is the one
+  warm thing: the boost button glows a little, and a paid boost sends frost across the
+  value bar once.
+- **Relay: the network.** Violet and Nostr's magenta from two corners; a mesh of nodes
+  with pulses running along some of its lines while it plays; the progress bar a line
+  with a node per chapter, the heard ones filled; rings going out from the play
+  button; the value bar edged from violet into magenta; times and speed in figures of
+  one width (the app font's own, no second font). A comment of the listener's own
+  that went out (`CommentWriter.sent`) sends one wave through the mesh from the foot.
+  A boost does not: orange is money's, the mesh is Nostr's.
+- **These two grow with the window** (`PlayerLook.spread`): the glows are set for a
+  390 dp phone, placed by shares of the window and scaled with its shorter side.
+  `DesignColorsTest` tries them in eight windows from 320 × 568 to 2560 × 1440 dp.
+  That bound the strengths: by night the ground may not pass a luminance of about
+  0.04 before a control's edge falls below 3:1, by day Coldstorage's facets are
+  white rather than blue for the same reason, and its value bar by night is dark
+  glass rather than light.
+- **What is tested** on the light at its fullest, with a facet at its brightest over
+  it: text, secondary and orange text, a control's edge, the progress bar, its heard
+  part and knob, text on the value bar and the chips; on the bars' light: text,
+  secondary text and the progress bar. Hairlines — a facet's edge, the mesh, its
+  nodes and pulses — are no ground to read on and are not tested, as little as
+  Glut's sparks. Nothing moves under "reduce motion".
+
+Not taken from the proposal: a squared streaming switch and a heavier title in
+Coldstorage — the switch is Material's everywhere, and one weight less to keep apart.
+
+### Amendment 2026-11-11: Hopp's own hand, and one ground all over the window
+
+- **Hopp: the arcs of its mark.** The proposal for Hopp ("print": ink outlines, hard
+  shadows) was turned down; Hopp stays black and white, round and calm (maintainer
+  2026-11-11). Its hand is the least of the four: a soft light without colour under the
+  controls, fine rings round the play button that fade with their distance
+  (`Material.Waves`), and while it plays a wave going out every few seconds. The
+  progress bar's knob is the hollow ring of the mark (`ProgressStyle.Ring`), the value
+  bar and the chips let the ground through. A paid boost sends money's orange dot over
+  an arc from the boost button once — the hop — after the boost sheet has closed.
+- **One ground all over the window.** Asked for on seeing the web's wide window, where
+  the net ended at now playing's edge. A material is now one sheet laid over the whole
+  window, and every ground shows its cut of it: the pages half of its strength
+  (`PAGE_SHARE`) and still, now playing all of it, lit and moving. So Relay's net and
+  Coldstorage's facets run through under Home, the library and the column of now
+  playing alike; Glut's grain lies under the pages too. Hopp's waves belong to the
+  play button and are not under the pages. The material no longer grows with the
+  window — a large window shows more of it — while the lights still do. The small
+  previews in the settings show the glow alone.
+- **Forms stay with now playing.** Coldstorage's squared forms are not carried into
+  the pages: every card, button and chip would follow, a decision of its own.
+- **Tested:** Hopp's light at its fullest like the others' (`holdsLit`); on the pages,
+  that a facet over the window's glow takes nothing from text, secondary and orange
+  text and a control's edge that the glow alone leaves them (`pagesHold`).
+
+Three things from the first look at it (maintainer 2026-11-11):
+
+- **The bar along a wide window's foot has Hopp's rings too**, round its play button
+  and still, with half the light (`BAR_LIGHT`): the card the bar lies on is lighter
+  than the page, and the progress bar has to hold on it.
+- **The column of now playing comes out of the page's ground.** The window's glow
+  ended at the column's edge, a step in light down the whole window. The column's
+  ground now fades in over 200 dp from that edge (`playerGround(beside = true)`):
+  at the edge it is the page's ground, further in now playing's. In between lies a
+  mix of two tested grounds, never brighter than the brighter one.
+- **Coldstorage's facets by day have edges of glacier blue** instead of white ones:
+  on snow the white ones were hardly seen. The fill stays white — a blue one that
+  shows would take the progress bar below 3:1.
+

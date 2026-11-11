@@ -194,6 +194,8 @@ private val SETTINGS_ROUTES = listOf(
 @Serializable object SupportRoute
 /** One tag's own page (maintainer 2026-11-03). */
 @Serializable data class TagRoute(val tag: String)
+/** Every hit of the library search for [query] (maintainer 2026-11-10). */
+@Serializable data class LibrarySearchRoute(val query: String)
 @Serializable object PrivacyRoute
 @Serializable object CrashRoute
 @Serializable object QueueRoute
@@ -575,8 +577,17 @@ fun App(platformActions: PlatformActions = NoPlatformActions) {
                                 DiscoverScreen(
                                     onPreview = { url, show -> nav.navigate(ShowPreviewRoute(url, show?.title, show?.imageUrl, show?.author)) },
                                     onPerson = { p -> nav.navigate(PersonRoute(p.name, p.img, p.href, p.role, p.show)) },
+                                    onEpisode = { nav.navigate(EpisodeRoute(it)) },
+                                    onAllHits = { nav.navigate(LibrarySearchRoute(it)) },
                                 )
                             } }
+                            composable<LibrarySearchRoute> { e ->
+                                Readable(LIST_WIDTH) { space.sovereigncast.hopp.ui.library.LibrarySearchScreen(
+                                    e.toRoute<LibrarySearchRoute>().query,
+                                    onShow = { s -> nav.navigate(ShowRoute(s.id)) },
+                                    onEpisode = { nav.navigate(EpisodeRoute(it)) },
+                                ) }
+                            }
                             composable<ShowPreviewRoute> { e ->
                                 // Subscribed: the show's own page takes the preview's place —
                                 // unless the listener has moved on while it loaded.

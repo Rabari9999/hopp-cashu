@@ -49,11 +49,11 @@ class ContactsLiveTest {
         val (benId, benKeys, benSecrets) = device(ben)
         benKeys.set(share = true, see = false)
         val shows = listOf(SharedShow("917393e3-1b1e-5cef-ace4-edaa54e1f810", "https://feeds.podcastindex.org/pc20.xml", "Podcasting 2.0", now()))
-        val benContacts = ContactsRepository(benId, benKeys, ContactGraph(benId, publisher, now), now,
+        val benContacts = ContactsRepository(benId, benKeys, ContactGraph(benId, publisher, nowSeconds = now), now,
             ContactShare(benId, publisher, benKeys, benSecrets, { shows }, nowSeconds = now))
         benContacts.refresh(force = true)
         println("ben: ${benContacts.state.value}")
-        val annaContacts = ContactsRepository(annaId, annaKeys, ContactGraph(annaId, publisher, now), now)
+        val annaContacts = ContactsRepository(annaId, annaKeys, ContactGraph(annaId, publisher, nowSeconds = now), now)
         annaContacts.refresh(force = true)
         val read = annaContacts.state.value.read!!
         println("anna sees: mutual=${read.mutual.map { it.pubkey.take(8) }} withHopp=${read.withHopp.map { it.pubkey.take(8) }} shows=${read.listening().map { it.show.title }}")

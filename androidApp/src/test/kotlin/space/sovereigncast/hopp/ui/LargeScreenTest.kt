@@ -127,6 +127,40 @@ class LargeScreenTest {
         check(notesShown() == 2) { "the notes on the page and in the player: ${notesShown()}" }
     }
 
+    /** The bar along a tablet's foot — and the browser's on a desktop — goes from chapter to chapter beside the
+     *  skips, as now playing's cover does (maintainer 2026-11-09). */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun thePlayerBarGoesFromChapterToChapter() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        tap("Ep 1"); waitFor("Chapters")
+        tap("Play")
+        rule.waitUntil(10_000) { rule.waitForIdle(); player.current.value?.chapters?.stops?.size == 2 }
+        val engine = org.koin.mp.KoinPlatform.getKoin().get<space.sovereigncast.hopp.platform.PlaybackEngine>()
+        rule.onNode(hasContentDescription("Next chapter") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { engine.state.value.positionMs == 90_000L }
+        rule.onNode(hasContentDescription("Previous chapter") and hasClickAction()).performClick()
+        rule.waitUntil(10_000) { engine.state.value.positionMs == 0L }
+    }
+
+    /** Without chapters, the bar has only the skips. */
+    @Test @Config(qualifiers = "en-w1280dp-h800dp-land")
+    fun aBarWithoutChaptersHasNoChapterButtons() {
+        rule.setContent { App() }
+        tap("Discover")
+        rule.onNode(hasSetTextAction()).performTextInput("https://pod.test/feed.xml")
+        tap("Open as feed"); waitFor("Subscribe")
+        tap("Subscribe"); waitFor("✓ Subscribed")
+        tap("Ep 2"); waitFor("Show notes")
+        tap("Play")
+        rule.waitUntil(10_000) { rule.waitForIdle(); player.current.value != null }
+        rule.onAllNodes(hasContentDescription("Forward", substring = true)).onLast().assertIsDisplayed()
+        check(rule.onAllNodes(hasContentDescription("Next chapter")).fetchSemanticsNodes().isEmpty()) { "a chapter button without chapters" }
+    }
+
     @Test @Config(qualifiers = "en-w1133dp-h744dp-land")
     fun nowPlayingStandsBesideTheContentOnAnIpadMini() {
         openPlayer(); controlsOnScreen()

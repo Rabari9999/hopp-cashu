@@ -1,6 +1,6 @@
 # Task — Open Hopp from the "Open in Hopp" link
 
-- **Status:** implemented 2026-10-12 — device check and the Sovereigncast hint left (see "Left to do")
+- **Status:** implemented 2026-10-12, in every release since 0.1.0 — the device check and the Sovereigncast hint left (see "Left to do"); the hint is still on Sovereigncast's `main` (2026-11-09)
 - **Opened:** 2026-10-11
 - **Relates to:** ADR 0002 §4 (deep links), ADR 0018 phase 1 (Sovereigncast layer)
 

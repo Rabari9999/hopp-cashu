@@ -204,6 +204,13 @@ name: Store screenshots
     visible: ".*(Subscribed|Abonniert).*"
     timeout: 60000
 - waitForAnimationToEnd
+# Further down by now (2026-11-11): found through the show's own search, on a tablet too.
+- scrollUntilVisible:
+    element: "(Search episodes|Folgen durchsuchen)"
+    centerElement: true
+- tapOn: "(Search episodes|Folgen durchsuchen)"
+- inputText: "yawn"
+- pressKey: Enter
 - tapOn: "009. yawn-boarding"
 - tapOn:
     text: "(Play|Abspielen|Continue|Weiterhören).*"

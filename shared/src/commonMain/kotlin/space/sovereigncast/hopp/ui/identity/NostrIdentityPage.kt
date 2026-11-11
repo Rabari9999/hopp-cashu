@@ -3,6 +3,9 @@ package space.sovereigncast.hopp.ui.identity
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.rounded.Close
+import space.sovereigncast.hopp.resources.activity_line
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.height
 
@@ -98,6 +101,7 @@ import space.sovereigncast.hopp.resources.sync_last_now
 import space.sovereigncast.hopp.resources.sync_newer
 import space.sovereigncast.hopp.resources.sync_note
 import space.sovereigncast.hopp.resources.sync_now
+import space.sovereigncast.hopp.resources.sync_details
 import space.sovereigncast.hopp.resources.sync_renew
 import space.sovereigncast.hopp.resources.sync_renew_confirm
 import space.sovereigncast.hopp.resources.sync_renew_failed
@@ -236,6 +240,8 @@ class NostrIdentityViewModel(
 
     /** A round now, the signer app allowed to ask — after it said it needs the listener. */
     fun syncNow() { val sync = sync ?: return; viewModelScope.launch { sync.syncNow(interactive = true) } }
+    /** A round from the sync sheet, or a document written anew — carried on when the page closes. */
+    fun requestRound(rewrite: String? = null) { sync?.requestRound(rewrite) }
 
     /** While the profile is looked up on the relays (device feedback 2026-10-16: nothing said so). */
     private val _loadingProfile = MutableStateFlow(false)
@@ -912,6 +918,7 @@ private fun Signed(me: NostrIdentity, settings: Settings?, busy: Boolean, vm: No
         val active by tabOnly.active.collectAsState()
         if (active) Text(stringResource(Res.string.nostr_tab_only_on), color = muted, style = MaterialTheme.typography.bodySmall)
     }
+    ActivityTrouble(space.sovereigncast.hopp.nostr.NostrActivity.Area.Profile)
     // Only when something is wrong: the profile reached no relay.
     if (published == 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.nostr_publish_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1076,6 +1083,7 @@ private fun ContactsReadLine(read: space.sovereigncast.hopp.contacts.ContactsRea
         else -> stringResource(Res.string.contacts_counts, read.following.size, read.mutual.size, read.withHopp.size)
     }
     counts?.let { Text(it, color = muted, style = MaterialTheme.typography.bodySmall) }
+    ActivityTrouble(space.sovereigncast.hopp.nostr.NostrActivity.Area.Contacts, space.sovereigncast.hopp.nostr.NostrActivity.Area.Share)
     if (reading != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(
@@ -1163,6 +1171,27 @@ private fun SyncStatusLine(vm: NostrIdentityViewModel) {
     }
 }
 
+/**
+ * Where reading or sending [areas] went wrong with the relays (maintainer 2026-11-10): one short line at that
+ * place, its relays a tap away — nothing at all while it works.
+ */
+@Composable
+private fun ActivityTrouble(vararg areas: space.sovereigncast.hopp.nostr.NostrActivity.Area, activity: space.sovereigncast.hopp.nostr.NostrActivity = org.koin.compose.koinInject()) {
+    val last by activity.last.collectAsState()
+    val o = areas.mapNotNull { last[it] }.filter { it.problem }.maxByOrNull { it.atMs } ?: return
+    var open by remember { mutableStateOf(false) }
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button) { open = true }
+            .heightIn(min = 44.dp).padding(horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(androidx.compose.material.icons.Icons.Rounded.Warning, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+        Text(stringResource(Res.string.activity_line, o.answered, o.asked), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.sync_details) + " ›", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+    if (open) space.sovereigncast.hopp.ui.library.ActivitySheet(o) { open = false }
+}
+
 /** Too few relays answered: none at all, or how many of how many. */
 @Composable
 private fun relayLine(answered: Int, asked: Int): String =
@@ -1182,13 +1211,23 @@ private fun SyncActions(vm: NostrIdentityViewModel, now: Boolean, renew: Boolean
     val renewed by vm.renewed.collectAsState()
     var confirm by remember { mutableStateOf(false) }
     var showKey by remember { mutableStateOf<String?>(null) }
+    var details by remember { mutableStateOf(false) }
     androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = if (now) Arrangement.End else Arrangement.Start, verticalArrangement = Arrangement.Center) {
+        // What the last round came to, relay by relay — the sheet the profile picture opens (maintainer 2026-11-09).
+        if (now) TextButton(onClick = { details = true }) { Text(stringResource(Res.string.sync_details)) }
         if (now && !status.running) TextButton(onClick = vm::syncNow) { Text(stringResource(Res.string.sync_now)) }
         if (!now) TextButton(onClick = { showKey = keys.publicKey() }) { Text(stringResource(Res.string.sync_key_show)) }
         if (!now && renew) {
             if (renewing) CircularProgressIndicator(Modifier.padding(12.dp).size(18.dp), strokeWidth = 2.dp)
             else TextButton(onClick = { confirm = true }) { Text(stringResource(Res.string.sync_renew_short)) }
         }
+    }
+    if (details) {
+        val nowMs by produceState(kotlin.time.Clock.System.now().toEpochMilliseconds()) {
+            while (true) { kotlinx.coroutines.delay(30_000); value = kotlin.time.Clock.System.now().toEpochMilliseconds() }
+        }
+        space.sovereigncast.hopp.ui.library.SyncSheet(status, nowMs, onSyncNow = { vm.requestRound() }, onSettings = null,
+            onRewrite = { vm.requestRound(rewrite = it) }) { details = false }
     }
     renewed?.let { r ->
         Text(

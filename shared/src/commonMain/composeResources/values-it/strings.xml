@@ -475,6 +475,7 @@
     <string name="settings_design_hopp">Calmo, in bianco e nero</string>
     <string name="settings_design_glut">Caldo, come la brace</string>
     <string name="settings_design_relay">La notte sulla rete Nostr</string>
+    <string name="settings_design_coldstorage">Gelido, come neve e ghiaccio</string>
     <string name="settings_theme">Chiaro o scuro</string>
     <string name="settings_theme_system">Come il sistema</string>
     <string name="settings_theme_light">Chiaro</string>
@@ -484,6 +485,7 @@
     <string name="settings_language">Lingua</string>
     <string name="settings_language_current">Italiano</string>
     <string name="settings_language_browser">La lingua del browser</string>
+    <string name="settings_language_device">La lingua del dispositivo</string>
     <string name="settings_directories_note">Podcast Index, fyyd, Apple</string>
     <string name="settings_subscriptions_note">Importa ed esporta OPML</string>
     <string name="settings_privacy_note">Chi vede cosa</string>
@@ -492,6 +494,8 @@
     <string name="settings_about_note">Versione, novità, tour, codice sorgente</string>
     <string name="settings_skip_silence_note">Accorcia le pause nell’audio</string>
     <string name="settings_volume_boost_note">Rende più forti i podcast e le puntate a basso volume</string>
+    <string name="settings_effects_web_note">Nel browser solo con i programmi il cui server lo consente e con gli episodi scaricati nel browser.</string>
+    <string name="np_effects_refused">Il server di questo programma non lo consente nel browser: viene riprodotto così com’è.</string>
     <string name="settings_boost_feedback">Dopo un boost nell’app</string>
     <string name="settings_quick_boost_feedback">Dopo un boost rapido (schermata di blocco)</string>
     <string name="settings_zap_feedback">Dopo uno zap</string>
@@ -964,6 +968,18 @@
     <string name="sync_too_large">Troppi dati da sincronizzare: un documento è più grande di quanto Hopp invia. Non è stato tagliato nulla.</string>
     <string name="sync_pending">%1$d in attesa del loro feed</string>
     <string name="sync_now">Sincronizza ora</string>
+    <string name="sync_details">Dettagli</string>
+    <!-- What else went wrong with the relays (maintainer 2026-11-10) -->
+    <string name="activity_profile">Profilo</string>
+    <string name="activity_comment">Il tuo commento</string>
+    <string name="activity_relays">%1$d di %2$d relay · %3$s</string>
+    <string name="activity_read_partly">Letto solo in parte: %1$s</string>
+    <string name="activity_sent_partly">Raggiunti troppo pochi relay: %1$s</string>
+    <string name="activity_read_text">Hopp mostra ciò che hanno inviato i relay che hanno risposto. Ciò che hanno gli altri arriva con la prossima lettura.</string>
+    <string name="activity_send_text">I relay che non l’hanno accettato lo riceveranno al prossimo tentativo.</string>
+    <string name="activity_comment_text">Solo i relay che l’hanno accettato mostrano il tuo commento agli altri.</string>
+    <string name="activity_others">Altri %1$d relay dalle liste dei tuoi contatti, %2$d di questi hanno risposto</string>
+    <string name="activity_line">Solo %1$d di %2$d relay hanno risposto</string>
     <string name="sync_renew">Rinnova la chiave di sync</string>
     <string name="sync_renew_text">Per un dispositivo perso o un browser che non usi più: la tua libreria riceve una nuova chiave, e quella vecchia non apre nulla di ciò che viene dopo. I tuoi altri dispositivi chiedono una volta alla tua app di firma, poi proseguono. Chiudi anche la vecchia sessione nella tua app di firma.</string>
     <string name="sync_renew_confirm">Rinnova</string>
@@ -1233,14 +1249,16 @@
         <item quantity="other">%1$d dei tuoi contatti Nostr lo ascoltano</item>
     </plurals>
     <plurals name="contacts_acted">
-        <item quantity="one">%1$d dei tuoi contatti Nostr lo ascolta, gli ha inviato un boost o lo ha commentato</item>
-        <item quantity="other">%1$d dei tuoi contatti Nostr lo ascoltano, gli hanno inviato un boost o lo hanno commentato</item>
+        <item quantity="one">%1$d dei tuoi contatti Nostr lo ascolta, gli ha inviato un boost o uno zap o lo ha commentato</item>
+        <item quantity="other">%1$d dei tuoi contatti Nostr lo ascoltano, gli hanno inviato un boost o uno zap o lo hanno commentato</item>
     </plurals>
     <string name="contacts_renew_text">Un contatto non è più reciproco. Una nuova chiave lo tiene fuori.</string>
     <string name="contacts_renew">Rinnova la chiave</string>
     <string name="contacts_did_share">condivide l’iscrizione</string>
     <string name="contacts_did_boost">ha inviato un boost</string>
     <string name="contacts_did_comment">ha commentato</string>
+    <string name="contacts_did_zap">ha inviato uno zap</string>
+    <string name="contacts_did_follow">segue il podcast su Nostr</string>
     <!-- Shared shows, all in one place (maintainer 2026-11-02) -->
     <string name="contacts_shared_title">Podcast condivisi</string>
     <string name="contacts_shared_summary">%1$d di %2$d condivisi</string>
@@ -1378,4 +1396,20 @@
     <string name="playlist_undo">Annulla</string>
     <string name="playlist_skip">Salta</string>
     <string name="playlist_open">Vai alla puntata</string>
+    <!-- The library search (maintainer 2026-11-10). -->
+    <string name="search_library">Nella tua libreria</string>
+    <string name="search_all">Tutti %1$d</string>
+    <string name="search_title">«%1$s» nella tua libreria</string>
+    <string name="search_kind_show">Podcast</string>
+    <string name="search_kind_episode">Puntata</string>
+    <string name="search_kind_chapter">Capitolo</string>
+    <string name="search_kind_comment">Commento</string>
+    <string name="search_newest">Prima i più recenti</string>
+    <string name="search_oldest">Prima i più vecchi</string>
+    <plurals name="search_hits">
+        <item quantity="one">%1$d risultato</item>
+        <item quantity="other">%1$d risultati</item>
+    </plurals>
+    <string name="search_scope">Cerca nei titoli, nelle note delle puntate, nei capitoli, nelle persone e nei commenti letti dei podcast a cui sei iscritto, su questo dispositivo e senza rete. Non nelle trascrizioni.</string>
+    <string name="search_play_from">Riproduci da %1$s</string>
 </resources>

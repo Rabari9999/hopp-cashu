@@ -1,6 +1,6 @@
 # Task — Sync across devices over Nostr (ADR 0021, stage 5)
 
-- **Status:** built 2026-10-20 (packages 1–7), sync key 2026-10-21, audit fixes 2026-10-22 and two delta audits the same day (ADR 0021, 5); checked on two devices with the maintainer's key, with Amber and with a bunker, 2026-10-21
+- **Status:** done — released in 0.3.0 (2026-10-25). Built 2026-10-20 (packages 1–7), sync key 2026-10-21, audit fixes 2026-10-22 and two delta audits the same day (ADR 0021, 5); checked on two devices with the maintainer's key, with Amber and with a bunker, 2026-10-21
 - **ADR:** 0021 §5 (sync), 0006 (identity), 0015 (privacy), 0013 (offline)
 
 ## Why
@@ -21,7 +21,9 @@ listener's relays that only their key opens.
   library's order and view, the entries hidden under "Take part"; since
   2026-10-23 (maintainer) also automatic downloads on or off, finished
   downloads into "Up next", the background refresh (how often, Wi-Fi only)
-  and what boosts, quick boosts and zaps report. A setting added to the
+  and what boosts, quick boosts and zaps report; since 2026-11-10 (maintainer)
+  who is muted in the comments and which comments are hidden, one entry each,
+  added up across devices (ADR 0021). A setting added to the
   list later joins on devices already in step at their next round, where
   the relays hold nothing for it yet.
 - **Never:** the NWC connection, keys, the daily budget, streaming and its

@@ -160,7 +160,8 @@ data class Settings(
         const val DESIGN_HOPP = "hopp"
         const val DESIGN_GLUT = "glut"
         const val DESIGN_RELAY = "relay"
-        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT, DESIGN_RELAY)
+        const val DESIGN_COLDSTORAGE = "coldstorage"
+        val designChoices = listOf(DESIGN_HOPP, DESIGN_GLUT, DESIGN_RELAY, DESIGN_COLDSTORAGE)
         const val ZAP_PUBLIC = "public"
         const val ZAP_PRIVATE = "private"
         const val ZAP_ANONYMOUS = "anonymous"
@@ -179,6 +180,14 @@ data class Settings(
             "auto_downloads", "downloads_to_queue", "refresh_hours", "refresh_wifi_only",
             "boost_feedback", "quick_boost_feedback", "zap_feedback",
         )
+
+        /**
+         * Who the listener muted in the comments, and the comments hidden or reported: in sync too, one entry each
+         * (maintainer 2026-11-10: a bot muted on the phone commented again in the browser) — so two devices'
+         * additions add up. Nothing takes one back, and so neither does sync.
+         */
+        const val MUTED = "muted:"
+        const val HIDDEN = "hidden:"
 
         internal fun from(values: Map<String, String>): Settings {
             val d = Settings()
@@ -314,13 +323,31 @@ class SettingsRepository(
         val changed = after.toMap().filter { (k, v) -> before.toMap()[k] != v }
         db.transaction { changed.forEach { (k, v) -> db.settingQueries.put(k, v) } }
         changed.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> journal.record(SyncDocs.SETTINGS, k, SyncDocs.setting(v)) }
+        (after.mutedLocally - before.mutedLocally).forEach { journal.record(SyncDocs.SETTINGS, Settings.MUTED + it, SyncDocs.setting(ON)) }
+        (after.hiddenComments - before.hiddenComments).forEach { journal.record(SyncDocs.SETTINGS, Settings.HIDDEN + it, SyncDocs.setting(ON)) }
     }
 
     /** Listening habits from another device (sync): taken as they are, not noted again. */
     suspend fun applySynced(values: Map<String, String>) = withContext(ioDispatcher) {
-        db.transaction { values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) } }
+        db.transaction {
+            values.filterKeys { it in Settings.SYNCED }.forEach { (k, v) -> db.settingQueries.put(k, v) }
+            val muted = values.keys.filter { it.startsWith(Settings.MUTED) }.map { it.removePrefix(Settings.MUTED) }
+            val hidden = values.keys.filter { it.startsWith(Settings.HIDDEN) }.map { it.removePrefix(Settings.HIDDEN) }
+            if (muted.isEmpty() && hidden.isEmpty()) return@transaction
+            // Added to what this device holds, never in place of it.
+            val here = Settings.from(db.settingQueries.selectAll().awaitAsList().associate { it.key to it.value_ })
+            if ((muted - here.mutedLocally).isNotEmpty()) db.settingQueries.put("muted_local", (here.mutedLocally + muted).joinToString("\n"))
+            if ((hidden - here.hiddenComments).isNotEmpty()) db.settingQueries.put("hidden_comments", (here.hiddenComments + hidden).joinToString("\n"))
+        }
     }
 
     /** The listening habits as they stand here. */
-    suspend fun synced(): Map<String, String> = current().toMap().filterKeys { it in Settings.SYNCED }
+    suspend fun synced(): Map<String, String> = current().let { s ->
+        s.toMap().filterKeys { it in Settings.SYNCED } +
+            s.mutedLocally.associate { Settings.MUTED + it to ON } + s.hiddenComments.associate { Settings.HIDDEN + it to ON }
+    }
+
+    private companion object {
+        const val ON = "1"
+    }
 }
