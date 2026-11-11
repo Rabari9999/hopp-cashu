@@ -38,6 +38,14 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.toSize
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalDensity
@@ -92,13 +100,45 @@ fun HoppTheme(
  * of it. One glow for all, so what lies on it paints [HoppColors.page] and not a ground of its own.
  */
 @Composable
-fun Modifier.pageGround(): Modifier {
+fun Modifier.pageGround(material: Boolean = true): Modifier {
     val ground = MaterialTheme.colorScheme.background
     val glows = Hopp.colors.glow
-    return if (glows.isEmpty()) background(ground) else drawBehind {
-        drawRect(ground)
-        // Within what it covers: a glow is wider than a small preview of it.
-        clipRect { glows(glows) }
+    // What now playing's ground is made of lies under the pages too, [PAGE_SHARE] of it and still: one
+    // ground all over the window, which now playing only lights and moves (maintainer 2026-11-11).
+    val look = Hopp.colors.player.takeIf { material }
+    val grain = look?.grain?.let { rememberGrain(it.copy(alpha = it.alpha * PAGE_SHARE)) }
+    val made = look?.material?.takeIf { it !is Material.Waves }
+    if (glows.isEmpty() && grain == null && made == null) return background(ground)
+    val place = remember { Place() }
+    return onGloballyPositioned(place::at).drawWithCache {
+        val window = place.window
+        val facets = (made as? Material.Facets)?.let { facets(it, window) }
+        val mesh = (made as? Material.Mesh)?.let { mesh(it, window) }
+        onDrawBehind {
+            drawRect(ground)
+            // Within what it covers: a glow is wider than a small preview of it.
+            clipRect {
+                glows(glows)
+                translate(-place.origin.x, -place.origin.y) {
+                    facets?.draw(this, null, PAGE_SHARE)
+                    mesh?.still(this, PAGE_SHARE)
+                }
+                if (grain != null) drawRect(grain)
+            }
+        }
+    }
+}
+
+/** How much of now playing's material the pages have. */
+internal const val PAGE_SHARE = 0.5f
+
+/** Where a ground lies in the window, and how large that is: a material is one sheet over the whole window, and each ground shows its cut of it. */
+private class Place {
+    var origin by mutableStateOf(Offset.Zero)
+    var window by mutableStateOf(Size.Zero)
+    fun at(where: LayoutCoordinates) {
+        origin = where.positionInRoot()
+        window = where.findRootCoordinates().size.toSize()
     }
 }
 
@@ -127,7 +167,11 @@ internal val SPREAD_WINDOW = 390.dp
  * with them.
  */
 @Composable
-fun Modifier.playerGround(playing: Boolean, moving: Boolean, boost: () -> Float = { 0f }, sent: () -> Float = { 0f }): Modifier {
+fun Modifier.playerGround(
+    playing: Boolean, moving: Boolean, boost: () -> Float = { 0f }, sent: () -> Float = { 0f },
+    /** The middle of the play button in the window, once it is known: where [Material.Waves] come from. */
+    play: () -> Offset? = { null },
+): Modifier {
     val look = Hopp.colors.player ?: return pageGround()
     val ground = MaterialTheme.colorScheme.background
     val lit by animateFloatAsState(if (playing) 1f else 0f, tween(1200))
@@ -137,10 +181,14 @@ fun Modifier.playerGround(playing: Boolean, moving: Boolean, boost: () -> Float 
     // A minute's round, which every glint and pulse fits into a whole number of times: it starts again unseen.
     val round = if (alive && look.material != null) rememberInfiniteTransition().animateFloat(0f, 1f, infiniteRepeatable(tween(ROUND * 1000, easing = LinearEasing))) else null
     val grain = look.grain?.let { rememberGrain(it) }
-    return drawWithCache {
+    val waves = look.material as? Material.Waves
+    val swell = if (alive && waves != null) rememberInfiniteTransition().animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = LinearEasing))) else null
+    val place = remember { Place() }
+    return onGloballyPositioned(place::at).drawWithCache {
         val grown = if (look.spread) maxOf(1f, size.minDimension / SPREAD_WINDOW.toPx()) else 1f
-        val facets = (look.material as? Material.Facets)?.let { facets(it, grown) }
-        val mesh = (look.material as? Material.Mesh)?.let { mesh(it, grown) }
+        val window = place.window
+        val facets = (look.material as? Material.Facets)?.let { facets(it, window) }
+        val mesh = (look.material as? Material.Mesh)?.let { mesh(it, window) }
         onDrawBehind {
             drawRect(ground)
             clipRect {
@@ -149,8 +197,13 @@ fun Modifier.playerGround(playing: Boolean, moving: Boolean, boost: () -> Float 
                 val steady = look.rest + (1f - look.rest) * lit * (breath?.let { 0.7f + 0.3f * it.value } ?: 1f)
                 // Up to the whole glow and a little higher, never brighter than it: what is read on it stays readable.
                 glows(look.glow, steady + (1f - steady) * flare, if (look.spread) 0f else FLARE_LIFT.toPx() * flare, grown)
-                facets?.draw(this, round?.value)
-                mesh?.draw(this, round?.value, if (moving) sent() else 0f)
+                val origin = place.origin
+                translate(-origin.x, -origin.y) {
+                    facets?.draw(this, round?.value)
+                    // A comment's wave comes from the middle of this ground's foot, where it was written.
+                    mesh?.draw(this, round?.value, if (moving) sent() else 0f, origin + Offset(size.width / 2, size.height), hypot(size.width / 2, size.height))
+                }
+                if (waves != null) play()?.let { waves(waves, it - origin, steady, swell?.value) }
                 if (grain != null) drawRect(grain)
                 if (drift != null && look.sparks != null) sparks(look.sparks, drift.value, lit)
                 if (boosted > 0f && look.sparks != null) burst(look.sparks, boosted)
@@ -174,21 +227,21 @@ private class Dice(private var seed: Int) {
 private class Facet(val path: Path, val share: Float, val turns: Int, val phase: Float)
 
 private class FacetSheet(val material: Material.Facets, val facets: List<Facet>, val edges: Path, val edge: Float) {
-    /** [round]: where a round of glinting stands, or null where nothing moves. */
-    fun draw(scope: DrawScope, round: Float?) = with(scope) {
+    /** [round]: where a round of glinting stands, or null where nothing moves. [share] of its strength. */
+    fun draw(scope: DrawScope, round: Float?, share: Float = 1f) = with(scope) {
         for (facet in facets) {
             // Never more than its share: the glint only ever takes from it.
             val glint = if (round == null) 1f else 0.6f + 0.4f * sin(2 * PI.toFloat() * (round * facet.turns + facet.phase))
-            drawPath(facet.path, material.fill.copy(alpha = material.fill.alpha * facet.share * glint))
+            drawPath(facet.path, material.fill.copy(alpha = material.fill.alpha * facet.share * glint * share))
         }
-        drawPath(edges, material.edge, style = Stroke(edge))
+        drawPath(edges, material.edge.copy(alpha = material.edge.alpha * share), style = Stroke(edge))
     }
 }
 
 /** A grid of cells about [FACET] wide, its inner corners pushed about, each cell cut into two triangles one way or the other. */
-private fun CacheDrawScope.facets(material: Material.Facets, grown: Float): FacetSheet {
+private fun CacheDrawScope.facets(material: Material.Facets, size: Size): FacetSheet {
     val dice = Dice(11)
-    val cell = FACET.toPx() * grown
+    val cell = FACET.toPx()
     val cols = ceil(size.width / cell).toInt().coerceAtLeast(1)
     val rows = ceil(size.height / cell).toInt().coerceAtLeast(1)
     val (w, h) = size.width / cols to size.height / rows
@@ -221,10 +274,19 @@ private class Net(
     val material: Material.Mesh, val nodes: List<Offset>, val sizes: List<Float>, val lines: List<Pair<Int, Int>>,
     val line: Float, val dot: Float, val band: Float,
 ) {
-    /** [round]: where a round of pulses stands, or null where nothing moves. [sent]: a wave's way from the foot, 0 to 1. */
-    fun draw(scope: DrawScope, round: Float?, sent: Float) = with(scope) {
-        for ((a, b) in lines) drawLine(material.line, nodes[a], nodes[b], line)
-        for (i in nodes.indices) drawCircle(material.node, sizes[i], nodes[i])
+    /** All of it as two forms: under the pages it is drawn with every frame of theirs. */
+    private val web = Path().apply { for ((a, b) in lines) { moveTo(nodes[a].x, nodes[a].y); lineTo(nodes[b].x, nodes[b].y) } }
+    private val dots = Path().apply { for (i in nodes.indices) addOval(Rect(nodes[i], sizes[i])) }
+
+    /** The net alone, nothing running on it: [share] of its strength. */
+    fun still(scope: DrawScope, share: Float = 1f) = with(scope) {
+        drawPath(web, material.line.copy(alpha = material.line.alpha * share), style = Stroke(line))
+        drawPath(dots, material.node.copy(alpha = material.node.alpha * share))
+    }
+
+    /** [round]: where a round of pulses stands, or null where nothing moves. [sent]: a wave's way [from] a place, 0 to 1, as far as [far]. */
+    fun draw(scope: DrawScope, round: Float?, sent: Float, from: Offset, far: Float) = with(scope) {
+        still(this)
         if (round != null) for (i in lines.indices step 4) {
             // Every fourth line carries a pulse, each at its own pace and start.
             val (a, b) = lines[i]
@@ -235,9 +297,7 @@ private class Net(
             drawCircle(material.pulse.copy(alpha = alpha), dot, at)
         }
         if (sent > 0f && sent < 1f) {
-            // From the middle of the window's foot, where it was written, out to its far corners.
-            val from = Offset(size.width / 2, size.height)
-            val reach = hypot(size.width / 2, size.height) + band
+            val reach = far + band
             val front = reach * (1f - (1f - sent) * (1f - sent))
             fun lit(at: Offset): Float = (1f - abs((at - from).getDistance() - front) / band).coerceAtLeast(0f) * (1f - sent)
             for ((a, b) in lines) {
@@ -258,12 +318,12 @@ private class Net(
 private val PULSE_TURNS = listOf(ROUND / 3, ROUND / 5, ROUND / 4)
 
 /** Nodes strewn over the ground, about one to a square of [NODE_GROUND], each tied to its two nearest. */
-private fun CacheDrawScope.mesh(material: Material.Mesh, grown: Float): Net {
+private fun CacheDrawScope.mesh(material: Material.Mesh, size: Size): Net {
     val dice = Dice(7)
     // One to a cell of a grid, anywhere in it: strewn, and still all over the ground.
-    val cell = NODE_GROUND.toPx() * grown
-    val columns = ceil(size.width / cell).toInt().coerceIn(2, 12)
-    val rows = ceil(size.height / cell).toInt().coerceIn(2, 12)
+    val cell = NODE_GROUND.toPx()
+    val columns = ceil(size.width / cell).toInt().coerceIn(2, 30)
+    val rows = ceil(size.height / cell).toInt().coerceIn(2, 20)
     val nodes = List(columns * rows) { Offset((it % columns + dice.next()) * size.width / columns, (it / columns + dice.next()) * size.height / rows) }
     val count = nodes.size
     val lines = buildList {
@@ -271,8 +331,32 @@ private fun CacheDrawScope.mesh(material: Material.Mesh, grown: Float): Net {
             if (j to i !in this) add(i to j)
         }
     }
-    return Net(material, nodes, List(count) { (1.5f + dice.next() * 1.5f).dp.toPx() }, lines, 0.7.dp.toPx(), 2.dp.toPx(), 90.dp.toPx() * grown)
+    return Net(material, nodes, List(count) { (1.5f + dice.next() * 1.5f).dp.toPx() }, lines, 0.7.dp.toPx(), 2.dp.toPx(), 90.dp.toPx())
 }
+
+/**
+ * Hopp's own: the arcs of its mark, round the play button at [at]. A soft light under the controls, [strength]
+ * of it; fine rings that fade with their distance; and, while it plays ([swell], a round from 0 to 1, else null),
+ * two waves going out one after the other.
+ */
+private fun DrawScope.waves(material: Material.Waves, at: Offset, strength: Float, swell: Float?) {
+    val reach = WAVE_REACH.toPx()
+    drawCircle(Brush.radialGradient(listOf(material.light.copy(alpha = material.light.alpha * strength), Color.Transparent), at, reach * 0.8f), reach * 0.8f, at)
+    val hair = Stroke(1.dp.toPx())
+    val step = WAVE_STEP.toPx()
+    var radius = step * 2
+    while (radius < reach) {
+        drawCircle(material.line.copy(alpha = material.line.alpha * (1f - radius / reach)), radius, at, style = hair)
+        radius += step
+    }
+    if (swell != null) for (wave in 0..1) {
+        val way = (swell + wave * 0.5f) % 1f
+        drawCircle(material.wave.copy(alpha = material.wave.alpha * (1f - way)), step + (reach - step) * way, at, style = hair)
+    }
+}
+
+private val WAVE_REACH = 360.dp
+private val WAVE_STEP = 32.dp
 
 private val NODE_GROUND = 96.dp
 

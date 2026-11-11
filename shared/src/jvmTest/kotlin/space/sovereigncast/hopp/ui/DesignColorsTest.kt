@@ -16,6 +16,11 @@ import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
 import space.sovereigncast.hopp.ui.theme.GlutLightColors
 import space.sovereigncast.hopp.ui.theme.GlutLightScheme
 import space.sovereigncast.hopp.ui.theme.HoppColors
+import space.sovereigncast.hopp.ui.theme.LightScheme
+import space.sovereigncast.hopp.ui.theme.DarkScheme
+import space.sovereigncast.hopp.ui.theme.LightHoppColors
+import space.sovereigncast.hopp.ui.theme.DarkHoppColors
+import space.sovereigncast.hopp.ui.theme.PAGE_SHARE
 import space.sovereigncast.hopp.ui.theme.Material
 import space.sovereigncast.hopp.ui.theme.SPREAD_WINDOW
 import space.sovereigncast.hopp.ui.theme.ColdstorageDarkColors
@@ -89,7 +94,7 @@ class DesignColorsTest {
                 val light = lit(scheme.background, look.glow, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), grown)
                 // What the ground is made of lies over its light: a facet at its brightest. Hairlines — a facet's
                 // edge, the mesh — are no ground to read on, as little as a spark is.
-                val grounds = listOfNotNull(light, (look.material as? Material.Facets)?.fill?.compositeOver(light))
+                val grounds = listOfNotNull(light, (look.material as? Material.Facets)?.fill?.compositeOver(light), (look.material as? Material.Waves)?.light?.compositeOver(light))
                 for (on in grounds) {
                     fun at(least: Float, what: String, a: Color, ground: Color = on) {
                         val has = contrast(a, ground)
@@ -135,6 +140,28 @@ class DesignColorsTest {
         assertTrue(worst.isEmpty(), "$name, now playing:\n" + worst.values.joinToString("\n") { it.second })
     }
 
+    /**
+     * The pages lie on the window's glow and, since 2026-11-11, on [PAGE_SHARE] of now playing's material. A
+     * facet over the glow takes nothing from what is read there that the glow alone leaves it.
+     */
+    private fun pagesHold(scheme: ColorScheme, hopp: HoppColors, name: String) {
+        val fill = (hopp.player?.material as? Material.Facets)?.fill ?: return
+        val facet = fill.copy(alpha = fill.alpha * PAGE_SHARE)
+        for ((w, h) in listOf(320 to 568, 411 to 891, 891 to 411, 1280 to 800, 2560 to 1440)) for (x in 0..w step max(8, w / 100)) for (y in 0..h step max(4, h / 100)) {
+            val glow = lit(scheme.background, hopp.glow, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat())
+            val on = facet.compositeOver(glow)
+            for ((least, a) in listOf(4.5f to scheme.onSurface, 4.5f to scheme.onSurfaceVariant, 4.5f to hopp.valueText, 3f to scheme.outline)) {
+                val has = contrast(a, on)
+                assertTrue(has >= least || has >= contrast(a, glow) - 0.15f, "$name, a page in $w×$h at $x/$y: a facet leaves $has:1, the glow alone ${contrast(a, glow)}:1")
+            }
+        }
+    }
+
+    @Test fun coldstoragesPagesByDay() = pagesHold(ColdstorageLightScheme, ColdstorageLightColors, "Coldstorage, light")
+    @Test fun coldstoragesPagesByNight() = pagesHold(ColdstorageDarkScheme, ColdstorageDarkColors, "Coldstorage, dark")
+
+    @Test fun hoppsNowPlayingByDay() = holdsLit(LightScheme, LightHoppColors, "Hopp, light")
+    @Test fun hoppsNowPlayingByNight() = holdsLit(DarkScheme, DarkHoppColors, "Hopp, dark")
     @Test fun relaysNowPlayingByDay() = holdsLit(RelayLightScheme, RelayLightColors, "Relay, light")
     @Test fun relaysNowPlayingByNight() = holdsLit(RelayDarkScheme, RelayDarkColors, "Relay, dark")
     @Test fun coldstoragesNowPlayingByDay() = holdsLit(ColdstorageLightScheme, ColdstorageLightColors, "Coldstorage, light")

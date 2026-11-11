@@ -162,6 +162,8 @@ data class PlayerLook(
     val frost: Color? = null,
     /** Times and the speed in figures of one width. */
     val mono: Boolean = false,
+    /** A paid boost sends money's dot over an arc from the boost button once: the hop of Hopp's mark. */
+    val hop: Boolean = false,
 )
 
 /** The forms of now playing; [Round] is "round and calm" (ADR 0019), which a design's own hand may leave. */
@@ -189,6 +191,8 @@ data class PlayerShapes(
 enum class ProgressStyle {
     /** A bar, open where a chapter begins (ADR 0019). */
     Gaps,
+    /** The same bar, its knob the hollow ring of Hopp's mark. */
+    Ring,
     /** A hairline with a notch where a chapter begins, its knob a crystal. */
     Notches,
     /** A line from node to node: a chapter begins at each, and the heard ones are lit. */
@@ -203,6 +207,10 @@ sealed interface Material {
     /** A net over the whole ground: [node]s and [line]s between neighbours, [pulse]s running along some. */
     @Immutable
     data class Mesh(val line: Color, val node: Color, val pulse: Color) : Material
+
+    /** Round the play button alone, not under the pages: a soft [light], fine rings in [line], and a [wave] going out while it plays. */
+    @Immutable
+    data class Waves(val line: Color, val wave: Color, val light: Color) : Material
 }
 
 /** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
@@ -216,8 +224,24 @@ data class NostrColors(val fill: Color, val onFill: Color, val text: Color, val 
 @Immutable
 data class Glow(val color: Color, val x: Float, val y: Float, val dy: Dp, val radiusX: Dp, val radiusY: Dp, val reach: Float, val dx: Dp = 0.dp)
 
-internal val LightHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32), page = Paper)
-internal val DarkHoppColors = HoppColors(value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784), page = Ink)
+// Hopp stays black and white, round and calm; its own hand on now playing is the arcs of its mark round the
+// play button, without a colour (maintainer 2026-11-11).
+internal val LightHoppColors = HoppColors(
+    value = BitcoinOrange, onValue = Ink, valueText = Color(0xFFA65500), progressTrack = Color(0xFF8A8984), ok = Color(0xFF2E7D32), page = Paper,
+    player = PlayerLook(
+        glow = emptyList(), rest = 0.6f, coverLight = Color(0x40000000),
+        material = Material.Waves(line = Color(0x1A0A0A0A), wave = Color(0x590A0A0A), light = Color(0xFFFFFFFF)),
+        progress = ProgressStyle.Ring, panel = Color(0xC7FFFFFF), chip = Color(0xB3ECEBE7), hop = true,
+    ),
+)
+internal val DarkHoppColors = HoppColors(
+    value = BitcoinOrange, onValue = Ink, valueText = BitcoinOrange, progressTrack = Color(0xFF6E6D68), ok = Color(0xFF81C784), page = Ink,
+    player = PlayerLook(
+        glow = emptyList(), rest = 0.6f, coverLight = Color(0x38FFFFFF),
+        material = Material.Waves(line = Color(0x1FF6F5F2), wave = Color(0x66F6F5F2), light = Color(0x14FFFFFF)),
+        progress = ProgressStyle.Ring, panel = Color(0xC7161615), chip = Color(0xB3232220), hop = true,
+    ),
+)
 
 /** Glut by day: cream and espresso under a warm glow, like the Sovereigncast logo on paper. */
 internal val GlutLightScheme: ColorScheme = lightColorScheme(

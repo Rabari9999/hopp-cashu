@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -96,14 +97,14 @@ fun ChapterProgressBar(
                 ) { change, _ -> drag((change.position.x / size.width).coerceIn(0f, 1f)) }
             },
     ) {
-        val thin = style != ProgressStyle.Gaps
+        val thin = style == ProgressStyle.Notches || style == ProgressStyle.Nodes
         val h = (if (thin) 2.dp else 6.dp).toPx()
         val y = size.height / 2 - h / 2
         val r = if (thin) CornerRadius.Zero else CornerRadius(h / 2, h / 2)
         val heard = size.width * shown
         val knob = Offset(heard, size.height / 2)
         val cuts = boundaries.filter { it > 0f && it < 1f }.sorted()
-        val gap = when (style) { ProgressStyle.Gaps -> 3.dp; ProgressStyle.Notches -> 0.dp; ProgressStyle.Nodes -> 9.dp }.toPx()
+        val gap = when (style) { ProgressStyle.Gaps, ProgressStyle.Ring -> 3.dp; ProgressStyle.Notches -> 0.dp; ProgressStyle.Nodes -> 9.dp }.toPx()
         // Open where a chapter begins: whatever the bar lies on shows through.
         val parts = Path().apply {
             var from = 0f
@@ -113,6 +114,8 @@ fun ChapterProgressBar(
                 from = size.width * cut + gap / 2
             }
         }
+        // Open inside a hollow knob too.
+        if (style == ProgressStyle.Ring) parts.op(parts, Path().apply { addOval(Rect(knob, 7.5.dp.toPx())) }, PathOperation.Difference)
         clipPath(parts) {
             drawRoundRect(trackColor, Offset(0f, y), Size(size.width, h), r)
             if (heat != null && !thin && heard > 0f) {
@@ -130,6 +133,7 @@ fun ChapterProgressBar(
                 if (heat != null) drawCircle(Brush.radialGradient(listOf(heat.copy(alpha = 0.8f), Color.Transparent), knob, 14.dp.toPx()), 14.dp.toPx(), knob)
                 drawCircle(knobColor ?: fillColor, radius = 7.5.dp.toPx(), center = knob)
             }
+            ProgressStyle.Ring -> drawCircle(knobColor ?: fillColor, 5.75.dp.toPx(), knob, style = Stroke(3.5.dp.toPx()))
             ProgressStyle.Notches -> {
                 val notch = Size(1.5.dp.toPx(), 10.dp.toPx())
                 for (cut in cuts) drawRect(notchColor, Offset(size.width * cut - notch.width / 2, knob.y - notch.height / 2), notch)

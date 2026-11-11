@@ -519,7 +519,7 @@ private fun DesignChoice(design: String, selected: Boolean, dark: Boolean, modif
             .selectable(selected, role = Role.RadioButton, onClick = onPick),
     ) {
         HoppTheme(darkTheme = dark, design = design) {
-            Box(Modifier.fillMaxWidth().height(88.dp).pageGround().padding(10.dp)) {
+            Box(Modifier.fillMaxWidth().height(88.dp).pageGround(material = false).padding(10.dp)) {
                 Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface))
                 Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.width(36.dp).height(18.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.primary))

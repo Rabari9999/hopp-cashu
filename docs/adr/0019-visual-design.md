@@ -394,3 +394,29 @@ Coldstorage und Relay"). This takes back the last paragraph above.
 
 Not taken from the proposal: a squared streaming switch and a heavier title in
 Coldstorage — the switch is Material's everywhere, and one weight less to keep apart.
+
+### Amendment 2026-11-11: Hopp's own hand, and one ground all over the window
+
+- **Hopp: the arcs of its mark.** The proposal for Hopp ("print": ink outlines, hard
+  shadows) was turned down; Hopp stays black and white, round and calm (maintainer
+  2026-11-11). Its hand is the least of the four: a soft light without colour under the
+  controls, fine rings round the play button that fade with their distance
+  (`Material.Waves`), and while it plays a wave going out every few seconds. The
+  progress bar's knob is the hollow ring of the mark (`ProgressStyle.Ring`), the value
+  bar and the chips let the ground through. A paid boost sends money's orange dot over
+  an arc from the boost button once — the hop — after the boost sheet has closed.
+- **One ground all over the window.** Asked for on seeing the web's wide window, where
+  the net ended at now playing's edge. A material is now one sheet laid over the whole
+  window, and every ground shows its cut of it: the pages half of its strength
+  (`PAGE_SHARE`) and still, now playing all of it, lit and moving. So Relay's net and
+  Coldstorage's facets run through under Home, the library and the column of now
+  playing alike; Glut's grain lies under the pages too. Hopp's waves belong to the
+  play button and are not under the pages. The material no longer grows with the
+  window — a large window shows more of it — while the lights still do. The small
+  previews in the settings show the glow alone.
+- **Forms stay with now playing.** Coldstorage's squared forms are not carried into
+  the pages: every card, button and chip would follow, a decision of its own.
+- **Tested:** Hopp's light at its fullest like the others' (`holdsLit`); on the pages,
+  that a facet over the window's glow takes nothing from text, secondary and orange
+  text and a control's edge that the glow alone leaves them (`pagesHold`).
+

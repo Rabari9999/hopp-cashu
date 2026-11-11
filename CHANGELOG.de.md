@@ -12,6 +12,8 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Player:** Das Design Coldstorage bekommt eine eigene Wiedergabe: geschliffenes Eis, kantige Formen und Raureif über der Boost-Leiste, wenn ein Boost ankommt.
 - **Player:** Das Design Relay bekommt eine eigene Wiedergabe: ein lebendiges Netz aus Knoten, durch das eine Welle läuft, wenn dein Kommentar rausgeht.
 - **Player:** Mini-Player und Player-Leiste auf breiten Bildschirmen leuchten jetzt auch in den Farben von Glut, Coldstorage und Relay.
+- **Player:** Das Design Hopp bekommt feine Ringe um den Play-Knopf, von denen beim Abspielen eine Welle ausgeht, und bei einem Boost hüpft der orange Punkt.
+- **Einstellungen:** In Glut, Coldstorage und Relay liegen Korn, Eis und Netz jetzt unter jeder Seite, nicht nur unter dem Player.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
 - **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.

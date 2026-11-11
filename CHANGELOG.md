@@ -12,6 +12,8 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 - **Player:** The Coldstorage design gets a now playing screen of its own: cut ice, squared shapes and frost across the boost bar when a boost goes through.
 - **Player:** The Relay design gets a now playing screen of its own: a living network of nodes that sends a wave when your comment goes out.
 - **Player:** The mini player and the player bar on wide screens glow in the colours of Glut, Coldstorage and Relay too.
+- **Player:** The Hopp design gets fine rings around the play button that send out a wave while an episode plays, and a boost makes the orange dot hop.
+- **Settings:** In Glut, Coldstorage and Relay the grain, the ice and the network now lie under every page, not only under the player.
 - **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
 - **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
 - **Player:** The player bar on wide screens also jumps to the previous and next chapter.

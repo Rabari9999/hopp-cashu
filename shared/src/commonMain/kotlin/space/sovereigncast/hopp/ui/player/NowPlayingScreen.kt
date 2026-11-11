@@ -107,6 +107,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.Color
@@ -245,6 +247,8 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
     }
     val look = Hopp.colors.player
     val shapes = Hopp.colors.shapes
+    // Where the play button is in the window: what the ground draws round it. Read while drawing only.
+    var playAt by remember { mutableStateOf<Offset?>(null) }
     // Figures of one width, where the design asks for them: the app's own font has them (no second font to load).
     val figures = if (look?.mono == true) "tnum" else null
     val dismissPx = with(LocalDensity.current) { 120.dp.toPx() }
@@ -255,7 +259,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
             // unless the design lights now playing itself: then the column has that light too.
             .then(
                 if (inPane && Hopp.colors.player == null) Modifier.background(Hopp.colors.page)
-                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }, sent = { sent.value }),
+                else Modifier.playerGround(state.isPlaying, moving = !space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion, boost = { boosted.value }, sent = { sent.value }, play = { playAt }),
             )
             .safeDrawingPadding()
             .pointerInput(inPane) {
@@ -398,7 +402,7 @@ fun NowPlayingScreen(model: PlayerController, inPane: Boolean = false, onOpenWal
                 val back = settings.skipBackSeconds
                 val forward = settings.skipForwardSeconds
                 SkipButton(HoppIcons.Replay, "$back", stringResource(Res.string.np_back15, back), model::skipBack, model::previousChapter)
-                PlayButton(state, 72.dp, 32.dp) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay() }
+                PlayButton(state, 72.dp, 32.dp, Modifier.onGloballyPositioned { playAt = it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f) }) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); model.togglePlay() }
                 SkipButton(HoppIcons.Forward, "$forward", stringResource(Res.string.np_forward30, forward), model::skipForward, model::nextChapter)
                 SleepButton(sleep) { showSleep = true }
             }
