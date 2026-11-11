@@ -7,7 +7,9 @@
 #
 # SIGN_WITH (Nodesignal's Nostr key, an Amber bunker) lets zsp 2 publish on
 # Zapstore right after the GitLab release; without it the script stops there
-# and prints the command. zsp shows its preview before anything goes out.
+# and prints the command. zsp shows its preview before anything goes out;
+# web/deploy/zapstore-images.mjs then puts the screenshots in order (Amber
+# asks a second time).
 #
 # Runs on the maintainer's machine — the key never goes to CI (ADR 0017).
 # apksigner asks for the keystore password itself; it is never on the command
@@ -75,8 +77,17 @@ FOUND=$(python3 -c 'import json, sys; print((json.load(sys.stdin).get("apk") or 
 [[ $FOUND == "$VERSION" ]] || { echo "zsp finds ${FOUND:-no APK}, not $VERSION, in the GitLab release:" >&2; echo "$CHECK" >&2; exit 1; }
 if [[ -z ${SIGN_WITH:-} ]]; then
     echo "! SIGN_WITH is not set — not published on Zapstore. Then:"
-    echo "  SIGN_WITH='bunker://…' zsp publish zapstore.yaml"
+    echo "  SIGN_WITH='bunker://…' zsp publish --no-compress zapstore.yaml"
+    echo "  SIGN_WITH='bunker://…' node web/deploy/zapstore-images.mjs"
     exit 0
 fi
-zsp publish zapstore.yaml
+# --no-compress: the screenshots go up as they are, so zapstore-images.mjs can tell them apart by
+# their SHA-256 and put them in zapstore.yaml's order — zsp sorts them by address (docs/zapstore.md).
+zsp publish --no-compress zapstore.yaml
 echo "✓ Zapstore: https://zapstore.dev/apps/space.sovereigncast.hopp"
+if command -v node > /dev/null && [[ -d web/deploy/node_modules ]]; then
+    node web/deploy/zapstore-images.mjs
+else
+    echo "! node or web/deploy/node_modules missing ((cd web/deploy && npm ci)) — then:"
+    echo "  SIGN_WITH='bunker://…' node web/deploy/zapstore-images.mjs"
+fi

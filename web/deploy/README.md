@@ -15,6 +15,7 @@ fault in the proxy reaches nothing of it.
 | `Caddyfile` | both sites, the headers of ADR 0022, 7, certificates from Let's Encrypt, no access logs |
 | `release.mjs <site> [version]` | the build list `release.json` (every file with its SHA-256; its own SHA-256 is the build's hash) and the version in `sw.js` — run by `build.sh` |
 | `sign.mjs <site>` | Nodesignal's signature for an exact tag's build (NIP-94, kind 1063), through the Amber bunker in `SIGN_WITH` |
+| `zapstore-images.mjs` | not for the web: Hopp's screenshots on Zapstore in `zapstore.yaml`'s order, the app event signed again through the bunker (docs/zapstore.md) |
 | `verify.mjs [url]` | the live site against the signature, file by file — also the CI job `web-verify` on a schedule |
 | `hopp-feed-proxy.socket`, `.service` | the proxy behind a Unix socket only Caddy may open; systemd denies it every local and private address on top of its own checks |
 

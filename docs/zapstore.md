@@ -67,7 +67,8 @@ stops after the GitLab release; publish by hand then:
 
 ```bash
 zsp check zapstore.yaml                       # read-only: APK, listing, proof, next step
-SIGN_WITH='bunker://…' zsp publish zapstore.yaml
+SIGN_WITH='bunker://…' zsp publish --no-compress zapstore.yaml
+SIGN_WITH='bunker://…' node web/deploy/zapstore-images.mjs
 ```
 
 `GITLAB_TOKEN` (release.sh takes glab's) keeps GitLab's API from
@@ -76,3 +77,22 @@ the release, takes the release notes from `CHANGELOG.md`'s section for the
 version and shows a preview in the browser before it publishes. `--channel
 beta` would publish to Zapstore's beta channel instead of `main`; Hopp's
 releases go to `main`.
+
+## The screenshots' order
+
+zsp 2 sorts an app's `image` tags by their address before it signs the app
+event (kind 32267), and each image is named after its SHA-256 on Zapstore's
+CDN — so Zapstore showed Hopp's twelve screenshots in no order at all (found
+2026-11-11). `zapstore.yaml` lists them phone first, then tablet, each
+1-home … 6-privacy (devicetests/store/README.md).
+
+`zsp publish --no-compress` uploads the files as they are (no WebP), so each
+address is the SHA-256 of one of our files. `web/deploy/zapstore-images.mjs`
+then reads the app event from relay.zapstore.dev, finds each listed file's
+image by that hash and signs the event again — same tags, the images in
+`zapstore.yaml`'s order — through the same bunker (Amber asks once more; the
+script keeps the client key `sign.mjs` uses). Without `SIGN_WITH` it only
+says whether the order is right. zsp compares app events with their tags
+sorted, so a later publish leaves this one alone unless the listing itself
+changed; `release.sh` runs the script after every publish. It needs
+`(cd web/deploy && npm ci)` once, and a checkout whose screenshots are main's.
