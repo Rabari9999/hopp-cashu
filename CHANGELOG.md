@@ -7,33 +7,28 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Settings:** A fourth design, Coldstorage: frosty blue like snow and ice.
-- **Player:** In the Glut design the fire now burns below the controls, comes alive while an episode plays and flares up when a boost goes through.
-- **Player:** The Coldstorage design gets a now playing screen of its own: cut ice, squared shapes and frost across the boost bar when a boost goes through.
-- **Player:** The Relay design gets a now playing screen of its own: a living network of nodes that sends a wave when your comment goes out.
-- **Player:** The mini player and the player bar on wide screens glow in the colours of Glut, Coldstorage and Relay too.
-- **Player:** The Hopp design gets fine rings around the play button that send out a wave while an episode plays, and a boost makes the orange dot hop.
-- **Settings:** In Glut, Coldstorage and Relay the grain, the ice and the network now lie under every page, not only under the player.
-- **Web:** Skip silence and raise the volume in Hopp Web too, with shows whose server allows it and with episodes downloaded into the browser.
-- **Nostr:** What your Nostr contacts listen to now also counts their zaps to a show and the shows they follow on Nostr.
-- **Player:** The player bar on wide screens also jumps to the previous and next chapter.
-- **Sync:** "Details" beside "Sync now" shows how the last sync went, relay by relay.
-- **Nostr:** If too few relays answer for your profile, your Nostr contacts or a comment, one line in the sync window and on the Nostr page says which.
-- **Comments:** Comments appear as each relay answers, not only once all have.
-- **Discover:** The search also looks through your library: shows, episodes, chapters and the comments you have read.
+- **Designs:** New design Coldstorage: frosty blue like snow and ice.
+- **Designs:** Every design has its own now playing screen – Glut's fire, Coldstorage's ice, Relay's network, Hopp's rings – that reacts to boosts.
+- **Designs:** The design's look now runs under every page, the mini player and the player bar.
+- **Discover:** The search also finds shows, episodes, chapters and comments in your library.
+- **Web:** Skip silence and volume boost in Hopp Web too, where the show's server allows it.
+- **Nostr:** Your Nostr contacts' zaps and the shows they follow on Nostr count too.
+- **Player:** Chapter buttons in the player bar on wide screens.
+- **Sync:** "Details" shows how the last sync went, relay by relay.
+- **Nostr:** A note when too few relays answer for your profile, your Nostr contacts or a comment.
+- **Comments:** Comments appear as soon as the first relay answers.
 
 ### 🐛 Fixes
-- **Player:** In the Glut design the fire flares up once the boost window is closed, no longer hidden behind it.
-- **Sync:** The first sync after starting Hopp no longer waits for a relay that does not answer.
-- **Sync:** What plays on another device shows here at once, even if the episode came out after this device last looked for new ones.
-- **App:** On iOS, choose Hopp's language in Hopp itself: at once, without a second system language.
-- **Web:** Space plays and pauses whatever was clicked last, not the skip clicked before.
-- **Player:** The skip buttons of the player bar show their seconds, on wide screens and tablets.
-- **Player:** The chapter buttons also work on an episode shown paused after a restart.
+- **Sync:** The first sync after starting no longer waits for a relay that does not answer.
+- **Sync:** What plays on another device shows up at once, even for a brand-new episode.
+- **Sync:** Muted people and hidden comments stay hidden on your other devices.
+- **App:** On iOS, choose Hopp's language in Hopp itself.
+- **Player:** Skipping chapters also works on an episode paused after a restart.
+- **Player:** The skip buttons in the player bar show their seconds.
 - **Player:** Larger text beside the boost button on wide screens.
-- **Pages:** With a mouse or touchpad, scrolling up brings a show's or an episode's header back, also once its list is at the top.
-- **Web:** Emoji in colour, and ₿ and other currency signs instead of empty boxes.
-- **Comments:** Whom you mute and the comments you hide stay so on your other devices too.
+- **Pages:** Scrolling up with a mouse or touchpad brings back the header of a show or episode.
+- **Web:** Space plays and pauses, even right after a skip button was clicked.
+- **Web:** Emoji in colour, and ₿ instead of an empty box.
 
 ## [0.4.1] - 2026-11-08
 

@@ -7,33 +7,28 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ## [Unreleased]
 
 ### 🆕 New Features
-- **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
-- **Player:** Im Design Glut brennt das Feuer jetzt unter den Bedienelementen, lebt auf, solange eine Folge läuft, und flammt auf, wenn ein Boost ankommt.
-- **Player:** Das Design Coldstorage bekommt eine eigene Wiedergabe: geschliffenes Eis, kantige Formen und Raureif über der Boost-Leiste, wenn ein Boost ankommt.
-- **Player:** Das Design Relay bekommt eine eigene Wiedergabe: ein lebendiges Netz aus Knoten, durch das eine Welle läuft, wenn dein Kommentar rausgeht.
-- **Player:** Mini-Player und Player-Leiste auf breiten Bildschirmen leuchten jetzt auch in den Farben von Glut, Coldstorage und Relay.
-- **Player:** Das Design Hopp bekommt feine Ringe um den Play-Knopf, von denen beim Abspielen eine Welle ausgeht, und bei einem Boost hüpft der orange Punkt.
-- **Einstellungen:** In Glut, Coldstorage und Relay liegen Korn, Eis und Netz jetzt unter jeder Seite, nicht nur unter dem Player.
-- **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
-- **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
-- **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.
-- **Sync:** „Details“ neben „Jetzt abgleichen“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
-- **Nostr:** Antworten zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar, sagt eine Zeile im Sync-Fenster und auf der Nostr-Seite, welche.
-- **Kommentare:** Kommentare erscheinen, sobald ein Relay antwortet, nicht erst, wenn alle fertig sind.
-- **Entdecken:** Die Suche findet auch, was in deiner Bibliothek steckt: Shows, Folgen, Kapitel und gelesene Kommentare.
+- **Designs:** Neues Design Coldstorage: frostiges Blau wie Schnee und Eis.
+- **Designs:** Jedes Design hat eine eigene Wiedergabe – Feuer bei Glut, Eis bei Coldstorage, ein Netz bei Relay, Ringe bei Hopp –, die auf Boosts reagiert.
+- **Designs:** Der Look des Designs liegt jetzt unter jeder Seite, dem Mini-Player und der Player-Leiste.
+- **Entdecken:** Die Suche findet auch Shows, Folgen, Kapitel und Kommentare in deiner Bibliothek.
+- **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, wo der Server der Show es zulässt.
+- **Nostr:** Auch Zaps deiner Nostr-Kontakte und die Shows, denen sie auf Nostr folgen, zählen mit.
+- **Player:** Kapiteltasten in der Player-Leiste auf breiten Bildschirmen.
+- **Sync:** „Details“ zeigt, wie der letzte Abgleich lief, Relay für Relay.
+- **Nostr:** Ein Hinweis, wenn zu wenige Relays für dein Profil, deine Nostr-Kontakte oder einen Kommentar antworten.
+- **Kommentare:** Kommentare erscheinen, sobald das erste Relay antwortet.
 
 ### 🐛 Fixes
-- **Player:** Im Design Glut flammt das Feuer auf, sobald das Boost-Fenster geschlossen ist, statt dahinter verborgen zu bleiben.
-- **Sync:** Der erste Abgleich nach dem Start von Hopp wartet nicht mehr auf ein Relay, das nicht antwortet.
-- **Sync:** Was auf einem anderen Gerät läuft, erscheint hier sofort, auch wenn die Folge erst nach der letzten Suche nach neuen Folgen erschienen ist.
-- **App:** Auf iOS Hopps Sprache in Hopp selbst wählen: sofort und ohne zweite Systemsprache.
-- **Web:** Die Leertaste spielt und pausiert, egal was zuletzt geklickt wurde, statt erneut zu springen.
-- **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden, auf breiten Bildschirmen und Tablets.
-- **Player:** Die Kapiteltasten funktionieren auch bei einer Folge, die nach einem Neustart pausiert angezeigt wird.
+- **Sync:** Der erste Abgleich nach dem Start wartet nicht mehr auf ein Relay, das nicht antwortet.
+- **Sync:** Was auf einem anderen Gerät läuft, erscheint sofort, auch bei einer ganz neuen Folge.
+- **Sync:** Stummgeschaltete Personen und ausgeblendete Kommentare bleiben auf allen Geräten ausgeblendet.
+- **App:** Auf iOS Hopps Sprache in Hopp selbst wählen.
+- **Player:** Kapitelsprünge klappen auch bei einer Folge, die nach einem Neustart pausiert ist.
+- **Player:** Die Sprungtasten der Player-Leiste zeigen ihre Sekunden.
 - **Player:** Größere Schrift neben dem Boost-Knopf auf breiten Bildschirmen.
-- **Seiten:** Mit Maus oder Touchpad holt Hochscrollen den Kopf einer Show oder Folge zurück, auch wenn die Liste schon oben ist.
-- **Web:** Emojis in Farbe, und ₿ und andere Währungszeichen statt leerer Kästchen.
-- **Kommentare:** Wen du stummschaltest und welche Kommentare du ausblendest, bleibt es auch auf deinen anderen Geräten.
+- **Seiten:** Hochscrollen mit Maus oder Touchpad holt den Kopf einer Show oder Folge zurück.
+- **Web:** Die Leertaste spielt und pausiert, auch direkt nach einem Klick auf eine Sprungtaste.
+- **Web:** Emojis in Farbe, und ₿ statt eines leeren Kästchens.
 
 ## [0.4.1] - 2026-11-08
 
