@@ -46,6 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -126,7 +130,11 @@ import space.sovereigncast.hopp.value.SkipReason
  * costs (ADR 0005).
  */
 @Composable
-fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}, container: Color? = null) {
+fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOpenWallet: () -> Unit, onOpenEpisode: (EpisodeItem) -> Unit = {}, boost: () -> Float = { 0f }) {
+    // On now playing, where the design has a hand of its own (PlayerLook): its panel, its forms, and what a paid boost does to it.
+    val look = Hopp.colors.player
+    val shapes = Hopp.colors.shapes
+    val still = space.sovereigncast.hopp.ui.LocalPlatformActions.current.reduceMotion
     val settings by vm.current.collectAsState()
     val wallet by vm.connected.collectAsState()
     val rate by vm.rate.collectAsState()
@@ -147,12 +155,12 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
             val wide = maxWidth >= WIDE_BAR
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp))
+                Modifier.fillMaxWidth().clip(shapes.panel).border(1.dp, colors.outlineVariant, shapes.panel)
                     .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(colors.surfaceVariant).padding(horizontal = 15.dp, vertical = 9.dp),
+                    Modifier.clip(shapes.boost).background(colors.surfaceVariant).padding(horizontal = 15.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(HoppIcons.Hop, null, tint = colors.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
@@ -171,12 +179,28 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
         val wide = maxWidth >= WIDE_BAR
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(container ?: colors.surface)
-                .border(1.dp, colors.outlineVariant, RoundedCornerShape(20.dp)).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+            Modifier.fillMaxWidth().clip(shapes.panel).background(look?.panel ?: colors.surface)
+                .then(look?.panelEdge?.let { Modifier.border(1.dp, it, shapes.panel) } ?: Modifier.border(1.dp, colors.outlineVariant, shapes.panel))
+                .then(look?.frost?.takeIf { !still }?.let { frost ->
+                    Modifier.drawWithContent {
+                        drawContent()
+                        // A paid boost: frost goes over the bar once, from the boost button to the far end.
+                        val t = boost()
+                        if (t > 0f && t < FROST_TIME) {
+                            val band = size.width * 0.45f
+                            val at = -band + (size.width + 2 * band) * (t / FROST_TIME)
+                            drawRect(Brush.linearGradient(listOf(Color.Transparent, frost, Color.Transparent), Offset(at - band, 0f), Offset(at + band, size.height)))
+                        }
+                    }
+                } ?: Modifier)
+                .padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(50)).background(Hopp.colors.value).clickable(onClick = onBoost).padding(horizontal = 15.dp, vertical = 9.dp),
+                Modifier.then(look?.boostGlow?.let { glow ->
+                    // Orange is the one warm thing here: it glows a little way out of the button.
+                    Modifier.drawBehind { drawCircle(Brush.radialGradient(0.5f to glow, 1f to Color.Transparent, radius = size.width * 0.62f), size.width * 0.62f) }
+                } ?: Modifier).clip(shapes.boost).background(Hopp.colors.value).clickable(onClick = onBoost).padding(horizontal = 15.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(HoppIcons.Hop, null, tint = Hopp.colors.onValue, modifier = Modifier.size(18.dp))
@@ -226,6 +250,9 @@ fun ValueBar(vm: ValueBarViewModel, item: EpisodeItem, onBoost: () -> Unit, onOp
         dismissButton = { TextButton(onClick = { invite = false }) { Text(stringResource(Res.string.cancel)) } },
     )
 }
+
+/** The part of a boost's time (0…1, as now playing counts it) the frost takes to cross the value bar. */
+private const val FROST_TIME = 0.45f
 
 /** Whole sats, and "<1" for a part of one — the bar has no room for decimals. */
 @Composable

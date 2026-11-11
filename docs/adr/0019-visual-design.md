@@ -347,3 +347,50 @@ the rest of it, on Android, iOS and the web alike:
 Still as they were: the mini player, the bar along a wide window's foot, Home and the
 lists. Relay and Coldstorage have no hand of their own yet; that is a decision of its
 own, not a follow-up of this one.
+
+### Amendment 2026-11-10: the bars, and Coldstorage's and Relay's own hands
+
+Asked for by the maintainer on seeing Glut whole ("Passe das gerne an … danach
+Coldstorage und Relay"). This takes back the last paragraph above.
+
+- **The mini player and the bar along a wide window's foot** carry the design's light
+  too (`PlayerLook.bar`, `Modifier.barGround`): one oval from the middle of the bar's
+  foot over the card's colour, fuller while it plays, without motion — a bar is looked
+  at all day. The play button there is now playing's (`PlayButton`: form, ground,
+  halo), and the bar's progress has the design's style.
+- **A boost's flare waits for the sheet.** The boost sheet stays open to say what was
+  paid and covered the flare; closed quickly, only its end was seen (device feedback
+  2026-11-10). The flare — and Relay's wave, with the comments sheet — starts once
+  the sheet is gone.
+- **"Round and calm" may be left on now playing.** A `PlayerLook` brings its forms
+  (`PlayerShapes`), a material for the ground and a style for the progress bar.
+  Everywhere else the forms stay as they are.
+- **Coldstorage: cut ice.** Light from two corners of the window; a sheet of facets
+  over it, a few of which glint in turn while it plays; squared forms (cover, play
+  button, value bar, chips); the progress bar a hairline with a notch per chapter and
+  a diamond for a knob; the value bar as glass with a light edge. Orange is the one
+  warm thing: the boost button glows a little, and a paid boost sends frost across the
+  value bar once.
+- **Relay: the network.** Violet and Nostr's magenta from two corners; a mesh of nodes
+  with pulses running along some of its lines while it plays; the progress bar a line
+  with a node per chapter, the heard ones filled; rings going out from the play
+  button; the value bar edged from violet into magenta; times and speed in figures of
+  one width (the app font's own, no second font). A comment of the listener's own
+  that went out (`CommentWriter.sent`) sends one wave through the mesh from the foot.
+  A boost does not: orange is money's, the mesh is Nostr's.
+- **These two grow with the window** (`PlayerLook.spread`): the glows are set for a
+  390 dp phone, placed by shares of the window and scaled with its shorter side.
+  `DesignColorsTest` tries them in eight windows from 320 × 568 to 2560 × 1440 dp.
+  That bound the strengths: by night the ground may not pass a luminance of about
+  0.04 before a control's edge falls below 3:1, by day Coldstorage's facets are
+  white rather than blue for the same reason, and its value bar by night is dark
+  glass rather than light.
+- **What is tested** on the light at its fullest, with a facet at its brightest over
+  it: text, secondary and orange text, a control's edge, the progress bar, its heard
+  part and knob, text on the value bar and the chips; on the bars' light: text,
+  secondary text and the progress bar. Hairlines — a facet's edge, the mesh, its
+  nodes and pulses — are no ground to read on and are not tested, as little as
+  Glut's sparks. Nothing moves under "reduce motion".
+
+Not taken from the proposal: a squared streaming switch and a heavier title in
+Coldstorage — the switch is Material's everywhere, and one weight less to keep apart.

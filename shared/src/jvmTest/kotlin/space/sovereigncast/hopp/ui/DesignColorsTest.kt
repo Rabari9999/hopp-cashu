@@ -16,6 +16,8 @@ import space.sovereigncast.hopp.ui.theme.GlutDarkScheme
 import space.sovereigncast.hopp.ui.theme.GlutLightColors
 import space.sovereigncast.hopp.ui.theme.GlutLightScheme
 import space.sovereigncast.hopp.ui.theme.HoppColors
+import space.sovereigncast.hopp.ui.theme.Material
+import space.sovereigncast.hopp.ui.theme.SPREAD_WINDOW
 import space.sovereigncast.hopp.ui.theme.ColdstorageDarkColors
 import space.sovereigncast.hopp.ui.theme.ColdstorageDarkScheme
 import space.sovereigncast.hopp.ui.theme.ColdstorageLightColors
@@ -57,52 +59,86 @@ class DesignColorsTest {
         }
     }
 
-    /** [ground] under the design's now playing glow at its fullest, at a point of a window of [w] × [h] dp. */
-    private fun lit(ground: Color, glows: List<Glow>, x: Float, y: Float, w: Float, h: Float): Color =
+    /** [ground] under the design's now playing glow at its fullest, at a point of a window of [w] × [h] dp; [grown] as the ground draws it. */
+    private fun lit(ground: Color, glows: List<Glow>, x: Float, y: Float, w: Float, h: Float, grown: Float = 1f): Color =
         glows.fold(ground) { under, glow ->
-            val far = hypot((x - w * glow.x - glow.dx.value) / glow.radiusX.value, (y - h * glow.y - glow.dy.value) / glow.radiusY.value)
+            val far = hypot((x - w * glow.x - glow.dx.value * grown) / (glow.radiusX.value * grown), (y - h * glow.y - glow.dy.value * grown) / (glow.radiusY.value * grown))
             glow.color.copy(alpha = glow.color.alpha * (1f - far / glow.reach).coerceAtLeast(0f)).compositeOver(under)
         }
 
     /**
      * Now playing's own light (PlayerLook) lies under text and controls: they hold on its brightest spot too.
-     * The glow is set in dp from the window's foot, so a window that shows all of it stands for every smaller
-     * one — and a boost's flare only lifts it, which the rows below the foot stand for.
+     * A glow set in dp from the window's foot is one picture everywhere, so a window that shows all of it stands
+     * for every smaller one — and a boost's flare only lifts it, which the rows below the foot stand for. A glow
+     * that grows with the window ([PlayerLook.spread]) is tried in windows of every kind instead.
      */
     private fun holdsLit(scheme: ColorScheme, hopp: HoppColors, name: String) {
         val look = hopp.player ?: error("$name has no player look")
-        val w = 1600
-        val h = 900
-        for (glow in look.glow) {
+        // The worst of each kind, so one run says all there is to mend.
+        val worst = mutableMapOf<String, Pair<Float, String>>()
+        val windows = if (look.spread) listOf(320 to 568, 390 to 844, 411 to 891, 891 to 411, 800 to 1280, 1280 to 800, 1600 to 900, 2560 to 1440) else listOf(1600 to 900)
+        if (!look.spread) for (glow in look.glow) {
+            val (w, h) = windows.single()
             assertTrue(glow.x == 0.5f && glow.y == 1f, "$name: now playing's glow is set from the middle of the window's foot")
             assertTrue(glow.radiusX.value * glow.reach + kotlin.math.abs(glow.dx.value) < w / 2 && glow.radiusY.value * glow.reach - glow.dy.value < h, "$name: the test's window shows all of the glow")
         }
-        for (x in 0..w step 8) for (y in 0..h + FLARE_LIFT.value.toInt() step 4) {
-            val on = lit(scheme.background, look.glow, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat())
-            fun at(least: Float, what: String, a: Color, ground: Color = on) =
-                assertTrue(contrast(a, ground) >= least, "$name, now playing at $x/$y: $what is ${contrast(a, ground)}:1, at least $least:1 asked")
-            at(4.5f, "text", scheme.onSurface)
-            at(4.5f, "secondary text", scheme.onSurfaceVariant)
-            at(4.5f, "orange text", hopp.valueText)
-            at(3f, "a control's edge", scheme.outline)
-            at(3f, "the progress bar", hopp.progressTrack)
-            // What lets the glow through: the value bar and the chips.
-            look.panel?.let { panel ->
-                val bar = panel.compositeOver(on)
-                at(4.5f, "text on the value bar", scheme.onSurface, bar)
-                at(4.5f, "secondary text on the value bar", scheme.onSurfaceVariant, bar)
-                at(4.5f, "orange text on the value bar", hopp.valueText, bar)
-            }
-            look.chip?.let { at(4.5f, "a chip's label", scheme.onSurface, it.compositeOver(on)) }
-            // The grain only ever takes from the glow: nothing read on it loses by a speck.
-            look.grain?.let { grain ->
-                val speck = grain.compositeOver(on)
-                for (a in listOf(scheme.onSurface, scheme.onSurfaceVariant, hopp.valueText, scheme.outline, hopp.progressTrack))
-                    assertTrue(contrast(a, speck) >= contrast(a, on), "$name, now playing at $x/$y: a speck of grain takes contrast")
+        for ((w, h) in windows) {
+            val grown = if (look.spread) max(1f, min(w, h) / SPREAD_WINDOW.value) else 1f
+            val lift = if (look.spread) 0 else FLARE_LIFT.value.toInt()
+            for (x in 0..w step max(8, w / 200)) for (y in 0..h + lift step max(4, h / 200)) {
+                val light = lit(scheme.background, look.glow, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), grown)
+                // What the ground is made of lies over its light: a facet at its brightest. Hairlines — a facet's
+                // edge, the mesh — are no ground to read on, as little as a spark is.
+                val grounds = listOfNotNull(light, (look.material as? Material.Facets)?.fill?.compositeOver(light))
+                for (on in grounds) {
+                    fun at(least: Float, what: String, a: Color, ground: Color = on) {
+                        val has = contrast(a, ground)
+                        if (has < least && has < (worst[what]?.first ?: least)) worst[what] = has to "$what is $has:1 in $w×$h at $x/$y, at least $least:1 asked"
+                    }
+                    at(4.5f, "text", scheme.onSurface)
+                    at(4.5f, "secondary text", scheme.onSurfaceVariant)
+                    at(4.5f, "orange text", hopp.valueText)
+                    at(3f, "a control's edge", scheme.outline)
+                    at(3f, "the progress bar", hopp.progressTrack)
+                    at(3f, "the heard part of the progress bar", hopp.progressFill ?: scheme.onSurface)
+                    look.knob?.let { at(3f, "the progress bar's knob", it) }
+                    // What lets the glow through: the value bar and the chips.
+                    look.panel?.let { panel ->
+                        val bar = panel.compositeOver(on)
+                        at(4.5f, "text on the value bar", scheme.onSurface, bar)
+                        at(4.5f, "secondary text on the value bar", scheme.onSurfaceVariant, bar)
+                        at(4.5f, "orange text on the value bar", hopp.valueText, bar)
+                    }
+                    look.chip?.let { at(4.5f, "a chip's label", scheme.onSurface, it.compositeOver(on)) }
+                    // The grain only ever takes from the glow: nothing read on it loses by a speck.
+                    look.grain?.let { grain ->
+                        val speck = grain.compositeOver(on)
+                        for (a in listOf(scheme.onSurface, scheme.onSurfaceVariant, hopp.valueText, scheme.outline, hopp.progressTrack))
+                            assertTrue(contrast(a, speck) >= contrast(a, on), "$name, now playing at $x/$y: a speck of grain takes contrast")
+                    }
+                }
             }
         }
+        fun at(least: Float, what: String, a: Color, ground: Color) {
+            val has = contrast(a, ground)
+            if (has < least) worst[what] = has to "$what is $has:1, at least $least:1 asked"
+        }
+        // The same light, small, over the card: the mini player and the bar along a wide window's foot.
+        look.bar?.let { bar ->
+            val on = bar.compositeOver(scheme.surface)
+            at(4.5f, "text on the bar's light", scheme.onSurface, on)
+            at(4.5f, "secondary text on the bar's light", scheme.onSurfaceVariant, on)
+            at(3f, "the progress bar on the bar's light", hopp.progressTrack, on)
+            at(3f, "the heard part on the bar's light", hopp.progressFill ?: scheme.onSurface, on)
+        }
+        look.playFill?.forEach { at(3f, "the sign on the play button", scheme.onPrimary, it) }
+        assertTrue(worst.isEmpty(), "$name, now playing:\n" + worst.values.joinToString("\n") { it.second })
     }
 
+    @Test fun relaysNowPlayingByDay() = holdsLit(RelayLightScheme, RelayLightColors, "Relay, light")
+    @Test fun relaysNowPlayingByNight() = holdsLit(RelayDarkScheme, RelayDarkColors, "Relay, dark")
+    @Test fun coldstoragesNowPlayingByDay() = holdsLit(ColdstorageLightScheme, ColdstorageLightColors, "Coldstorage, light")
+    @Test fun coldstoragesNowPlayingByNight() = holdsLit(ColdstorageDarkScheme, ColdstorageDarkColors, "Coldstorage, dark")
     @Test fun glutsNowPlayingByDay() = holdsLit(GlutLightScheme, GlutLightColors, "Glut, light")
     @Test fun glutsNowPlayingByNight() = holdsLit(GlutDarkScheme, GlutDarkColors, "Glut, dark")
 

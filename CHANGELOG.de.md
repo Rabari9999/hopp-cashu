@@ -9,6 +9,9 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 ### 🆕 New Features
 - **Einstellungen:** Ein viertes Design, Coldstorage: frostiges Blau wie Schnee und Eis.
 - **Player:** Im Design Glut brennt das Feuer jetzt unter den Bedienelementen, lebt auf, solange eine Folge läuft, und flammt auf, wenn ein Boost ankommt.
+- **Player:** Das Design Coldstorage bekommt eine eigene Wiedergabe: geschliffenes Eis, kantige Formen und Raureif über der Boost-Leiste, wenn ein Boost ankommt.
+- **Player:** Das Design Relay bekommt eine eigene Wiedergabe: ein lebendiges Netz aus Knoten, durch das eine Welle läuft, wenn dein Kommentar rausgeht.
+- **Player:** Mini-Player und Player-Leiste auf breiten Bildschirmen leuchten jetzt auch in den Farben von Glut, Coldstorage und Relay.
 - **Web:** Stille überspringen und Lautstärke anheben jetzt auch in Hopp Web, bei Shows, deren Server es zulässt, und bei Folgen, die im Browser geladen sind.
 - **Nostr:** Was deine Nostr-Kontakte hören, zählt jetzt auch ihre Zaps an eine Show und die Shows, denen sie auf Nostr folgen.
 - **Player:** Die Player-Leiste auf breiten Bildschirmen springt auch zum vorigen und nächsten Kapitel.
@@ -18,6 +21,7 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 - **Entdecken:** Die Suche findet auch, was in deiner Bibliothek steckt: Shows, Folgen, Kapitel und gelesene Kommentare.
 
 ### 🐛 Fixes
+- **Player:** Im Design Glut flammt das Feuer auf, sobald das Boost-Fenster geschlossen ist, statt dahinter verborgen zu bleiben.
 - **Sync:** Der erste Abgleich nach dem Start von Hopp wartet nicht mehr auf ein Relay, das nicht antwortet.
 - **Sync:** Was auf einem anderen Gerät läuft, erscheint hier sofort, auch wenn die Folge erst nach der letzten Suche nach neuen Folgen erschienen ist.
 - **App:** Auf iOS Hopps Sprache in Hopp selbst wählen: sofort und ohne zweite Systemsprache.

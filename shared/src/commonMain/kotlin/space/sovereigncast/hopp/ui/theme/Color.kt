@@ -5,7 +5,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -93,13 +98,16 @@ data class HoppColors(
     val nostr: NostrColors? = null,
     /** The heard part of a progress bar, where the design gives it a colour; else the text's. */
     val progressFill: Color? = null,
-    /** What the design does to now playing beyond its colours; nothing in most. */
+    /** What the design does to now playing beyond its colours; nothing in Hopp's own. */
     val player: PlayerLook? = null,
-)
+) {
+    val shapes: PlayerShapes get() = player?.shapes ?: PlayerShapes.Round
+}
 
 /**
- * A design's own hand on now playing — Glut's, after a trial (maintainer 2026-11-10): the light sits
- * where the controls are, not behind the top bar, and lives while something plays.
+ * A design's own hand on now playing — Glut's first, after a trial (maintainer 2026-11-10): the light sits
+ * where the controls are, not behind the top bar, and lives while something plays. Then Coldstorage's
+ * and Relay's, each with a material, forms and a progress bar of its own.
  */
 @Immutable
 data class PlayerLook(
@@ -125,7 +133,77 @@ data class PlayerLook(
     val panel: Color? = null,
     /** The ground of the chips below the controls. */
     val chip: Color? = null,
+    /** The same light, small: along the foot of the mini player and of the bar along a wide window's foot,
+     *  over the card's colour. */
+    val bar: Color? = null,
+    /** [glow] is set for a phone and grows with the window, its place a share of it: light from the
+     *  window's corners rather than a fire of one size at its foot. */
+    val spread: Boolean = false,
+    /** What the ground is made of, over its light. */
+    val material: Material? = null,
+    val shapes: PlayerShapes = PlayerShapes.Round,
+    val progress: ProgressStyle = ProgressStyle.Gaps,
+    /** The progress bar's knob, where it is not the heard part's colour. */
+    val knob: Color? = null,
+    /** A hairline round the cover. */
+    val coverEdge: Color? = null,
+    /** The play button's ground from its upper left to its lower right, in place of the main action's colour;
+     *  what is on it stays that action's label colour. */
+    val playFill: List<Color>? = null,
+    /** Rings the play button sends out while it plays. */
+    val rings: Color? = null,
+    /** The value bar's edge, in place of a hairline. */
+    val panelEdge: Brush? = null,
+    /** An edge round the chips. */
+    val chipEdge: Brush? = null,
+    /** A glow round the boost button, of money's own colour. */
+    val boostGlow: Color? = null,
+    /** What runs across the value bar when a boost was paid. */
+    val frost: Color? = null,
+    /** Times and the speed in figures of one width. */
+    val mono: Boolean = false,
 )
+
+/** The forms of now playing; [Round] is "round and calm" (ADR 0019), which a design's own hand may leave. */
+@Immutable
+data class PlayerShapes(
+    val cover: Shape = RoundedCornerShape(24.dp),
+    /** The cover where it is small: the mini player, the bar along a wide window's foot. */
+    val thumb: Shape = RoundedCornerShape(10.dp),
+    val play: Shape = CircleShape,
+    /** The value bar. */
+    val panel: Shape = RoundedCornerShape(20.dp),
+    val chip: Shape = RoundedCornerShape(50),
+    val boost: Shape = RoundedCornerShape(50),
+    /** The chapter's name on the cover, */
+    val label: Shape = RoundedCornerShape(50),
+    /** and the buttons beside it. */
+    val button: Shape = CircleShape,
+) {
+    companion object {
+        val Round = PlayerShapes()
+    }
+}
+
+/** How the progress bar shows the chapters. */
+enum class ProgressStyle {
+    /** A bar, open where a chapter begins (ADR 0019). */
+    Gaps,
+    /** A hairline with a notch where a chapter begins, its knob a crystal. */
+    Notches,
+    /** A line from node to node: a chapter begins at each, and the heard ones are lit. */
+    Nodes,
+}
+
+sealed interface Material {
+    /** Facets of ice over the whole ground: each [fill] at most, [edge] between them. */
+    @Immutable
+    data class Facets(val fill: Color, val edge: Color) : Material
+
+    /** A net over the whole ground: [node]s and [line]s between neighbours, [pulse]s running along some. */
+    @Immutable
+    data class Mesh(val line: Color, val node: Color, val pulse: Color) : Material
+}
 
 /** What runs over Nostr: sign-in, comments, the Nostr contacts. Never on what pays: money stays [HoppColors.value]. */
 @Immutable
@@ -208,6 +286,7 @@ internal val GlutLightColors = HoppColors(
         ),
         rest = 0.6f, coverLight = Color(0x59965014),
         grain = Color(0x38FFFFFF), panel = Color(0xB3FFFCF7), chip = Color(0xB3FFFCF7),
+        bar = Color(0xCCF9D3A1),
     ),
 )
 internal val GlutDarkColors = HoppColors(
@@ -227,8 +306,13 @@ internal val GlutDarkColors = HoppColors(
         rest = 0.55f, coverLight = Color(0x73E66E1E), playHalo = Color(0x99FFB464),
         fillFrom = Color(0xFFFFC98A), heat = Color(0xFFFFB464), sparks = Color(0xFFFFC98A),
         grain = Color(0x2E000000), panel = Color(0xCC1D1510), chip = Color(0x17FFE1BA),
+        // Embers, redder than the fire: no brighter, or the progress bar's track is lost on them.
+        bar = Color(0x47D63C14),
     ),
 )
+
+/** Round Relay's value bar: violet into Nostr's magenta, fading out. */
+private val RelayEdge = Brush.horizontalGradient(0f to Color(0xFF8B5CF6), 0.55f to Color(0xFFC026D3), 1f to Color(0x26C026D3))
 
 /** Relay by day: lavender paper under a violet shimmer, purple for the main action. */
 internal val RelayLightScheme: ColorScheme = lightColorScheme(
@@ -290,6 +374,17 @@ internal val RelayLightColors = HoppColors(
     glow = listOf(Glow(Color(0xFFCBA8FA), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
     nostr = NostrColors(fill = Color(0xFF8739B8), onFill = Color(0xFFFFFFFF), text = Color(0xFF8739B8), tint = Color(0xFFF3E6F9)),
     progressFill = Color(0xFF5224A3),
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x80CBA8FA), x = 0.15f, y = -0.08f, dy = 0.dp, radiusX = 500.dp, radiusY = 330.dp, reach = 0.7f),
+            Glow(Color(0x80E6B8F5), x = 1.05f, y = 1.04f, dy = 0.dp, radiusX = 460.dp, radiusY = 340.dp, reach = 0.7f),
+        ),
+        spread = true, rest = 0.7f, coverLight = Color(0x598B5CF6), coverEdge = Color(0x805224A3),
+        material = Material.Mesh(line = Color(0x2E5224A3), node = Color(0x8C5224A3), pulse = Color(0xFF8739B8)),
+        progress = ProgressStyle.Nodes, rings = Color(0xFF5224A3), mono = true,
+        panel = Color(0xCCFBF7FF), panelEdge = RelayEdge, chip = Color.Transparent, chipEdge = SolidColor(Color(0xFF7F6BA3)),
+        bar = Color(0x99CBA8FA),
+    ),
 )
 internal val RelayDarkColors = HoppColors(
     value = BitcoinOrange, onValue = Color(0xFF130F24), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF8A7CAC), ok = Color(0xFF86C9A1),
@@ -300,6 +395,18 @@ internal val RelayDarkColors = HoppColors(
     ),
     nostr = NostrColors(fill = Color(0xFF8E3FC2), onFill = Color(0xFFFFFFFF), text = Color(0xFFE2B0FF), tint = Color(0xFF2F1846)),
     progressFill = Color(0xFFC2A8F5),
+    // The net shows: violet from above, magenta from below, and between them the relays and their lines.
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x708B5CF6), x = 0.15f, y = -0.08f, dy = 0.dp, radiusX = 500.dp, radiusY = 330.dp, reach = 0.7f),
+            Glow(Color(0x4CC026D3), x = 1.05f, y = 1.04f, dy = 0.dp, radiusX = 460.dp, radiusY = 340.dp, reach = 0.7f),
+        ),
+        spread = true, rest = 0.7f, coverLight = Color(0xB38B5CF6), coverEdge = Color(0x80C2A8F5), playHalo = Color(0x598B5CF6),
+        material = Material.Mesh(line = Color(0x2EC2A8F5), node = Color(0x8CC2A8F5), pulse = Color(0xFFE879F9)),
+        progress = ProgressStyle.Nodes, heat = Color(0xFFC2A8F5), rings = Color(0xFFC2A8F5), mono = true,
+        panel = Color(0xCC1B1430), panelEdge = RelayEdge, chip = Color.Transparent, chipEdge = SolidColor(Color(0xFF8A7CAC)),
+        bar = Color(0x478B5CF6),
+    ),
 )
 
 /** Coldstorage by day, "Raureif" (maintainer 2026-11-09): snow under a pale light of ice, glacier blue for the main action. */
@@ -356,12 +463,33 @@ internal val ColdstorageDarkScheme: ColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF3B5BF),
 )
 
+/** Cut, not round: Coldstorage leaves "round and calm" on now playing. */
+private val IceShapes = PlayerShapes(
+    cover = RoundedCornerShape(8.dp), thumb = RoundedCornerShape(4.dp), play = RoundedCornerShape(31), panel = RoundedCornerShape(10.dp),
+    chip = RoundedCornerShape(7.dp), boost = RoundedCornerShape(7.dp), label = RoundedCornerShape(10.dp), button = RoundedCornerShape(6.dp),
+)
+
+/** Frosted glass by night: an edge that catches the light at its top. */
+private val IceEdge = Brush.verticalGradient(listOf(Color(0x66E4F0FA), Color(0x21E4F0FA)))
+
 // Orange stays money's: on the ice it stands out the more.
 internal val ColdstorageLightColors = HoppColors(
     value = BitcoinOrange, onValue = Color(0xFF0D2133), valueText = Color(0xFF8F4700), progressTrack = Color(0xFF6A8299), ok = Color(0xFF2A7048),
     page = Color.Transparent,
     glow = listOf(Glow(Color(0xFFBFE3F7), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1100.dp, radiusY = 460.dp, reach = 0.72f)),
     progressFill = Color(0xFF0B4F80),
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x80A9D8F3), x = 0.8f, y = -0.06f, dy = 0.dp, radiusX = 520.dp, radiusY = 360.dp, reach = 0.7f),
+            Glow(Color(0x80CFE9F6), x = -0.05f, y = 1f, dy = 0.dp, radiusX = 420.dp, radiusY = 300.dp, reach = 0.7f),
+        ),
+        spread = true, rest = 0.75f, coverLight = Color(0x400B4F80), coverEdge = Color(0xB3FFFFFF), playHalo = Color(0x400B4F80),
+        material = Material.Facets(fill = Color(0x59FFFFFF), edge = Color(0xB3FFFFFF)),
+        shapes = IceShapes, progress = ProgressStyle.Notches, playFill = listOf(Color(0xFF1C79B4), Color(0xFF0B4F80)),
+        panel = Color(0x8CFFFFFF), panelEdge = SolidColor(Color(0xE6FFFFFF)), chip = Color(0x8CFFFFFF), chipEdge = SolidColor(Color(0xE6FFFFFF)),
+        boostGlow = Color(0x66F7931A), frost = Color(0xE6FFFFFF),
+        bar = Color(0x8CA9D8F3),
+    ),
 )
 internal val ColdstorageDarkColors = HoppColors(
     value = BitcoinOrange, onValue = Color(0xFF06101B), valueText = Color(0xFFF7A440), progressTrack = Color(0xFF6C88A2), ok = Color(0xFF86C9A1),
@@ -371,6 +499,20 @@ internal val ColdstorageDarkColors = HoppColors(
         Glow(Color(0x612E8FC4), x = 0.5f, y = 0f, dy = (-140).dp, radiusX = 1000.dp, radiusY = 560.dp, reach = 0.7f),
     ),
     progressFill = Color(0xFFA6D6F4),
+    // Ice: glacier light slanting in from above, facets, frosted glass — and orange the only warm thing on it.
+    player = PlayerLook(
+        glow = listOf(
+            Glow(Color(0x4A2E8FC4), x = 0.8f, y = -0.06f, dy = 0.dp, radiusX = 520.dp, radiusY = 360.dp, reach = 0.7f),
+            Glow(Color(0x1A7FD3E0), x = -0.05f, y = 1f, dy = 0.dp, radiusX = 420.dp, radiusY = 300.dp, reach = 0.7f),
+        ),
+        spread = true, rest = 0.7f, coverLight = Color(0xE6001428), coverEdge = Color(0x4DE4F0FA), playHalo = Color(0x732E8FC4),
+        material = Material.Facets(fill = Color(0x0DFFFFFF), edge = Color(0x1FFFFFFF)),
+        shapes = IceShapes, progress = ProgressStyle.Notches, knob = Color(0xFFFFFFFF), heat = Color(0xFFA6D6F4),
+        playFill = listOf(Color(0xFFE3F4FE), Color(0xFF8CC4EA)),
+        panel = Color(0x990D1A29), panelEdge = IceEdge, chip = Color(0x990D1A29), chipEdge = IceEdge,
+        boostGlow = Color(0x8CF7931A), frost = Color(0x73E4F0FA),
+        bar = Color(0x472E8FC4),
+    ),
 )
 
 val LocalHoppColors = staticCompositionLocalOf { LightHoppColors }

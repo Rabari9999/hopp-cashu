@@ -55,6 +55,10 @@ class CommentWriter(
     /** One mute at a time: each reads the list the one before it wrote. */
     private val muting = Mutex()
 
+    private val _sent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** A comment of the listener's own went out to the relays — now playing may show it going (ADR 0019). */
+    val sent: kotlinx.coroutines.flow.SharedFlow<Unit> = _sent
+
     /** A comment on the episode, or an answer to [to]; kept at once, so it shows without asking again. */
     suspend fun comment(anchor: CommentAnchor, text: String, relays: List<String>, to: Comment? = null): Event {
         val body = text.trim()
@@ -87,6 +91,7 @@ class CommentWriter(
         val event = publish(unsigned, listOf(FOUNTAIN) + relays + anchor.notes.flatMap { it.relays })
         keep(anchor, event, relays)
         runCatching { posted() }
+        _sent.tryEmit(Unit)
         return event
     }
 
