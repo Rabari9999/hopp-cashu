@@ -8,8 +8,8 @@ Guidance for Claude Code in this repository.
 Android + iOS (Kotlin Multiplatform + Compose Multiplatform), the listener-side
 companion of Sovereigncast (`gitlab.com/nodesignal/podcasting_tools`).
 
-**Status: 0.4.2 released on Android (Zapstore, F-Droid pending); the web
-still serves 0.4.1; iOS waits for AltStore PAL.** Phases 0–2 of ADR 0018 are built except push
+**Status: 0.4.2 released on Android (Zapstore, F-Droid pending) and on the
+web; iOS waits for AltStore PAL.** Phases 0–2 of ADR 0018 are built except push
 and video; where each phase stands is noted there, open work in
 `docs/tasks/README.md`. Read `docs/adr/`
 first — the decisions there are settled and should not be re-litigated without
