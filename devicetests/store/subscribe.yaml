@@ -1,0 +1,20 @@
+# One show subscribed by its feed address (setup.yaml), so the search's hits in the library (0.4.2)
+# and the directories' order cannot pick another. SHOW is the title its page shows. English UI.
+appId: ${APP_ID}
+---
+- runFlow: discover-start.yaml
+- tapOn: "Search or feed address"
+- inputText: ${FEED}
+- tapOn: "Open as feed"
+- extendedWaitUntil:
+    visible: ${SHOW}
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Subscribe"
+    timeout: 30000
+- tapOn: "Subscribe"
+- extendedWaitUntil:
+    visible: ".*Subscribed.*"
+    timeout: 60000
+- tapOn: "Back"
+- waitForAnimationToEnd

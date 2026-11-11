@@ -1,116 +1,35 @@
 # Store screenshots, part 1: Hopp filled the way a listener would — Nodesignal
-# and the shows its podroll recommends (as it stands, 2026-10-20), found by
-# name. English UI.
+# and the shows its podroll recommends (as it stands, 2026-10-20), by their
+# feed addresses in the Podcast Index (2026-11-11). English UI.
 appId: ${APP_ID}
 name: Store setup
 ---
 - runFlow: ../flows/common/fresh.yaml
-- tapOn: "Discover"
 - runFlow:
-    when:
-      visible: "Cancel"
-    commands:
-      - tapOn: "Cancel"
-- tapOn: "Search or feed address"
-- inputText: "Nodesignal"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Nodesignal - Deine Bitcoin-Frequenz"
-    timeout: 30000
-- tapOn: "Nodesignal - Deine Bitcoin-Frequenz"
-- extendedWaitUntil:
-    visible: "Subscribe"
-    timeout: 30000
-- tapOn: "Subscribe"
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 60000
-- tapOn: "Back"
-- waitForAnimationToEnd
+    file: subscribe.yaml
+    env:
+      FEED: "https://serve.podhome.fm/rss/e8df0b13-47de-544a-99b7-ec7cbd960a16"
+      SHOW: "Nodesignal - Deine Bitcoin-Frequenz"
 - runFlow:
-    when:
-      visible: "Cancel"
-    commands:
-      - tapOn: "Cancel"
-- tapOn: "Search or feed address"
-- inputText: "Münzweg"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Münzweg - der Bitcoin-Podcast"
-    timeout: 30000
-- tapOn: "Münzweg - der Bitcoin-Podcast"
-- extendedWaitUntil:
-    visible: "Subscribe"
-    timeout: 30000
-- tapOn: "Subscribe"
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 60000
-- tapOn: "Back"
-- waitForAnimationToEnd
+    file: subscribe.yaml
+    env:
+      FEED: "https://serve.podhome.fm/rss/537e4d76-e51c-5a01-a88d-83450d7cf7e8"
+      SHOW: "Münzweg - der Bitcoin-Podcast"
 - runFlow:
-    when:
-      visible: "Cancel"
-    commands:
-      - tapOn: "Cancel"
-- tapOn: "Search or feed address"
-- inputText: "Sound Money Bitcoin"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Sound Money Bitcoin Podcast"
-    timeout: 30000
-- tapOn: "Sound Money Bitcoin Podcast"
-- extendedWaitUntil:
-    visible: "Subscribe"
-    timeout: 30000
-- tapOn: "Subscribe"
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 60000
-- tapOn: "Back"
-- waitForAnimationToEnd
+    file: subscribe.yaml
+    env:
+      FEED: "https://anchor.fm/s/68a48810/podcast/rss"
+      SHOW: "Sound Money Bitcoin Podcast"
 - runFlow:
-    when:
-      visible: "Cancel"
-    commands:
-      - tapOn: "Cancel"
-- tapOn: "Search or feed address"
-- inputText: "Honigdachs"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Honigdachs"
-    timeout: 30000
-- tapOn: "Honigdachs"
-- extendedWaitUntil:
-    visible: "Subscribe"
-    timeout: 30000
-- tapOn: "Subscribe"
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 60000
-- tapOn: "Back"
-- waitForAnimationToEnd
+    file: subscribe.yaml
+    env:
+      FEED: "https://honigdachs.podigee.io/feed/mp3"
+      SHOW: "Honigdachs"
 - runFlow:
-    when:
-      visible: "Cancel"
-    commands:
-      - tapOn: "Cancel"
-- tapOn: "Search or feed address"
-- inputText: "Bitcoin Socratic Seminar"
-- pressKey: Enter
-- extendedWaitUntil:
-    visible: "Bitcoin Socratic Seminar Online"
-    timeout: 30000
-- tapOn: "Bitcoin Socratic Seminar Online"
-- extendedWaitUntil:
-    visible: "Subscribe"
-    timeout: 30000
-- tapOn: "Subscribe"
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 60000
-- tapOn: "Back"
-- waitForAnimationToEnd
+    file: subscribe.yaml
+    env:
+      FEED: "https://serve.podhome.fm/rss/1240c5ad-724b-4443-8c5f-be0bcd2a850c"
+      SHOW: "Bitcoin Socratic Seminar Online"
 # Nodesignal's own playback, as the per-show page shows it: 1.3×, its intro skipped.
 - tapOn: "Home"
 - tapOn:

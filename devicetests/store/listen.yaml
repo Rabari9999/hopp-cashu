@@ -17,7 +17,9 @@ name: Store listening
 - tapOn: "Search or feed address"
 - inputText: ${SHOW}
 - pressKey: Enter
-# The second match: the first is the search field itself, which holds the name now.
+# The second match: the first is the search field itself, which holds the name now. Since 0.4.2 it
+# is the subscribed show "In your library", which opens the show itself — its "✓ Subscribed" is
+# the button to unsubscribe, never tapped (the directories' row opened a preview first).
 - extendedWaitUntil:
     visible:
       text: ${SHOW}
@@ -26,11 +28,6 @@ name: Store listening
 - tapOn:
     text: ${SHOW}
     index: 1
-- extendedWaitUntil:
-    visible: ".*Subscribed.*"
-    timeout: 15000
-# From the search a show opens as its preview, whose episodes open nothing; "✓ Subscribed" opens the show.
-- tapOn: ".*Subscribed.*"
 - waitForAnimationToEnd
 - runFlow:
     when:
@@ -42,6 +39,16 @@ name: Store listening
       - tapOn: "Search episodes"
       - inputText: ${QUERY}
       - pressKey: Enter
+# On a tablet the episodes are the left column, and Maestro scrolls the screen's middle — the
+# right one (2026-11-11): the list is moved up on its own side first.
+- runFlow:
+    when:
+      notVisible: ${EPISODE}
+    commands:
+      - swipe:
+          start: 25%, 75%
+          end: 25%, 35%
+          duration: 800
 - scrollUntilVisible:
     element: ${EPISODE}
 - tapOn:
