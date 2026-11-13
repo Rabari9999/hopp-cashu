@@ -6,6 +6,13 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.2.2] - 2026-11-13
+
+Nur Hopp Web.
+
+### 🐛 Fixes
+- **Web:** Auf iPhones mit iOS 27.2 zeichnet Hopp Web Listen und Symbole wieder richtig, auch nach dem Scrollen.
+
 ## [0.4.2.1] - 2026-11-13
 
 Nur Hopp Web.
