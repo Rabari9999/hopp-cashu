@@ -11,8 +11,9 @@ const site = process.argv[2] ?? (() => { throw new Error('usage: node sign.mjs <
 const text = fs.readFileSync(path.join(site, 'release.json'));
 const release = JSON.parse(text);
 const hash = crypto.createHash('sha256').update(text).digest('hex');
-// verify.mjs takes any signed build as good: a signature is for releases alone (ADR 0022, 15).
-if (!/^v\d+\.\d+\.\d+$/.test(release.version)) throw new Error(`${release.version} is no release: only a build of an exact tag is signed`);
+// verify.mjs takes any signed build as good: a signature is for releases alone (ADR 0022, 15) — vX.Y.Z,
+// or vX.Y.Z.N for a fix of Hopp Web alone (0.4.2.1: Safari 27.2).
+if (!/^v\d+\.\d+\.\d+(\.\d+)?$/.test(release.version)) throw new Error(`${release.version} is no release: only a build of an exact tag is signed`);
 const urls = await relays();
 const already = await signatureFor(hash, urls);
 if (already) { console.log(`build ${hash} (${release.version}) is signed already: ${already.id}`); process.exit(0); }

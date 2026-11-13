@@ -9,8 +9,9 @@
 # for going back (ln -sfn releases/<older> /srv/hopp-web/current). The proxy is replaced and
 # restarted only when it changed.
 #
-# play. takes only a release: a build of an exact tag. play-dev. takes only --dev builds, and such a
-# deploy leaves the proxy and the server files alone — both addresses share them (ADR 0022, 15).
+# play. takes only a release: a build of an exact tag — vX.Y.Z, or vX.Y.Z.N for a fix of Hopp Web
+# alone. play-dev. takes only --dev builds, and such a deploy leaves the proxy and the server files
+# alone — both addresses share them (ADR 0022, 15).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 HOST=${1:?server address}; shift
@@ -27,7 +28,7 @@ VERSION=$(basename "$REL")
 if [[ -n $DEV ]]; then
     [[ $VERSION == *-dev ]] || { echo "$VERSION is no --dev build (web/deploy/build.sh --dev)" >&2; exit 1; }
 else
-    [[ $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "$VERSION is no release: play. takes only a build of an exact tag, others --dev on play-dev." >&2; exit 1; }
+    [[ $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "$VERSION is no release: play. takes only a build of an exact tag, others --dev on play-dev." >&2; exit 1; }
     [[ -x $REL/proxy ]] || { echo "no proxy in $REL" >&2; exit 1; }
 
     # Server files travel with every deploy, so the server always runs what the repository says.
