@@ -6,6 +6,13 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.2.2] - 2026-11-13
+
+Hopp Web only.
+
+### 🐛 Fixes
+- **Web:** On iPhones with iOS 27.2, Hopp Web draws lists and icons right again, also after scrolling.
+
 ## [0.4.2.1] - 2026-11-13
 
 Hopp Web only.

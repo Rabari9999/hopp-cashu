@@ -79,6 +79,8 @@ private fun hideSplash(): Unit = js("""{ const s = document.getElementById('hopp
 // read back, the pixels are there — but what Skia draws after its clear never reaches the screen, unless
 // the frame's WebGL commands are flushed (Safari 27.0 does not need it). So every animation frame ends
 // with a flush of the canvases' WebGL contexts; elsewhere it costs next to nothing.
+// The rest of Safari 27.2's trouble, lists drawn over each other and broken icons, is a bug of its
+// WebAssembly JIT: shared/webpack.config.d/safari-27-2.js.
 private fun flushEachFrame(): Unit = js("""{
   const contexts = [];
   const getContext = HTMLCanvasElement.prototype.getContext;
