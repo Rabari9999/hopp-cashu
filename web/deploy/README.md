@@ -25,6 +25,11 @@ ADR 0022, 15. `play.sovereigncast.space` is what listeners use: only builds of
 a release tag, signed. `play-dev.sovereigncast.space` takes any stage of the
 development branch.
 
+A fix that only Hopp Web needs, while the next release is not ready, is a
+release of its own: a branch from `main`, a tag `vX.Y.Z.N` (the apps keep
+`X.Y.Z` and their versionCode), merged back like any release. 0.4.2.1 was the
+first: Safari 27.2 drew the page white.
+
 ```bash
 web/deploy/build.sh --dev
 web/deploy/deploy.sh <server> --dev
