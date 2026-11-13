@@ -6,6 +6,13 @@ belongs to. German: [CHANGELOG.de.md](CHANGELOG.de.md).
 
 ## [Unreleased]
 
+## [0.4.2.1] - 2026-11-13
+
+Hopp Web only.
+
+### 🐛 Fixes
+- **Web:** Hopp Web shows again on iPhones with iOS 27.2 instead of a white page.
+
 ## [0.4.2] - 2026-11-11
 
 ### 🆕 New Features

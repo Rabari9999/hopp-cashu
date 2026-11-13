@@ -75,6 +75,24 @@ private fun wipeIfMarked(): Promise<JsString> = js("""(async () => {
 private fun mark(name: String): Unit = js("{ try { performance.mark(name); } catch (e) {} }")
 private fun hideSplash(): Unit = js("""{ const s = document.getElementById('hopp-splash'); if (s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 250); } }""")
 
+// Safari 27.2 (iOS and the simulator, 2026-11-13) shows the app's canvas white: each frame is drawn —
+// read back, the pixels are there — but what Skia draws after its clear never reaches the screen, unless
+// the frame's WebGL commands are flushed (Safari 27.0 does not need it). So every animation frame ends
+// with a flush of the canvases' WebGL contexts; elsewhere it costs next to nothing.
+private fun flushEachFrame(): Unit = js("""{
+  const contexts = [];
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, attributes) {
+    const context = getContext.call(this, type, attributes);
+    if (context && (type === 'webgl2' || type === 'webgl') && !contexts.includes(context)) contexts.push(context);
+    return context;
+  };
+  const frame = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (callback) => frame((time) => {
+    try { callback(time); } finally { for (const c of contexts) { try { c.flush(); } catch (e) {} } }
+  });
+}""")
+
 // Signing out in a tab that keeps nothing: a reload starts it afresh. What the browser held when
 // "This is not my device" was chosen went into that tab's memory then, and its files were deleted
 // (WebTabOnly) — so nothing of it is left to wipe here.
@@ -84,6 +102,7 @@ internal fun wipeOnNextStart() = if (tabOnlyMarked()) reload() else markWipe()
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     mark("hopp:main")
+    flushEachFrame()
     MainScope().launch {
         if (!holdTabLock().await<JsBoolean>().toBoolean()) return@launch showOtherTab()
         mark("hopp:tab-lock")

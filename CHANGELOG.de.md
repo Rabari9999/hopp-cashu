@@ -6,6 +6,13 @@ der App. Englisch: [CHANGELOG.md](CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.2.1] - 2026-11-13
+
+Nur Hopp Web.
+
+### 🐛 Fixes
+- **Web:** Hopp Web erscheint auf iPhones mit iOS 27.2 wieder statt einer weißen Seite.
+
 ## [0.4.2] - 2026-11-11
 
 ### 🆕 New Features
