@@ -14,8 +14,22 @@ internal external interface NobleUtils : JsAny {
     fun isValidSecretKey(secretKey: Uint8Array): Boolean
 }
 
+/** noble's projective point (v2); `multiply` takes a JS bigint in [1, n). */
+internal external interface NoblePoint : JsAny {
+    fun add(other: NoblePoint): NoblePoint
+    fun negate(): NoblePoint
+    fun multiply(scalar: JsAny): NoblePoint
+    fun toBytes(isCompressed: Boolean): Uint8Array
+}
+
+internal external interface NoblePointClass : JsAny {
+    val BASE: NoblePoint
+    fun fromBytes(bytes: Uint8Array): NoblePoint
+}
+
 internal external interface NobleEcdsa : JsAny {
     val utils: NobleUtils
+    val Point: NoblePointClass
     fun getSharedSecret(secretKeyA: Uint8Array, publicKeyB: Uint8Array, isCompressed: Boolean): Uint8Array
     fun recoverPublicKey(signature: Uint8Array, message: Uint8Array, opts: JsAny): Uint8Array
 }

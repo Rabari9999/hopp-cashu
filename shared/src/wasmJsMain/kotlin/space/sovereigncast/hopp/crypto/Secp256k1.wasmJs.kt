@@ -2,6 +2,13 @@ package space.sovereigncast.hopp.crypto
 
 private fun noPrehash(): JsAny = js("({ prehash: false })")
 
+private fun bigInt(hex: String): JsAny = js("BigInt('0x' + hex)")
+
+private fun noblePoint(bytes: ByteArray): NoblePoint = secp256k1.Point.fromBytes(bytes.toUint8Array())
+
+/** noble's toBytes asserts validity, so a sum at infinity throws here. */
+private fun NoblePoint.compressed(): ByteArray = toBytes(true).toByteArray()
+
 /** A JS error reaches Kotlin/Wasm as a JsException, which is no kotlin.Exception:
  *  `catch (e: Exception)` around Nostr code would miss it. Thrown as the C library would. */
 private inline fun <T> noble(block: () -> T): T =
@@ -28,4 +35,16 @@ internal actual val Secp256k1: Secp256k1Ops = object : Secp256k1Ops {
     // noble's "recovered" format puts the recovery byte first.
     override fun ecdsaRecoverCompressed(signature64: ByteArray, message32: ByteArray, recoveryId: Int): ByteArray =
         noble { secp256k1.recoverPublicKey((byteArrayOf(recoveryId.toByte()) + signature64).toUint8Array(), message32.toUint8Array(), noPrehash()) }.toByteArray()
+
+    override fun publicKeyCompressed(secretKey: ByteArray): ByteArray =
+        noble { secp256k1.Point.BASE.multiply(bigInt(secretKey.toHex())).compressed() }
+
+    override fun pointAdd(a: ByteArray, b: ByteArray): ByteArray = noble { noblePoint(a).add(noblePoint(b)).compressed() }
+
+    override fun pointMul(point: ByteArray, scalar: ByteArray): ByteArray =
+        noble { noblePoint(point).multiply(bigInt(scalar.toHex())).compressed() }
+
+    override fun pointNegate(point: ByteArray): ByteArray = noble { noblePoint(point).negate().compressed() }
+
+    override fun pointUncompressed(point: ByteArray): ByteArray = noble { noblePoint(point).toBytes(false).toByteArray() }
 }
