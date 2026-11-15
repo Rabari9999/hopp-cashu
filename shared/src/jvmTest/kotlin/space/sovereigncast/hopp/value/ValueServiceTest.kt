@@ -78,7 +78,9 @@ class ValueServiceTest {
         <item><title>Song</title><guid>song-1</guid><enclosure url="https://music.test/1.mp3" type="audio/mpeg"/>
           <podcast:value type="lightning" method="keysend"><podcast:valueRecipient name="Artist" type="node" address="$artist" split="100"/></podcast:value>
         </item></channel></rss>"""
+    private val mint = space.sovereigncast.hopp.value.cashu.FakeMint().apply { preimage = TestInvoices.PREIMAGE.toHex() }
     private val http = HttpClient(MockEngine { req ->
+        if (req.url.host == "mint.test") with(mint) { handle(req) } else
         when (req.url.encodedPath) {
             "/feed.xml" -> if (req.url.host == "music.test") respond(music) else respond(feed)
             "/mixed.xml" -> respond(mixed)
@@ -87,7 +89,8 @@ class ValueServiceTest {
                 "maxSendable":100000000,"metadata":"[[\"text/plain\",\"Alice\"]]"""" +
                 (if (req.url.encodedPath.endsWith("alice")) ""","allowsNostr":true,"nostrPubkey":"${zapServer.publicKeyHex}"}""" else "}"))
             "/cb" -> {
-                val request = req.url.parameters["nostr"]!!.also { zapRequests += it }
+                // A zap commits to its zap request, a plain payment to the metadata (LUD-06).
+                val request = req.url.parameters["nostr"]?.also { zapRequests += it } ?: "[[\"text/plain\",\"Alice\"]]"
                 val hash = space.sovereigncast.hopp.crypto.Sha256.digest(request.encodeToByteArray())
                 respond("""{"pr":"${TestInvoices.make(req.url.parameters["amount"]!!.toLong(), hash)}"}""")
             }
@@ -265,6 +268,52 @@ class ValueServiceTest {
         assertEquals(1_000_000L, log.amountMsat)
         assertEquals("Danke!", log.message)
         assertEquals(listOf("paid", "paid", "paid"), log.lines.map { it.status })
+    }
+
+    /** ADR 0026: Hopp's own ecash pays what an invoice reaches, through the same router and proof. */
+    @Test
+    fun aBoostPaysTheLightningAddressFromEcash() = test {
+        wallet.connectEcash("https://mint.test")
+        assertEquals("mint.test (ecash)", wallet.wallet.value!!.shown)
+        wallet.ecash()!!.requestInvoice(100)
+        mint.payInvoices()
+        assertEquals(BalanceAnswer.Known(100_000L), wallet.balance())
+        val mixedId = (podcasts.subscribe("https://pod.test/mixed.xml") as SubscribeResult.Subscribed).podcastId
+        val m = episodes.ofPodcast(mixedId).first().single()
+        val results = value.boost(m, null, 40_000, "Danke!")
+        val alice = results.single { it.share.recipient.name == "Alice" }
+        assertTrue(alice is ShareResult.Paid, results.describe())
+        assertEquals(TestInvoices.PREIMAGE.toHex(), alice.preimage)
+        assertTrue(results.single { it.share.recipient.name == "Host" } is ShareResult.Skipped, "no keysend from ecash")
+        val invoiceSat = (alice.share.amountMsat + 999) / 1000
+        assertEquals(BalanceAnswer.Known((100 - invoiceSat - mint.lightningFee) * 1000), wallet.balance())
+    }
+
+    @Test
+    fun ecashIsKeptLikeAConnectionAndNeverForgottenWhileItHoldsAny() = test {
+        wallet.connectEcash("https://mint.test/")
+        wallet.ecash()!!.requestInvoice(8)
+        mint.payInvoices()
+        assertEquals(8_000L, wallet.balanceMsat())
+        val again = WalletRepository(secrets, http, { now }, relay)
+        assertEquals("https://mint.test", again.wallet.value!!.mint)
+        assertFailsWith<IllegalStateException> { again.disconnect() }
+        assertTrue(again.wallet.value!!.ecash)
+        assertFailsWith<IllegalStateException> { again.connectEcash("https://other.test") }
+        // NWC goes over it; disconnected, the ecash is the wallet again
+        again.connect(uri())
+        assertTrue(again.wallet.value!!.ecash.not())
+        again.disconnect()
+        assertEquals(8_000L, again.balanceMsat())
+        assertNull(WalletRepository(secrets, http, { now }, relay, enabled = false).client(), "no ecash on the web")
+        mint.feeReserve = 1
+        again.ecash()!!.payInvoice(TestInvoices.make(6_000, ByteArray(32)))
+        assertEquals(1_000L, again.balanceMsat())
+        mint.meltAmount = 1; mint.feeReserve = 0; mint.lightningFee = 0
+        again.ecash()!!.payInvoice("lnbc1withdraw")
+        again.disconnect()
+        assertNull(again.wallet.value)
+        assertNull(WalletRepository(secrets, http, { now }, relay).wallet.value)
     }
 
     @Test

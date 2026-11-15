@@ -12,6 +12,8 @@ import space.sovereigncast.hopp.nostr.KtorRelayConnector
 import space.sovereigncast.hopp.nostr.RelayConnector
 import space.sovereigncast.hopp.platform.SecretStore
 import space.sovereigncast.hopp.platform.SecretUnreadable
+import space.sovereigncast.hopp.value.cashu.CashuWallet
+import space.sovereigncast.hopp.value.cashu.ProofStore
 import space.sovereigncast.hopp.value.nwc.NwcClient
 import space.sovereigncast.hopp.value.nwc.NwcConnection
 import space.sovereigncast.hopp.value.nwc.NwcException
@@ -31,6 +33,9 @@ data class ConnectedWallet(
     val pubkey: String? = null,
     /** The browser's own wallet (WebLN, [BrowserWallet]), not a connection over NWC. */
     val browser: Boolean = false,
+    /** Hopp's own ecash wallet at [mint] (Cashu, ADR 0026), not a connection to another. */
+    val ecash: Boolean = false,
+    val mint: String? = null,
 ) {
     val info: WalletInfo get() = WalletInfo(methods, encryptions, alias, pubkey, lud16)
     val canKeysend: Boolean get() = info.canKeysend
@@ -39,12 +44,12 @@ data class ConnectedWallet(
      *  extension's account over NWC calls itself "NWC", which read as Hopp's own connection in the
      *  browser (maintainer 2026-11-05): a mere way of connecting is no name there. */
     val label: String get() = alias?.trim()?.takeIf { it.isNotBlank() && !(browser && it.lowercase() in PROTOCOLS) }
-        ?: if (browser) "WebLN" else relay.substringAfter("://").substringBefore('/')
-    /** The name with the way Hopp reaches it, for "via …": "Alby Hub (NWC)", "Alby (WebLN)". */
-    val via: String get() = if (label == "WebLN") label else "$label (${if (browser) "WebLN" else "NWC"})"
+        ?: if (browser) "WebLN" else (mint ?: relay).substringAfter("://").substringBefore('/')
+    /** The name with the way Hopp reaches it, for "via …": "Alby Hub (NWC)", "Alby (WebLN)", "mint.example (ecash)". */
+    val via: String get() = if (label == "WebLN") label else "$label (${if (browser) "WebLN" else if (ecash) "ecash" else "NWC"})"
     /** What the wallet page and the settings call it: the browser's with its way in, so it never
      *  passes for a connection over NWC. */
-    val shown: String get() = if (browser) via else label
+    val shown: String get() = if (browser || ecash) via else label
 }
 
 /** Ways of connecting a wallet, which an extension may give as its account's name. */
@@ -67,6 +72,10 @@ sealed interface BalanceAnswer {
  *
  * In the browser the wallet is the browser's own instead ([browser], WebLN —
  * ADR 0022, 4): only that the listener chose it and what it can are kept.
+ *
+ * Or Hopp holds ecash itself ([ecash], Cashu — ADR 0026): proofs at one mint,
+ * in the [SecretStore] as well. A connection over NWC goes first while both
+ * are there; the ecash stays put underneath, never deleted while it holds any.
  */
 class WalletRepository(
     private val secrets: SecretStore,
@@ -83,6 +92,9 @@ class WalletRepository(
     private val browser: BrowserWallet? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val proofs = ProofStore(secrets)
+    /** One wallet object for all callers: it orders its own operations on the proofs. */
+    private val cashu by lazy { CashuWallet(proofs, http, clock) }
     private val _unreadable = MutableStateFlow(false)
     /** A connection is stored that the secret store could not give up ([SecretUnreadable]) —
      *  not replaced by a new one; [disconnect] is the way past it (security review 2026-10-20). */
@@ -95,7 +107,7 @@ class WalletRepository(
         browser?.let { runCatching { secrets.get(BROWSER) }.getOrNull() }
             ?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() }?.copy(browser = true)
     } else try {
-        if (secrets.get(URI) == null) null
+        if (secrets.get(URI) == null) proofs.load()?.let { ecashWallet(it.mint) }
         else secrets.get(INFO)?.let { runCatching { json.decodeFromString(ConnectedWallet.serializer(), it) }.getOrNull() } ?: ConnectedWallet()
     } catch (e: SecretUnreadable) {
         _unreadable.value = true
@@ -105,6 +117,7 @@ class WalletRepository(
     fun client(wait: Duration = timeout): WalletClient? {
         if (_wallet.value?.browser == true) return browser?.takeIf { it.available() }?.let { ProvenWallet(it.client()) }
         if (!enabled) return null
+        if (_wallet.value?.ecash == true) return ProvenWallet(cashu)
         val connection = runCatching { secrets.get(URI) }.getOrNull()?.let { runCatching { NwcConnection.parse(it) }.getOrNull() } ?: return null
         return ProvenWallet(NwcClient(connection, connector, { clock.now() }, wait))
     }
@@ -131,6 +144,32 @@ class WalletRepository(
         return wallet
     }
 
+    /**
+     * Takes up ecash at [mintUrl] (https or onion): asks the mint what it is
+     * and which keysets it has, and only then keeps it — on the listener's tap,
+     * the first contact with that mint (ADR 0015). A wallet already holding
+     * ecash keeps its mint: [ecash] is how it is spent or withdrawn first.
+     */
+    suspend fun connectEcash(mintUrl: String): ConnectedWallet {
+        check(enabled) { "no wallet is kept here" }
+        if (_unreadable.value) throw SecretUnreadable(ProofStore.KEY)
+        check(secrets.get(URI) == null) { "disconnect the NWC wallet first" }
+        val mint = space.sovereigncast.hopp.value.cashu.MintClient(http, mintUrl)
+        val existing = proofs.load()
+        if (existing != null && existing.mint != mint.url && (existing.proofs.isNotEmpty() || existing.pending.isNotEmpty()))
+            throw IllegalStateException("ecash at ${existing.mint} is still held there")
+        mint.info()
+        check(mint.keysets().any { it.active && it.unit == "sat" }) { "the mint issues no sat ecash" }
+        if (existing?.mint != mint.url) CashuWallet.create(proofs, mint.url)
+        return ecashWallet(mint.url).also { _wallet.value = it }
+    }
+
+    /** The ecash wallet, for what only it does — funding, tokens — when it is the one in use. */
+    fun ecash(): CashuWallet? = cashu.takeIf { enabled && _wallet.value?.ecash == true }
+
+    private fun ecashWallet(mint: String) =
+        ConnectedWallet(methods = setOf("pay_invoice", "get_balance"), ecash = true, mint = mint)
+
     /** Whether a wallet can be connected over NWC here — not in the browser (ADR 0022, 4). */
     val nwcHere: Boolean get() = enabled
 
@@ -148,11 +187,25 @@ class WalletRepository(
         return wallet
     }
 
+    /**
+     * Forgets the wallet. Ecash is money, not a connection: while it holds any,
+     * or a payment of it is in flight, it stays (IllegalStateException) —
+     * withdrawn first. One whose entry cannot be read goes, as an NWC string does.
+     */
     fun disconnect() {
+        if (_wallet.value?.ecash == true) {
+            val held = try { proofs.load() } catch (_: SecretUnreadable) { null }
+            check(held == null || (held.proofs.isEmpty() && held.pending.isEmpty())) { "the ecash wallet still holds ${held?.balance} sat" }
+            proofs.save(null)
+        } else if (_unreadable.value) {
+            // The entry that could not be read may be the ecash one under an NWC string.
+            try { proofs.load() } catch (_: SecretUnreadable) { proofs.save(null) }
+        }
         if (browser != null) secrets.put(BROWSER, null)
         secrets.put(URI, null)
         secrets.put(INFO, null)
-        _wallet.value = null
+        // An ecash wallet under the NWC connection is the one in use again.
+        _wallet.value = if (enabled) runCatching { proofs.load() }.getOrNull()?.let { ecashWallet(it.mint) } else null
         _unreadable.value = false
     }
 

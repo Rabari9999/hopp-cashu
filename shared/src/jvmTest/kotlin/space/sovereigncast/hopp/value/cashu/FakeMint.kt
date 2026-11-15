@@ -39,7 +39,8 @@ class FakeMint(val feePpk: Long = 0) {
     var refuseMelt = false
     var dropAfterMelt = false
     var dropAfterSwap = false
-    val preimage = "11".repeat(32)
+    /** What a paid melt answers with; Hopp's test invoices commit to 32 zero bytes. */
+    var preimage = "11".repeat(32)
 
     private val spentYs = mutableSetOf<String>()
     private val pendingYs = mutableSetOf<String>()
@@ -66,13 +67,15 @@ class FakeMint(val feePpk: Long = 0) {
     private fun MockRequestHandleScope.refuse(detail: String, code: Int = 11000) =
         respond("""{"detail":"$detail","code":$code}""", HttpStatusCode.BadRequest, headersOf("Content-Type", "application/json"))
 
-    private fun MockRequestHandleScope.handle(req: HttpRequestData): HttpResponseData {
+    /** Answers [req] as the mint; public so another test's MockEngine can hand a mint's host here. */
+    fun MockRequestHandleScope.handle(req: HttpRequestData): HttpResponseData {
         val path = req.url.encodedPath
         calls += "${req.method.value} $path"
         val body = if (req.method == HttpMethod.Post) json.parseToJsonElement((req.body as TextContent).text).jsonObject else JsonObject(emptyMap())
         fun <T> list(key: String, s: kotlinx.serialization.KSerializer<T>): List<T> =
             body[key]?.let { json.decodeFromJsonElement(ListSerializer(s), it) }.orEmpty()
         return when {
+            path == "/v1/info" -> ok("""{"name":"Fake mint","version":"test/0","nuts":{"4":{"methods":[{"method":"bolt11","unit":"sat"}]}}}""")
             path == "/v1/keysets" ->
                 ok("""{"keysets":[{"id":"${keyset.id}","unit":"sat","active":true,"input_fee_ppk":$feePpk}]}""")
             path == "/v1/keys/${keyset.id}" ->
@@ -107,7 +110,8 @@ class FakeMint(val feePpk: Long = 0) {
             }
             path == "/v1/melt/quote/bolt11" -> {
                 val id = "melt${meltQuotes.size}"
-                meltQuotes[id] = MeltQuote(id, meltAmount, feeReserve, "UNPAID")
+                val invoiceSat = runCatching { space.sovereigncast.hopp.value.Bolt11.parse(body.getValue("request").jsonPrimitive.content).amountMsat }.getOrNull()?.let { (it + 999) / 1000 }
+                meltQuotes[id] = MeltQuote(id, invoiceSat ?: meltAmount, feeReserve, "UNPAID")
                 ok(json.encodeToString(MeltQuote.serializer(), meltQuotes.getValue(id)))
             }
             path.startsWith("/v1/melt/quote/bolt11/") -> ok(json.encodeToString(MeltQuote.serializer(), meltQuotes.getValue(path.substringAfterLast('/'))))
