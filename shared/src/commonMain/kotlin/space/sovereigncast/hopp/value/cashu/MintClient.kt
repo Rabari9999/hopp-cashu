@@ -123,14 +123,29 @@ class MintClient(private val http: HttpClient, mintUrl: String) {
     suspend fun swap(inputs: List<Proof>, outputs: List<BlindedMessage>): List<BlindSignature> =
         post("/v1/swap", SwapRequest(inputs.map { it.forMint() }, outputs), SwapRequest.serializer(), Signatures.serializer()).signatures
 
-    suspend fun meltQuote(invoice: String, unit: String = "sat"): MeltQuote =
-        post("/v1/melt/quote/bolt11", MeltQuoteRequest(invoice, unit), MeltQuoteRequest.serializer(), MeltQuote.serializer())
+    /** [amountlessMsat]: what to pay on an invoice without an amount (NUT-05 `amountless`; not every mint takes it). */
+    suspend fun meltQuote(invoice: String, unit: String = "sat", amountlessMsat: Long? = null): MeltQuote =
+        post(
+            "/v1/melt/quote/bolt11",
+            MeltQuoteRequest(invoice, unit, amountlessMsat?.let { MeltOptions(Amountless(it)) }),
+            MeltQuoteRequest.serializer(),
+            MeltQuote.serializer(),
+        )
 
     suspend fun meltQuoteState(quote: String): MeltQuote = get("/v1/melt/quote/bolt11/${quote.encodeURLPathPart()}", MeltQuote.serializer())
 
     /** [outputs]: blank outputs for the change of an overpaid fee reserve (NUT-08). */
     suspend fun melt(quote: String, inputs: List<Proof>, outputs: List<BlindedMessage>): MeltQuote =
         post("/v1/melt/bolt11", MeltRequest(quote, inputs.map { it.forMint() }, outputs), MeltRequest.serializer(), MeltQuote.serializer())
+
+    /**
+     * NUT-09: the signatures the mint already made on [outputs] — how an
+     * answer lost on the way is taken in after all. Pairs of output and signature.
+     */
+    suspend fun restore(outputs: List<BlindedMessage>): List<Pair<BlindedMessage, BlindSignature>> {
+        val answer = post("/v1/restore", RestoreRequest(outputs), RestoreRequest.serializer(), RestoreResponse.serializer())
+        return answer.outputs.zip(answer.signatures ?: answer.promises.orEmpty())
+    }
 
     /** [ys]: hash_to_curve of each proof's secret, compressed hex. */
     suspend fun checkState(ys: List<String>): List<ProofState> =
@@ -163,7 +178,12 @@ class MintClient(private val http: HttpClient, mintUrl: String) {
     @Serializable private data class MintQuoteRequest(val amount: Long, val unit: String)
     @Serializable private data class MintRequest(val quote: String, val outputs: List<BlindedMessage>)
     @Serializable private data class SwapRequest(val inputs: List<Proof>, val outputs: List<BlindedMessage>)
-    @Serializable private data class MeltQuoteRequest(val request: String, val unit: String)
+    @Serializable private data class Amountless(@SerialName("amount_msat") val amountMsat: Long)
+    @Serializable private data class MeltOptions(val amountless: Amountless)
+    @Serializable private data class MeltQuoteRequest(val request: String, val unit: String, val options: MeltOptions? = null)
+    @Serializable private data class RestoreRequest(val outputs: List<BlindedMessage>)
+    // `promises`: the field's name before NUT-09 settled on `signatures`.
+    @Serializable private data class RestoreResponse(val outputs: List<BlindedMessage>, val signatures: List<BlindSignature>? = null, val promises: List<BlindSignature>? = null)
     @Serializable private data class MeltRequest(val quote: String, val inputs: List<Proof>, val outputs: List<BlindedMessage>)
     @Serializable private data class CheckStateRequest(@SerialName("Ys") val ys: List<String>)
 
