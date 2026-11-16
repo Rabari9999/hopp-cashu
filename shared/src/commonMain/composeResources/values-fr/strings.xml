@@ -1412,4 +1412,25 @@
     </plurals>
     <string name="search_scope">Cherche dans les titres, notes d’épisode, chapitres, personnes et commentaires lus de tes émissions abonnées – sur cet appareil, sans réseau. Pas dans les transcriptions.</string>
     <string name="search_play_from">Lire à partir de %1$s</string>
+    <string name="wallet_ecash_intro">Ou garde de l’ecash chez une mint Cashu : des sats que la mint garde pour toi, sans app de portefeuille. La mint en a la garde — n’y laisse que de petits montants.</string>
+    <string name="wallet_ecash_mint_hint">Adresse de la mint (https://…)</string>
+    <string name="wallet_ecash_use">Utiliser cette mint</string>
+    <string name="wallet_ecash_title">Ecash</string>
+    <string name="wallet_ecash_amount">Montant (sats)</string>
+    <string name="wallet_ecash_add">Ajouter par Lightning</string>
+    <string name="wallet_ecash_add_note">Paie cette facture depuis n’importe quel portefeuille Lightning, puis touche Vérifier.</string>
+    <string name="wallet_ecash_check">Vérifier</string>
+    <string name="wallet_ecash_copy">Copier</string>
+    <string name="wallet_ecash_send">Envoyer de l’ecash</string>
+    <string name="wallet_ecash_send_note">Ce jeton est de l’argent : qui l’a peut le prendre. Remets-le comme de l’argent liquide.</string>
+    <string name="wallet_ecash_done">Terminé</string>
+    <string name="wallet_ecash_token_hint">Jeton ecash (cashuA… ou cashuB…)</string>
+    <string name="wallet_ecash_receive">Recevoir</string>
+    <string name="wallet_ecash_received">%1$s sats reçus</string>
+    <string name="wallet_ecash_invoice_hint">Facture Lightning où retirer</string>
+    <string name="wallet_ecash_withdraw">Retirer</string>
+    <string name="wallet_ecash_withdrawn">Retiré</string>
+    <string name="wallet_ecash_unknown">La mint n’a pas encore dit si elle a payé. Les sats restent de côté jusqu’à ce qu’elle le dise.</string>
+    <string name="wallet_ecash_still_held">Ce portefeuille ecash contient encore des sats. Retire-les ou envoie-les d’abord : le supprimer les ferait perdre.</string>
+    <string name="wallet_ecash_failed">Échec : %1$s</string>
 </resources>

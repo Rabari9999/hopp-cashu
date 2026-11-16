@@ -32,6 +32,23 @@ sealed interface ConnectState {
     data class Failed(val reason: String, val code: String? = null) : ConnectState
 }
 
+/** What the ecash wallet was last asked to do, and what came of it. */
+sealed interface EcashAction {
+    data object Idle : EcashAction
+    data object Working : EcashAction
+    /** A Lightning invoice to pay from elsewhere; [WalletViewModel.checkEcash] takes the sats in once paid. */
+    data class Invoice(val invoice: String) : EcashAction
+    /** A token to hand over: bearer money, shown until dismissed. */
+    data class Token(val token: String) : EcashAction
+    data class Received(val sats: Long) : EcashAction
+    data object Withdrawn : EcashAction
+    /** A withdrawal the mint has not settled: the sats stay set aside until it does. */
+    data object Unknown : EcashAction
+    /** Disconnecting was refused: the wallet still holds sats. */
+    data object StillHeld : EcashAction
+    data class Failed(val reason: String) : EcashAction
+}
+
 class WalletViewModel(
     private val wallet: WalletRepository,
     private val value: ValueService,
@@ -94,8 +111,67 @@ class WalletViewModel(
         }
     }
 
+    private val _ecash = MutableStateFlow<EcashAction>(EcashAction.Idle)
+    val ecash: StateFlow<EcashAction> = _ecash.asStateFlow()
+
+    /** Takes up ecash at a mint, on the listener's tap (ADR 0015): the mint is asked what it is first. */
+    fun connectEcash(mintUrl: String) {
+        _connect.value = ConnectState.Working
+        viewModelScope.launch {
+            _connect.value = try {
+                wallet.connectEcash(mintUrl); refreshBalance(); ConnectState.Idle
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ConnectState.Failed(e.message ?: e::class.simpleName ?: "error")
+            }
+        }
+    }
+
+    private fun ecashDo(work: suspend (space.sovereigncast.hopp.value.cashu.CashuWallet) -> EcashAction) {
+        val cashu = wallet.ecash() ?: return
+        if (_ecash.value == EcashAction.Working) return
+        _ecash.value = EcashAction.Working
+        viewModelScope.launch {
+            _ecash.value = try {
+                work(cashu)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: space.sovereigncast.hopp.value.nwc.NwcException) {
+                if (e.code == space.sovereigncast.hopp.value.nwc.NwcException.OUTCOME_UNKNOWN) EcashAction.Unknown else EcashAction.Failed(e.message ?: e.code)
+            } catch (e: Exception) {
+                EcashAction.Failed(e.message ?: e::class.simpleName ?: "error")
+            }
+            refreshBalance()
+        }
+    }
+
+    /** An invoice for [sats] that, paid from any Lightning wallet, becomes ecash here (NUT-04). */
+    fun addEcash(sats: Long) = ecashDo { EcashAction.Invoice(it.requestInvoice(sats)) }
+
+    /** Takes in what was paid or settled meanwhile. */
+    fun checkEcash() = ecashDo { it.refresh(); EcashAction.Idle }
+
+    fun receiveEcash(token: String) = ecashDo { EcashAction.Received(it.receive(token.trim())) }
+
+    fun sendEcash(sats: Long) = ecashDo { EcashAction.Token(it.send(sats)) }
+
+    /** Pays [invoice] out of the ecash; [sats] only for an invoice without an amount. */
+    fun withdrawEcash(invoice: String, sats: Long?) = ecashDo {
+        it.payInvoice(invoice.trim().removePrefix("lightning:"), sats?.let { s -> s * 1000 }); EcashAction.Withdrawn
+    }
+
+    fun dismissEcash() { if (_ecash.value != EcashAction.Working) _ecash.value = EcashAction.Idle }
+
     fun disconnect() {
-        wallet.disconnect()
+        try {
+            wallet.disconnect()
+        } catch (_: IllegalStateException) {
+            // Ecash is money: it stays until withdrawn or sent.
+            _ecash.value = EcashAction.StillHeld
+            return
+        }
+        _ecash.value = EcashAction.Idle
         _balance.value = null
         _silent.value = false
         // Without a wallet nothing streams (ADR 0005).

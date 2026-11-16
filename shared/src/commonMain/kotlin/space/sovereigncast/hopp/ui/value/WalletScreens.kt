@@ -207,6 +207,7 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
                 Text(if (it.code == WalletRepository.UNSUPPORTED_ENCRYPTION) stringResource(Res.string.wallet_no_nip44) else stringResource(Res.string.wallet_failed, it.reason), color = colors.error)
             }
             Text(stringResource(Res.string.wallet_limit_tip), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            EcashConnect(vm, connect == ConnectState.Working)
         } else {
             Text(stringResource(Res.string.wallet_connected, w.shown), style = MaterialTheme.typography.titleMedium)
             val silent by vm.silent.collectAsState()
@@ -220,6 +221,7 @@ fun WalletScreen(vm: WalletViewModel = koinViewModel()) {
                 color = colors.onSurfaceVariant,
             )
             WalletReach(w)
+            if (w.ecash) EcashPanel(vm)
             OutlinedButton(onClick = vm::disconnect) { Text(stringResource(Res.string.wallet_disconnect)) }
         }
 

@@ -1412,4 +1412,25 @@
     </plurals>
     <string name="search_scope">Searches the titles, show notes, chapters, people and the comments you have read of your subscribed shows – on this device, without the network. Not transcripts.</string>
     <string name="search_play_from">Play from %1$s</string>
+    <string name="wallet_ecash_intro">Or keep ecash at a Cashu mint: sats the mint holds for you, no wallet app needed. The mint has custody — keep small amounts there.</string>
+    <string name="wallet_ecash_mint_hint">Mint address (https://…)</string>
+    <string name="wallet_ecash_use">Use this mint</string>
+    <string name="wallet_ecash_title">Ecash</string>
+    <string name="wallet_ecash_amount">Amount (sats)</string>
+    <string name="wallet_ecash_add">Add by Lightning</string>
+    <string name="wallet_ecash_add_note">Pay this invoice from any Lightning wallet, then tap Check.</string>
+    <string name="wallet_ecash_check">Check</string>
+    <string name="wallet_ecash_copy">Copy</string>
+    <string name="wallet_ecash_send">Send ecash</string>
+    <string name="wallet_ecash_send_note">This token is money: whoever has it can take it. Hand it over as you would cash.</string>
+    <string name="wallet_ecash_done">Done</string>
+    <string name="wallet_ecash_token_hint">Ecash token (cashuA… or cashuB…)</string>
+    <string name="wallet_ecash_receive">Receive</string>
+    <string name="wallet_ecash_received">Received %1$s sats</string>
+    <string name="wallet_ecash_invoice_hint">Lightning invoice to withdraw to</string>
+    <string name="wallet_ecash_withdraw">Withdraw</string>
+    <string name="wallet_ecash_withdrawn">Withdrawn</string>
+    <string name="wallet_ecash_unknown">The mint has not said yet whether it paid. The sats stay set aside until it does.</string>
+    <string name="wallet_ecash_still_held">This ecash wallet still holds sats. Withdraw or send them first: removing it would lose them.</string>
+    <string name="wallet_ecash_failed">Did not work: %1$s</string>
 </resources>

@@ -1412,4 +1412,25 @@
     </plurals>
     <string name="search_scope">Durchsucht Titel, Shownotes, Kapitel, Personen und gelesene Kommentare deiner abonnierten Shows – auf diesem Gerät, ohne Netz. Transkripte nicht.</string>
     <string name="search_play_from">Ab %1$s abspielen</string>
+    <string name="wallet_ecash_intro">Oder halte Ecash bei einer Cashu-Mint: Sats, die die Mint für dich verwahrt, ohne Wallet-App. Die Mint verwahrt sie – halte dort nur kleine Beträge.</string>
+    <string name="wallet_ecash_mint_hint">Mint-Adresse (https://…)</string>
+    <string name="wallet_ecash_use">Diese Mint nutzen</string>
+    <string name="wallet_ecash_title">Ecash</string>
+    <string name="wallet_ecash_amount">Betrag (Sats)</string>
+    <string name="wallet_ecash_add">Per Lightning aufladen</string>
+    <string name="wallet_ecash_add_note">Bezahle diese Rechnung mit einer beliebigen Lightning-Wallet und tippe dann auf Prüfen.</string>
+    <string name="wallet_ecash_check">Prüfen</string>
+    <string name="wallet_ecash_copy">Kopieren</string>
+    <string name="wallet_ecash_send">Ecash senden</string>
+    <string name="wallet_ecash_send_note">Dieses Token ist Geld: Wer es hat, kann es nehmen. Gib es weiter wie Bargeld.</string>
+    <string name="wallet_ecash_done">Fertig</string>
+    <string name="wallet_ecash_token_hint">Ecash-Token (cashuA… oder cashuB…)</string>
+    <string name="wallet_ecash_receive">Empfangen</string>
+    <string name="wallet_ecash_received">%1$s Sats empfangen</string>
+    <string name="wallet_ecash_invoice_hint">Lightning-Rechnung zum Abheben</string>
+    <string name="wallet_ecash_withdraw">Abheben</string>
+    <string name="wallet_ecash_withdrawn">Abgehoben</string>
+    <string name="wallet_ecash_unknown">Die Mint hat noch nicht gesagt, ob sie bezahlt hat. Die Sats bleiben zurückgelegt, bis sie es tut.</string>
+    <string name="wallet_ecash_still_held">Diese Ecash-Wallet hält noch Sats. Hebe sie zuerst ab oder sende sie: Beim Entfernen gingen sie verloren.</string>
+    <string name="wallet_ecash_failed">Hat nicht geklappt: %1$s</string>
 </resources>

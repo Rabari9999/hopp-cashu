@@ -1412,4 +1412,25 @@
     </plurals>
     <string name="search_scope">Pesquisa os títulos, notas dos episódios, capítulos, pessoas e comentários lidos dos seus podcasts assinados, neste dispositivo e sem rede. Transcrições não.</string>
     <string name="search_play_from">Reproduzir a partir de %1$s</string>
+    <string name="wallet_ecash_intro">Ou guarde ecash numa mint Cashu: sats que a mint guarda para você, sem app de carteira. A custódia é da mint — mantenha lá só valores pequenos.</string>
+    <string name="wallet_ecash_mint_hint">Endereço da mint (https://…)</string>
+    <string name="wallet_ecash_use">Usar esta mint</string>
+    <string name="wallet_ecash_title">Ecash</string>
+    <string name="wallet_ecash_amount">Valor (sats)</string>
+    <string name="wallet_ecash_add">Adicionar via Lightning</string>
+    <string name="wallet_ecash_add_note">Pague esta fatura de qualquer carteira Lightning e toque em Verificar.</string>
+    <string name="wallet_ecash_check">Verificar</string>
+    <string name="wallet_ecash_copy">Copiar</string>
+    <string name="wallet_ecash_send">Enviar ecash</string>
+    <string name="wallet_ecash_send_note">Este token é dinheiro: quem o tiver pode pegá-lo. Entregue-o como entregaria dinheiro vivo.</string>
+    <string name="wallet_ecash_done">Concluído</string>
+    <string name="wallet_ecash_token_hint">Token ecash (cashuA… ou cashuB…)</string>
+    <string name="wallet_ecash_receive">Receber</string>
+    <string name="wallet_ecash_received">%1$s sats recebidos</string>
+    <string name="wallet_ecash_invoice_hint">Fatura Lightning para sacar</string>
+    <string name="wallet_ecash_withdraw">Sacar</string>
+    <string name="wallet_ecash_withdrawn">Sacado</string>
+    <string name="wallet_ecash_unknown">A mint ainda não disse se pagou. Os sats ficam reservados até que diga.</string>
+    <string name="wallet_ecash_still_held">Esta carteira ecash ainda tem sats. Saque ou envie-os primeiro: removê-la os perderia.</string>
+    <string name="wallet_ecash_failed">Não deu certo: %1$s</string>
 </resources>
