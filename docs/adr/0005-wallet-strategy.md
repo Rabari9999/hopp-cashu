@@ -315,3 +315,14 @@ the code before:
   at connect with its own text — Hopp speaks NIP-44 only, and every payment
   to such a wallet ended as an unknown outcome that counted against the
   budget (`IdentityCryptoVectorsTest`, `LnAddressTest`, `ValueServiceTest`).
+
+### Cashu ahead of Phase 3 (added 2026-11-17, proposed)
+
+The Cashu wallet of Phase 3 is proposed early, on its own: ADR 0026. It is
+one more `WalletClient` behind `ProvenWallet`, so the router, the budget,
+the journal and the preimage check above apply to it unchanged. It pays
+invoices and Lightning addresses by melting ecash, and has no keysend, as
+this ADR's table says. It is the wallet for a listener without one that
+speaks NWC, and it is used only while no NWC string is stored. Its proofs
+are kept in the key store like the NWC string (ADR 0015), and every
+request to the mint is journalled first.
