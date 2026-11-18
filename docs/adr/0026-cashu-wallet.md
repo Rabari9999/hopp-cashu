@@ -135,8 +135,16 @@ Strings are in every complete language (`StringResourcesTest`).
 - Paying needs the mint to return the preimage (`payment_preimage`). A melt
   without one is `OUTCOME_UNKNOWN` under `ProvenWallet`'s rule. That is the
   correct outcome under Hopp's rules, but a mint that never returns
-  preimages is not usable for boosts. To be checked against live mints
-  before release.
+  preimages is not usable for boosts.
+  Checked on 2026-11-18 against testnut (cdk-mintd 0.18.1, v2 keysets,
+  `input_fee_ppk` 100): minting, sending, receiving and melting all work
+  (`LiveMintTest`, run only with `HOPP_LIVE_MINT` set). A melt the mint
+  settles internally (an invoice it issued itself) comes back `PAID` with
+  no preimage, and `ProvenWallet` makes it `OUTCOME_UNKNOWN`: the sats are
+  spent, and the history says unknown. A payment over Lightning from a
+  mint with a real node is expected to carry one. Whether a mint's `PAID`
+  may stand in for the preimage is the maintainer's call; this ADR keeps
+  the rule as it is.
 - Tests:
   - `CashuWalletTest` and `CoinsTest` run against a fake mint
     (`FakeMint`, `FakeMintKeys`) that signs with real DLEQ proofs and can
